@@ -1,36 +1,58 @@
 import Link from "next/link";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-50">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-4xl px-6 py-24">
+        {/* App Name */}
         <p className="text-sm text-zinc-400">StandUp</p>
 
-        <h1 className="mt-4 text-4xl font-semibold">
+        {/* Headline */}
+        <h1 className="mt-4 text-5xl font-semibold leading-tight">
           Meet yourself. Daily.
         </h1>
 
-        <p className="mt-4 text-zinc-300">
-          Set at least <strong>3 goals</strong> for tomorrow.
-          Check in today.
+        {/* Subheading */}
+        <p className="mt-6 max-w-2xl text-lg text-zinc-300">
+          Set at least <strong>3 goals</strong> for tomorrow. Check in today.
           Build discipline through consistency.
         </p>
 
-        <div className="mt-8 flex gap-4">
+        {/* Actions */}
+        <div className="mt-10 flex flex-wrap gap-4">
+          <Link
+            href="/login"
+            className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
+          >
+            Sign in / Sign up
+          </Link>
+
           <Link
             href="/dashboard"
-            className="rounded-xl bg-zinc-50 px-5 py-3 text-sm font-semibold text-zinc-950"
+            className="rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold transition hover:bg-zinc-900"
           >
             Go to Dashboard
           </Link>
 
           <Link
             href="/standup/today"
-            className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold"
+            className="rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold transition hover:bg-zinc-900"
           >
             Today’s StandUp
           </Link>
+
+          <Link
+            href="/goals/tomorrow"
+            className="rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold transition hover:bg-zinc-900"
+          >
+            Tomorrow’s Goals
+          </Link>
         </div>
+
+        {/* Footer note */}
+        <p className="mt-12 text-sm text-zinc-500">
+          Consistency beats motivation.
+        </p>
       </div>
     </main>
   );

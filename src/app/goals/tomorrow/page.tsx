@@ -1,95 +1,104 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-
-type Goal = { text: string };
 
 export default function TomorrowGoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([
-    { text: "" },
-    { text: "" },
-    { text: "" },
-  ]);
+  const [goals, setGoals] = useState(["", "", ""]);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const filled = useMemo(
-    () => goals.filter((g) => g.text.trim().length > 0).length,
+  const filledCount = useMemo(
+    () => goals.filter((g) => g.trim().length > 0).length,
     [goals]
   );
 
-  const canSave = filled >= 3;
+  const updateGoal = (index: number, value: string) => {
+    const updated = [...goals];
+    updated[index] = value;
+    setGoals(updated);
+  };
 
-  function updateGoal(i: number, text: string) {
-    setGoals((prev) => prev.map((g, idx) => (idx === i ? { text } : g)));
-  }
+  const addGoal = () => setGoals((prev) => [...prev, ""]);
+  const removeGoal = (index: number) =>
+    setGoals((prev) => prev.filter((_, i) => i !== index));
 
-  function addGoal() {
-    setGoals((prev) => [...prev, { text: "" }]);
-  }
+  const handleSave = () => {
+    setMsg(null);
 
-  function removeGoal(i: number) {
-    setGoals((prev) => prev.filter((_, idx) => idx !== i));
-  }
+    if (filledCount < 3) {
+      setMsg("You need at least 3 goals for tomorrow.");
+      return;
+    }
 
-  function save() {
-    if (!canSave) return;
-    alert("Saved (next step: persist + streaks)");
-  }
+    // Placeholder for Supabase insert later
+    console.log({
+      goalDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+      goals: goals.filter((g) => g.trim().length > 0),
+    });
+
+    setMsg("Tomorrow goals saved (local only for now).");
+  };
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-50">
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-3xl font-semibold">Tomorrow’s Goals</h1>
-          <Link className="text-sm text-zinc-400 hover:text-zinc-200" href="/dashboard">
-            Back
-          </Link>
-        </div>
-
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-3xl px-6 py-20">
+        <h1 className="text-4xl font-semibold">Tomorrow’s Goals</h1>
         <p className="mt-2 text-zinc-400">
-          You must set <span className="text-zinc-200 font-medium">at least 3 goals</span>.
+          Set at least <strong>3</strong>. This is your contract with yourself.
         </p>
 
-        <div className="mt-8 space-y-3">
-          {goals.map((g, i) => (
+        <div className="mt-10 space-y-3">
+          {goals.map((goal, i) => (
             <div key={i} className="flex gap-3">
               <input
-                value={g.text}
+                value={goal}
                 onChange={(e) => updateGoal(i, e.target.value)}
                 placeholder={`Goal ${i + 1}`}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 outline-none focus:border-zinc-600"
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-white"
               />
+
               {goals.length > 3 && (
                 <button
                   onClick={() => removeGoal(i)}
-                  className="rounded-xl border border-zinc-800 px-4 py-3 text-sm hover:bg-zinc-900"
+                  className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-semibold transition hover:bg-zinc-900"
+                  title="Remove"
                 >
-                  Remove
+                  ✕
                 </button>
               )}
             </div>
           ))}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        <div className="mt-6 flex flex-wrap gap-3">
           <button
             onClick={addGoal}
-            className="rounded-xl border border-zinc-800 px-5 py-3 text-sm font-semibold hover:bg-zinc-900"
+            className="rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-900"
           >
-            + Add Goal
+            + Add another goal
           </button>
 
           <button
-            onClick={save}
-            disabled={!canSave}
-            className="rounded-xl bg-zinc-50 px-5 py-3 text-sm font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={handleSave}
+            className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200"
           >
-            Save Tomorrow’s Goals
+            Save Tomorrow Goals
           </button>
+        </div>
 
-          <div className="text-sm text-zinc-400">
-            Filled: <span className="text-zinc-200 font-medium">{filled}</span>/3 minimum
-          </div>
+        <div className="mt-4">
+          <p className="text-sm text-zinc-400">
+            Filled goals: <span className="font-semibold">{filledCount}</span>
+          </p>
+          {msg && <p className="mt-2 text-sm text-zinc-300">{msg}</p>}
+        </div>
+
+        <div className="mt-10">
+          <a
+            href="/dashboard"
+            className="text-sm text-zinc-400 hover:text-zinc-200"
+          >
+            ← Back to Dashboard
+          </a>
         </div>
       </div>
     </main>

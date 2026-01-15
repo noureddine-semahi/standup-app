@@ -1,4 +1,4 @@
-// src/app/login/page.tsx
+// src/app/signup/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,12 +19,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
 
       if (error) throw error;
+
+      // If email confirmation is enabled, session may be null.
+      if (!data.session) {
+        setMsg("Check your email to confirm your account, then sign in.");
+        return;
+      }
 
       router.push("/dashboard");
       router.refresh();
@@ -40,19 +46,19 @@ export default function LoginPage() {
       {/* Top right link */}
       <div className="flex justify-end">
         <Link
-          href="/signup"
+          href="/login"
           className="text-sm text-white/80 hover:text-white underline underline-offset-4"
         >
-          Create account
+          Sign in
         </Link>
       </div>
 
       <div className="mx-auto mt-10 max-w-xl">
         <h1 className="text-5xl font-semibold tracking-tight text-white">
-          Sign in
+          Create account
         </h1>
         <p className="mt-2 text-lg text-white/70">
-          Welcome back. Continue your streak.
+          Create your StandUp profile and start building your streak.
         </p>
 
         <form onSubmit={onSubmit} className="mt-10 space-y-5">
@@ -70,25 +76,25 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
+            autoComplete="new-password"
           />
 
           <button
             disabled={loading}
             className="w-full rounded-2xl bg-white px-6 py-4 font-semibold text-black hover:opacity-95 disabled:opacity-60"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? "Creating..." : "Sign up"}
           </button>
 
-          {msg && <p className="text-sm text-red-300">{msg}</p>}
+          {msg && <p className="text-sm text-white/70">{msg}</p>}
 
           <p className="text-sm text-white/70">
-            Don’t have an account?{" "}
+            Already have an account?{" "}
             <Link
-              href="/signup"
+              href="/login"
               className="text-white underline underline-offset-4"
             >
-              Sign up
+              Sign in
             </Link>
           </p>
         </form>

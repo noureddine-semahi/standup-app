@@ -1,61 +1,64 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/components/Providers";
 
 export default function Header() {
-  const [user, setUser] = useState<any>(null);
+  const { user, loading, signOut } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
+  useEffect(() => setMounted(true), []);
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+  const isAuthed = !!user;
+  const onAuthPage = pathname === "/login" || pathname === "/signup";
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-  };
+  async function handleLogout() {
+    await signOut();
+    router.push("/");
+    router.refresh();
+  }
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-      <Link href="/" className="text-lg font-semibold">
-        StandUp
-      </Link>
+    <header className="app-header">
+      <div className="app-header-inner">
+        <Link href="/" className="brand">
+          StandUp
+        </Link>
 
-      <nav className="flex items-center gap-6 text-sm">
-        {user ? (
-          <>
-            <Link href="/dashboard">Dashboard</Link>
-            <Link href="/standup/today">Today</Link>
-            <Link href="/goals/tomorrow">Tomorrow</Link>
-            <button
-              onClick={logout}
-              className="border px-3 py-1 rounded hover:bg-white hover:text-black transition"
-            >
-              Log out
-            </button>
-          </>
-        ) : (
-          <>
-            <Link href="/login">Sign in</Link>
-            <Link
-              href="/signup"
-              className="border px-3 py-1 rounded hover:bg-white hover:text-black transition"
-            >
-              Sign up
-            </Link>
-          </>
-        )}
-      </nav>
+        <nav className="nav">
+          {!mounted || loading ? null : isAuthed ? (
+            <>
+              <Link className="nav-link" href="/dashboard">
+                Dashboard
+              </Link>
+              <Link className="nav-link" href="/standup/today">
+                Today
+              </Link>
+              <Link className="nav-link" href="/goals/tomorrow">
+                Tomorrow
+              </Link>
+              <button className="btn btn-ghost" onClick={handleLogout}>
+                Log out
+              </button>
+            </>
+          ) : (
+            !onAuthPage && (
+              <>
+                <Link className="nav-link" href="/login">
+                  Sign in
+                </Link>
+                <Link className="btn btn-primary" href="/signup">
+                  Sign up
+                </Link>
+              </>
+            )
+          )}
+        </nav>
+      </div>
     </header>
   );
 }

@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base */
 :root {
   color-scheme: dark;
 }
@@ -14,45 +15,116 @@ body {
 body {
   margin: 0;
   color: rgba(255, 255, 255, 0.92);
-
-  /* Global app background */
-  background: radial-gradient(
-      1200px 600px at 20% 10%,
-      rgba(255, 255, 255, 0.10),
-      transparent 60%
-    ),
-    radial-gradient(
-      900px 500px at 90% 20%,
-      rgba(120, 120, 255, 0.10),
-      transparent 55%
-    ),
-    radial-gradient(
-      1000px 700px at 50% 100%,
-      rgba(0, 0, 0, 0.75),
-      rgba(0, 0, 0, 1)
-    );
+  background: #05060a;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-/* Simple plain CSS (no Tailwind @apply) */
-.navlink {
-  color: rgba(255, 255, 255, 0.7);
+/* Layout shell */
+.app-shell {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(1200px 600px at 20% 10%, rgba(140, 90, 255, 0.20), transparent 55%),
+    radial-gradient(900px 500px at 80% 20%, rgba(90, 180, 255, 0.16), transparent 55%),
+    radial-gradient(800px 500px at 50% 90%, rgba(255, 255, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, #05060a 0%, #070916 45%, #05060a 100%);
+  filter: saturate(1.1);
+}
+
+/* Header */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  background: rgba(5, 6, 10, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.app-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.2px;
   text-decoration: none;
-  transition: color 150ms ease;
-}
-.navlink:hover {
-  color: rgba(255, 255, 255, 1);
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.navbutton {
-  padding: 8px 12px;
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.85);
-  background: transparent;
-  cursor: pointer;
-  transition: border-color 150ms ease, color 150ms ease;
+/* Nav */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
-.navbutton:hover {
-  border-color: rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 1);
+
+.nav-link {
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.80);
+}
+
+.nav-link:hover {
+  color: rgba(255, 255, 255, 0.96);
+}
+
+/* Main */
+.app-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 18px 64px;
+}
+
+/* Buttons */
+.btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 9px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.btn-ghost {
+  background: transparent;
+}
+
+.btn-primary {
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.90);
+  color: rgba(0, 0, 0, 0.90);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.btn-primary:hover {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+/* Simple card (optional) */
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 18px;
+  padding: 18px;
 }

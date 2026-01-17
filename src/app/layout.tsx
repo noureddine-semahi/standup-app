@@ -7,17 +7,16 @@ export const metadata = {
   description: "Meet yourself. Daily.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-black text-white">
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <Providers>
-          <Header />
-          <main className="px-6 py-10">{children}</main>
+          <div className="app-shell">
+            <div className="app-bg" aria-hidden="true" />
+            <Header />
+            <main className="app-main">{children}</main>
+          </div>
         </Providers>
       </body>
     </html>

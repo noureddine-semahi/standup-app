@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 type DraftGoal = Partial<Goal> & {
   title: string;
   sort_order: number;
-  priority?: number;
+  priority?: number; // ✅
 };
 
 const MAX_GOALS = 10;
@@ -81,6 +81,7 @@ function compactForUI(dbGoals: Goal[]) {
     });
   }
 
+  // ensure first 3 always have priority
   for (let i = 0; i < Math.min(3, compacted.length); i++) {
     if (
       typeof compacted[i].priority !== "number" ||
@@ -115,6 +116,7 @@ function compactForSave(current: DraftGoal[]) {
     .map((g, idx) => ({
       ...g,
       sort_order: idx,
+      // only first 3 matter, but safe default
       priority:
         typeof g.priority === "number" && Number.isFinite(g.priority)
           ? g.priority
@@ -129,6 +131,7 @@ function compactForSave(current: DraftGoal[]) {
     });
   }
 
+  // enforce priority on required slots
   for (let i = 0; i < 3; i++) {
     combined[i] = {
       ...combined[i],
@@ -160,12 +163,11 @@ function priorityBadgeClass(p: number) {
   }
 }
 
-/** ✅ NEW: enforce only one P1 across required goals */
+/** ✅ Enforce only one P1 across required goals (0..2) */
 function applyPriorityChange(prev: DraftGoal[], idx: number, newP: number) {
   const next = prev.map((g) => ({ ...g }));
   next[idx].priority = newP;
 
-  // Only enforce on required goals 0..2
   if (idx < 3 && newP === 1) {
     for (let i = 0; i < 3; i++) {
       if (i !== idx && (next[i].priority ?? DEFAULT_PRIORITY) === 1) {
@@ -181,6 +183,8 @@ export default function TomorrowGoalsPage() {
   const router = useRouter();
 
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
+  const todayISO = useMemo(() => toISODate(new Date()), []);
+
   const [loading, setLoading] = useState(true);
   const [blocking, setBlocking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -242,7 +246,9 @@ export default function TomorrowGoalsPage() {
     setLoading(true);
     setMsg(null);
 
-    const ok = await isYesterdayReviewed();
+    // ✅ FIX: when planning tomorrow, we must ensure TODAY is reviewed
+    // (tomorrowISO - 1 day == today)
+    const ok = await isYesterdayReviewed(tomorrowISO);
     if (!ok) {
       setBlocking(true);
       setLoading(false);
@@ -260,6 +266,7 @@ export default function TomorrowGoalsPage() {
     );
 
     const rows = compactForUI(dbGoals);
+
     setGoals(rows);
     lastSavedHashRef.current = computeHashForSave(rows);
 
@@ -457,7 +464,9 @@ export default function TomorrowGoalsPage() {
     const g = goals[idx];
 
     if (idx < 3) {
-      setGoals((prev) => prev.map((x, i) => (i === idx ? { ...x, title: "" } : x)));
+      setGoals((prev) =>
+        prev.map((x, i) => (i === idx ? { ...x, title: "" } : x))
+      );
 
       if (g.id) {
         try {
@@ -498,14 +507,15 @@ export default function TomorrowGoalsPage() {
         <div className="card">
           <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
           <p className="mt-2 text-white/70">
-            Before you set tomorrow’s goals, you must review yesterday.
+            Before you set tomorrow’s goals, you must review <b>today</b>{" "}
+            (<b>{todayISO}</b>).
           </p>
           <div className="mt-6">
             <button
               className="btn btn-primary"
               onClick={() => router.push("/standup/today")}
             >
-              Go review yesterday
+              Go review today
             </button>
           </div>
         </div>
@@ -531,12 +541,12 @@ export default function TomorrowGoalsPage() {
       <div className="card">
         <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
         <p className="mt-2 text-white/70">
-          Minimum <b>3</b> goals required. Add more if you want.
+          Minimum <b>3</b> goals required. Set priority for the first 3.
         </p>
 
         <div className="mt-6 space-y-3">
           {goals.map((g, idx) => {
-            const priority =
+            const p =
               typeof g.priority === "number" && Number.isFinite(g.priority)
                 ? g.priority
                 : DEFAULT_PRIORITY;
@@ -560,17 +570,17 @@ export default function TomorrowGoalsPage() {
                     <span
                       className={[
                         "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                        priorityBadgeClass(priority),
+                        priorityBadgeClass(p),
                       ].join(" ")}
                       title="Priority badge"
                     >
-                      P{priority}
+                      P{p}
                     </span>
                   )}
 
                   {idx < 3 && (
                     <select
-                      value={priority}
+                      value={p}
                       disabled={locked || submitting}
                       onChange={(e) => {
                         const v = Number(e.target.value);

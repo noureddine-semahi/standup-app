@@ -89,7 +89,6 @@ export async function getOrCreateProfile() {
 
 /**
  * ✅ Materialize rescheduled goals for this plan date
- * Server-side RPC ensures no duplicates and no missing future inserts.
  */
 async function materializeReschedules(planId: string, planDateISO: string) {
   const { data, error } = await supabase.rpc("materialize_reschedules", {
@@ -113,7 +112,6 @@ export async function getOrCreatePlan(planDateISO: string) {
   if (selErr) throw selErr;
 
   if (existing) {
-    // ✅ When a plan is opened, materialize any reschedules targeting this date
     await materializeReschedules(existing.id, planDateISO);
     return existing as DailyPlan;
   }
@@ -126,7 +124,6 @@ export async function getOrCreatePlan(planDateISO: string) {
 
   if (insErr) throw insErr;
 
-  // ✅ Materialize reschedules for brand new plan too
   await materializeReschedules(created.id, planDateISO);
 
   return created as DailyPlan;
@@ -146,6 +143,9 @@ export async function getPlanWithGoals(planDateISO: string) {
   return { plan, goals: (goals ?? []) as Goal[] };
 }
 
+/**
+ * ✅ Upsert goals with priority support
+ */
 export async function upsertGoals(
   planId: string,
   goals: Array<Partial<Goal> & { title: string; sort_order: number }>
@@ -174,8 +174,7 @@ export async function upsertGoals(
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
       };
-      if (typeof (g as any).priority === "number")
-        row.priority = (g as any).priority;
+      if (typeof (g as any).priority === "number") row.priority = (g as any).priority;
       return row;
     });
 
@@ -196,8 +195,7 @@ export async function upsertGoals(
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
       };
-      if (typeof (g as any).priority === "number")
-        row.priority = (g as any).priority;
+      if (typeof (g as any).priority === "number") row.priority = (g as any).priority;
       return row;
     });
 
@@ -228,8 +226,7 @@ export async function submitPlan(planId: string) {
 
   if (gErr) throw gErr;
   const count = (goals ?? []).length;
-  if (count < 3)
-    throw new Error("You must set at least 3 goals before submitting.");
+  if (count < 3) throw new Error("You must set at least 3 goals before submitting.");
 
   const { data, error } = await supabase
     .from("daily_plans")
@@ -269,10 +266,7 @@ export async function addGoalNote(goalId: string, note: string) {
 }
 
 export async function updateGoalStatus(goalId: string, status: GoalStatus) {
-  const { error } = await supabase
-    .from("goals")
-    .update({ status })
-    .eq("id", goalId);
+  const { error } = await supabase.from("goals").update({ status }).eq("id", goalId);
   if (error) throw error;
 }
 
@@ -285,15 +279,12 @@ export async function markGoalReviewed(goalId: string) {
 }
 
 export async function unmarkGoalReviewed(goalId: string) {
-  const { error } = await supabase
-    .from("goals")
-    .update({ reviewed_at: null })
-    .eq("id", goalId);
+  const { error } = await supabase.from("goals").update({ reviewed_at: null }).eq("id", goalId);
   if (error) throw error;
 }
 
 /**
- * ✅ Phase 1 points: awareness (open today + pending exists)
+ * ✅ Phase 1 points: awareness
  */
 export async function awardAwarenessPoints(planId: string, points = 5) {
   await getOrCreateProfile();
@@ -307,8 +298,7 @@ export async function awardAwarenessPoints(planId: string, points = 5) {
 }
 
 /**
- * ✅ Phase 2 points: closure (all engaged are reviewed)
- * NOTE: Supabase function now also sets daily_plans.reviewed_at = now()
+ * ✅ Phase 2 points: closure (sets daily_plans.reviewed_at)
  */
 export async function awardClosurePoints(planId: string, points = 5) {
   await getOrCreateProfile();
@@ -327,44 +317,33 @@ export async function getPoints() {
 }
 
 /**
- * ✅ NEW: check a specific day’s plan reviewed_at
+ * ✅ IMPORTANT FIX:
+ * Gate planning for a plan date by checking the *previous day* (planDate - 1).
+ * Example: planning 2026-01-26 (tomorrow) requires 2026-01-25 (today) reviewed.
  */
-export async function isDayReviewed(planDateISO: string) {
+export async function isPrevDayReviewedForPlan(planDateISO: string) {
   const userId = await getCurrentUserId();
+
+  const planDate = new Date(`${planDateISO}T00:00:00`);
+  const prevDateISO = toISODate(addDays(planDate, -1));
 
   const { data, error } = await supabase
     .from("daily_plans")
     .select("id, reviewed_at")
     .eq("user_id", userId)
-    .eq("plan_date", planDateISO)
+    .eq("plan_date", prevDateISO)
     .maybeSingle();
 
   if (error) throw error;
 
-  // If no plan existed that day, allow (no gating)
+  // If no plan existed on prev day, allow (no gating)
   if (!data) return true;
 
   return !!data.reviewed_at;
 }
 
 /**
- * ✅ UPDATED Gate helper:
- * - If referenceDateISO is provided (e.g. tomorrowISO), checks the day BEFORE that date.
- *   Example: referenceDateISO = tomorrowISO => checks TODAY (correct for Tomorrow page gate)
- * - If omitted, behaves like before: checks yesterday relative to now.
- */
-export async function isYesterdayReviewed(referenceDateISO?: string) {
-  const ref = referenceDateISO
-    ? new Date(referenceDateISO + "T00:00:00")
-    : new Date();
-
-  const prevDayISO = toISODate(addDays(ref, -1));
-  return isDayReviewed(prevDayISO);
-}
-
-/**
- * ✅ RESCHEDULE:
- * Store reschedule intent now; materialize later (or immediately if tomorrow)
+ * ✅ RESCHEDULE (store intent; materialize on target day open)
  */
 export async function rescheduleGoalToDate(params: {
   goal: Goal;
@@ -376,11 +355,11 @@ export async function rescheduleGoalToDate(params: {
   // 1) mark old goal postponed
   await updateGoalStatus(params.goal.id, "postponed");
 
-  // 2) store intent (snapshot)
+  // 2) store intent + snapshot
   const { error: logErr } = await supabase.from("goal_reschedules").insert({
     user_id: userId,
     from_goal_id: params.goal.id,
-    to_goal_id: params.goal.id, // legacy field; keep populated
+    to_goal_id: params.goal.id, // legacy keep
     from_date: toISODate(new Date()),
     to_date: params.toDateISO,
     reason: (params.reason ?? "").trim() || null,
@@ -390,16 +369,14 @@ export async function rescheduleGoalToDate(params: {
     snapshot_title: params.goal.title,
     snapshot_details: params.goal.details ?? null,
     snapshot_priority:
-      typeof (params.goal as any).priority === "number"
-        ? (params.goal as any).priority
-        : 3,
+      typeof (params.goal as any).priority === "number" ? (params.goal as any).priority : 3,
   });
 
   if (logErr) throw logErr;
 
-  // 3) If rescheduled to TOMORROW, ensure it appears immediately by opening tomorrow plan
+  // 3) If rescheduled to tomorrow, ensure it appears quickly by opening tomorrow plan
   const tomorrowISO = toISODate(addDays(new Date(), 1));
   if (params.toDateISO === tomorrowISO) {
-    await getOrCreatePlan(tomorrowISO); // will materialize via RPC
+    await getOrCreatePlan(tomorrowISO); // materializes via RPC
   }
 }

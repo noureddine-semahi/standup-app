@@ -18,12 +18,12 @@ import { useRouter } from "next/navigation";
 type DraftGoal = Partial<Goal> & {
   title: string;
   sort_order: number;
-  priority?: number; // ✅
+  priority?: number;
 };
 
 const MAX_GOALS = 10;
 const DEFAULT_PRIORITY = 3;
-const DEMOTED_PRIORITY = 2; // ✅ when a new P1 is selected, old P1 becomes P2
+const DEMOTED_PRIORITY = 2;
 
 const PRIORITY_OPTIONS = [
   { v: 1, label: "1 (Highest)" },
@@ -81,7 +81,6 @@ function compactForUI(dbGoals: Goal[]) {
     });
   }
 
-  // ensure first 3 always have priority
   for (let i = 0; i < Math.min(3, compacted.length); i++) {
     if (
       typeof compacted[i].priority !== "number" ||
@@ -116,7 +115,6 @@ function compactForSave(current: DraftGoal[]) {
     .map((g, idx) => ({
       ...g,
       sort_order: idx,
-      // only first 3 matter, but safe default
       priority:
         typeof g.priority === "number" && Number.isFinite(g.priority)
           ? g.priority
@@ -131,7 +129,6 @@ function compactForSave(current: DraftGoal[]) {
     });
   }
 
-  // enforce priority on required slots
   for (let i = 0; i < 3; i++) {
     combined[i] = {
       ...combined[i],
@@ -163,7 +160,6 @@ function priorityBadgeClass(p: number) {
   }
 }
 
-/** ✅ Enforce only one P1 across required goals (0..2) */
 function applyPriorityChange(prev: DraftGoal[], idx: number, newP: number) {
   const next = prev.map((g) => ({ ...g }));
   next[idx].priority = newP;
@@ -183,8 +179,6 @@ export default function TomorrowGoalsPage() {
   const router = useRouter();
 
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
-  const todayISO = useMemo(() => toISODate(new Date()), []);
-
   const [loading, setLoading] = useState(true);
   const [blocking, setBlocking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -206,7 +200,6 @@ export default function TomorrowGoalsPage() {
   );
 
   const originalIdsRef = useRef<Set<string>>(new Set());
-
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef(false);
   const lastSavedHashRef = useRef<string>("");
@@ -246,9 +239,7 @@ export default function TomorrowGoalsPage() {
     setLoading(true);
     setMsg(null);
 
-    // ✅ FIX: when planning tomorrow, we must ensure TODAY is reviewed
-    // (tomorrowISO - 1 day == today)
-    const ok = await isYesterdayReviewed(tomorrowISO);
+    const ok = await isYesterdayReviewed();
     if (!ok) {
       setBlocking(true);
       setLoading(false);
@@ -266,7 +257,6 @@ export default function TomorrowGoalsPage() {
     );
 
     const rows = compactForUI(dbGoals);
-
     setGoals(rows);
     lastSavedHashRef.current = computeHashForSave(rows);
 
@@ -418,8 +408,22 @@ export default function TomorrowGoalsPage() {
   }
 
   async function onSubmitPlan() {
-    if (!planId) return;
+    if (!planId) {
+      setMsg("Missing plan id — refresh and try again.");
+      return;
+    }
     if (planStatus === "locked") return;
+    if (planStatus === "submitted") {
+      setMsg("This plan is already submitted.");
+      return;
+    }
+
+    // ✅ Kill autosave timer + in-flight autosave blocking
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    autosaveInFlightRef.current = false;
 
     setMsg(null);
 
@@ -446,11 +450,13 @@ export default function TomorrowGoalsPage() {
         }))
         .filter((g) => g.title.length > 0);
 
+      // ✅ ensure saved before submit
       await upsertGoals(planId, toSave as any);
 
+      // ✅ submit the plan
       await submitPlan(planId);
-      setPlanStatus("submitted");
 
+      // ✅ refresh to pick up server truth
       await refresh();
       setMsg("Tomorrow plan submitted ✅");
     } catch (e: any) {
@@ -507,15 +513,14 @@ export default function TomorrowGoalsPage() {
         <div className="card">
           <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
           <p className="mt-2 text-white/70">
-            Before you set tomorrow’s goals, you must review <b>today</b>{" "}
-            (<b>{todayISO}</b>).
+            Before you set tomorrow’s goals, you must review yesterday.
           </p>
           <div className="mt-6">
             <button
               className="btn btn-primary"
               onClick={() => router.push("/standup/today")}
             >
-              Go review today
+              Go review yesterday
             </button>
           </div>
         </div>
@@ -536,6 +541,19 @@ export default function TomorrowGoalsPage() {
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
+  // ✅ Show the actual reason if Submit is disabled
+  const submitWhy = !planId
+    ? "planId is missing"
+    : locked
+    ? "plan is locked"
+    : submitted
+    ? "plan already submitted"
+    : !firstThreeFilled
+    ? "first 3 goals not filled"
+    : submitting
+    ? "submitting is true"
+    : null;
+
   return (
     <AuthGate>
       <div className="card">
@@ -543,6 +561,12 @@ export default function TomorrowGoalsPage() {
         <p className="mt-2 text-white/70">
           Minimum <b>3</b> goals required. Set priority for the first 3.
         </p>
+
+        {/* ✅ Debug line (remove later) */}
+        <div className="mt-2 text-xs text-white/50">
+          Debug: planStatus=<b>{planStatus}</b> • planId=
+          <b>{planId ? planId.slice(0, 8) + "…" : "null"}</b>
+        </div>
 
         <div className="mt-6 space-y-3">
           {goals.map((g, idx) => {
@@ -669,7 +693,7 @@ export default function TomorrowGoalsPage() {
                 className="btn btn-primary"
                 onClick={onSubmitPlan}
                 disabled={!canSubmit}
-                title={!firstThreeFilled ? "Fill the first 3 goals to submit" : ""}
+                title={submitWhy ?? ""}
               >
                 {submitting ? "Submitting…" : "Submit tomorrow plan"}
               </button>
@@ -679,16 +703,16 @@ export default function TomorrowGoalsPage() {
               {goals.length}/{MAX_GOALS}
             </div>
 
+            {!canSubmit && submitWhy && !submitted && (
+              <div className="text-sm text-white/70">
+                Submit disabled because: <b>{submitWhy}</b>
+              </div>
+            )}
+
             {submitted && (
               <div className="text-sm text-white/70">
                 This plan is <b>submitted</b> — optional blanks are removed and
                 goals re-number on save.
-              </div>
-            )}
-
-            {!submitted && !firstThreeFilled && (
-              <div className="text-sm text-white/70">
-                Fill the first 3 goals to enable submit.
               </div>
             )}
           </div>

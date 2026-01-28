@@ -1,248 +1,232 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import {
-  getPlanWithGoals,
-  toISODate,
   addDays,
-  type Goal,
-  type GoalStatus,
   awardAwarenessPoints,
   awardClosurePoints,
-  getPoints,
-  updateGoalStatus,
-  addGoalNote,
-  rescheduleGoalToDate,
+  getPlanWithGoals,
   markGoalReviewed,
   unmarkGoalReviewed,
+  toISODate,
+  type DailyPlan,
+  type Goal,
 } from "@/lib/supabase/db";
-import { useRouter } from "next/navigation";
 
-const AWARENESS_POINTS = 5;
-const CLOSURE_POINTS = 5;
-
-const STATUS_OPTIONS: Array<{ v: GoalStatus; label: string }> = [
-  { v: "not_started", label: "Not started" },
-  { v: "in_progress", label: "In progress" },
-  { v: "completed", label: "Completed" },
-  { v: "attempted", label: "Attempted" },
-  { v: "blocked", label: "Blocked" },
-  { v: "postponed", label: "Postponed" },
-];
-
-function getGoalUIState(goal: Goal) {
-  if (goal.reviewed_at) return "reviewed";
-  if (goal.status !== "not_started") return "engaged";
-  return "pending";
+function statusLabel(status: Goal["status"]) {
+  switch (status) {
+    case "not_started":
+      return "Not started";
+    case "in_progress":
+      return "In progress";
+    case "completed":
+      return "Completed";
+    case "attempted":
+      return "Attempted";
+    case "postponed":
+      return "Postponed";
+    case "blocked":
+      return "Blocked";
+    default:
+      return status;
+  }
 }
 
-// closure rule: ALL engaged must be reviewed
-function allEngagedReviewed(goals: Goal[]) {
-  return goals.every((g) => g.status === "not_started" || !!g.reviewed_at);
+function statusPillClass(status: Goal["status"]) {
+  switch (status) {
+    case "completed":
+      return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+    case "in_progress":
+      return "bg-sky-500/15 text-sky-300 border-sky-500/30";
+    case "blocked":
+      return "bg-rose-500/15 text-rose-300 border-rose-500/30";
+    case "postponed":
+      return "bg-amber-500/15 text-amber-300 border-amber-500/30";
+    case "attempted":
+      return "bg-purple-500/15 text-purple-300 border-purple-500/30";
+    case "not_started":
+    default:
+      return "bg-white/10 text-white/70 border-white/20";
+  }
+}
+
+function priorityBadgeClass(p: number) {
+  switch (p) {
+    case 1:
+      return "bg-red-500/15 text-red-300 border-red-500/30";
+    case 2:
+      return "bg-amber-500/15 text-amber-300 border-amber-500/30";
+    case 3:
+      return "bg-white/10 text-white/70 border-white/20";
+    case 4:
+      return "bg-white/5 text-white/50 border-white/10";
+    case 5:
+      return "bg-white/5 text-white/40 border-white/10";
+    default:
+      return "bg-white/10 text-white/60 border-white/20";
+  }
 }
 
 export default function TodayPage() {
-  const router = useRouter();
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
 
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const [planId, setPlanId] = useState<string | null>(null);
-  const [planFlags, setPlanFlags] = useState<{
-    awareness_awarded: boolean;
-    closure_awarded: boolean;
-  }>({ awareness_awarded: false, closure_awarded: false });
-
+  const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [points, setPoints] = useState(0);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busyGoalId, setBusyGoalId] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
 
-  const [working, setWorking] = useState<string | null>(null); // goalId or "awareness"/"closure"
-  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
-  const [reschedDate, setReschedDate] = useState<Record<string, string>>({});
-  const [reschedReason, setReschedReason] = useState<Record<string, string>>({});
+  // prevent double-award from React strict mode/dev refreshes
+  const awarenessAttemptedRef = useRef(false);
+  const closureAttemptedRef = useRef(false);
+
+  const locked = plan?.status === "locked";
+
+  const sortedGoals = useMemo(() => {
+    const list = [...goals];
+    list.sort((a, b) => {
+      const ap = typeof (a as any).priority === "number" ? (a as any).priority : 999;
+      const bp = typeof (b as any).priority === "number" ? (b as any).priority : 999;
+      if (ap !== bp) return ap - bp;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
+    return list;
+  }, [goals]);
+
+  const reviewedCount = useMemo(
+    () => sortedGoals.filter((g) => !!(g as any).reviewed_at).length,
+    [sortedGoals]
+  );
+
+  const totalCount = sortedGoals.length;
+
+  const pendingGoals = useMemo(
+    () => sortedGoals.filter((g) => !(g as any).reviewed_at),
+    [sortedGoals]
+  );
+
+  const allReviewed = totalCount > 0 && reviewedCount === totalCount;
 
   async function refresh() {
     setLoading(true);
     setMsg(null);
 
-    const { plan, goals: dbGoals } = await getPlanWithGoals(todayISO);
+    try {
+      const { plan: p, goals: gs } = await getPlanWithGoals(todayISO);
+      setPlan(p);
+      setGoals(gs);
 
-    setPlanId(plan.id);
-    setPlanFlags({
-      awareness_awarded: !!(plan as any).awareness_awarded,
-      closure_awarded: !!(plan as any).closure_awarded,
-    });
+      // ✅ Phase 1: Awareness points (once) if there are pending goals
+      if (!awarenessAttemptedRef.current) {
+        awarenessAttemptedRef.current = true;
 
-    setGoals(dbGoals ?? []);
-
-    const p = await getPoints();
-    setPoints(p);
-
-    // ✅ Phase 1: Awareness points on open (only if pending goals exist)
-    const pendingExists = (dbGoals ?? []).some(
-      (g) => g.status === "not_started" && !g.reviewed_at
-    );
-
-    if (pendingExists && !(plan as any).awareness_awarded) {
-      setWorking("awareness");
-      try {
-        const res = await awardAwarenessPoints(plan.id, AWARENESS_POINTS);
-        if (res.awarded) {
-          setMsg(`Awareness earned +${AWARENESS_POINTS} ✅`);
-          setPoints(res.new_points);
-          setPlanFlags((f) => ({ ...f, awareness_awarded: true }));
+        const hasPending = (gs ?? []).some((g) => !(g as any).reviewed_at);
+        if (hasPending) {
+          try {
+            await awardAwarenessPoints(p.id, 5);
+            setMsg((m) => m ?? "Awareness earned ✓");
+            window.setTimeout(() => {
+              setMsg((cur) => (cur === "Awareness earned ✓" ? null : cur));
+            }, 1200);
+          } catch {
+            // ignore
+          }
         }
-      } catch {
-        // silent
-      } finally {
-        setWorking(null);
       }
+    } catch (e: any) {
+      setMsg(e?.message ?? "Failed to load");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   useEffect(() => {
-    refresh().catch((e: any) => {
-      setMsg(e?.message ?? "Failed to load");
-      setLoading(false);
-    });
+    refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayISO]);
 
-  async function maybeAwardClosure(updatedGoals: Goal[]) {
-    if (!planId) return;
-    if (planFlags.closure_awarded) return;
-
-    if (allEngagedReviewed(updatedGoals)) {
-      setWorking("closure");
-      try {
-        const res = await awardClosurePoints(planId, CLOSURE_POINTS);
-        if (res.awarded) {
-          setMsg(`Closure earned +${CLOSURE_POINTS} ✅`);
-          setPoints(res.new_points);
-          setPlanFlags((f) => ({ ...f, closure_awarded: true }));
-
-          // ✅ Refresh so UI reflects that plan is now reviewed_at (tomorrow gate relies on it)
-          await refresh();
-        }
-      } catch (e: any) {
-        setMsg(e?.message ?? "Closure award failed");
-      } finally {
-        setWorking(null);
-      }
-    }
-  }
-
-  async function changeStatus(goalId: string, status: GoalStatus) {
-    setMsg(null);
-    setWorking(goalId);
-    try {
-      await updateGoalStatus(goalId, status);
-
-      const updated = goals.map((g) => (g.id === goalId ? { ...g, status } : g));
-      setGoals(updated);
-
-      await maybeAwardClosure(updated);
-      setMsg("Updated ✅");
-    } catch (e: any) {
-      setMsg(e?.message ?? "Status update failed");
-    } finally {
-      setWorking(null);
-    }
-  }
-
   async function toggleReviewed(goal: Goal) {
+    if (locked) return;
+    if (busyGoalId) return;
+
+    setBusyGoalId(goal.id);
     setMsg(null);
-    setWorking(goal.id);
 
     try {
-      let updated: Goal[];
+      const isReviewed = !!(goal as any).reviewed_at;
 
-      if (goal.reviewed_at) {
-        await unmarkGoalReviewed(goal.id);
-        updated = goals.map((g) =>
-          g.id === goal.id ? { ...g, reviewed_at: null } : g
-        );
-        setGoals(updated);
-        setMsg("Marked unreviewed");
-      } else {
-        // ✅ enforce: cannot review unless action taken
-        if (goal.status === "not_started") {
-          setMsg("Take action first, then review.");
-          return;
-        }
+      // optimistic UI
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goal.id
+            ? ({ ...g, reviewed_at: isReviewed ? null : new Date().toISOString() } as any)
+            : g
+        )
+      );
 
-        const now = new Date().toISOString();
+      if (!isReviewed) {
         await markGoalReviewed(goal.id);
-        updated = goals.map((g) =>
-          g.id === goal.id ? { ...g, reviewed_at: now } : g
-        );
-        setGoals(updated);
-        setMsg("Reviewed ✅");
+      } else {
+        await unmarkGoalReviewed(goal.id);
       }
 
-      await maybeAwardClosure(updated!);
+      await refresh();
     } catch (e: any) {
-      setMsg(e?.message ?? "Review update failed");
+      setMsg(e?.message ?? "Update failed");
+      await refresh();
     } finally {
-      setWorking(null);
+      setBusyGoalId(null);
     }
   }
 
-  async function addNote(goalId: string) {
-    const note = (noteDraft[goalId] ?? "").trim();
-    if (!note) return;
-
-    setMsg(null);
-    setWorking(goalId);
-    try {
-      await addGoalNote(goalId, note);
-      setNoteDraft((p) => ({ ...p, [goalId]: "" }));
-      setMsg("Note added ✅");
-    } catch (e: any) {
-      setMsg(e?.message ?? "Note failed");
-    } finally {
-      setWorking(null);
-    }
-  }
-
-  async function reschedule(goal: Goal) {
-    const d = (reschedDate[goal.id] ?? "").trim();
-    if (!d) {
-      setMsg("Pick a date to reschedule.");
+  /**
+   * ✅ Phase 2: Closure points + mark daily plan reviewed_at (via RPC)
+   * This is the key that unlocks Tomorrow planning.
+   */
+  async function closeOutDay() {
+    if (!plan?.id) return;
+    if (locked) return;
+    if (!allReviewed) {
+      setMsg("Review all goals first to close the day.");
       return;
     }
+    if (closing) return;
 
+    setClosing(true);
     setMsg(null);
-    setWorking(goal.id);
+
     try {
-      await rescheduleGoalToDate({
-        goal,
-        toDateISO: d,
-        reason: reschedReason[goal.id] ?? "",
-      });
-
-      const updated = goals.map((g) =>
-        g.id === goal.id ? { ...g, status: "postponed" as GoalStatus } : g
-      );
-      setGoals(updated);
-
-      setReschedDate((p) => ({ ...p, [goal.id]: "" }));
-      setReschedReason((p) => ({ ...p, [goal.id]: "" }));
-
-      await maybeAwardClosure(updated);
-
-      setMsg(`Rescheduled to ${d} ✅`);
+      const res = await awardClosurePoints(plan.id, 5);
+      if (res?.awarded) {
+        setMsg("Day closed ✅ Tomorrow unlocked.");
+      } else {
+        // already awarded or not eligible
+        setMsg("Day already closed ✓");
+      }
+      await refresh();
     } catch (e: any) {
-      setMsg(e?.message ?? "Reschedule failed");
+      setMsg(e?.message ?? "Could not close the day.");
+      await refresh();
     } finally {
-      setWorking(null);
+      setClosing(false);
     }
   }
+
+  // Optional: auto-attempt closure once when all reviewed (safe + non-blocking)
+  useEffect(() => {
+    if (!plan?.id) return;
+    if (locked) return;
+    if (!allReviewed) return;
+    if (closureAttemptedRef.current) return;
+
+    closureAttemptedRef.current = true;
+    closeOutDay().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan?.id, locked, allReviewed]);
 
   if (loading) {
     return (
@@ -252,221 +236,184 @@ export default function TodayPage() {
     );
   }
 
-  const pendingCount = goals.filter(
-    (g) => g.status === "not_started" && !g.reviewed_at
-  ).length;
-
-  const engagedNeedsReviewCount = goals.filter(
-    (g) => g.status !== "not_started" && !g.reviewed_at
-  ).length;
-
   return (
     <AuthGate>
-      <div className="space-y-4">
-        <div className="card">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-3xl font-bold">Today</h1>
-              <p className="mt-2 text-white/70">
-                {todayISO} • Points: <b>{points}</b>
-              </p>
-
+      <div className="card">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Today</h1>
+            <p className="mt-2 text-white/70">
+              Review each goal first. Pending goals stay dim until reviewed.
+            </p>
+            {plan?.status && (
               <div className="mt-2 text-sm text-white/60">
-                Pending: <b>{pendingCount}</b> • Needs review:{" "}
-                <b>{engagedNeedsReviewCount}</b>
+                Plan status: <b>{plan.status}</b> • Date: <b>{todayISO}</b>
               </div>
+            )}
+            {plan?.reviewed_at && (
+              <div className="mt-1 text-sm text-white/60">
+                Day closed at: <b>{new Date(plan.reviewed_at).toLocaleTimeString()}</b>
+              </div>
+            )}
+          </div>
 
-              <div className="mt-2 text-sm text-white/60">
-                Awareness: <b>{planFlags.awareness_awarded ? "✅" : "—"}</b> •
-                Closure: <b>{planFlags.closure_awarded ? "✅" : "—"}</b>
-              </div>
+          <div className="flex flex-col items-end gap-2">
+            <div className="text-sm text-white/70">
+              Reviewed:{" "}
+              <b>
+                {reviewedCount}/{totalCount}
+              </b>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <button className="btn" onClick={() => router.push("/standup")}>
-                Dashboard
-              </button>
-              <button
-                className="btn"
-                onClick={() => router.push("/standup/tomorrow")}
-              >
-                Tomorrow ({tomorrowISO})
-              </button>
-            </div>
+            <Link className="btn btn-primary" href="/standup/tomorrow">
+              Go to Tomorrow →
+            </Link>
+
+            <div className="text-xs text-white/50">Tomorrow: {tomorrowISO}</div>
           </div>
         </div>
 
-        <div className="card">
-          <h2 className="text-xl font-bold">Goals</h2>
-          <p className="mt-2 text-white/70">
-            Pending goals stay neutral. Once you take action, they become “Engaged”
-            until you review them.
-          </p>
+        {/* Summary */}
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-sm text-white/70">
+              Pending: <b>{pendingGoals.length}</b>
+            </div>
+            <div className="h-4 w-px bg-white/10" />
+            <div className="text-sm text-white/70">
+              Tip: Pending goals have a <b>dashed</b> border.
+            </div>
+            {locked && (
+              <>
+                <div className="h-4 w-px bg-white/10" />
+                <div className="text-sm text-white/70">
+                  This plan is <b>locked</b> (read-only).
+                </div>
+              </>
+            )}
+          </div>
 
-          {goals.length === 0 ? (
-            <div className="mt-4 text-white/70">No goals yet.</div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {goals.map((g, idx) => {
-                const uiState = getGoalUIState(g);
-                const p =
-                  typeof (g as any).priority === "number"
-                    ? ((g as any).priority as number)
-                    : 3;
+          {/* Close-out control */}
+          {!locked && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="btn"
+                onClick={closeOutDay}
+                disabled={!allReviewed || closing}
+                title={!allReviewed ? "Review all goals first" : "Close out the day"}
+              >
+                {closing ? "Closing…" : "Close out day"}
+              </button>
 
-                return (
-                  <div
-                    key={g.id}
-                    className={[
-                      "rounded-2xl border p-4 transition-all",
-                      uiState === "pending" &&
-                        "border-white/10 bg-white/5 opacity-90",
-                      uiState === "engaged" &&
-                        "border-amber-500/40 bg-amber-500/10",
-                      uiState === "reviewed" &&
-                        "border-emerald-500/40 bg-emerald-500/10",
-                    ].join(" ")}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm text-white/60">
-                          {idx + 1} • P{p}
-                        </div>
-                        <div className="mt-1 text-lg font-semibold">{g.title}</div>
+              {!allReviewed && (
+                <div className="text-sm text-white/60">
+                  Close out unlocks Tomorrow planning (sets today as reviewed).
+                </div>
+              )}
 
-                        <div className="mt-1 text-xs uppercase tracking-wide">
-                          {uiState === "pending" && (
-                            <span className="text-white/50">Pending</span>
-                          )}
-                          {uiState === "engaged" && (
-                            <span className="text-amber-300">Needs review</span>
-                          )}
-                          {uiState === "reviewed" && (
-                            <span className="text-emerald-300">Reviewed</span>
-                          )}
-                        </div>
-                      </div>
+              {allReviewed && (
+                <div className="text-sm text-white/60">
+                  All reviewed — you can close out now.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-                      <div className="flex flex-wrap items-center gap-3">
-                        <select
-                          value={g.status}
-                          disabled={working === g.id || working === "closure"}
-                          onChange={(e) =>
-                            changeStatus(g.id, e.target.value as GoalStatus)
-                          }
-                          className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <option key={s.v} value={s.v}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          className={[
-                            "btn",
-                            g.reviewed_at ? "btn-ghost" : "btn-primary",
-                          ].join(" ")}
-                          disabled={
-                            working === g.id ||
-                            working === "closure" ||
-                            g.status === "not_started"
-                          }
-                          onClick={() => toggleReviewed(g)}
-                          title={
-                            g.status === "not_started"
-                              ? "Take action before reviewing"
-                              : "Mark goal as reviewed"
-                          }
-                        >
-                          {g.reviewed_at ? "Reviewed ✓" : "Review"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div className="mt-4">
-                      <div className="text-xs uppercase tracking-wider text-white/50">
-                        Follow-up note
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-3">
-                        <input
-                          value={noteDraft[g.id] ?? ""}
-                          disabled={working === g.id || working === "closure"}
-                          onChange={(e) =>
-                            setNoteDraft((p) => ({ ...p, [g.id]: e.target.value }))
-                          }
-                          placeholder="Add a note (next steps, blockers, reminder...)"
-                          className="w-full flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/25"
-                        />
-                        <button
-                          className="btn"
-                          disabled={
-                            working === g.id ||
-                            working === "closure" ||
-                            !(noteDraft[g.id] ?? "").trim()
-                          }
-                          onClick={() => addNote(g.id)}
-                        >
-                          Add note
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Reschedule */}
-                    <div className="mt-4">
-                      <div className="text-xs uppercase tracking-wider text-white/50">
-                        Postpone / Reschedule
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap gap-3 items-center">
-                        <input
-                          type="date"
-                          value={reschedDate[g.id] ?? ""}
-                          disabled={working === g.id || working === "closure"}
-                          onChange={(e) =>
-                            setReschedDate((p) => ({ ...p, [g.id]: e.target.value }))
-                          }
-                          className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white outline-none focus:border-white/25"
-                        />
-
-                        <input
-                          value={reschedReason[g.id] ?? ""}
-                          disabled={working === g.id || working === "closure"}
-                          onChange={(e) =>
-                            setReschedReason((p) => ({ ...p, [g.id]: e.target.value }))
-                          }
-                          placeholder="Reason (optional)"
-                          className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/25"
-                        />
-
-                        <button
-                          className="btn btn-primary"
-                          disabled={
-                            working === g.id ||
-                            working === "closure" ||
-                            !(reschedDate[g.id] ?? "").trim()
-                          }
-                          onClick={() => reschedule(g)}
-                        >
-                          {working === g.id ? "Rescheduling…" : "Reschedule"}
-                        </button>
-                      </div>
-
-                      <div className="mt-2 text-sm text-white/60">
-                        Tip: Pick <b>{tomorrowISO}</b> to push it to tomorrow and it
-                        will appear immediately.
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Goals list */}
+        <div className="mt-6 space-y-3">
+          {sortedGoals.length === 0 && (
+            <div className="text-white/70">
+              No goals for today yet. (This usually means you didn’t set yesterday’s plan.)
             </div>
           )}
 
-          {msg && <div className="mt-4 text-sm text-white/80">{msg}</div>}
+          {sortedGoals.map((g, idx) => {
+            const reviewed = !!(g as any).reviewed_at;
+            const p =
+              typeof (g as any).priority === "number" && Number.isFinite((g as any).priority)
+                ? ((g as any).priority as number)
+                : null;
+
+            const rowClass = reviewed
+              ? "border-white/15 bg-white/5"
+              : "border-white/10 bg-white/3 border-dashed opacity-90";
+
+            return (
+              <div
+                key={g.id}
+                className={["rounded-2xl border px-4 py-4 transition", rowClass].join(" ")}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-white/60 w-8">{idx + 1}.</div>
+
+                      {p != null && (
+                        <span
+                          className={[
+                            "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                            priorityBadgeClass(p),
+                          ].join(" ")}
+                          title="Priority"
+                        >
+                          P{p}
+                        </span>
+                      )}
+
+                      <span
+                        className={[
+                          "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          statusPillClass(g.status),
+                        ].join(" ")}
+                        title="Status"
+                      >
+                        {statusLabel(g.status)}
+                      </span>
+
+                      {!reviewed && <span className="text-xs text-white/50">Pending review</span>}
+                      {reviewed && <span className="text-xs text-white/60">Reviewed ✓</span>}
+                    </div>
+
+                    <div className="mt-2 truncate text-white">{g.title}</div>
+
+                    {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={locked || busyGoalId === g.id}
+                      onClick={() => toggleReviewed(g)}
+                      title={reviewed ? "Mark as pending" : "Mark as reviewed"}
+                    >
+                      {busyGoalId === g.id
+                        ? "Saving…"
+                        : reviewed
+                        ? "Undo review"
+                        : "Mark reviewed"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Footer actions */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button type="button" className="btn btn-ghost" onClick={() => refresh()}>
+            Refresh
+          </button>
+
+          <Link className="btn btn-ghost" href="/standup/tomorrow">
+            Tomorrow goals →
+          </Link>
+        </div>
+
+        {msg && <div className="mt-4 text-sm text-white/80">{msg}</div>}
       </div>
     </AuthGate>
   );

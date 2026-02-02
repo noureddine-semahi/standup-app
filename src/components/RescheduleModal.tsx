@@ -57,8 +57,25 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-      <div className="card max-w-lg w-full">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{
+        background: "rgba(0, 0, 0, 0.8)",
+        backdropFilter: "blur(4px)"
+      }}
+      onClick={(e) => {
+        // Close if clicking backdrop
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div 
+        className="card max-w-lg w-full"
+        style={{
+          maxHeight: "90vh",
+          overflowY: "auto",
+          margin: "auto"
+        }}
+      >
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="text-xl font-bold">Reschedule Goal</h2>
@@ -68,6 +85,15 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
             onClick={onClose}
             disabled={saving}
             className="text-white/50 hover:text-white/80 text-2xl leading-none"
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
           >
             ×
           </button>
@@ -143,4 +169,3 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
     </div>
   );
 }
-

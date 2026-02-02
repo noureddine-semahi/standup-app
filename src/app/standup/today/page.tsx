@@ -18,6 +18,7 @@ import {
   type Goal,
   type GoalStatus,
 } from "@/lib/supabase/db";
+import { supabase } from "@/lib/supabase/client";
 
 // Priority options matching Tomorrow page
 const PRIORITY_OPTIONS = [
@@ -100,6 +101,7 @@ export default function TodayPage() {
   const [busyGoalId, setBusyGoalId] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
+  const [reopening, setReopening] = useState(false);
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -143,11 +145,41 @@ export default function TodayPage() {
     try {
       const { plan: p, goals: gs } = await getPlanWithGoals(todayISO);
       setPlan(p);
-      setGoals(gs);
+      
+      // Fetch reschedule info for all goals
+      const goalIds = gs.map(g => g.id);
+      let rescheduleMap: Record<string, { to_date: string; reason: string | null }> = {};
+      
+      if (goalIds.length > 0) {
+        const { data: reschedules } = await supabase
+          .from("goal_reschedules")
+          .select("from_goal_id, to_date, reason")
+          .in("from_goal_id", goalIds)
+          .eq("materialized", false)
+          .order("created_at", { ascending: false });
+        
+        reschedules?.forEach((item) => {
+          if (!rescheduleMap[item.from_goal_id]) {
+            rescheduleMap[item.from_goal_id] = {
+              to_date: item.to_date,
+              reason: item.reason,
+            };
+          }
+        });
+      }
+      
+      // Attach reschedule info to goals
+      const goalsWithReschedule = gs.map(g => ({
+        ...g,
+        rescheduled_to: rescheduleMap[g.id]?.to_date || null,
+        reschedule_reason: rescheduleMap[g.id]?.reason || null,
+      }));
+      
+      setGoals(goalsWithReschedule);
 
       if (!awarenessAttemptedRef.current && !p.reviewed_at) {
         awarenessAttemptedRef.current = true;
-        const hasPending = (gs ?? []).some((g) => !(g as any).reviewed_at);
+        const hasPending = goalsWithReschedule.some((g) => !(g as any).reviewed_at);
         if (hasPending) {
           try {
             await awardAwarenessPoints(p.id, 5);
@@ -223,30 +255,105 @@ export default function TodayPage() {
   }
 
   async function closeOutDay() {
-    if (!plan?.id || locked || closing || dayClosed) return;
+    console.log("🔍 closeOutDay called");
+    console.log("  plan?.id:", plan?.id);
+    console.log("  locked:", locked);
+    console.log("  closing:", closing);
+    console.log("  dayClosed:", dayClosed);
+    console.log("  totalCount:", totalCount);
+    console.log("  allReviewed:", allReviewed);
+    
+    if (!plan?.id || locked || closing || dayClosed) {
+      console.log("❌ Blocked by guard clause");
+      return;
+    }
     
     if (totalCount > 0 && !allReviewed) {
+      console.log("❌ Not all goals reviewed");
       setMsg("Review all goals first to close the day.");
       return;
     }
 
     setClosing(true);
     setMsg("Closing day...");
+    console.log("📤 Calling awardClosurePoints with plan.id:", plan.id);
 
     try {
       const res = await awardClosurePoints(plan.id, 5);
+      console.log("📥 awardClosurePoints response:", res);
       
       if (res?.awarded) {
         setMsg("Day closed ✅ Tomorrow unlocked.");
+        console.log("✅ Day closed successfully");
       } else {
         setMsg("Day already closed ✓");
+        console.log("⚠️ Day was already closed");
       }
       
       await refresh();
     } catch (e: any) {
-      console.error("Closure error:", e);
+      console.error("❌ Closure error:", e);
       setMsg(`Error: ${e?.message ?? "Could not close the day."}`);
       await refresh();
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  // Reopen a closed day
+  async function reopenDay() {
+    if (!plan?.id || reopening || !dayClosed) return;
+
+    setReopening(true);
+    setMsg("Reopening day...");
+
+    try {
+      const { error } = await supabase
+        .from("daily_plans")
+        .update({ reviewed_at: null })
+        .eq("id", plan.id);
+
+      if (error) throw error;
+
+      setMsg("Day reopened ✅ You can now edit goals.");
+      await refresh();
+    } catch (e: any) {
+      console.error("Reopen error:", e);
+      setMsg(`Error: ${e?.message ?? "Could not reopen the day."}`);
+    } finally {
+      setReopening(false);
+    }
+  }
+
+  // Manual close function (if RPC fails)
+  async function manualCloseDay() {
+    if (!plan?.id || closing) return;
+    
+    console.log("🔧 Using manual close method");
+    setClosing(true);
+    setMsg("Manually closing day...");
+
+    try {
+      // Directly update the plan
+      const { error: updateError } = await supabase
+        .from("daily_plans")
+        .update({ reviewed_at: new Date().toISOString() })
+        .eq("id", plan.id);
+
+      if (updateError) throw updateError;
+
+      // Award points manually
+      const { error: pointsError } = await supabase.rpc("award_points", {
+        p_points: 5,
+      });
+
+      if (pointsError) console.warn("Points award failed:", pointsError);
+
+      setMsg("Day closed ✅ (manual method)");
+      await refresh();
+    } catch (e: any) {
+      console.error("Manual close error:", e);
+      setMsg(`Error: ${e?.message ?? "Could not close the day."}`);
     } finally {
       setClosing(false);
     }
@@ -332,37 +439,105 @@ export default function TodayPage() {
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-3">
             <div className="text-sm text-white/70">
               Reviewed: <b>{reviewedCount}/{totalCount}</b>
             </div>
-            <Link className="btn btn-primary" href="/standup/tomorrow">
-              {dayClosed ? "Plan Tomorrow →" : "Go to Tomorrow →"}
+            <Link 
+              className="btn btn-primary whitespace-nowrap" 
+              href="/standup/tomorrow"
+              style={{ minWidth: "150px", textAlign: "center" }}
+            >
+              Plan Tomorrow →
             </Link>
           </div>
         </div>
 
-        {/* Quick Add Section */}
-        {!dayClosed && totalCount === 0 && (
-          <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-amber-300 mb-1">No goals for today?</h3>
-                <p className="text-sm text-white/70">
-                  Forgot to plan yesterday? No problem! Quickly add today's goals here.
+        {/* Quick Add Section - ALWAYS AVAILABLE */}
+        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
+          {dayClosed ? (
+            <div>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-amber-300 mb-2">Day Already Closed</h3>
+                  <p className="text-sm text-white/70 mb-2">
+                    This day has been closed. You can't add or edit goals on a closed day.
+                  </p>
+                  <p className="text-xs text-white/50">
+                    Need to make changes? Reopen this day to add goals or make edits.
+                  </p>
+                </div>
+                <button
+                  onClick={reopenDay}
+                  disabled={reopening}
+                  className="btn"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.3)",
+                    border: "2px solid rgba(245, 158, 11, 0.5)",
+                    padding: "0.75rem 1.5rem",
+                    fontWeight: "bold",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  {reopening ? "Reopening..." : "🔓 Reopen Day"}
+                </button>
+              </div>
+              
+              <div className="mt-4 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                <p className="text-xs text-white/60">
+                  <b>Note:</b> Reopening will allow you to add new goals or modify existing ones. 
+                  Remember to close the day again when you're done.
                 </p>
+              </div>
+            </div>
+          ) : totalCount === 0 ? (
+            <>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-amber-300 mb-1">No goals for today?</h3>
+                  <p className="text-sm text-white/70">
+                    Forgot to plan yesterday? No problem! Quickly add today's goals here.
+                  </p>
+                </div>
+                {!showQuickAdd && (
+                  <button
+                    onClick={() => setShowQuickAdd(true)}
+                    className="btn btn-primary"
+                    style={{
+                      background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                      border: "2px solid #b45309",
+                      padding: "0.75rem 1.5rem",
+                      fontSize: "1rem",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    ⚡ Quick Add Goals
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-amber-300">Need to add more goals?</h3>
               </div>
               {!showQuickAdd && (
                 <button
                   onClick={() => setShowQuickAdd(true)}
-                  className="btn btn-primary"
+                  className="btn"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.2)",
+                    border: "2px solid rgba(245, 158, 11, 0.4)",
+                    padding: "0.5rem 1rem"
+                  }}
                 >
-                  ⚡ Quick Add Goals
+                  ➕ Add Goals
                 </button>
               )}
             </div>
+          )}
 
-            {showQuickAdd && (
+          {showQuickAdd && !dayClosed && (
               <div className="space-y-3 mt-4">
                 {quickAddGoals.map((g, idx) => (
                   <div key={idx} className="flex items-center gap-4">
@@ -412,8 +587,7 @@ export default function TodayPage() {
                 </div>
               </div>
             )}
-          </div>
-        )}
+        </div>
 
         {/* Close Out Day Section */}
         {!dayClosed && totalCount > 0 && (
@@ -440,6 +614,19 @@ export default function TodayPage() {
               >
                 {closing ? "Closing…" : "Close out day"}
               </button>
+              
+              {/* Manual close button for debugging */}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={manualCloseDay}
+                disabled={closing}
+                title="Manual close (debugging)"
+                style={{ fontSize: "0.75rem" }}
+              >
+                🔧 Manual Close
+              </button>
+              
               {allReviewed && (
                 <div className="text-sm text-white/60">
                   Close out to unlock Tomorrow planning.
@@ -474,11 +661,11 @@ export default function TodayPage() {
                   background: getPriorityGradient(p),
                   border: `2px solid ${getPriorityBorder(p)}`,
                   padding: "2rem 2.5rem",
-                  opacity: reviewed ? 1 : 0.7
+                  opacity: reviewed ? 1 : 0.6
                 }}
               >
                 <div className="flex items-center" style={{ gap: "2rem" }}>
-                  {/* Number badge */}
+                  {/* Number badge - circular like Tomorrow */}
                   <div 
                     className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-xl"
                     style={{
@@ -493,77 +680,235 @@ export default function TodayPage() {
                   </div>
 
                   {/* Goal content */}
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className={["rounded-full border px-2.5 py-1 text-xs font-semibold", statusPillClass(g.status)].join(" ")}>
-                        {statusLabel(g.status)}
-                      </span>
-                      {!reviewed && <span className="text-xs text-white/50">Pending review</span>}
-                      {reviewed && <span className="text-xs text-emerald-400">Reviewed ✓</span>}
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      {!reviewed && <span className="text-xs text-amber-400 font-semibold">⏳ Pending review</span>}
+                      {reviewed && <span className="text-xs text-emerald-400 font-semibold">✓ Reviewed</span>}
                     </div>
 
-                    <div className="text-white text-xl font-medium mb-2">{g.title}</div>
-                    {g.details && <div className="text-sm text-white/60">{g.details}</div>}
-
-                    {reviewed && !locked && !dayClosed && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <label className="text-xs text-white/60">Status:</label>
-                        <select
-                          value={g.status}
-                          disabled={isBusy}
-                          onChange={(e) => handleStatusChange(g, e.target.value as GoalStatus)}
-                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                        >
-                          {STATUS_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
+                    <div className="text-white text-xl font-medium mb-2" style={{ padding: "0 1rem" }}>
+                      {g.title}
+                    </div>
+                    
+                    {/* Reschedule info - directly under title */}
+                    {(g as any).rescheduled_to && (
+                      <div className="mb-3" style={{ padding: "0 1rem" }}>
+                        <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5">
+                          <span className="text-lg">📅</span>
+                          <div>
+                            <div className="text-xs font-semibold text-blue-300">
+                              Rescheduled to {(g as any).rescheduled_to}
+                            </div>
+                            {(g as any).reschedule_reason && (
+                              <div className="text-xs text-blue-300/70 italic mt-0.5">
+                                "{(g as any).reschedule_reason}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Goal details */}
+                    {g.details && (
+                      <div className="text-sm text-white/60 mb-3" style={{ padding: "0 1rem" }}>
+                        {g.details}
                       </div>
                     )}
                   </div>
 
-                  {/* Priority indicator - circular */}
-                  <div 
-                    className="flex-shrink-0 rounded-full flex items-center justify-center"
-                    style={{
-                      width: "56px",
-                      height: "56px",
-                      background: "rgba(0,0,0,0.3)",
-                      backdropFilter: "blur(10px)",
-                      border: "2px solid rgba(255,255,255,0.2)"
-                    }}
-                    title={`Priority ${p}`}
-                  >
-                    <div className="text-center">
-                      <div className="text-2xl">{getPriorityIcon(p)}</div>
-                      <div className="text-xs font-bold text-white/80 mt-1">P{p}</div>
+                  {/* Priority button - EXACTLY like Tomorrow page */}
+                  <div className="flex-shrink-0 relative" style={{ width: "56px" }}>
+                    <select
+                      value={p}
+                      disabled={locked || dayClosed}
+                      onChange={async (e) => {
+                        const newPriority = Number(e.target.value);
+                        setBusyGoalId(g.id);
+                        try {
+                          await supabase
+                            .from("goals")
+                            .update({ priority: newPriority })
+                            .eq("id", g.id);
+                          await refresh();
+                        } catch (e: any) {
+                          setMsg(e?.message ?? "Failed to update priority");
+                        } finally {
+                          setBusyGoalId(null);
+                        }
+                      }}
+                      style={{
+                        width: "56px",
+                        height: "56px",
+                        background: "linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2))",
+                        backdropFilter: "blur(10px)",
+                        border: "2px solid rgba(255,255,255,0.2)",
+                        borderRadius: "50%",
+                        color: "transparent",
+                        cursor: locked || dayClosed ? "default" : "pointer"
+                      }}
+                      className="appearance-none hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-white/30"
+                      title={`Priority ${p}`}
+                    >
+                      {PRIORITY_OPTIONS.map((opt) => (
+                        <option key={opt.v} value={opt.v}>
+                          {opt.icon} P{opt.v}
+                        </option>
+                      ))}
+                    </select>
+                    {/* Icon overlay */}
+                    <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 pointer-events-none text-xl">
+                      {getPriorityIcon(p)}
+                    </div>
+                    {/* P# text overlay */}
+                    <div className="absolute left-1/2 bottom-2 -translate-x-1/2 pointer-events-none text-xs font-black text-white" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+                      P{p}
                     </div>
                   </div>
 
-                  {/* Action buttons */}
+                  {/* Action section - compact horizontal layout */}
                   {!dayClosed && (
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-3 items-center">
+                      {/* Review/Undo button */}
                       <button
                         type="button"
-                        className="btn"
-                        disabled={locked || isBusy}
                         onClick={() => toggleReviewed(g)}
+                        disabled={locked || isBusy}
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          background: reviewed ? "rgba(16, 185, 129, 0.3)" : "rgba(245, 158, 11, 0.3)",
+                          border: `3px solid ${reviewed ? "rgba(16, 185, 129, 0.6)" : "rgba(245, 158, 11, 0.6)"}`,
+                          borderRadius: "50%"
+                        }}
+                        className="flex items-center justify-center hover:scale-110 transition-all text-2xl font-bold"
                         title={reviewed ? "Mark as pending" : "Mark as reviewed"}
                       >
-                        {isBusy ? "..." : reviewed ? "Undo" : "Review"}
+                        {isBusy ? "..." : reviewed ? "↶" : "✓"}
                       </button>
                       
+                      {/* Horizontal status buttons row - only when reviewed */}
+                      {reviewed && !locked && (
+                        <div className="flex gap-2">
+                          {/* Completed */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(g, "completed")}
+                            disabled={isBusy}
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              background: g.status === "completed" ? "rgba(16, 185, 129, 0.5)" : "rgba(16, 185, 129, 0.1)",
+                              border: `2px solid ${g.status === "completed" ? "rgba(16, 185, 129, 1)" : "rgba(16, 185, 129, 0.3)"}`,
+                              borderRadius: "50%",
+                              transform: g.status === "completed" ? "scale(1.1)" : "scale(1)",
+                              boxShadow: g.status === "completed" ? "0 0 12px rgba(16, 185, 129, 0.6)" : "none"
+                            }}
+                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
+                            title="Completed"
+                          >
+                            ✅
+                          </button>
+                          
+                          {/* In Progress */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(g, "in_progress")}
+                            disabled={isBusy}
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              background: g.status === "in_progress" ? "rgba(59, 130, 246, 0.5)" : "rgba(59, 130, 246, 0.1)",
+                              border: `2px solid ${g.status === "in_progress" ? "rgba(59, 130, 246, 1)" : "rgba(59, 130, 246, 0.3)"}`,
+                              borderRadius: "50%",
+                              transform: g.status === "in_progress" ? "scale(1.1)" : "scale(1)",
+                              boxShadow: g.status === "in_progress" ? "0 0 12px rgba(59, 130, 246, 0.6)" : "none"
+                            }}
+                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
+                            title="In Progress"
+                          >
+                            ⚙️
+                          </button>
+                          
+                          {/* Blocked */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(g, "blocked")}
+                            disabled={isBusy}
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              background: g.status === "blocked" ? "rgba(239, 68, 68, 0.5)" : "rgba(239, 68, 68, 0.1)",
+                              border: `2px solid ${g.status === "blocked" ? "rgba(239, 68, 68, 1)" : "rgba(239, 68, 68, 0.3)"}`,
+                              borderRadius: "50%",
+                              transform: g.status === "blocked" ? "scale(1.1)" : "scale(1)",
+                              boxShadow: g.status === "blocked" ? "0 0 12px rgba(239, 68, 68, 0.6)" : "none"
+                            }}
+                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
+                            title="Blocked"
+                          >
+                            🚫
+                          </button>
+                          
+                          {/* Postponed */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(g, "postponed")}
+                            disabled={isBusy}
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              background: g.status === "postponed" ? "rgba(245, 158, 11, 0.5)" : "rgba(245, 158, 11, 0.1)",
+                              border: `2px solid ${g.status === "postponed" ? "rgba(245, 158, 11, 1)" : "rgba(245, 158, 11, 0.3)"}`,
+                              borderRadius: "50%",
+                              transform: g.status === "postponed" ? "scale(1.1)" : "scale(1)",
+                              boxShadow: g.status === "postponed" ? "0 0 12px rgba(245, 158, 11, 0.6)" : "none"
+                            }}
+                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
+                            title="Postponed"
+                          >
+                            ⏸️
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Reschedule button - separate row, only if not completed */}
                       {reviewed && !locked && g.status !== "completed" && (
                         <button
                           type="button"
-                          className="btn btn-ghost text-sm"
-                          disabled={isBusy}
                           onClick={() => setRescheduleGoal(g)}
-                          title="Reschedule to another day"
+                          disabled={isBusy}
+                          style={{
+                            width: "56px",
+                            height: "40px",
+                            background: (g as any).rescheduled_to ? "rgba(168, 85, 247, 0.4)" : "rgba(168, 85, 247, 0.15)",
+                            border: `2px solid ${(g as any).rescheduled_to ? "rgba(168, 85, 247, 0.8)" : "rgba(168, 85, 247, 0.3)"}`,
+                            borderRadius: "20px",
+                            position: "relative"
+                          }}
+                          className="flex items-center justify-center hover:scale-105 transition-all text-lg"
+                          title={(g as any).rescheduled_to ? `Rescheduled to ${(g as any).rescheduled_to}` : "Reschedule"}
                         >
                           📅
+                          {(g as any).rescheduled_to && (
+                            <div 
+                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-purple-500 border-2 border-white flex items-center justify-center text-xs font-bold"
+                            >
+                              ✓
+                            </div>
+                          )}
                         </button>
                       )}
+                      
+                      {/* Current status label */}
+                      <div className="text-center">
+                        <div 
+                          className={["text-xs font-bold px-2 py-1 rounded-full border", statusPillClass(g.status)].join(" ")}
+                          style={{ whiteSpace: "nowrap", fontSize: "0.65rem" }}
+                        >
+                          {statusLabel(g.status)}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

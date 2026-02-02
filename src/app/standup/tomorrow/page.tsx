@@ -276,8 +276,18 @@ export default function TomorrowGoalsPage() {
     setLoading(true);
     setMsg(null);
 
+    // Check gating
     const ok = await isYesterdayReviewed();
+    console.log("🔍 DEBUG: isYesterdayReviewed() =", ok);
+    
     if (!ok) {
+      // Add debug info
+      const todayISO = toISODate(new Date());
+      const { plan: todayPlan } = await getPlanWithGoals(todayISO);
+      console.log("🔍 DEBUG: Today's plan:", todayPlan);
+      console.log("🔍 DEBUG: reviewed_at:", todayPlan?.reviewed_at);
+      
+      setMsg(`⚠️ Today (${todayISO}) must be closed first. reviewed_at = ${todayPlan?.reviewed_at || "NULL"}`);
       setBlocking(true);
       setLoading(false);
       return;
@@ -565,12 +575,18 @@ export default function TomorrowGoalsPage() {
   const submitted = planStatus === "submitted";
 
   const normalized = normalizeGoals(goals);
-  const firstThreeFilled = normalized
-    .slice(0, 3)
-    .every((g) => (g.title ?? "").trim().length > 0);
+  
+  // Count goals with priority 1-3 that have content
+  const priorityGoalsFilled = normalized
+    .filter((g) => {
+      const priority = typeof g.priority === "number" ? g.priority : DEFAULT_PRIORITY;
+      return priority >= 1 && priority <= 3;
+    })
+    .filter((g) => (g.title ?? "").trim().length > 0)
+    .length;
 
   const canSubmit =
-    !!planId && !locked && !submitted && firstThreeFilled && !submitting;
+    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting;
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
@@ -578,8 +594,12 @@ export default function TomorrowGoalsPage() {
     <AuthGate>
       <div className="card">
         <h1 className="text-3xl font-bold mb-2">Tomorrow Goals</h1>
-        <p className="text-white/70 mb-8">
-          Minimum <b>3</b> goals required. Set priority for the first 3.
+        <p className="text-white/70 mb-2">
+          Minimum <b>3</b> priority goals required (P1, P2, or P3).
+        </p>
+        <p className="text-sm text-white/50 mb-8">
+          Current priority goals: <b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
+          {priorityGoalsFilled > 3 && <span className="text-blue-400"> (+{priorityGoalsFilled - 3} extra)</span>}
         </p>
 
         <div className="space-y-4">
@@ -606,8 +626,8 @@ export default function TomorrowGoalsPage() {
                 <div 
                   className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.005]"
                   style={{
-                    background: idx < 3 ? opt.bgGradient : "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06))",
-                    border: `2px solid ${idx < 3 ? opt.borderColor : "rgba(255,255,255,0.08)"}`,
+                    background: (p >= 1 && p <= 3) ? opt.bgGradient : "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06))",
+                    border: `2px solid ${(p >= 1 && p <= 3) ? opt.borderColor : "rgba(255,255,255,0.08)"}`,
                     padding: "2rem 2.5rem"
                   }}
                 >
@@ -652,13 +672,13 @@ export default function TomorrowGoalsPage() {
                           )
                         )
                       }
-                      placeholder={idx < 3 ? `Enter goal ${idx + 1}...` : "Optional goal..."}
+                      placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                       style={{ padding: "0 1.5rem" }}
                       className="flex-1 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                     />
 
-                    {/* Priority button - circular, next to Clear */}
-                    {idx < 3 && (
+                    {/* Priority button - show for ANY goal with priority 1-3 */}
+                    {p >= 1 && p <= 3 && (
                       <div className="flex-shrink-0 relative">
                         <select
                           value={p}
@@ -730,9 +750,9 @@ export default function TomorrowGoalsPage() {
                           borderRadius: "50%"
                         }}
                         className="flex-shrink-0 flex items-center justify-center hover:bg-black/50 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-110"
-                        title={idx < 3 ? "Clear goal" : "Remove goal"}
+                        title={(p >= 1 && p <= 3) ? "Clear priority goal" : "Remove goal"}
                       >
-                        {idx < 3 ? "✕" : "✕"}
+                        ✕
                       </button>
                     )}
                   </div>

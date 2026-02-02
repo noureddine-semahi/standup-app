@@ -25,13 +25,69 @@ const MAX_GOALS = 10;
 const DEFAULT_PRIORITY = 3;
 const DEMOTED_PRIORITY = 2;
 
+// ✨ Priority options with refined colors
 const PRIORITY_OPTIONS = [
-  { v: 1, label: "1 (Highest)" },
-  { v: 2, label: "2" },
-  { v: 3, label: "3" },
-  { v: 4, label: "4" },
-  { v: 5, label: "5 (Lowest)" },
+  { 
+    v: 1, 
+    label: "Highest Priority", 
+    icon: "🔴",
+    // Lighter, more visible red card background
+    bgGradient: "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(225, 29, 72, 0.15))",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    // Vibrant red button
+    buttonBg: "linear-gradient(135deg, #dc2626, #b91c1c)",
+    buttonBorder: "#991b1b",
+    buttonShadow: "0 4px 16px rgba(220, 38, 38, 0.4)"
+  },
+  { 
+    v: 2, 
+    label: "High Priority", 
+    icon: "🟠",
+    // Lighter orange card background
+    bgGradient: "linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(251, 146, 60, 0.15))",
+    borderColor: "rgba(249, 115, 22, 0.3)",
+    // Vibrant orange button
+    buttonBg: "linear-gradient(135deg, #ea580c, #c2410c)",
+    buttonBorder: "#9a3412",
+    buttonShadow: "0 4px 16px rgba(234, 88, 12, 0.4)"
+  },
+  { 
+    v: 3, 
+    label: "Medium Priority", 
+    icon: "🟡",
+    // Lighter yellow card background
+    bgGradient: "linear-gradient(135deg, rgba(250, 204, 21, 0.15), rgba(253, 224, 71, 0.15))",
+    borderColor: "rgba(250, 204, 21, 0.3)",
+    // Vibrant yellow button
+    buttonBg: "linear-gradient(135deg, #ca8a04, #a16207)",
+    buttonBorder: "#854d0e",
+    buttonShadow: "0 4px 16px rgba(202, 138, 4, 0.4)"
+  },
+  { 
+    v: 4, 
+    label: "Low Priority", 
+    icon: "⚪",
+    bgGradient: "linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(203, 213, 225, 0.12))",
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    buttonBg: "linear-gradient(135deg, rgba(100, 116, 139, 0.8), rgba(71, 85, 105, 0.8))",
+    buttonBorder: "rgba(100, 116, 139, 0.9)",
+    buttonShadow: "0 4px 16px rgba(100, 116, 139, 0.3)"
+  },
+  { 
+    v: 5, 
+    label: "Lowest Priority", 
+    icon: "⚫",
+    bgGradient: "linear-gradient(135deg, rgba(71, 85, 105, 0.12), rgba(51, 65, 85, 0.12))",
+    borderColor: "rgba(71, 85, 105, 0.25)",
+    buttonBg: "linear-gradient(135deg, rgba(71, 85, 105, 0.7), rgba(51, 65, 85, 0.7))",
+    buttonBorder: "rgba(71, 85, 105, 0.8)",
+    buttonShadow: "0 4px 16px rgba(71, 85, 105, 0.3)"
+  },
 ];
+
+function getPriorityOption(priority: number) {
+  return PRIORITY_OPTIONS.find(p => p.v === priority) || PRIORITY_OPTIONS[2];
+}
 
 function normalizeGoals(goals: DraftGoal[]) {
   return goals.map((g, idx) => ({
@@ -143,23 +199,6 @@ function compactForSave(current: DraftGoal[]) {
   return combined;
 }
 
-function priorityBadgeClass(p: number) {
-  switch (p) {
-    case 1:
-      return "bg-red-500/15 text-red-300 border-red-500/30";
-    case 2:
-      return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-    case 3:
-      return "bg-white/10 text-white/70 border-white/20";
-    case 4:
-      return "bg-white/5 text-white/50 border-white/10";
-    case 5:
-      return "bg-white/5 text-white/40 border-white/10";
-    default:
-      return "bg-white/10 text-white/60 border-white/20";
-  }
-}
-
 function applyPriorityChange(prev: DraftGoal[], idx: number, newP: number) {
   const next = prev.map((g) => ({ ...g }));
   next[idx].priority = newP;
@@ -195,16 +234,14 @@ export default function TomorrowGoalsPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(
-    null
-  );
+  const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
 
   const originalIdsRef = useRef<Set<string>>(new Set());
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveInFlightRef = useRef(false);
   const lastSavedHashRef = useRef<string>("");
-
   const skipNextBlurAutosaveRef = useRef(false);
+  const priorityChangeInProgressRef = useRef(false);
 
   useEffect(() => {
     if (pendingFocusIndex == null) return;
@@ -392,6 +429,7 @@ export default function TomorrowGoalsPage() {
     if (!planId) return;
     if (planStatus === "locked") return;
     if (submitting) return;
+    if (priorityChangeInProgressRef.current) return;
 
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
@@ -539,104 +577,165 @@ export default function TomorrowGoalsPage() {
   return (
     <AuthGate>
       <div className="card">
-        <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
-
-        <p className="mt-4 text-white/70">
+        <h1 className="text-3xl font-bold mb-2">Tomorrow Goals</h1>
+        <p className="text-white/70 mb-8">
           Minimum <b>3</b> goals required. Set priority for the first 3.
         </p>
 
-        <div className="mt-6 space-y-3">
+        <div className="space-y-4">
           {goals.map((g, idx) => {
             const p =
               typeof g.priority === "number" && Number.isFinite(g.priority)
                 ? g.priority
                 : DEFAULT_PRIORITY;
+            const opt = getPriorityOption(p);
 
             return (
               <div key={g.id ?? `row-${idx}`}>
                 {idx === 3 && (
-                  <div className="my-4 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-white/10" />
-                    <div className="text-xs uppercase tracking-wider text-white/50">
-                      Optional goals
+                  <div className="my-6 flex items-center gap-4">
+                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
+                    <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
+                      Optional Goals
                     </div>
-                    <div className="h-px flex-1 bg-white/10" />
+                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
                   </div>
                 )}
 
-                <div className="flex gap-3 items-center">
-                  <div className="w-8 text-white/60">{idx + 1}.</div>
-
-                  {idx < 3 && (
-                    <span
-                      className={[
-                        "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                        priorityBadgeClass(p),
-                      ].join(" ")}
-                      title="Priority badge"
+                {/* ✨ Gradient card with reorganized layout */}
+                <div 
+                  className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.005]"
+                  style={{
+                    background: idx < 3 ? opt.bgGradient : "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06))",
+                    border: `2px solid ${idx < 3 ? opt.borderColor : "rgba(255,255,255,0.08)"}`,
+                    padding: "2rem 2.5rem"
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: "2rem" }}>
+                    {/* Number badge - circular */}
+                    <div 
+                      className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-xl"
+                      style={{
+                        width: "56px",
+                        height: "56px",
+                        background: "linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5))",
+                        border: "2px solid rgba(255, 255, 255, 0.25)",
+                        boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3)"
+                      }}
                     >
-                      P{p}
-                    </span>
-                  )}
+                      {idx + 1}
+                    </div>
 
-                  {idx < 3 && (
-                    <select
-                      value={p}
+                    {/* Goal input - takes up most space */}
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[idx] = el;
+                      }}
+                      type="text"
+                      value={g.title ?? ""}
                       disabled={locked || submitting}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        setGoals((prev) => applyPriorityChange(prev, idx, v));
+                      onKeyDown={(e) => onGoalKeyDown(e, idx)}
+                      onBlur={() => {
+                        if (skipNextBlurAutosaveRef.current) {
+                          skipNextBlurAutosaveRef.current = false;
+                          return;
+                        }
+                        if (priorityChangeInProgressRef.current) {
+                          return;
+                        }
                         scheduleAutoSave();
                       }}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-white outline-none focus:border-white/25"
-                      title="Priority (1 = highest)"
-                    >
-                      {PRIORITY_OPTIONS.map((opt) => (
-                        <option key={opt.v} value={opt.v}>
-                          P{opt.v}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  <input
-                    type="text"
-                    ref={(el) => {
-                      inputRefs.current[idx] = el;
-                    }}
-                    value={g.title ?? ""}
-                    disabled={locked || submitting}
-                    onKeyDown={(e) => onGoalKeyDown(e, idx)}
-                    onBlur={() => {
-                      if (skipNextBlurAutosaveRef.current) {
-                        skipNextBlurAutosaveRef.current = false;
-                        return;
-                      }
-                      scheduleAutoSave();
-                    }}
-                    onChange={(e) =>
-                      setGoals((prev) =>
-                        prev.map((x, i) =>
-                          i === idx ? { ...x, title: e.target.value } : x
+                      onChange={(e) =>
+                        setGoals((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, title: e.target.value } : x
+                          )
                         )
-                      )
-                    }
-                    placeholder={idx < 3 ? "Required goal" : "Optional goal"}
-                    className={[
-                      "w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/25",
-                      idx >= 3 ? "placeholder:text-white/30" : "",
-                    ].join(" ")}
-                  />
+                      }
+                      placeholder={idx < 3 ? `Enter goal ${idx + 1}...` : "Optional goal..."}
+                      style={{ padding: "0 1.5rem" }}
+                      className="flex-1 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
+                    />
 
-                  {!locked && (
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => removeGoal(idx)}
-                      disabled={submitting}
-                    >
-                      {idx < 3 ? "Clear" : "Remove"}
-                    </button>
-                  )}
+                    {/* Priority button - circular, next to Clear */}
+                    {idx < 3 && (
+                      <div className="flex-shrink-0 relative">
+                        <select
+                          value={p}
+                          disabled={locked || submitting}
+                          onChange={(e) => {
+                            priorityChangeInProgressRef.current = true;
+                            const v = Number(e.target.value);
+                            setGoals((prev) => applyPriorityChange(prev, idx, v));
+                            setTimeout(() => {
+                              scheduleAutoSave();
+                              priorityChangeInProgressRef.current = false;
+                            }, 100);
+                          }}
+                          style={{
+                            background: opt.buttonBg,
+                            border: `3px solid ${opt.buttonBorder}`,
+                            width: "56px",
+                            height: "56px",
+                            color: "transparent",
+                            boxShadow: opt.buttonShadow,
+                            borderRadius: "50%"
+                          }}
+                          className="appearance-none cursor-pointer font-bold hover:scale-110 hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-white/50"
+                        >
+                          {PRIORITY_OPTIONS.map((option) => (
+                            <option key={option.v} value={option.v} style={{ color: "black" }}>
+                              {option.icon} P{option.v} - {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        {/* Icon */}
+                        <div 
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                          style={{ 
+                            fontSize: "1.5rem",
+                            marginTop: "-2px"
+                          }}
+                        >
+                          {opt.icon}
+                        </div>
+                        {/* P# text below icon */}
+                        <div 
+                          className="absolute left-1/2 -translate-x-1/2 pointer-events-none" 
+                          style={{ 
+                            bottom: "8px",
+                            fontSize: "0.65rem",
+                            fontWeight: "900",
+                            color: "#1a1a1a",
+                            textShadow: "0 1px 2px rgba(255,255,255,0.4)",
+                            letterSpacing: "0.05em"
+                          }}
+                        >
+                          P{p}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Clear/Remove button - circular, same size */}
+                    {!locked && (
+                      <button
+                        onClick={() => removeGoal(idx)}
+                        disabled={submitting}
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          background: "rgba(0,0,0,0.35)",
+                          backdropFilter: "blur(10px)",
+                          border: "2px solid rgba(255,255,255,0.2)",
+                          borderRadius: "50%"
+                        }}
+                        className="flex-shrink-0 flex items-center justify-center hover:bg-black/50 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-110"
+                        title={idx < 3 ? "Clear goal" : "Remove goal"}
+                      >
+                        {idx < 3 ? "✕" : "✕"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -644,9 +743,9 @@ export default function TomorrowGoalsPage() {
         </div>
 
         {!locked && (
-          <div className="mt-6 flex flex-wrap gap-3 items-center">
+          <div className="mt-8 flex flex-wrap gap-4 items-center">
             <button
-              className="btn"
+              className="btn hover-scale"
               onClick={addMoreGoal}
               disabled={!canAddMore}
               title={
@@ -657,7 +756,7 @@ export default function TomorrowGoalsPage() {
             </button>
 
             <button
-              className="btn"
+              className="btn hover-scale"
               onClick={saveDraftOrChanges}
               disabled={submitting}
               title="Manual save (auto-saves too)"
@@ -667,7 +766,7 @@ export default function TomorrowGoalsPage() {
 
             {!submitted && (
               <button
-                className="btn btn-primary"
+                className="btn btn-primary hover-scale"
                 onClick={onSubmitPlan}
                 disabled={!canSubmit}
               >
@@ -676,13 +775,12 @@ export default function TomorrowGoalsPage() {
             )}
 
             <div className="text-sm text-white/60">
-              {goals.length}/{MAX_GOALS}
+              {goals.length}/{MAX_GOALS} goals
             </div>
 
             {submitted && (
-              <div className="text-sm text-white/70">
-                This plan is <b>submitted</b> — optional blanks are removed and
-                goals re-number on save.
+              <div className="ml-auto text-sm text-emerald-400 font-semibold">
+                ✅ Plan submitted
               </div>
             )}
           </div>
@@ -694,9 +792,12 @@ export default function TomorrowGoalsPage() {
           </div>
         )}
 
-        {msg && <div className="mt-4 text-sm text-white/80">{msg}</div>}
+        {msg && (
+          <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+            {msg}
+          </div>
+        )}
       </div>
     </AuthGate>
   );
 }
-

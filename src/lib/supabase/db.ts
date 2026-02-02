@@ -38,11 +38,12 @@ export type Goal = {
   details: string | null;
   status: GoalStatus;
   sort_order: number;
-
   priority?: number;
-
-  // ✅ per-goal review state
   reviewed_at?: string | null;
+  
+  // ✅ NEW: Timestamps
+  created_at: string;
+  updated_at: string;
 };
 
 export function toISODate(d: Date) {
@@ -174,7 +175,8 @@ export async function upsertGoals(
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
       };
-      if (typeof (g as any).priority === "number") row.priority = (g as any).priority;
+      if (typeof (g as any).priority === "number")
+        row.priority = (g as any).priority;
       return row;
     });
 
@@ -195,7 +197,8 @@ export async function upsertGoals(
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
       };
-      if (typeof (g as any).priority === "number") row.priority = (g as any).priority;
+      if (typeof (g as any).priority === "number")
+        row.priority = (g as any).priority;
       return row;
     });
 
@@ -226,7 +229,8 @@ export async function submitPlan(planId: string) {
 
   if (gErr) throw gErr;
   const count = (goals ?? []).length;
-  if (count < 3) throw new Error("You must set at least 3 goals before submitting.");
+  if (count < 3)
+    throw new Error("You must set at least 3 goals before submitting.");
 
   const { data, error } = await supabase
     .from("daily_plans")
@@ -279,7 +283,10 @@ export async function markGoalReviewed(goalId: string) {
 }
 
 export async function unmarkGoalReviewed(goalId: string) {
-  const { error } = await supabase.from("goals").update({ reviewed_at: null }).eq("id", goalId);
+  const { error } = await supabase
+    .from("goals")
+    .update({ reviewed_at: null })
+    .eq("id", goalId);
   if (error) throw error;
 }
 
@@ -317,9 +324,11 @@ export async function getPoints() {
 }
 
 /**
- * ✅ IMPORTANT FIX:
- * Gate planning for a plan date by checking the *previous day* (planDate - 1).
- * Example: planning 2026-01-26 (tomorrow) requires 2026-01-25 (today) reviewed.
+ * ✅ UPDATED GATING LOGIC:
+ * Allow planning if:
+ * 1. No plan exists for prev day (first time use), OR
+ * 2. Prev day plan has no goals (nothing to review), OR
+ * 3. Prev day plan is reviewed (reviewed_at is set)
  */
 export async function isPrevDayReviewedForPlan(planDateISO: string) {
   const userId = await getCurrentUserId();
@@ -327,7 +336,7 @@ export async function isPrevDayReviewedForPlan(planDateISO: string) {
   const planDate = new Date(`${planDateISO}T00:00:00`);
   const prevDateISO = toISODate(addDays(planDate, -1));
 
-  const { data, error } = await supabase
+  const { data: plan, error } = await supabase
     .from("daily_plans")
     .select("id, reviewed_at")
     .eq("user_id", userId)
@@ -337,9 +346,32 @@ export async function isPrevDayReviewedForPlan(planDateISO: string) {
   if (error) throw error;
 
   // If no plan existed on prev day, allow (no gating)
-  if (!data) return true;
+  if (!plan) return true;
 
-  return !!data.reviewed_at;
+  // Check if prev day has any goals
+  const { data: goals, error: goalsErr } = await supabase
+    .from("goals")
+    .select("id")
+    .eq("plan_id", plan.id)
+    .limit(1);
+
+  if (goalsErr) throw goalsErr;
+
+  // If no goals exist for prev day, allow (nothing to review)
+  if (!goals || goals.length === 0) return true;
+
+  // If goals exist, require reviewed_at to be set
+  return !!plan.reviewed_at;
+}
+
+/**
+ * ✅ COMPAT EXPORT:
+ * Your Tomorrow pages import `isYesterdayReviewed()` with no args.
+ * We map that to "is the previous day reviewed for TOMORROW's plan?"
+ */
+export async function isYesterdayReviewed() {
+  const tomorrowISO = toISODate(addDays(new Date(), 1));
+  return isPrevDayReviewedForPlan(tomorrowISO);
 }
 
 /**
@@ -369,7 +401,9 @@ export async function rescheduleGoalToDate(params: {
     snapshot_title: params.goal.title,
     snapshot_details: params.goal.details ?? null,
     snapshot_priority:
-      typeof (params.goal as any).priority === "number" ? (params.goal as any).priority : 3,
+      typeof (params.goal as any).priority === "number"
+        ? (params.goal as any).priority
+        : 3,
   });
 
   if (logErr) throw logErr;

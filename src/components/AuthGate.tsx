@@ -36,13 +36,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return (
-    <div className="min-h-screen relative">
-      {/* ✅ Background layer must not block clicks */}
-      <div className="pointer-events-none absolute inset-0 opacity-50" />
-
-      {/* ✅ Foreground content must be above */}
-      <div className="relative z-10">{children}</div>
-    </div>
-  );
+  return <>{children}</>;
 }
+

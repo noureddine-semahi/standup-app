@@ -418,7 +418,6 @@ export default function TomorrowGoalsPage() {
       return;
     }
 
-    // ✅ Kill autosave timer + in-flight autosave blocking
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
@@ -450,13 +449,9 @@ export default function TomorrowGoalsPage() {
         }))
         .filter((g) => g.title.length > 0);
 
-      // ✅ ensure saved before submit
       await upsertGoals(planId, toSave as any);
-
-      // ✅ submit the plan
       await submitPlan(planId);
 
-      // ✅ refresh to pick up server truth
       await refresh();
       setMsg("Tomorrow plan submitted ✅");
     } catch (e: any) {
@@ -513,7 +508,7 @@ export default function TomorrowGoalsPage() {
         <div className="card">
           <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
           <p className="mt-2 text-white/70">
-            Before you set tomorrow’s goals, you must review yesterday.
+            Before you set tomorrow's goals, you must review yesterday.
           </p>
           <div className="mt-6">
             <button
@@ -541,32 +536,14 @@ export default function TomorrowGoalsPage() {
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
-  // ✅ Show the actual reason if Submit is disabled
-  const submitWhy = !planId
-    ? "planId is missing"
-    : locked
-    ? "plan is locked"
-    : submitted
-    ? "plan already submitted"
-    : !firstThreeFilled
-    ? "first 3 goals not filled"
-    : submitting
-    ? "submitting is true"
-    : null;
-
   return (
     <AuthGate>
       <div className="card">
         <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
-        <p className="mt-2 text-white/70">
+
+        <p className="mt-4 text-white/70">
           Minimum <b>3</b> goals required. Set priority for the first 3.
         </p>
-
-        {/* ✅ Debug line (remove later) */}
-        <div className="mt-2 text-xs text-white/50">
-          Debug: planStatus=<b>{planStatus}</b> • planId=
-          <b>{planId ? planId.slice(0, 8) + "…" : "null"}</b>
-        </div>
 
         <div className="mt-6 space-y-3">
           {goals.map((g, idx) => {
@@ -693,7 +670,6 @@ export default function TomorrowGoalsPage() {
                 className="btn btn-primary"
                 onClick={onSubmitPlan}
                 disabled={!canSubmit}
-                title={submitWhy ?? ""}
               >
                 {submitting ? "Submitting…" : "Submit tomorrow plan"}
               </button>
@@ -702,12 +678,6 @@ export default function TomorrowGoalsPage() {
             <div className="text-sm text-white/60">
               {goals.length}/{MAX_GOALS}
             </div>
-
-            {!canSubmit && submitWhy && !submitted && (
-              <div className="text-sm text-white/70">
-                Submit disabled because: <b>{submitWhy}</b>
-              </div>
-            )}
 
             {submitted && (
               <div className="text-sm text-white/70">
@@ -729,3 +699,4 @@ export default function TomorrowGoalsPage() {
     </AuthGate>
   );
 }
+

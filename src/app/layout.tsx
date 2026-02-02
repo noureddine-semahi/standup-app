@@ -1,23 +1,25 @@
+import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
-import Providers from "@/components/Providers";
 
-export const metadata = {
-  title: "StandUp",
-  description: "Meet yourself. Daily.",
+export const metadata: Metadata = {
+  title: "StandUp - Daily Execution & Accountability",
+  description: "Plan tomorrow. Review today. Build consistency.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
-        <Providers>
-          <div className="app-shell">
-            <div className="app-bg" aria-hidden="true" />
-            <Header />
-            <main className="app-main">{children}</main>
-          </div>
-        </Providers>
+    <html lang="en">
+      <body>
+        <div className="app-shell">
+          <div className="app-bg" />
+          <Header />
+          <main className="app-main">{children}</main>
+        </div>
       </body>
     </html>
   );

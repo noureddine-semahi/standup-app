@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { toISODate, addDays, rescheduleGoalToDate, type Goal } from "@/lib/supabase/db";
 
 type RescheduleModalProps = {
@@ -14,6 +15,16 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
   const [reason, setReason] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   // Generate date options (today + next 30 days)
   const dateOptions: { value: string; label: string }[] = [];
@@ -38,6 +49,13 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
       return;
     }
 
+    console.log("🔍 Starting reschedule:", {
+      goal: goal.title,
+      goalId: goal.id,
+      toDate: selectedDate,
+      reason: reason
+    });
+
     setSaving(true);
     setError(null);
 
@@ -48,20 +66,31 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
         reason: reason.trim() || undefined,
       });
 
+      console.log("✅ Reschedule successful");
       onSuccess();
       onClose();
     } catch (e: any) {
+      console.error("❌ Reschedule failed:", e);
       setError(e?.message ?? "Failed to reschedule");
       setSaving(false);
     }
   }
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 flex items-center justify-center p-4"
       style={{
-        background: "rgba(0, 0, 0, 0.8)",
-        backdropFilter: "blur(4px)"
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        background: "rgba(0, 0, 0, 0.85)",
+        backdropFilter: "blur(8px)",
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
       onClick={(e) => {
         // Close if clicking backdrop
@@ -69,12 +98,16 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
       }}
     >
       <div 
-        className="card max-w-lg w-full"
+        className="card"
         style={{
+          maxWidth: '500px',
+          width: '100%',
           maxHeight: "90vh",
           overflowY: "auto",
-          margin: "auto"
+          position: 'relative',
+          zIndex: 10000
         }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
@@ -168,4 +201,8 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
       </div>
     </div>
   );
+
+  // Render in portal to escape any positioning contexts
+  if (!mounted) return null;
+  return createPortal(modalContent, document.body);
 }

@@ -22,16 +22,65 @@ import { supabase } from "@/lib/supabase/client";
 
 // Priority options matching Tomorrow page
 const PRIORITY_OPTIONS = [
-  { v: 1, icon: "🔴", label: "Highest Priority" },
-  { v: 2, icon: "🟠", label: "High Priority" },
-  { v: 3, icon: "🟡", label: "Medium Priority" },
-  { v: 4, icon: "⚪", label: "Low Priority" },
-  { v: 5, icon: "⚫", label: "Lowest Priority" },
+  { 
+    v: 1, 
+    label: "Highest Priority", 
+    icon: "🔴",
+    bgGradient: "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(225, 29, 72, 0.15))",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    buttonBg: "linear-gradient(135deg, #dc2626, #b91c1c)",
+    buttonBorder: "#991b1b",
+    buttonShadow: "0 4px 16px rgba(220, 38, 38, 0.4)"
+  },
+  { 
+    v: 2, 
+    label: "High Priority", 
+    icon: "🟠",
+    bgGradient: "linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(251, 146, 60, 0.15))",
+    borderColor: "rgba(249, 115, 22, 0.3)",
+    buttonBg: "linear-gradient(135deg, #ea580c, #c2410c)",
+    buttonBorder: "#9a3412",
+    buttonShadow: "0 4px 16px rgba(234, 88, 12, 0.4)"
+  },
+  { 
+    v: 3, 
+    label: "Medium Priority", 
+    icon: "🟡",
+    bgGradient: "linear-gradient(135deg, rgba(250, 204, 21, 0.15), rgba(253, 224, 71, 0.15))",
+    borderColor: "rgba(250, 204, 21, 0.3)",
+    buttonBg: "linear-gradient(135deg, #ca8a04, #a16207)",
+    buttonBorder: "#854d0e",
+    buttonShadow: "0 4px 16px rgba(202, 138, 4, 0.4)"
+  },
+  { 
+    v: 4, 
+    label: "Low Priority", 
+    icon: "⚪",
+    bgGradient: "linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(203, 213, 225, 0.12))",
+    borderColor: "rgba(148, 163, 184, 0.25)",
+    buttonBg: "linear-gradient(135deg, rgba(100, 116, 139, 0.8), rgba(71, 85, 105, 0.8))",
+    buttonBorder: "rgba(100, 116, 139, 0.9)",
+    buttonShadow: "0 4px 16px rgba(100, 116, 139, 0.3)"
+  },
+  { 
+    v: 5, 
+    label: "Lowest Priority", 
+    icon: "⚫",
+    bgGradient: "linear-gradient(135deg, rgba(71, 85, 105, 0.12), rgba(51, 65, 85, 0.12))",
+    borderColor: "rgba(71, 85, 105, 0.25)",
+    buttonBg: "linear-gradient(135deg, rgba(71, 85, 105, 0.7), rgba(51, 65, 85, 0.7))",
+    buttonBorder: "rgba(71, 85, 105, 0.8)",
+    buttonShadow: "0 4px 16px rgba(71, 85, 105, 0.3)"
+  },
 ];
 
 function getPriorityIcon(priority: number) {
   const opt = PRIORITY_OPTIONS.find(p => p.v === priority);
   return opt?.icon || "⚪";
+}
+
+function getPriorityData(priority: number) {
+  return PRIORITY_OPTIONS.find(p => p.v === priority) || PRIORITY_OPTIONS[2];
 }
 
 // Card gradient based on priority
@@ -102,6 +151,10 @@ export default function TodayPage() {
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   const [reopening, setReopening] = useState(false);
+  
+  // History & notes tracking
+  const [showHistory, setShowHistory] = useState<Record<string, boolean>>({});
+  const [goalNotes, setGoalNotes] = useState<Record<string, any[]>>({});
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -193,6 +246,17 @@ export default function TodayPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Fetch goal notes/history
+  async function fetchGoalNotes(goalId: string) {
+    const { data } = await supabase
+      .from("goal_notes")
+      .select("*")
+      .eq("goal_id", goalId)
+      .order("created_at", { ascending: false });
+    
+    return data || [];
   }
 
   useEffect(() => {
@@ -715,6 +779,124 @@ export default function TodayPage() {
                         {g.details}
                       </div>
                     )}
+                    
+                    {/* Activity History & Metadata */}
+                    {g.id && (
+                      <div className="mt-4 pt-4 border-t border-white/10" style={{ padding: "0 1rem" }}>
+                        <div className="flex flex-wrap gap-4 text-xs text-white/40 mb-2">
+                          {(g as any).created_at && (
+                            <div>📅 Created {new Date((g as any).created_at).toLocaleString()}</div>
+                          )}
+                          {(g as any).reviewed_at && (
+                            <div className="text-emerald-400/70">✓ Reviewed {new Date((g as any).reviewed_at).toLocaleTimeString()}</div>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={async () => {
+                            if (!showHistory[g.id]) {
+                              const notes = await fetchGoalNotes(g.id);
+                              setGoalNotes(prev => ({ ...prev, [g.id]: notes }));
+                            }
+                            setShowHistory(prev => ({ ...prev, [g.id]: !prev[g.id] }));
+                          }}
+                          className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
+                        >
+                          {showHistory[g.id] ? "▼ Hide activity log" : "▶ Show activity log"}
+                        </button>
+                        
+                        {showHistory[g.id] && (
+                          <div className="mt-3 p-4 rounded-lg bg-black/30 border border-white/10">
+                            <div className="text-xs font-semibold text-white/70 mb-3 flex items-center gap-2">
+                              <span>📋</span>
+                              Activity Timeline
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {(g as any).created_at && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-white/80 font-medium">Goal created</div>
+                                    <div className="text-[10px] text-white/40 mt-0.5">
+                                      {new Date((g as any).created_at).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {p && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-white/80 font-medium">
+                                      Priority: {getPriorityIcon(p)} P{p} - {PRIORITY_OPTIONS.find(o => o.v === p)?.label}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {(g as any).reviewed_at && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-white/80 font-medium">Marked as reviewed</div>
+                                    <div className="text-[10px] text-white/40 mt-0.5">
+                                      {new Date((g as any).reviewed_at).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {g.status !== "not_started" && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-sky-400 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-white/80 font-medium">
+                                      Status: {statusLabel(g.status)}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {(g as any).rescheduled_to && (
+                                <div className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-white/80 font-medium">
+                                      Rescheduled to {(g as any).rescheduled_to}
+                                    </div>
+                                    {(g as any).reschedule_reason && (
+                                      <div className="text-xs text-white/60 italic mt-1">
+                                        "{(g as any).reschedule_reason}"
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {goalNotes[g.id]?.map((note, i) => (
+                                <div key={i} className="flex items-start gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0"></div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-white/80 font-medium">💬 {note.note}</div>
+                                    <div className="text-[10px] text-white/40 mt-0.5">
+                                      {new Date(note.created_at).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {!goalNotes[g.id]?.length && g.status === "not_started" && !(g as any).reviewed_at && (
+                                <div className="text-xs text-white/40 italic text-center py-2">
+                                  No activity recorded yet
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Priority button - EXACTLY like Tomorrow page */}
@@ -740,14 +922,14 @@ export default function TodayPage() {
                       style={{
                         width: "56px",
                         height: "56px",
-                        background: "linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2))",
-                        backdropFilter: "blur(10px)",
-                        border: "2px solid rgba(255,255,255,0.2)",
+                        background: getPriorityData(p).buttonBg,
+                        border: `3px solid ${getPriorityData(p).buttonBorder}`,
                         borderRadius: "50%",
                         color: "transparent",
+                        boxShadow: getPriorityData(p).buttonShadow,
                         cursor: locked || dayClosed ? "default" : "pointer"
                       }}
-                      className="appearance-none hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-white/30"
+                      className="appearance-none cursor-pointer hover:scale-110 hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-white/30"
                       title={`Priority ${p}`}
                     >
                       {PRIORITY_OPTIONS.map((opt) => (

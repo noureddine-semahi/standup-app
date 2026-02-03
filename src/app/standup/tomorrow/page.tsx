@@ -13,6 +13,7 @@ import {
   deleteGoal,
   type Goal,
 } from "@/lib/supabase/db";
+import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 type DraftGoal = Partial<Goal> & {
@@ -232,6 +233,9 @@ export default function TomorrowGoalsPage() {
   ]);
 
   const [msg, setMsg] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -272,6 +276,30 @@ export default function TomorrowGoalsPage() {
     return JSON.stringify(normalized);
   }
 
+  // Drag-drop handlers for reordering
+  function handleDragStart(idx: number) {
+    setDraggedIdx(idx);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === idx) return;
+    
+    setGoals(prev => {
+      const newGoals = [...prev];
+      const [dragged] = newGoals.splice(draggedIdx, 1);
+      newGoals.splice(idx, 0, dragged);
+      return newGoals.map((g, i) => ({ ...g, sort_order: i }));
+    });
+    
+    setDraggedIdx(idx);
+  }
+
+  function handleDragEnd() {
+    setDraggedIdx(null);
+    scheduleAutoSave();
+  }
+
   async function refresh() {
     setLoading(true);
     setMsg(null);
@@ -287,7 +315,7 @@ export default function TomorrowGoalsPage() {
       console.log("🔍 DEBUG: Today's plan:", todayPlan);
       console.log("🔍 DEBUG: reviewed_at:", todayPlan?.reviewed_at);
       
-      setMsg(`⚠️ Today (${todayISO}) must be closed first. reviewed_at = ${todayPlan?.reviewed_at || "NULL"}`);
+      setMsg(`⚠️ Review Today first. Today (${todayISO}) must be closed before planning tomorrow.`);
       setBlocking(true);
       setLoading(false);
       return;
@@ -298,12 +326,72 @@ export default function TomorrowGoalsPage() {
     const { plan, goals: dbGoals } = await getPlanWithGoals(tomorrowISO);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
+    
+    // Fetch reschedule origin data for goals on this date
+    const goalIds = dbGoals.map(g => g.id).filter(Boolean) as string[];
+    let rescheduleOrigins: Record<string, { from_date: string; reason: string | null }> = {};
+    
+    if (goalIds.length > 0) {
+      const { data: reschedules, error: rescheduleError } = await supabase
+        .from("goal_reschedules")
+        .select("materialized_goal_id, from_date, reason")
+        .in("materialized_goal_id", goalIds)
+        .eq("materialized", true);
+      
+      console.log("🔍 Reschedule query:", { goalIds, reschedules, rescheduleError });
+      
+      reschedules?.forEach((item) => {
+        if (item.materialized_goal_id) {
+          rescheduleOrigins[item.materialized_goal_id] = {
+            from_date: item.from_date,
+            reason: item.reason,
+          };
+        }
+      });
+      
+      console.log("🔍 Reschedule origins map:", rescheduleOrigins);
+    }
+    
+    // Attach reschedule origin to goals
+    const goalsWithOrigin = dbGoals.map(g => ({
+      ...g,
+      rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
+      reschedule_reason: rescheduleOrigins[g.id]?.reason || null,
+    }));
+    
+    // Fetch previous actions/comments for all goals
+    let notesMap: Record<string, any[]> = {};
+    if (goalIds.length > 0) {
+      const { data: notes } = await supabase
+        .from("goal_notes")
+        .select("goal_id, note, created_at")
+        .in("goal_id", goalIds)
+        .order("created_at", { ascending: false });
+      
+      notes?.forEach(note => {
+        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
+        notesMap[note.goal_id].push(note);
+      });
+      setGoalComments(notesMap);
+    }
+    
+    // Attach comments to goals using notesMap (not state which is stale)
+    const goalsWithData = goalsWithOrigin.map(g => ({
+      ...g,
+      previous_actions: notesMap[g.id] || [],
+    }));
+    
+    console.log("🔍 Final goals with data:", goalsWithData.map(g => ({
+      id: g.id,
+      title: g.title,
+      rescheduled_from_date: (g as any).rescheduled_from_date,
+      reschedule_reason: (g as any).reschedule_reason,
+      previous_actions: (g as any).previous_actions?.length || 0
+    })));
 
-    originalIdsRef.current = new Set(
-      dbGoals.map((g) => g.id).filter(Boolean) as string[]
-    );
+    originalIdsRef.current = new Set(goalIds);
 
-    const rows = compactForUI(dbGoals);
+    const rows = compactForUI(goalsWithData);
     setGoals(rows);
     lastSavedHashRef.current = computeHashForSave(rows);
 
@@ -556,16 +644,17 @@ export default function TomorrowGoalsPage() {
         <div className="card">
           <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
           <p className="mt-2 text-white/70">
-            Before you set tomorrow's goals, you must review yesterday.
+            Before you set tomorrow's goals, you must review your goals for Today.
           </p>
           <div className="mt-6">
             <button
               className="btn btn-primary"
               onClick={() => router.push("/standup/today")}
             >
-              Go review yesterday
+              Review Today First
             </button>
           </div>
+          {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
         </div>
       </AuthGate>
     );
@@ -593,14 +682,35 @@ export default function TomorrowGoalsPage() {
   return (
     <AuthGate>
       <div className="card">
-        <h1 className="text-3xl font-bold mb-2">Tomorrow Goals</h1>
-        <p className="text-white/70 mb-2">
-          Minimum <b>3</b> priority goals required (P1, P2, or P3).
-        </p>
-        <p className="text-sm text-white/50 mb-8">
-          Current priority goals: <b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
-          {priorityGoalsFilled > 3 && <span className="text-blue-400"> (+{priorityGoalsFilled - 3} extra)</span>}
-        </p>
+        <div className="flex items-start justify-between mb-8">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold mb-2">Tomorrow Goals</h1>
+            <p className="text-white/70 mb-2">
+              Minimum <b>3</b> priority goals required (P1, P2, or P3).
+            </p>
+            <p className="text-sm text-white/50">
+              Current priority goals: <b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
+              {priorityGoalsFilled > 3 && <span className="text-blue-400"> (+{priorityGoalsFilled - 3} extra)</span>}
+            </p>
+          </div>
+          
+          {!locked && (
+            <button
+              onClick={() => setEditMode(!editMode)}
+              disabled={submitting}
+              style={{
+                background: editMode ? "rgba(168, 85, 247, 0.3)" : "rgba(255,255,255,0.05)",
+                border: `2px solid ${editMode ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.1)"}`,
+                minWidth: "140px",
+                padding: "0.75rem 1.5rem",
+                borderRadius: "0.75rem"
+              }}
+              className="font-semibold transition-all hover:scale-105"
+            >
+              {editMode ? "✓ Done" : "✏️ Reorder"}
+            </button>
+          )}
+        </div>
 
         <div className="space-y-4">
           {goals.map((g, idx) => {
@@ -622,15 +732,31 @@ export default function TomorrowGoalsPage() {
                   </div>
                 )}
 
-                {/* ✨ Gradient card with reorganized layout */}
+                {/* ✨ Gradient card with drag-drop support */}
                 <div 
+                  draggable={editMode && !locked && !submitting}
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
                   className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.005]"
                   style={{
                     background: (p >= 1 && p <= 3) ? opt.bgGradient : "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06))",
                     border: `2px solid ${(p >= 1 && p <= 3) ? opt.borderColor : "rgba(255,255,255,0.08)"}`,
-                    padding: "2rem 2.5rem"
+                    padding: "2rem 2.5rem",
+                    cursor: editMode ? "move" : "default",
+                    opacity: draggedIdx === idx ? 0.5 : 1
                   }}
                 >
+                  {/* Drag handle */}
+                  {editMode && (
+                    <div 
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
+                      style={{ color: "rgba(255,255,255,0.3)" }}
+                    >
+                      ⋮⋮
+                    </div>
+                  )}
+                  
                   <div className="flex items-center" style={{ gap: "2rem" }}>
                     {/* Number badge - circular */}
                     <div 
@@ -676,6 +802,44 @@ export default function TomorrowGoalsPage() {
                       style={{ padding: "0 1.5rem" }}
                       className="flex-1 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                     />
+                    
+                    {/* Show if this goal was rescheduled FROM another date */}
+                    {g.id && (g as any).rescheduled_from_date && (
+                      <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
+                        <div className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5">
+                          <span className="text-lg">↩️</span>
+                          <div>
+                            <div className="text-xs font-semibold text-purple-300">
+                              Rescheduled from {(g as any).rescheduled_from_date}
+                            </div>
+                            {(g as any).reschedule_reason && (
+                              <div className="text-xs text-purple-300/70 italic mt-0.5">
+                                "{(g as any).reschedule_reason}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Previous actions/comments */}
+                    {g.id && (g as any).previous_actions && (g as any).previous_actions.length > 0 && (
+                      <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
+                        <details className="text-xs">
+                          <summary className="text-blue-400 cursor-pointer hover:text-blue-300">
+                            💬 {(g as any).previous_actions.length} previous action{(g as any).previous_actions.length > 1 ? 's' : ''}
+                          </summary>
+                          <div className="mt-2 space-y-1 pl-4">
+                            {(g as any).previous_actions.map((action: any, i: number) => (
+                              <div key={i} className="text-white/60 border-l-2 border-white/10 pl-2">
+                                {action.note}
+                                <div className="text-white/40 text-[10px]">{new Date(action.created_at).toLocaleString()}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    )}
 
                     {/* Priority button - show for ANY goal with priority 1-3 */}
                     {p >= 1 && p <= 3 && (

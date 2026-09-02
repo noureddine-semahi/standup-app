@@ -49,13 +49,6 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
       return;
     }
 
-    console.log("🔍 Starting reschedule:", {
-      goal: goal.title,
-      goalId: goal.id,
-      toDate: selectedDate,
-      reason: reason
-    });
-
     setSaving(true);
     setError(null);
 
@@ -66,11 +59,9 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
         reason: reason.trim() || undefined,
       });
 
-      console.log("✅ Reschedule successful");
       onSuccess();
       onClose();
     } catch (e: any) {
-      console.error("❌ Reschedule failed:", e);
       setError(e?.message ?? "Failed to reschedule");
       setSaving(false);
     }

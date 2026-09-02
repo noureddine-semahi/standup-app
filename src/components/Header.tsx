@@ -81,6 +81,7 @@ export default function Header() {
   }
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isRecoveryPage = pathname === "/reset-password";
 
   return (
     <header className="app-header">
@@ -90,7 +91,7 @@ export default function Header() {
         </Link>
 
         <nav className="nav">
-          {loading ? (
+          {isRecoveryPage ? null : loading ? (
             <div className="text-sm text-white/50">...</div>
           ) : user ? (
             <>
@@ -173,6 +174,13 @@ export default function Header() {
                       </div>
                       
                       <div className="p-2">
+                        <Link
+                          href="/standup/settings"
+                          onClick={() => setShowUserMenu(false)}
+                          className="block w-full text-left px-3 py-2 text-sm text-white/80 hover:bg-white/10 rounded-lg transition"
+                        >
+                          Settings
+                        </Link>
                         <button
                           onClick={handleLogout}
                           disabled={loggingOut}

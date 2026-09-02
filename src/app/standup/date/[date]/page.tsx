@@ -1,40 +1,129 @@
 "use client";
 
-// File: src/app/standup/date/[date]/page.tsx
-// This allows accessing any date from the calendar
+// Plan/edit goals for any date reached from the Calendar (past, future, or
+// "tomorrow" viewed ahead of time). Today itself redirects to /standup/today,
+// which has the review-specific UI this page doesn't need.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AuthGate from "@/components/AuthGate";
 import {
   getPlanWithGoals,
   isPrevDayReviewedForPlan,
   submitPlan,
   toISODate,
+  addDays,
+  formatDateDisplay,
   upsertGoals,
   deleteGoal,
-  type Goal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
-
-// This is essentially a copy of the Tomorrow page but works for ANY date
+import {
+  applyPriorityChange,
+  compactForSave,
+  compactForUI,
+  normalizeGoals,
+  DEFAULT_PRIORITY,
+  MAX_GOALS,
+  type DraftGoal,
+} from "@/lib/goalLogic";
+import { getPriorityMeta } from "@/lib/priorityStyles";
 
 export default function DynamicDatePage() {
   const params = useParams();
   const router = useRouter();
   const dateISO = params.date as string; // e.g., "2026-02-15"
-  
+  const todayISO = useMemo(() => toISODate(new Date()), []);
+  const prevDateISO = useMemo(() => toISODate(addDays(new Date(`${dateISO}T00:00:00`), -1)), [dateISO]);
+
   const [loading, setLoading] = useState(true);
   const [blocking, setBlocking] = useState(false);
-  const [goals, setGoals] = useState<Partial<Goal>[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
   const [planId, setPlanId] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<string>("draft");
+
+  const [goals, setGoals] = useState<DraftGoal[]>([
+    { title: "", sort_order: 0, priority: DEFAULT_PRIORITY },
+    { title: "", sort_order: 1, priority: DEFAULT_PRIORITY },
+    { title: "", sort_order: 2, priority: DEFAULT_PRIORITY },
+  ]);
+
   const [msg, setMsg] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
-  
-  // Drag handlers
+  const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
+
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
+
+  const originalIdsRef = useRef<Set<string>>(new Set());
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveInFlightRef = useRef(false);
+  const lastSavedHashRef = useRef<string>("");
+  const skipNextBlurAutosaveRef = useRef(false);
+  const priorityChangeInProgressRef = useRef(false);
+
+  // Debounced autosave is triggered from setTimeout callbacks that may have
+  // been created several renders ago (stale closures). Reading `goals`
+  // directly in persistGoals() would silently save an outdated snapshot —
+  // this ref always holds the latest value regardless of which render's
+  // closure ends up invoking the save.
+  const goalsRef = useRef<DraftGoal[]>(goals);
+  useEffect(() => {
+    goalsRef.current = goals;
+  }, [goals]);
+
+  useEffect(() => {
+    // Today has its own dedicated review UI — send today's date there instead.
+    if (dateISO === todayISO) {
+      router.replace("/standup/today");
+    }
+  }, [dateISO, todayISO, router]);
+
+  useEffect(() => {
+    if (pendingFocusIndex == null) return;
+
+    const raf = requestAnimationFrame(() => {
+      const el = inputRefs.current[pendingFocusIndex];
+      if (el) {
+        el.focus();
+        const v = el.value ?? "";
+        el.setSelectionRange(v.length, v.length);
+      }
+      setPendingFocusIndex(null);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [goals.length, pendingFocusIndex]);
+
+  // Fires the debounced autosave AFTER a priority change has actually been
+  // applied to `goals`. Doing this in an effect (rather than a setTimeout
+  // inside the select's onChange) matters: a setTimeout callback created
+  // inside the onChange closes over that render's stale `goals`/`persistGoals`,
+  // so it would silently save the OLD priority even though the UI shows the
+  // new one. An effect keyed on `goals` always runs with a fresh closure.
+  useEffect(() => {
+    if (!priorityChangeInProgressRef.current) return;
+    priorityChangeInProgressRef.current = false;
+    scheduleAutoSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goals]);
+
+  function computeHashForSave(currentGoals: DraftGoal[]) {
+    const normalized = normalizeGoals(currentGoals).map((g) => ({
+      id: g.id ?? null,
+      sort_order: g.sort_order,
+      title: (g.title ?? "").trim(),
+      priority:
+        typeof g.priority === "number" && Number.isFinite(g.priority)
+          ? g.priority
+          : DEFAULT_PRIORITY,
+    }));
+    return JSON.stringify(normalized);
+  }
+
+  // Drag-drop handlers for reordering
   function handleDragStart(idx: number) {
     setDraggedIdx(idx);
   }
@@ -42,50 +131,51 @@ export default function DynamicDatePage() {
   function handleDragOver(e: React.DragEvent, idx: number) {
     e.preventDefault();
     if (draggedIdx === null || draggedIdx === idx) return;
-    setGoals(prev => {
+
+    setGoals((prev) => {
       const newGoals = [...prev];
       const [dragged] = newGoals.splice(draggedIdx, 1);
       newGoals.splice(idx, 0, dragged);
       return newGoals.map((g, i) => ({ ...g, sort_order: i }));
     });
+
     setDraggedIdx(idx);
   }
 
   function handleDragEnd() {
     setDraggedIdx(null);
-    // Auto-save here
+    scheduleAutoSave();
   }
-  
+
   async function refresh() {
     setLoading(true);
     setMsg(null);
-    
-    // Check if previous day is reviewed
+
     const ok = await isPrevDayReviewedForPlan(dateISO);
     if (!ok) {
-      setMsg(`⚠️ Previous day must be reviewed first`);
+      setMsg(`⚠️ ${formatDateDisplay(prevDateISO)} must be reviewed before planning ${formatDateDisplay(dateISO)}.`);
       setBlocking(true);
       setLoading(false);
       return;
     }
-    
+
     setBlocking(false);
-    
+
     const { plan, goals: dbGoals } = await getPlanWithGoals(dateISO);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
-    
-    // Fetch reschedule origins
-    const goalIds = dbGoals.map(g => g.id).filter(Boolean) as string[];
+
+    // Fetch reschedule origin data for goals on this date
+    const goalIds = dbGoals.map((g) => g.id).filter(Boolean) as string[];
     let rescheduleOrigins: Record<string, { from_date: string; reason: string | null }> = {};
-    
+
     if (goalIds.length > 0) {
       const { data: reschedules } = await supabase
         .from("goal_reschedules")
         .select("materialized_goal_id, from_date, reason")
         .in("materialized_goal_id", goalIds)
         .eq("materialized", true);
-      
+
       reschedules?.forEach((item) => {
         if (item.materialized_goal_id) {
           rescheduleOrigins[item.materialized_goal_id] = {
@@ -95,110 +185,586 @@ export default function DynamicDatePage() {
         }
       });
     }
-    
-    const goalsWithOrigin = dbGoals.map(g => ({
+
+    const goalsWithOrigin = dbGoals.map((g) => ({
       ...g,
       rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
       reschedule_reason: rescheduleOrigins[g.id]?.reason || null,
     }));
-    
-    setGoals(goalsWithOrigin);
+
+    // Fetch previous actions/comments for all goals
+    let notesMap: Record<string, any[]> = {};
+    if (goalIds.length > 0) {
+      const { data: notes } = await supabase
+        .from("goal_notes")
+        .select("goal_id, note, created_at")
+        .in("goal_id", goalIds)
+        .order("created_at", { ascending: false });
+
+      notes?.forEach((note) => {
+        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
+        notesMap[note.goal_id].push(note);
+      });
+      setGoalComments(notesMap);
+    }
+
+    const goalsWithData = goalsWithOrigin.map((g) => ({
+      ...g,
+      previous_actions: notesMap[g.id] || [],
+    }));
+
+    originalIdsRef.current = new Set(goalIds);
+
+    const rows = compactForUI(goalsWithData);
+    setGoals(rows);
+    lastSavedHashRef.current = computeHashForSave(rows);
+
     setLoading(false);
   }
-  
+
   useEffect(() => {
-    refresh();
+    if (dateISO === todayISO) return; // redirecting away, don't bother loading
+    refresh().catch((e) => {
+      setMsg(e?.message ?? "Failed to load");
+      setLoading(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateISO]);
-  
-  if (loading) {
-    return (
-      <AuthGate>
-        <div className="card">
-          <h1 className="text-3xl font-bold">Loading...</h1>
-        </div>
-      </AuthGate>
-    );
+
+  function addMoreGoal() {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    setGoals((prev) => {
+      if (prev.length >= MAX_GOALS) {
+        setMsg(`Max ${MAX_GOALS} goals — keep this day focused.`);
+        return prev;
+      }
+      const nextIndex = prev.length;
+      const next = [
+        ...prev,
+        { title: "", sort_order: nextIndex, priority: DEFAULT_PRIORITY },
+      ];
+      setPendingFocusIndex(nextIndex);
+      return next;
+    });
   }
-  
+
+  function onGoalKeyDown(e: ReactKeyboardEvent<HTMLInputElement>, idx: number) {
+    const isEnter = e.key === "Enter" || e.key === "NumpadEnter";
+    if (!isEnter) return;
+    if (e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) return;
+    if (submitting) return;
+    if (planStatus === "locked") return;
+
+    e.preventDefault();
+    skipNextBlurAutosaveRef.current = true;
+
+    const isLast = idx === goals.length - 1;
+    if (isLast) {
+      if (goals.length >= MAX_GOALS) {
+        setMsg(`Max ${MAX_GOALS} goals — keep this day focused.`);
+        return;
+      }
+      addMoreGoal();
+    } else {
+      setPendingFocusIndex(idx + 1);
+    }
+  }
+
+  async function persistGoals(silent?: boolean) {
+    if (!planId) return;
+    if (planStatus === "locked") return;
+    if (autosaveInFlightRef.current) return;
+
+    const compacted = compactForSave(goalsRef.current);
+
+    const currentHash = computeHashForSave(compacted);
+    if (currentHash === lastSavedHashRef.current) {
+      if (!silent) setMsg("No changes to save.");
+      return;
+    }
+
+    autosaveInFlightRef.current = true;
+    if (!silent) setSubmitting(true);
+
+    try {
+      const toSave = compacted
+        .map((g) => ({
+          ...g,
+          title: (g.title ?? "").trim(),
+          priority:
+            typeof g.priority === "number" && Number.isFinite(g.priority)
+              ? g.priority
+              : DEFAULT_PRIORITY,
+        }))
+        .filter((g) => g.title.length > 0);
+
+      const currentIds = new Set(
+        toSave.map((g) => g.id).filter(Boolean) as string[]
+      );
+
+      const toDelete: string[] = [];
+      for (const id of originalIdsRef.current) {
+        if (!currentIds.has(id)) toDelete.push(id);
+      }
+
+      if (toDelete.length > 0) {
+        await Promise.all(
+          toDelete.map(async (id) => {
+            try {
+              await deleteGoal(id);
+            } catch {}
+          })
+        );
+      }
+
+      const saved = await upsertGoals(planId, toSave);
+
+      originalIdsRef.current = new Set(
+        saved.map((g) => g.id).filter(Boolean) as string[]
+      );
+
+      const rows = compactForUI(saved);
+      setGoals(rows);
+      lastSavedHashRef.current = computeHashForSave(rows);
+
+      if (!silent) {
+        setMsg(planStatus === "submitted" ? "Changes saved ✅" : "Saved ✅");
+      } else {
+        setMsg("Saved ✓");
+        window.setTimeout(
+          () => setMsg((m) => (m === "Saved ✓" ? null : m)),
+          900
+        );
+      }
+    } catch (e: any) {
+      setMsg(e?.message ?? "Save failed");
+    } finally {
+      autosaveInFlightRef.current = false;
+      if (!silent) setSubmitting(false);
+    }
+  }
+
+  function scheduleAutoSave() {
+    if (!planId) return;
+    if (planStatus === "locked") return;
+    if (submitting) return;
+    if (priorityChangeInProgressRef.current) return;
+
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      persistGoals(true).catch(() => {});
+    }, 450);
+  }
+
+  async function saveDraftOrChanges() {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    await persistGoals(false);
+  }
+
+  async function onSubmitPlan() {
+    if (!planId) {
+      setMsg("Missing plan id — refresh and try again.");
+      return;
+    }
+    if (planStatus === "locked") return;
+    if (planStatus === "submitted") {
+      setMsg("This plan is already submitted.");
+      return;
+    }
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    autosaveInFlightRef.current = false;
+
+    setMsg(null);
+
+    const compacted = compactForSave(goals);
+    const firstThree = compacted.slice(0, 3).map((g) => (g.title ?? "").trim());
+    if (firstThree.some((t) => t.length === 0)) {
+      setMsg(
+        `${formatDateDisplay(dateISO)} requires at least 3 goals. Fill in the first 3 goals before submitting.`
+      );
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const toSave = compacted
+        .map((g) => ({
+          ...g,
+          title: (g.title ?? "").trim(),
+          priority:
+            typeof g.priority === "number" && Number.isFinite(g.priority)
+              ? g.priority
+              : DEFAULT_PRIORITY,
+        }))
+        .filter((g) => g.title.length > 0);
+
+      await upsertGoals(planId, toSave);
+      await submitPlan(planId);
+
+      await refresh();
+      setMsg(`Plan for ${formatDateDisplay(dateISO)} submitted ✅`);
+    } catch (e: any) {
+      setMsg(e?.message ?? "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function removeGoal(idx: number) {
+    const g = goals[idx];
+
+    if (idx < 3) {
+      setGoals((prev) =>
+        prev.map((x, i) => (i === idx ? { ...x, title: "" } : x))
+      );
+
+      if (g.id) {
+        try {
+          await deleteGoal(g.id);
+        } catch {}
+      }
+
+      scheduleAutoSave();
+      return;
+    }
+
+    setGoals((prev) =>
+      prev
+        .filter((_, i) => i !== idx)
+        .map((x, i) => ({ ...x, sort_order: i }))
+    );
+
+    if (g.id) {
+      try {
+        await deleteGoal(g.id);
+      } catch {}
+    }
+
+    scheduleAutoSave();
+  }
+
+  if (dateISO === todayISO || loading) {
+    return <div className="card">Loading…</div>;
+  }
+
   if (blocking) {
     return (
-      <AuthGate>
-        <div className="card">
-          <h1 className="text-3xl font-bold">Goals for {dateISO}</h1>
-          <p className="mt-2 text-white/70">
-            Before you can plan this date, you must review the previous day.
-          </p>
-          {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
+      <div className="card">
+        <h1 className="text-3xl font-bold">Goals for {formatDateDisplay(dateISO)}</h1>
+        <p className="mt-2 text-white/70">
+          Before you can plan this date, you must review {formatDateDisplay(prevDateISO)} first.
+        </p>
+        <div className="mt-6">
+          <button
+            className="btn btn-primary"
+            onClick={() => router.push(prevDateISO === todayISO ? "/standup/today" : `/standup/date/${prevDateISO}`)}
+          >
+            Review {formatDateDisplay(prevDateISO)} First
+          </button>
         </div>
-      </AuthGate>
+        {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
+      </div>
     );
   }
-  
+
   const locked = planStatus === "locked";
   const submitted = planStatus === "submitted";
-  
+
+  const normalized = normalizeGoals(goals);
+
+  // Count goals with priority 1-3 that have content
+  const priorityGoalsFilled = normalized
+    .filter((g) => {
+      const priority = typeof g.priority === "number" ? g.priority : DEFAULT_PRIORITY;
+      return priority >= 1 && priority <= 3;
+    })
+    .filter((g) => (g.title ?? "").trim().length > 0)
+    .length;
+
+  const canSubmit =
+    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting;
+
+  const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
+
   return (
-    <AuthGate>
-      <div className="card">
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-2">Goals for {dateISO}</h1>
-            <p className="text-white/70">Plan your goals for this date</p>
-          </div>
-          
-          {!locked && !submitted && (
-            <button
-              onClick={() => setEditMode(!editMode)}
-              style={{
-                background: editMode ? "rgba(168, 85, 247, 0.3)" : "rgba(255,255,255,0.05)",
-                border: `2px solid ${editMode ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.1)"}`,
-                minWidth: "140px",
-                padding: "0.75rem 1.5rem",
-                borderRadius: "0.75rem"
-              }}
-              className="font-semibold transition-all hover:scale-105"
-            >
-              {editMode ? "✓ Done" : "✏️ Reorder"}
-            </button>
-          )}
+    <div
+      className="card"
+      style={{
+        background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+        border: "2px solid hsla(96, 91%, 49%, 0.69)",
+        boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+      }}
+    >
+      <div className="flex items-start justify-between mb-8">
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold mb-2">Goals for {formatDateDisplay(dateISO)}</h1>
+          <p className="text-white/70 mb-2">
+            Minimum <b>3</b> priority goals required (P1, P2, or P3).
+          </p>
+          <p className="text-sm text-white/50">
+            Current priority goals: <b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
+            {priorityGoalsFilled > 3 && <span className="text-blue-400"> (+{priorityGoalsFilled - 3} extra)</span>}
+          </p>
         </div>
-        
-        <div className="space-y-4">
-          {goals.map((g, idx) => (
-            <div
-              key={g.id || idx}
-              draggable={editMode}
-              onDragStart={() => handleDragStart(idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDragEnd={handleDragEnd}
-              className="p-6 rounded-xl bg-white/5 border border-white/10"
-              style={{
-                cursor: editMode ? "move" : "default",
-                opacity: draggedIdx === idx ? 0.5 : 1
-              }}
-            >
-              {editMode && (
-                <div className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl text-white/30">
-                  ⋮⋮
-                </div>
-              )}
-              
-              <div className="text-white text-xl">{g.title}</div>
-              
-              {(g as any).rescheduled_from_date && (
-                <div className="mt-2 text-xs text-purple-300/70">
-                  ↩️ Rescheduled from {(g as any).rescheduled_from_date}
-                  {(g as any).reschedule_reason && (
-                    <span className="italic ml-2">- "{(g as any).reschedule_reason}"</span>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        
-        {msg && <div className="mt-4 text-sm text-blue-400">{msg}</div>}
+
+        {!locked && (
+          <button
+            onClick={() => setEditMode(!editMode)}
+            disabled={submitting}
+            style={{
+              background: editMode ? "rgba(168, 85, 247, 0.3)" : "rgba(255,255,255,0.05)",
+              border: `2px solid ${editMode ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.1)"}`,
+              minWidth: "140px",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "0.75rem"
+            }}
+            className="font-semibold transition-all hover:scale-105"
+          >
+            {editMode ? "✓ Done" : "✏️ Reorder"}
+          </button>
+        )}
       </div>
-    </AuthGate>
+
+      <div className="space-y-4">
+        {goals.map((g, idx) => {
+          const p =
+            typeof g.priority === "number" && Number.isFinite(g.priority)
+              ? g.priority
+              : DEFAULT_PRIORITY;
+          const opt = getPriorityMeta(p);
+
+          return (
+            <div key={g.id ?? `row-${idx}`}>
+              {idx === 3 && (
+                <div className="my-6 flex items-center gap-4">
+                  <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
+                  <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
+                    Optional Goals
+                  </div>
+                  <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
+                </div>
+              )}
+
+              {/* Goal row with drag-drop support */}
+              <div
+                draggable={editMode && !locked && !submitting}
+                onDragStart={() => handleDragStart(idx)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDragEnd={handleDragEnd}
+                className="goal-row"
+                style={{
+                  "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(255,255,255,0.2)",
+                  cursor: editMode ? "move" : "default",
+                  opacity: draggedIdx === idx ? 0.5 : 1,
+                } as React.CSSProperties}
+              >
+                {/* Drag handle */}
+                {editMode && (
+                  <div
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                  >
+                    ⋮⋮
+                  </div>
+                )}
+
+                <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
+                  {/* Number badge */}
+                  <div
+                    className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      background: "rgba(255, 255, 255, 0.06)",
+                      border: "1px solid rgba(255, 255, 255, 0.14)",
+                    }}
+                  >
+                    {idx + 1}
+                  </div>
+
+                  {/* Goal input - takes up most space */}
+                  <input
+                    ref={(el) => {
+                      inputRefs.current[idx] = el;
+                    }}
+                    type="text"
+                    value={g.title ?? ""}
+                    disabled={locked || submitting}
+                    onKeyDown={(e) => onGoalKeyDown(e, idx)}
+                    onBlur={() => {
+                      if (skipNextBlurAutosaveRef.current) {
+                        skipNextBlurAutosaveRef.current = false;
+                        return;
+                      }
+                      if (priorityChangeInProgressRef.current) {
+                        return;
+                      }
+                      scheduleAutoSave();
+                    }}
+                    onChange={(e) =>
+                      setGoals((prev) =>
+                        prev.map((x, i) =>
+                          i === idx ? { ...x, title: e.target.value } : x
+                        )
+                      )
+                    }
+                    placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
+                    style={{ padding: "0 1.5rem" }}
+                    className="flex-1 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
+                  />
+
+                  {/* Show if this goal was rescheduled FROM another date */}
+                  {g.id && g.rescheduled_from_date && (
+                    <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
+                      <div className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5">
+                        <span className="text-lg">↩️</span>
+                        <div>
+                          <div className="text-xs font-semibold text-purple-300">
+                            Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
+                          </div>
+                          {g.reschedule_reason && (
+                            <div className="text-xs text-purple-300/70 italic mt-0.5">
+                              "{g.reschedule_reason}"
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Previous actions/comments */}
+                  {g.id && g.previous_actions && g.previous_actions.length > 0 && (
+                    <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
+                      <details className="text-xs">
+                        <summary className="text-blue-400 cursor-pointer hover:text-blue-300">
+                          💬 {g.previous_actions.length} previous action{g.previous_actions.length > 1 ? 's' : ''}
+                        </summary>
+                        <div className="mt-2 space-y-1 pl-4">
+                          {g.previous_actions.map((action, i) => (
+                            <div key={i} className="text-white/60 border-l-2 border-white/10 pl-2">
+                              {action.note}
+                              <div className="text-white/40 text-[10px]">{new Date(action.created_at).toLocaleString()}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+
+                  {/* Priority + Remove — grouped together, same fashion, always visible
+                      regardless of priority value (P4/P5 must stay changeable/visible). */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <select
+                      value={p}
+                      disabled={locked || submitting}
+                      onChange={(e) => {
+                        priorityChangeInProgressRef.current = true;
+                        const v = Number(e.target.value);
+                        setGoals((prev) => applyPriorityChange(prev, idx, v));
+                      }}
+                      className="priority-select"
+                      style={{
+                        "--p-bg": opt.bg,
+                        "--p-border": opt.border,
+                        "--p-color": opt.color,
+                      } as React.CSSProperties}
+                    >
+                      {[1, 2, 3, 4, 5].map((v) => (
+                        <option key={v} value={v}>
+                          P{v}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Clear/Remove button - same size/shape as the priority select */}
+                    {!locked && (
+                      <button
+                        onClick={() => removeGoal(idx)}
+                        disabled={submitting}
+                        style={{
+                          width: "44px",
+                          height: "32px",
+                          borderRadius: "8px",
+                          background: "rgba(255, 255, 255, 0.06)",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                        }}
+                        className="flex-shrink-0 flex items-center justify-center hover:bg-black/40 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-105"
+                        title={(p >= 1 && p <= 3) ? "Clear priority goal" : "Remove goal"}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {!locked && (
+        <div className="mt-8 flex flex-wrap gap-4 items-center">
+          <button
+            className="btn hover-scale"
+            onClick={addMoreGoal}
+            disabled={!canAddMore}
+            title={
+              goals.length >= MAX_GOALS ? `Max ${MAX_GOALS} goals reached` : ""
+            }
+          >
+            + Add goal
+          </button>
+
+          <button
+            className="btn hover-scale"
+            onClick={saveDraftOrChanges}
+            disabled={submitting}
+            title="Manual save (auto-saves too)"
+          >
+            {submitting ? "Saving…" : submitted ? "Save changes" : "Save draft"}
+          </button>
+
+          <button
+            className="btn btn-primary hover-scale"
+            onClick={onSubmitPlan}
+            disabled={!canSubmit || submitted}
+          >
+            {submitting
+              ? "Submitting…"
+              : submitted
+              ? "✅ Plan submitted"
+              : "Submit plan"}
+          </button>
+
+          <div className="text-sm text-white/60">
+            {goals.length}/{MAX_GOALS} goals
+          </div>
+        </div>
+      )}
+
+      {locked && (
+        <div className="mt-6 text-white/70">
+          This plan is <b>{planStatus}</b>.
+        </div>
+      )}
+
+      {msg && (
+        <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+          {msg}
+        </div>
+      )}
+    </div>
   );
 }

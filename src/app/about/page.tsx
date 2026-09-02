@@ -1,11 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { Playfair_Display } from "next/font/google";
+
+const cardTitleFont = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["700"],
+});
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-4">About StandUp</h1>
@@ -19,29 +25,39 @@ export default function AboutPage() {
           </p>
         </div>
 
-        {/* Philosophy */}
-        <div className="card mb-8">
-          <h2 className="text-2xl font-bold mb-4">Our Philosophy</h2>
+        {/* Article-grid layout: an actual grid with mixed box sizes/spans,
+            like a newspaper page — not a single column-spanning box. */}
+        <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          {/* Philosophy — paired side-by-side with Vision */}
+          <div
+            className="card"
+            style={{
+              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+              border: "3px solid hsla(0, 91%, 49%, 0.72)",
+              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+            }}
+          >
+          <div className="p-6">
+            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Philosophy</h2>
 
-          <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-white/80">
-            <p className="text-sm text-white/70">
-              Most productivity tools focus on checking boxes. StandUp focuses on{" "}
-              <b>awareness</b>, <b>review</b>, and <b>follow-through</b>. Completion
-              matters — but reflection is what compounds.
-            </p>
-            <p className="mt-3 text-sm text-white/70">
-              One simple rule keeps the system honest:
-            </p>
-            <p className="mt-2 text-sm font-semibold text-white">
-              You can’t plan tomorrow until you’ve reviewed today.
-            </p>
-          </div>
+            <div className="mb-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
+              <p className="text-sm text-white/70">
+                Most productivity tools focus on checking boxes. StandUp focuses on{" "}
+                <b>awareness</b>, <b>review</b>, and <b>follow-through</b>. Completion
+                matters — but reflection is what compounds.
+              </p>
+              <p className="mt-3 text-sm text-white/70">
+                One simple rule keeps the system honest:
+              </p>
+              <p className="mt-2 text-sm font-semibold text-white">
+                You can’t plan tomorrow until you’ve reviewed today.
+              </p>
+            </div>
 
-          <div className="space-y-4 text-white/80">
-            <div className="flex gap-4">
-              <div className="text-3xl">🧠</div>
+            <div className="space-y-4 text-white/80">
               <div>
-                <h3 className="font-semibold text-white mb-1">
+                <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
+                  <span className="text-xl">🧠</span>
                   Awareness Before Action
                 </h3>
                 <p className="text-sm text-white/70">
@@ -49,12 +65,10 @@ export default function AboutPage() {
                   engagement leads to better decisions and stronger execution.
                 </p>
               </div>
-            </div>
 
-            <div className="flex gap-4">
-              <div className="text-3xl">🔄</div>
               <div>
-                <h3 className="font-semibold text-white mb-1">
+                <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
+                  <span className="text-xl">🔄</span>
                   Reflection Before Planning
                 </h3>
                 <p className="text-sm text-white/70">
@@ -62,12 +76,10 @@ export default function AboutPage() {
                   planning on top of unprocessed days and keeps your system real.
                 </p>
               </div>
-            </div>
 
-            <div className="flex gap-4">
-              <div className="text-3xl">📈</div>
               <div>
-                <h3 className="font-semibold text-white mb-1">
+                <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
+                  <span className="text-xl">📈</span>
                   Consistency Over Intensity
                 </h3>
                 <p className="text-sm text-white/70">
@@ -77,71 +89,140 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Features */}
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">📋 Daily Review</h3>
-            <p className="text-sm text-white/70">
-              Review each goal with intention — even if it didn’t go perfectly.
-              Update status, add notes, and reschedule when needed. Every goal
-              gets conscious attention.
-            </p>
           </div>
 
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">🎯 Intentional Planning</h3>
-            <p className="text-sm text-white/70">
-              Set at least 3 goals for tomorrow and assign priority. Only one
-              P1 is allowed so you stay focused on what truly matters.
+          {/* Vision — paired side-by-side with Philosophy */}
+          <div
+            className="card"
+            style={{
+              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+              border: "3px solid hsla(0, 91%, 49%, 0.72)",
+              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+            }}
+          >
+          <div className="p-6">
+            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Vision</h2>
+            <p className="text-white/80 mb-4">
+              StandUp is more than a todo list. It’s a daily operating system for
+              intentional work. We believe:
             </p>
+            <ul className="space-y-2 text-white/70 text-sm list-disc list-inside">
+              <li>Awareness precedes effective action</li>
+              <li>Reflection enables continuous improvement</li>
+              <li>Consistency compounds into mastery</li>
+              <li>Small daily wins build lasting habits</li>
+              <li>Intentionality beats reactivity</li>
+            </ul>
+
+            <p className="text-white/80 mt-4">
+              StandUp is also the foundation for a broader follow-up operating
+              system — a place to track real-world commitments like job search
+              activity, recruiter conversations, and time-sensitive follow-ups,
+              with AI assistance where it genuinely helps.
+            </p>
+
+            <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
+              <p className="text-sm text-white/70">
+                <span className="font-semibold text-white">North Star:</span>{" "}
+                Awareness before action. Progress begins with review.
+              </p>
+            </div>
+          </div>
           </div>
 
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">🔥 Points & Streaks</h3>
-            <p className="text-sm text-white/70">
-              Earn points for showing up (awareness) and for closing the loop
-              (review + action). Build streaks through daily consistency — not
-              unrealistic perfection.
-            </p>
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">📅 Smart Rescheduling</h3>
-            <p className="text-sm text-white/70">
-              Reschedule goals to a future date (with an optional reason). They
-              automatically appear when that date arrives — no manual copying.
-            </p>
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">🚫 Review Gating</h3>
-            <p className="text-sm text-white/70">
-              Tomorrow’s planning is locked until today is reviewed. This
-              prevents drifting into endless planning without learning from the
-              day you just lived.
-            </p>
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">🧾 Honest Outcomes</h3>
-            <p className="text-sm text-white/70">
-              StandUp separates <b>review</b> from <b>completion</b>. A goal can
-              be reviewed and marked attempted, blocked, or postponed — without
-              guilt. Reflection is still progress.
-            </p>
-          </div>
-        </div>
-
-        {/* How It Works */}
-        <div className="card mb-8">
-          <h2 className="text-2xl font-bold mb-6">How It Works</h2>
-          <div className="space-y-6">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold">
-                1
+          {/* The Bigger Picture — full-width band below the pair */}
+          <div
+            className="card"
+            style={{
+              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+              border: "3px solid hsla(0, 91%, 49%, 0.72)",
+              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+            }}
+          >
+          <div className="p-6">
+            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>The Bigger Picture</h2>
+            <div className="space-y-5">
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">📋</span>
+                  Daily Review
+                </h3>
+                <p className="text-sm text-white/60">
+                  Review each goal with intention — even if it didn’t go perfectly.
+                  Update status, add notes, and reschedule when needed.
+                </p>
               </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">🎯</span>
+                  Intentional Planning
+                </h3>
+                <p className="text-sm text-white/60">
+                  Set at least 3 goals for tomorrow and assign priority. Only one
+                  P1 is allowed so you stay focused on what truly matters.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">🔥</span>
+                  Points &amp; Streaks
+                </h3>
+                <p className="text-sm text-white/60">
+                  Earn points for showing up and for closing the loop. Build
+                  streaks through daily consistency — not unrealistic perfection.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">📅</span>
+                  Smart Rescheduling
+                </h3>
+                <p className="text-sm text-white/60">
+                  Reschedule goals to a future date. They automatically appear
+                  when that date arrives — no manual copying.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">🚫</span>
+                  Review Gating
+                </h3>
+                <p className="text-sm text-white/60">
+                  Tomorrow’s planning is locked until today is reviewed — no
+                  drifting into endless planning without learning from today.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">🧾</span>
+                  Honest Outcomes
+                </h3>
+                <p className="text-sm text-white/60">
+                  StandUp separates <b>review</b> from <b>completion</b>. A goal
+                  can be marked attempted, blocked, or postponed — without guilt.
+                </p>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          {/* How It Works — full-width footer band, like "Competitions" */}
+          <div
+            className="card"
+            style={{
+              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+              border: "3px solid hsla(0, 91%, 49%, 0.72)",
+              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+            }}
+          >
+          <div className="p-6">
+            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>How It Works</h2>
+            <div className="space-y-8">
               <div>
                 <h3 className="font-semibold text-white mb-1">Plan Tomorrow</h3>
                 <p className="text-sm text-white/70">
@@ -149,12 +230,7 @@ export default function AboutPage() {
                   (P1 = highest; only one P1). Save your draft or submit your plan.
                 </p>
               </div>
-            </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold">
-                2
-              </div>
               <div>
                 <h3 className="font-semibold text-white mb-1">Review Today</h3>
                 <p className="text-sm text-white/70">
@@ -163,12 +239,7 @@ export default function AboutPage() {
                   follow-up notes if needed.
                 </p>
               </div>
-            </div>
 
-            <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center font-bold">
-                3
-              </div>
               <div>
                 <h3 className="font-semibold text-white mb-1">Close the Loop</h3>
                 <p className="text-sm text-white/70">
@@ -178,35 +249,6 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Vision */}
-        <div className="card mb-8">
-          <h2 className="text-2xl font-bold mb-4">Our Vision</h2>
-          <p className="text-white/80 mb-4">
-            StandUp is more than a todo list. It’s a daily operating system for
-            intentional work. We believe:
-          </p>
-          <ul className="space-y-2 text-white/70 text-sm">
-            <li>• Awareness precedes effective action</li>
-            <li>• Reflection enables continuous improvement</li>
-            <li>• Consistency compounds into mastery</li>
-            <li>• Small daily wins build lasting habits</li>
-            <li>• Intentionality beats reactivity</li>
-          </ul>
-
-          <p className="text-white/80 mt-4">
-            StandUp is also the foundation for a broader follow-up operating
-            system — a place to track real-world commitments like job search
-            activity, recruiter conversations, and time-sensitive follow-ups,
-            with AI assistance where it genuinely helps.
-          </p>
-
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p className="text-sm text-white/70">
-              <span className="font-semibold text-white">North Star:</span>{" "}
-              Awareness before action. Progress begins with review.
-            </p>
           </div>
         </div>
 

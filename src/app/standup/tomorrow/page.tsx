@@ -2,218 +2,31 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import AuthGate from "@/components/AuthGate";
 import {
   addDays,
+  addGoalNote,
   getPlanWithGoals,
   isYesterdayReviewed,
   submitPlan,
   toISODate,
+  formatDateDisplay,
+  formatDateTimeDisplay,
   upsertGoals,
   deleteGoal,
-  type Goal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import {
+  applyPriorityChange,
+  compactForSave,
+  compactForUI,
+  normalizeGoals,
+  DEFAULT_PRIORITY,
+  MAX_GOALS,
+  type DraftGoal,
+} from "@/lib/goalLogic";
+import { getPriorityMeta } from "@/lib/priorityStyles";
 
-type DraftGoal = Partial<Goal> & {
-  title: string;
-  sort_order: number;
-  priority?: number;
-};
-
-const MAX_GOALS = 10;
-const DEFAULT_PRIORITY = 3;
-const DEMOTED_PRIORITY = 2;
-
-// ✨ Priority options with refined colors
-const PRIORITY_OPTIONS = [
-  { 
-    v: 1, 
-    label: "Highest Priority", 
-    icon: "🔴",
-    // Lighter, more visible red card background
-    bgGradient: "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(225, 29, 72, 0.15))",
-    borderColor: "rgba(239, 68, 68, 0.3)",
-    // Vibrant red button
-    buttonBg: "linear-gradient(135deg, #dc2626, #b91c1c)",
-    buttonBorder: "#991b1b",
-    buttonShadow: "0 4px 16px rgba(220, 38, 38, 0.4)"
-  },
-  { 
-    v: 2, 
-    label: "High Priority", 
-    icon: "🟠",
-    // Lighter orange card background
-    bgGradient: "linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(251, 146, 60, 0.15))",
-    borderColor: "rgba(249, 115, 22, 0.3)",
-    // Vibrant orange button
-    buttonBg: "linear-gradient(135deg, #ea580c, #c2410c)",
-    buttonBorder: "#9a3412",
-    buttonShadow: "0 4px 16px rgba(234, 88, 12, 0.4)"
-  },
-  { 
-    v: 3, 
-    label: "Medium Priority", 
-    icon: "🟡",
-    // Lighter yellow card background
-    bgGradient: "linear-gradient(135deg, rgba(250, 204, 21, 0.15), rgba(253, 224, 71, 0.15))",
-    borderColor: "rgba(250, 204, 21, 0.3)",
-    // Vibrant yellow button
-    buttonBg: "linear-gradient(135deg, #ca8a04, #a16207)",
-    buttonBorder: "#854d0e",
-    buttonShadow: "0 4px 16px rgba(202, 138, 4, 0.4)"
-  },
-  { 
-    v: 4, 
-    label: "Low Priority", 
-    icon: "⚪",
-    bgGradient: "linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(203, 213, 225, 0.12))",
-    borderColor: "rgba(148, 163, 184, 0.25)",
-    buttonBg: "linear-gradient(135deg, rgba(100, 116, 139, 0.8), rgba(71, 85, 105, 0.8))",
-    buttonBorder: "rgba(100, 116, 139, 0.9)",
-    buttonShadow: "0 4px 16px rgba(100, 116, 139, 0.3)"
-  },
-  { 
-    v: 5, 
-    label: "Lowest Priority", 
-    icon: "⚫",
-    bgGradient: "linear-gradient(135deg, rgba(71, 85, 105, 0.12), rgba(51, 65, 85, 0.12))",
-    borderColor: "rgba(71, 85, 105, 0.25)",
-    buttonBg: "linear-gradient(135deg, rgba(71, 85, 105, 0.7), rgba(51, 65, 85, 0.7))",
-    buttonBorder: "rgba(71, 85, 105, 0.8)",
-    buttonShadow: "0 4px 16px rgba(71, 85, 105, 0.3)"
-  },
-];
-
-function getPriorityOption(priority: number) {
-  return PRIORITY_OPTIONS.find(p => p.v === priority) || PRIORITY_OPTIONS[2];
-}
-
-function normalizeGoals(goals: DraftGoal[]) {
-  return goals.map((g, idx) => ({
-    ...g,
-    sort_order: idx,
-    title: (g.title ?? "").trim(),
-    priority:
-      typeof g.priority === "number" && Number.isFinite(g.priority)
-        ? g.priority
-        : DEFAULT_PRIORITY,
-  }));
-}
-
-function compactForUI(dbGoals: Goal[]) {
-  const sorted = [...dbGoals]
-    .map((g) => ({
-      ...g,
-      title: (g.title ?? "").toString(),
-      sort_order: Number.isFinite(g.sort_order as any)
-        ? (g.sort_order as number)
-        : 0,
-      priority:
-        typeof (g as any).priority === "number" &&
-        Number.isFinite((g as any).priority)
-          ? ((g as any).priority as number)
-          : DEFAULT_PRIORITY,
-    }))
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-
-  const nonEmpty = sorted.filter((g) => (g.title ?? "").trim().length > 0);
-
-  const compacted: DraftGoal[] = nonEmpty.map((g, idx) => ({
-    ...g,
-    title: (g.title ?? "").toString(),
-    sort_order: idx,
-    priority:
-      typeof g.priority === "number" && Number.isFinite(g.priority)
-        ? g.priority
-        : DEFAULT_PRIORITY,
-  }));
-
-  while (compacted.length < 3) {
-    compacted.push({
-      title: "",
-      sort_order: compacted.length,
-      priority: DEFAULT_PRIORITY,
-    });
-  }
-
-  for (let i = 0; i < Math.min(3, compacted.length); i++) {
-    if (
-      typeof compacted[i].priority !== "number" ||
-      !Number.isFinite(compacted[i].priority)
-    ) {
-      compacted[i].priority = DEFAULT_PRIORITY;
-    }
-  }
-
-  return compacted.slice(0, Math.max(3, MAX_GOALS));
-}
-
-function compactForSave(current: DraftGoal[]) {
-  const normalized = normalizeGoals(current);
-
-  const first3 = normalized.slice(0, 3).map((g) => ({
-    ...g,
-    title: (g.title ?? "").trim(),
-    priority:
-      typeof g.priority === "number" && Number.isFinite(g.priority)
-        ? g.priority
-        : DEFAULT_PRIORITY,
-  }));
-
-  const optionalNonEmpty = normalized
-    .slice(3)
-    .map((g) => ({ ...g, title: (g.title ?? "").trim() }))
-    .filter((g) => g.title.length > 0);
-
-  const combined: DraftGoal[] = [...first3, ...optionalNonEmpty]
-    .slice(0, MAX_GOALS)
-    .map((g, idx) => ({
-      ...g,
-      sort_order: idx,
-      priority:
-        typeof g.priority === "number" && Number.isFinite(g.priority)
-          ? g.priority
-          : DEFAULT_PRIORITY,
-    }));
-
-  while (combined.length < 3) {
-    combined.push({
-      title: "",
-      sort_order: combined.length,
-      priority: DEFAULT_PRIORITY,
-    });
-  }
-
-  for (let i = 0; i < 3; i++) {
-    combined[i] = {
-      ...combined[i],
-      priority:
-        typeof combined[i].priority === "number" &&
-        Number.isFinite(combined[i].priority)
-          ? combined[i].priority
-          : DEFAULT_PRIORITY,
-    };
-  }
-
-  return combined;
-}
-
-function applyPriorityChange(prev: DraftGoal[], idx: number, newP: number) {
-  const next = prev.map((g) => ({ ...g }));
-  next[idx].priority = newP;
-
-  if (idx < 3 && newP === 1) {
-    for (let i = 0; i < 3; i++) {
-      if (i !== idx && (next[i].priority ?? DEFAULT_PRIORITY) === 1) {
-        next[i].priority = DEMOTED_PRIORITY;
-      }
-    }
-  }
-
-  return next;
-}
 
 export default function TomorrowGoalsPage() {
   const router = useRouter();
@@ -237,6 +50,11 @@ export default function TomorrowGoalsPage() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
 
+  // Notes / History tabs (same as Today page) — defaults to "notes"
+  const [activeTab, setActiveTab] = useState<Record<string, "notes" | "history">>({});
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
+  const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
 
@@ -246,6 +64,16 @@ export default function TomorrowGoalsPage() {
   const lastSavedHashRef = useRef<string>("");
   const skipNextBlurAutosaveRef = useRef(false);
   const priorityChangeInProgressRef = useRef(false);
+
+  // Debounced autosave is triggered from setTimeout callbacks that may have
+  // been created several renders ago (stale closures). Reading `goals`
+  // directly in persistGoals() would silently save an outdated snapshot —
+  // this ref always holds the latest value regardless of which render's
+  // closure ends up invoking the save.
+  const goalsRef = useRef<DraftGoal[]>(goals);
+  useEffect(() => {
+    goalsRef.current = goals;
+  }, [goals]);
 
   useEffect(() => {
     if (pendingFocusIndex == null) return;
@@ -262,6 +90,19 @@ export default function TomorrowGoalsPage() {
 
     return () => cancelAnimationFrame(raf);
   }, [goals.length, pendingFocusIndex]);
+
+  // Fires the debounced autosave AFTER a priority change has actually been
+  // applied to `goals`. Doing this in an effect (rather than a setTimeout
+  // inside the select's onChange) matters: a setTimeout callback created
+  // inside the onChange closes over that render's stale `goals`/`persistGoals`,
+  // so it would silently save the OLD priority even though the UI shows the
+  // new one. An effect keyed on `goals` always runs with a fresh closure.
+  useEffect(() => {
+    if (!priorityChangeInProgressRef.current) return;
+    priorityChangeInProgressRef.current = false;
+    scheduleAutoSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goals]);
 
   function computeHashForSave(currentGoals: DraftGoal[]) {
     const normalized = normalizeGoals(currentGoals).map((g) => ({
@@ -306,16 +147,10 @@ export default function TomorrowGoalsPage() {
 
     // Check gating
     const ok = await isYesterdayReviewed();
-    console.log("🔍 DEBUG: isYesterdayReviewed() =", ok);
-    
+
     if (!ok) {
-      // Add debug info
       const todayISO = toISODate(new Date());
-      const { plan: todayPlan } = await getPlanWithGoals(todayISO);
-      console.log("🔍 DEBUG: Today's plan:", todayPlan);
-      console.log("🔍 DEBUG: reviewed_at:", todayPlan?.reviewed_at);
-      
-      setMsg(`⚠️ Review Today first. Today (${todayISO}) must be closed before planning tomorrow.`);
+      setMsg(`⚠️ Review Today first. Today (${formatDateDisplay(todayISO)}) must be closed before planning tomorrow.`);
       setBlocking(true);
       setLoading(false);
       return;
@@ -332,14 +167,12 @@ export default function TomorrowGoalsPage() {
     let rescheduleOrigins: Record<string, { from_date: string; reason: string | null }> = {};
     
     if (goalIds.length > 0) {
-      const { data: reschedules, error: rescheduleError } = await supabase
+      const { data: reschedules } = await supabase
         .from("goal_reschedules")
         .select("materialized_goal_id, from_date, reason")
         .in("materialized_goal_id", goalIds)
         .eq("materialized", true);
-      
-      console.log("🔍 Reschedule query:", { goalIds, reschedules, rescheduleError });
-      
+
       reschedules?.forEach((item) => {
         if (item.materialized_goal_id) {
           rescheduleOrigins[item.materialized_goal_id] = {
@@ -348,8 +181,6 @@ export default function TomorrowGoalsPage() {
           };
         }
       });
-      
-      console.log("🔍 Reschedule origins map:", rescheduleOrigins);
     }
     
     // Attach reschedule origin to goals
@@ -381,14 +212,6 @@ export default function TomorrowGoalsPage() {
       previous_actions: notesMap[g.id] || [],
     }));
     
-    console.log("🔍 Final goals with data:", goalsWithData.map(g => ({
-      id: g.id,
-      title: g.title,
-      rescheduled_from_date: (g as any).rescheduled_from_date,
-      reschedule_reason: (g as any).reschedule_reason,
-      previous_actions: (g as any).previous_actions?.length || 0
-    })));
-
     originalIdsRef.current = new Set(goalIds);
 
     const rows = compactForUI(goalsWithData);
@@ -454,7 +277,7 @@ export default function TomorrowGoalsPage() {
     if (planStatus === "locked") return;
     if (autosaveInFlightRef.current) return;
 
-    const compacted = compactForSave(goals);
+    const compacted = compactForSave(goalsRef.current);
 
     const currentHash = computeHashForSave(compacted);
     if (currentHash === lastSavedHashRef.current) {
@@ -496,7 +319,7 @@ export default function TomorrowGoalsPage() {
         );
       }
 
-      const saved = await upsertGoals(planId, toSave as any);
+      const saved = await upsertGoals(planId, toSave);
 
       originalIdsRef.current = new Set(
         saved.map((g) => g.id).filter(Boolean) as string[]
@@ -585,7 +408,7 @@ export default function TomorrowGoalsPage() {
         }))
         .filter((g) => g.title.length > 0);
 
-      await upsertGoals(planId, toSave as any);
+      await upsertGoals(planId, toSave);
       await submitPlan(planId);
 
       await refresh();
@@ -630,33 +453,49 @@ export default function TomorrowGoalsPage() {
     scheduleAutoSave();
   }
 
+  async function submitNote(goalId: string, idx: number) {
+    const text = (noteDraft[goalId] ?? "").trim();
+    if (!text) return;
+    setSavingNote((prev) => ({ ...prev, [goalId]: true }));
+    try {
+      await addGoalNote(goalId, text);
+      const { data: notes } = await supabase
+        .from("goal_notes")
+        .select("*")
+        .eq("goal_id", goalId)
+        .order("created_at", { ascending: false });
+      setGoals((prev) =>
+        prev.map((g, i) => (i === idx ? { ...g, previous_actions: notes || [] } : g))
+      );
+      setNoteDraft((prev) => ({ ...prev, [goalId]: "" }));
+    } catch (e: any) {
+      setMsg(e?.message ?? "Failed to add note");
+    } finally {
+      setSavingNote((prev) => ({ ...prev, [goalId]: false }));
+    }
+  }
+
   if (loading) {
-    return (
-      <AuthGate>
-        <div className="card">Loading…</div>
-      </AuthGate>
-    );
+    return <div className="card">Loading…</div>;
   }
 
   if (blocking) {
     return (
-      <AuthGate>
-        <div className="card">
-          <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
-          <p className="mt-2 text-white/70">
-            Before you set tomorrow's goals, you must review your goals for Today.
-          </p>
-          <div className="mt-6">
-            <button
-              className="btn btn-primary"
-              onClick={() => router.push("/standup/today")}
-            >
-              Review Today First
-            </button>
-          </div>
-          {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
+      <div className="card">
+        <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
+        <p className="mt-2 text-white/70">
+          Before you set tomorrow's goals, you must review your goals for Today.
+        </p>
+        <div className="mt-6">
+          <button
+            className="btn btn-primary"
+            onClick={() => router.push("/standup/today")}
+          >
+            Review Today First
+          </button>
         </div>
-      </AuthGate>
+        {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
+      </div>
     );
   }
 
@@ -680,9 +519,15 @@ export default function TomorrowGoalsPage() {
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
   return (
-    <AuthGate>
-      <div className="card">
-        <div className="flex items-start justify-between mb-8">
+    <div
+      className="card"
+      style={{
+        background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+        border: "2px solid hsla(96, 91%, 49%, 0.69)",
+        boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+      }}
+    >
+      <div className="flex items-start justify-between mb-8">
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">Tomorrow Goals</h1>
             <p className="text-white/70 mb-2">
@@ -718,7 +563,7 @@ export default function TomorrowGoalsPage() {
               typeof g.priority === "number" && Number.isFinite(g.priority)
                 ? g.priority
                 : DEFAULT_PRIORITY;
-            const opt = getPriorityOption(p);
+            const opt = getPriorityMeta(p);
 
             return (
               <div key={g.id ?? `row-${idx}`}>
@@ -732,193 +577,243 @@ export default function TomorrowGoalsPage() {
                   </div>
                 )}
 
-                {/* ✨ Gradient card with drag-drop support */}
-                <div 
+                {/* Goal row with drag-drop support */}
+                <div
                   draggable={editMode && !locked && !submitting}
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDragEnd={handleDragEnd}
-                  className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.005]"
+                  className="goal-row"
                   style={{
-                    background: (p >= 1 && p <= 3) ? opt.bgGradient : "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06))",
-                    border: `2px solid ${(p >= 1 && p <= 3) ? opt.borderColor : "rgba(255,255,255,0.08)"}`,
-                    padding: "2rem 2.5rem",
+                    "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(255,255,255,0.2)",
                     cursor: editMode ? "move" : "default",
-                    opacity: draggedIdx === idx ? 0.5 : 1
-                  }}
+                    opacity: draggedIdx === idx ? 0.5 : 1,
+                  } as React.CSSProperties}
                 >
                   {/* Drag handle */}
                   {editMode && (
-                    <div 
+                    <div
                       className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
                       style={{ color: "rgba(255,255,255,0.3)" }}
                     >
                       ⋮⋮
                     </div>
                   )}
-                  
-                  <div className="flex items-center" style={{ gap: "2rem" }}>
-                    {/* Number badge - circular */}
-                    <div 
-                      className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-xl"
+
+                  <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
+                    {/* Number badge */}
+                    <div
+                      className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
                       style={{
-                        width: "56px",
-                        height: "56px",
-                        background: "linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5))",
-                        border: "2px solid rgba(255, 255, 255, 0.25)",
-                        boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3)"
+                        width: "32px",
+                        height: "32px",
+                        background: "rgba(255, 255, 255, 0.06)",
+                        border: "1px solid rgba(255, 255, 255, 0.14)",
                       }}
                     >
                       {idx + 1}
                     </div>
 
-                    {/* Goal input - takes up most space */}
-                    <input
-                      ref={(el) => {
-                        inputRefs.current[idx] = el;
-                      }}
-                      type="text"
-                      value={g.title ?? ""}
-                      disabled={locked || submitting}
-                      onKeyDown={(e) => onGoalKeyDown(e, idx)}
-                      onBlur={() => {
-                        if (skipNextBlurAutosaveRef.current) {
-                          skipNextBlurAutosaveRef.current = false;
-                          return;
-                        }
-                        if (priorityChangeInProgressRef.current) {
-                          return;
-                        }
-                        scheduleAutoSave();
-                      }}
-                      onChange={(e) =>
-                        setGoals((prev) =>
-                          prev.map((x, i) =>
-                            i === idx ? { ...x, title: e.target.value } : x
+                    {/* Goal — static, ~45% */}
+                    <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
+                      <input
+                        ref={(el) => {
+                          inputRefs.current[idx] = el;
+                        }}
+                        type="text"
+                        value={g.title ?? ""}
+                        disabled={locked || submitting}
+                        onKeyDown={(e) => onGoalKeyDown(e, idx)}
+                        onBlur={() => {
+                          if (skipNextBlurAutosaveRef.current) {
+                            skipNextBlurAutosaveRef.current = false;
+                            return;
+                          }
+                          if (priorityChangeInProgressRef.current) {
+                            return;
+                          }
+                          scheduleAutoSave();
+                        }}
+                        onChange={(e) =>
+                          setGoals((prev) =>
+                            prev.map((x, i) =>
+                              i === idx ? { ...x, title: e.target.value } : x
+                            )
                           )
-                        )
-                      }
-                      placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
-                      style={{ padding: "0 1.5rem" }}
-                      className="flex-1 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
-                    />
-                    
-                    {/* Show if this goal was rescheduled FROM another date */}
-                    {g.id && (g as any).rescheduled_from_date && (
-                      <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
-                        <div className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5">
-                          <span className="text-lg">↩️</span>
-                          <div>
-                            <div className="text-xs font-semibold text-purple-300">
-                              Rescheduled from {(g as any).rescheduled_from_date}
+                        }
+                        placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
+                        className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
+                      />
+                    </div>
+
+                    {/* Notes / History — tabbed, ~45%, same as Today page */}
+                    <div style={{ flex: "1 1 40%", minWidth: "220px" }}>
+                      {(() => {
+                        const tab = activeTab[g.id ?? ""] ?? "notes";
+                        const notes = g.previous_actions ?? [];
+                        return (
+                          <>
+                            <div className="goal-tabs mb-3">
+                              <button
+                                type="button"
+                                className="goal-tab"
+                                data-active={tab === "notes"}
+                                onClick={() => g.id && setActiveTab((prev) => ({ ...prev, [g.id as string]: "notes" }))}
+                              >
+                                Notes{notes.length > 0 ? ` (${notes.length})` : ""}
+                              </button>
+                              <button
+                                type="button"
+                                className="goal-tab"
+                                data-active={tab === "history"}
+                                onClick={() => g.id && setActiveTab((prev) => ({ ...prev, [g.id as string]: "history" }))}
+                              >
+                                History
+                              </button>
                             </div>
-                            {(g as any).reschedule_reason && (
-                              <div className="text-xs text-purple-300/70 italic mt-0.5">
-                                "{(g as any).reschedule_reason}"
+
+                            {!g.id ? (
+                              <div className="text-xs text-white/30 italic">Save this goal to add notes</div>
+                            ) : tab === "notes" ? (
+                              <div>
+                                {notes.length > 0 ? (
+                                  <div className="space-y-3 mb-3">
+                                    {notes.map((note: any, i: number) => (
+                                      <div key={note.id ?? i} className="flex items-start gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0"></div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm text-white/80">💬 {note.note}</div>
+                                          <div className="text-[10px] text-white/40 mt-0.5">
+                                            {formatDateTimeDisplay(note.created_at)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-white/40 italic mb-3">No notes yet</div>
+                                )}
+
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={noteDraft[g.id] ?? ""}
+                                    onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id as string]: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") submitNote(g.id as string, idx);
+                                    }}
+                                    placeholder="Add a note..."
+                                    disabled={!!savingNote[g.id]}
+                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => submitNote(g.id as string, idx)}
+                                    disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
+                                    className="btn"
+                                    style={{ padding: "0.375rem 1rem" }}
+                                  >
+                                    {savingNote[g.id] ? "Adding…" : "Add"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {g.created_at && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">Goal created</div>
+                                      <div className="text-[10px] text-white/40 mt-0.5">
+                                        {formatDateTimeDisplay(g.created_at)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {p >= 1 && p <= 3 && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">
+                                        Priority: P{p} - {opt.label}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {g.rescheduled_from_date && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">
+                                        Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
+                                      </div>
+                                      {g.reschedule_reason && (
+                                        <div className="text-xs text-white/60 italic mt-1">
+                                          "{g.reschedule_reason}"
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {!g.created_at && !g.rescheduled_from_date && (
+                                  <div className="text-xs text-white/40 italic">Nothing recorded yet.</div>
+                                )}
                               </div>
                             )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Previous actions/comments */}
-                    {g.id && (g as any).previous_actions && (g as any).previous_actions.length > 0 && (
-                      <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
-                        <details className="text-xs">
-                          <summary className="text-blue-400 cursor-pointer hover:text-blue-300">
-                            💬 {(g as any).previous_actions.length} previous action{(g as any).previous_actions.length > 1 ? 's' : ''}
-                          </summary>
-                          <div className="mt-2 space-y-1 pl-4">
-                            {(g as any).previous_actions.map((action: any, i: number) => (
-                              <div key={i} className="text-white/60 border-l-2 border-white/10 pl-2">
-                                {action.note}
-                                <div className="text-white/40 text-[10px]">{new Date(action.created_at).toLocaleString()}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      </div>
-                    )}
+                          </>
+                        );
+                      })()}
+                    </div>
 
-                    {/* Priority button - show for ANY goal with priority 1-3 */}
-                    {p >= 1 && p <= 3 && (
-                      <div className="flex-shrink-0 relative">
-                        <select
-                          value={p}
-                          disabled={locked || submitting}
-                          onChange={(e) => {
-                            priorityChangeInProgressRef.current = true;
-                            const v = Number(e.target.value);
-                            setGoals((prev) => applyPriorityChange(prev, idx, v));
-                            setTimeout(() => {
-                              scheduleAutoSave();
-                              priorityChangeInProgressRef.current = false;
-                            }, 100);
-                          }}
-                          style={{
-                            background: opt.buttonBg,
-                            border: `3px solid ${opt.buttonBorder}`,
-                            width: "56px",
-                            height: "56px",
-                            color: "transparent",
-                            boxShadow: opt.buttonShadow,
-                            borderRadius: "50%"
-                          }}
-                          className="appearance-none cursor-pointer font-bold hover:scale-110 hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-white/50"
-                        >
-                          {PRIORITY_OPTIONS.map((option) => (
-                            <option key={option.v} value={option.v} style={{ color: "black" }}>
-                              {option.icon} P{option.v} - {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        {/* Icon */}
-                        <div 
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                          style={{ 
-                            fontSize: "1.5rem",
-                            marginTop: "-2px"
-                          }}
-                        >
-                          {opt.icon}
-                        </div>
-                        {/* P# text below icon */}
-                        <div 
-                          className="absolute left-1/2 -translate-x-1/2 pointer-events-none" 
-                          style={{ 
-                            bottom: "8px",
-                            fontSize: "0.65rem",
-                            fontWeight: "900",
-                            color: "#1a1a1a",
-                            textShadow: "0 1px 2px rgba(255,255,255,0.4)",
-                            letterSpacing: "0.05em"
-                          }}
-                        >
-                          P{p}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Clear/Remove button - circular, same size */}
-                    {!locked && (
-                      <button
-                        onClick={() => removeGoal(idx)}
-                        disabled={submitting}
-                        style={{
-                          width: "56px",
-                          height: "56px",
-                          background: "rgba(0,0,0,0.35)",
-                          backdropFilter: "blur(10px)",
-                          border: "2px solid rgba(255,255,255,0.2)",
-                          borderRadius: "50%"
+                    {/* Priority + Remove — grouped together instead of two separate cramped columns.
+                        The select always renders regardless of the current priority value —
+                        it previously hid itself for P4/P5, trapping the goal at that priority
+                        with no way to see or change it. */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <select
+                        value={p}
+                        disabled={locked || submitting}
+                        onChange={(e) => {
+                          priorityChangeInProgressRef.current = true;
+                          const v = Number(e.target.value);
+                          setGoals((prev) => applyPriorityChange(prev, idx, v));
                         }}
-                        className="flex-shrink-0 flex items-center justify-center hover:bg-black/50 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-110"
-                        title={(p >= 1 && p <= 3) ? "Clear priority goal" : "Remove goal"}
+                        className="priority-select"
+                        style={{
+                          "--p-bg": opt.bg,
+                          "--p-border": opt.border,
+                          "--p-color": opt.color,
+                        } as React.CSSProperties}
                       >
-                        ✕
-                      </button>
-                    )}
+                        {[1, 2, 3, 4, 5].map((v) => (
+                          <option key={v} value={v}>
+                            P{v}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Clear/Remove button - same size/shape as the priority select */}
+                      {!locked && (
+                        <button
+                          onClick={() => removeGoal(idx)}
+                          disabled={submitting}
+                          style={{
+                            width: "44px",
+                            height: "32px",
+                            borderRadius: "8px",
+                            background: "rgba(255, 255, 255, 0.06)",
+                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                          }}
+                          className="flex-shrink-0 flex items-center justify-center hover:bg-black/40 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-105"
+                          title={(p >= 1 && p <= 3) ? "Clear priority goal" : "Remove goal"}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -948,25 +843,21 @@ export default function TomorrowGoalsPage() {
               {submitting ? "Saving…" : submitted ? "Save changes" : "Save draft"}
             </button>
 
-            {!submitted && (
-              <button
-                className="btn btn-primary hover-scale"
-                onClick={onSubmitPlan}
-                disabled={!canSubmit}
-              >
-                {submitting ? "Submitting…" : "Submit tomorrow plan"}
-              </button>
-            )}
+            <button
+              className="btn btn-primary hover-scale"
+              onClick={onSubmitPlan}
+              disabled={!canSubmit || submitted}
+            >
+              {submitting
+                ? "Submitting…"
+                : submitted
+                ? "✅ Plans have been submitted"
+                : "Submit tomorrow plan"}
+            </button>
 
             <div className="text-sm text-white/60">
               {goals.length}/{MAX_GOALS} goals
             </div>
-
-            {submitted && (
-              <div className="ml-auto text-sm text-emerald-400 font-semibold">
-                ✅ Plan submitted
-              </div>
-            )}
           </div>
         )}
 
@@ -982,6 +873,5 @@ export default function TomorrowGoalsPage() {
           </div>
         )}
       </div>
-    </AuthGate>
   );
 }

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Deliberately non-secret placeholder values, not GitHub Secrets.
+  # src/lib/supabase/client.ts throws at import time if these are falsy, and
+  # `next build` needs to import it — but no real Supabase network call
+  # happens during a build, so there's nothing here to protect. Do not
+  # "helpfully" wire up real secrets for this.
+  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test
+
+      - run: npx tsc --noEmit -p tsconfig.json
+
+      - run: npm run build
+
+      # Non-blocking: 70 pre-existing lint problems were present in the
+      # codebase before this workflow was added. Fixing them is out of scope
+      # here — this step gives visibility without turning CI red on day one.
+      - run: npm run lint
+        continue-on-error: true

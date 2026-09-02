@@ -121,6 +121,11 @@ export default function LoginPage() {
                 className="mt-1.5 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                 autoComplete="current-password"
               />
+              <div className="mt-1.5 text-right">
+                <Link href="/forgot-password" className="text-xs text-white/50 hover:text-white/70 transition">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {error && (

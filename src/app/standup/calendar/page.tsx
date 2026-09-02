@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import AuthGate from "@/components/AuthGate";
 import { supabase } from "@/lib/supabase/client";
-import { toISODate, getCurrentUserId } from "@/lib/supabase/db";
+import { toISODate, formatDateDisplay, getCurrentUserId } from "@/lib/supabase/db";
 
 type DayData = {
   date: string;
@@ -15,50 +14,32 @@ type DayData = {
 };
 
 function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals") {
-  // Single “3D sphere” look using:
-  // - layered radial + linear gradients
-  // - subtle highlight + shadow
-  // - slightly different tints per state
+  // Flat, quiet tint per state — no layered radial "sphere" gradients or heavy glow.
   switch (tone) {
     case "today":
       return {
-        bg: `
-          radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.02) 38%, rgba(0,0,0,0.12) 72%),
-          radial-gradient(circle at 70% 75%, rgba(168, 85, 247, 0.22) 0%, rgba(59, 130, 246, 0.16) 45%, rgba(0,0,0,0.20) 100%),
-          linear-gradient(135deg, rgba(168, 85, 247, 0.20), rgba(59, 130, 246, 0.18))
-        `,
-        border: "rgba(255,255,255,0.22)",
-        glow: "0 12px 30px rgba(168, 85, 247, 0.18)",
+        bg: "rgba(168, 85, 247, 0.10)",
+        border: "rgba(168, 85, 247, 0.35)",
+        glow: "none",
       };
     case "closed":
       return {
-        bg: `
-          radial-gradient(circle at 30% 25%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.12) 74%),
-          radial-gradient(circle at 70% 75%, rgba(16, 185, 129, 0.20) 0%, rgba(52, 211, 153, 0.16) 50%, rgba(0,0,0,0.20) 100%),
-          linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(52, 211, 153, 0.16))
-        `,
+        bg: "rgba(16, 185, 129, 0.08)",
         border: "rgba(16, 185, 129, 0.28)",
-        glow: "0 12px 30px rgba(16, 185, 129, 0.12)",
+        glow: "none",
       };
     case "hasGoals":
       return {
-        bg: `
-          radial-gradient(circle at 30% 25%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.12) 74%),
-          radial-gradient(circle at 70% 75%, rgba(250, 204, 21, 0.18) 0%, rgba(253, 224, 71, 0.14) 50%, rgba(0,0,0,0.20) 100%),
-          linear-gradient(135deg, rgba(250, 204, 21, 0.14), rgba(253, 224, 71, 0.12))
-        `,
-        border: "rgba(250, 204, 21, 0.26)",
-        glow: "0 12px 30px rgba(202, 138, 4, 0.10)",
+        bg: "rgba(250, 204, 21, 0.07)",
+        border: "rgba(250, 204, 21, 0.24)",
+        glow: "none",
       };
     case "neutral":
     default:
       return {
-        bg: `
-          radial-gradient(circle at 30% 25%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.02) 42%, rgba(0,0,0,0.14) 76%),
-          linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03))
-        `,
-        border: "rgba(255,255,255,0.14)",
-        glow: "0 12px 30px rgba(0,0,0,0.20)",
+        bg: "rgba(255, 255, 255, 0.03)",
+        border: "rgba(255, 255, 255, 0.10)",
+        glow: "none",
       };
   }
 }
@@ -167,17 +148,12 @@ export default function CalendarPage() {
   }, [monthStart, monthEnd, currentDate]);
 
   if (loading) {
-    return (
-      <AuthGate>
-        <div className="card">Loading calendar...</div>
-      </AuthGate>
-    );
+    return <div className="card">Loading calendar...</div>;
   }
 
   return (
-    <AuthGate>
-      <div className="card">
-        <div className="flex items-center justify-between mb-6">
+    <div className="card">
+      <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Calendar</h1>
           <div className="flex items-center gap-2">
             <button onClick={previousMonth} className="btn btn-ghost">
@@ -235,33 +211,25 @@ export default function CalendarPage() {
             return (
               <Link
                 key={dateISO}
-                href={`/standup/today?date=${dateISO}`}
+                href={isToday ? "/standup/today" : `/standup/date/${dateISO}`}
                 className={[
-                  "aspect-square rounded-full border transition-all duration-300",
+                  "aspect-square rounded-full border transition-all duration-200",
                   "flex flex-col items-center justify-center text-center",
-                  "hover:scale-[1.06] active:scale-[0.98]",
+                  "hover:scale-[1.04] active:scale-[0.98]",
                   "focus:outline-none focus:ring-2 focus:ring-white/40",
                 ].join(" ")}
                 style={{
                   background: t.bg,
                   borderColor: t.border,
-                  boxShadow: `${t.glow}, inset 0 2px 10px rgba(255,255,255,0.06), inset 0 -10px 18px rgba(0,0,0,0.20)`,
                 }}
-                title={dateISO}
+                title={formatDateDisplay(dateISO)}
               >
                 {/* Number */}
                 <div
-                    className="leading-none select-none"
+                    className="leading-none select-none text-white/85"
                     style={{
-                        fontSize: "1.8rem",
-                        fontWeight: 900,
-                        letterSpacing: "-0.05em",
-                        color: "#e71313",
-                        WebkitTextStroke: "0.6px rgba(0,0,0,0.35)",
-                        textShadow: `
-                        0 1px 0 rgba(255,255,255,0.35),
-                        0 4px 10px rgba(0,0,0,0.45)
-                        `,
+                        fontSize: "1.4rem",
+                        fontWeight: 700,
                     }}
                     >
                     {date.getDate()}
@@ -320,6 +288,5 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
-    </AuthGate>
   );
 }

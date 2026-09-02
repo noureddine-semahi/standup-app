@@ -1,17 +1,21 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import AuthGate from "@/components/AuthGate";
 import {
   toISODate,
   addDays,
+  formatDateDisplay,
   getPlanWithGoals,
   getOrCreateProfile,
+  getStreak,
   type Goal,
   type Profile,
   type DailyPlan,
 } from "@/lib/supabase/db";
+import { supabase } from "@/lib/supabase/client";
+import { getPriorityMeta } from "@/lib/priorityStyles";
+import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
 
 /**
  * ✅ Reuse the "Tomorrow page" visual language:
@@ -29,7 +33,7 @@ const WIDGETS = [
   },
   {
     key: "progress",
-    title: "Today’s Progress",
+    title: "Today's Progress",
     tone: "yellow",
   },
   {
@@ -44,60 +48,21 @@ const WIDGETS = [
   },
 ] as const;
 
-function toneStyles(tone: "neutral" | "yellow" | "emerald" | "violet" | "red") {
-  switch (tone) {
-    case "red":
-      return {
-        bg: "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(225, 29, 72, 0.15))",
-        border: "rgba(239, 68, 68, 0.30)",
-        glow: "0 10px 30px rgba(220, 38, 38, 0.12)",
-      };
-    case "yellow":
-      return {
-        bg: "linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(253, 224, 71, 0.12))",
-        border: "rgba(250, 204, 21, 0.25)",
-        glow: "0 10px 30px rgba(202, 138, 4, 0.10)",
-      };
-    case "emerald":
-      return {
-        bg: "linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.12))",
-        border: "rgba(16, 185, 129, 0.25)",
-        glow: "0 10px 30px rgba(16, 185, 129, 0.10)",
-      };
-    case "violet":
-      return {
-        bg: "linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(59, 130, 246, 0.10))",
-        border: "rgba(168, 85, 247, 0.22)",
-        glow: "0 10px 30px rgba(168, 85, 247, 0.10)",
-      };
-    case "neutral":
-    default:
-      return {
-        bg: "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.07))",
-        border: "rgba(255,255,255,0.10)",
-        glow: "0 10px 30px rgba(0,0,0,0.15)",
-      };
-  }
-}
-
-function priorityChip(priority: number) {
-  if (priority === 1) return "bg-red-500/15 text-red-300 border-red-500/30";
-  if (priority === 2) return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-  return "bg-white/10 text-white/70 border-white/20";
-}
-
 export default function DashboardPage() {
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [streak, setStreak] = useState(0);
 
   const [todayPlan, setTodayPlan] = useState<DailyPlan | null>(null);
   const [todayGoals, setTodayGoals] = useState<Goal[]>([]);
 
   const [tomorrowPlan, setTomorrowPlan] = useState<DailyPlan | null>(null);
   const [tomorrowGoals, setTomorrowGoals] = useState<Goal[]>([]);
+  const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
+  const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function load() {
@@ -106,6 +71,9 @@ export default function DashboardPage() {
         const p = await getOrCreateProfile();
         setProfile(p);
 
+        const s = await getStreak();
+        setStreak(s);
+
         const { plan: todayP, goals: todayG } = await getPlanWithGoals(todayISO);
         setTodayPlan(todayP);
         setTodayGoals(todayG);
@@ -113,6 +81,23 @@ export default function DashboardPage() {
         const { plan: tomorrowP, goals: tomorrowG } = await getPlanWithGoals(tomorrowISO);
         setTomorrowPlan(tomorrowP);
         setTomorrowGoals(tomorrowG);
+
+        const allGoalIds = [...todayG, ...tomorrowG].map((g) => g.id).filter(Boolean);
+        if (allGoalIds.length > 0) {
+          const { data: notesData } = await supabase
+            .from("goal_notes")
+            .select("goal_id, note, created_at")
+            .in("goal_id", allGoalIds)
+            .order("created_at", { ascending: false });
+          const counts: Record<string, number> = {};
+          const latest: Record<string, string> = {};
+          (notesData ?? []).forEach((n) => {
+            counts[n.goal_id] = (counts[n.goal_id] ?? 0) + 1;
+            if (!latest[n.goal_id]) latest[n.goal_id] = n.note; // first hit per goal = most recent (query ordered desc)
+          });
+          setNoteCounts(counts);
+          setLatestNotes(latest);
+        }
       } catch (error) {
         console.error("Dashboard load error:", error);
       } finally {
@@ -124,17 +109,13 @@ export default function DashboardPage() {
   }, [todayISO, tomorrowISO]);
 
   if (loading) {
-    return (
-      <AuthGate>
-        <div className="card">Loading dashboard...</div>
-      </AuthGate>
-    );
+    return <div className="card">Loading dashboard...</div>;
   }
 
   // Today stats
-  const todayP1 = todayGoals.find((g) => (g as any).priority === 1);
-  const todayPending = todayGoals.filter((g) => !(g as any).reviewed_at).length;
-  const todayReviewed = todayGoals.filter((g) => !!(g as any).reviewed_at).length;
+  const todayP1 = todayGoals.find((g) => g.priority === 1);
+  const todayPending = todayGoals.filter((g) => !g.reviewed_at).length;
+  const todayReviewed = todayGoals.filter((g) => !!g.reviewed_at).length;
   const todayTotal = todayGoals.length;
   const todayCompleted = todayGoals.filter((g) => g.status === "completed").length;
   const todayClosed = !!todayPlan?.reviewed_at;
@@ -146,8 +127,8 @@ export default function DashboardPage() {
   // Sort goals by priority
   const sortGoals = (goals: Goal[]) => {
     return [...goals].sort((a, b) => {
-      const ap = typeof (a as any).priority === "number" ? (a as any).priority : 999;
-      const bp = typeof (b as any).priority === "number" ? (b as any).priority : 999;
+      const ap = typeof a.priority === "number" ? a.priority : 999;
+      const bp = typeof b.priority === "number" ? b.priority : 999;
       if (ap !== bp) return ap - bp;
       return (a.sort_order ?? 0) - (b.sort_order ?? 0);
     });
@@ -157,15 +138,14 @@ export default function DashboardPage() {
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
 
   return (
-    <AuthGate>
-      <div className="space-y-6">
-        {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
+    <div className="space-y-6">
+      {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
         <div
           className="card"
           style={{
             background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-            border: "1px solid rgba(255,255,255,0.10)",
-            boxShadow: "0 18px 60px rgba(0,0,0,0.35)",
+            border: "2px solid hsla(96, 91%, 49%, 0.69)",
+            boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
           }}
         >
           <div className="flex items-start justify-between gap-6">
@@ -185,14 +165,34 @@ export default function DashboardPage() {
           </div>
 
           {/* ✅ Widgets side-by-side (Tomorrow-like gradient tiles) */}
-          <div className="mt-6 grid gap-3 grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            {/* Streak */}
+            <div
+              className="card"
+              style={{
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "1px solid hsla(0, 91%, 49%, 0.72)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+              }}
+            >
+              <div className="p-4">
+                <div className="text-sm text-white/70">Streak</div>
+                <div className="mt-2 text-3xl font-bold">
+                  {streak} {streak > 0 && "🔥"}
+                </div>
+                <div className="mt-1 text-xs text-white/50">
+                  {streak > 0 ? "Keep it going" : "Close today to start a streak"}
+                </div>
+              </div>
+            </div>
+
             {/* Total Points */}
             <div
-              className="rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.01]"
+              className="card"
               style={{
-                background: toneStyles("neutral").bg,
-                border: `2px solid ${toneStyles("neutral").border}`,
-                boxShadow: toneStyles("neutral").glow,
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "1px solid hsla(0, 91%, 49%, 0.72)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
               }}
             >
               <div className="p-4">
@@ -202,17 +202,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Today’s Progress */}
+            {/* Today's Progress */}
             <div
-              className="rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.01]"
+              className="card"
               style={{
-                background: toneStyles("yellow").bg,
-                border: `2px solid ${toneStyles("yellow").border}`,
-                boxShadow: toneStyles("yellow").glow,
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "1px solid hsla(0, 91%, 49%, 0.72)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
               }}
             >
               <div className="p-4">
-                <div className="text-sm text-white/70">Today’s Progress</div>
+                <div className="text-sm text-white/70">Today's Progress</div>
                 <div className="mt-2 text-3xl font-bold">
                   {todayReviewed}/{todayTotal}
                 </div>
@@ -224,11 +224,11 @@ export default function DashboardPage() {
 
             {/* Completed Today */}
             <div
-              className="rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.01]"
+              className="card"
               style={{
-                background: toneStyles("emerald").bg,
-                border: `2px solid ${toneStyles("emerald").border}`,
-                boxShadow: toneStyles("emerald").glow,
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "1px solid hsla(0, 91%, 49%, 0.72)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
               }}
             >
               <div className="p-4">
@@ -244,11 +244,11 @@ export default function DashboardPage() {
 
             {/* Day Status */}
             <div
-              className="rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.01]"
+              className="card"
               style={{
-                background: toneStyles("violet").bg,
-                border: `2px solid ${toneStyles("violet").border}`,
-                boxShadow: toneStyles("violet").glow,
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "1px solid hsla(0, 91%, 49%, 0.72)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
               }}
             >
               <div className="p-4">
@@ -274,9 +274,9 @@ export default function DashboardPage() {
             <div
               className="card transition-all duration-300 hover:scale-[1.005] cursor-pointer"
               style={{
-                background: toneStyles("red").bg,
-                border: `2px solid ${toneStyles("red").border}`,
-                boxShadow: toneStyles("red").glow,
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "2px solid hsla(96, 91%, 49%, 0.69)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
               }}
             >
               <div className="flex items-start justify-between gap-4">
@@ -285,15 +285,15 @@ export default function DashboardPage() {
                     <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-300">
                       P1 - Highest Priority
                     </span>
-                    {!(todayP1 as any).reviewed_at && (
+                    {!todayP1.reviewed_at && (
                       <span className="text-xs text-white/50">Pending review</span>
                     )}
-                    {(todayP1 as any).reviewed_at && (
+                    {todayP1.reviewed_at && (
                       <span className="text-xs text-white/60">Reviewed ✓</span>
                     )}
                   </div>
 
-                  <div className="mt-3 text-xl font-semibold">{todayP1.title}</div>
+                  <div className="mt-3 text-xl font-semibold text-white">{todayP1.title}</div>
 
                   {todayP1.details && (
                     <div className="mt-2 text-sm text-white/70">{todayP1.details}</div>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
 
                   <div className="mt-3 text-sm text-white/60">
                     Status:{" "}
-                    <span className="font-medium">
+                    <span className="font-medium text-white">
                       {todayP1.status
                         .replace("_", " ")
                         .replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -319,10 +319,17 @@ export default function DashboardPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Today Overview */}
           <Link href="/standup/today" className="block">
-            <div className="card hover:border-white/20 transition cursor-pointer h-full">
+            <div
+              className="card transition cursor-pointer h-full"
+              style={{
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "2px solid hsla(96, 91%, 49%, 0.69)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+              }}
+            >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Today's Goals</h2>
-                <span className="text-xs text-white/50">{todayISO}</span>
+                <h2 className="text-lg font-semibold text-white">Today's Goals</h2>
+                <span className="text-xs text-white/50">{formatDateDisplay(todayISO)}</span>
               </div>
 
               {sortedTodayGoals.length === 0 ? (
@@ -335,52 +342,65 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {sortedTodayGoals.map((g, idx) => {
-                    const reviewed = !!(g as any).reviewed_at;
-                    const priority = (g as any).priority;
-
-                    const rowTone =
-                      priority === 1 ? "red" : priority === 2 ? "yellow" : "neutral";
-                    const t = toneStyles(rowTone as any);
+                    const reviewed = !!g.reviewed_at;
+                    const priority = g.priority;
 
                     return (
                       <div
                         key={g.id}
-                        className={[
-                          "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300",
-                          reviewed ? "opacity-100" : "opacity-90",
-                        ].join(" ")}
+                        className="goal-row-compact flex items-center gap-3 text-sm transition-all duration-300"
+                        data-pending={!reviewed}
                         style={{
-                          background: reviewed ? t.bg : "linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.05))",
-                          border: reviewed
-                            ? `2px solid ${t.border}`
-                            : "2px dashed rgba(255,255,255,0.14)",
-                        }}
+                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
+                        } as React.CSSProperties}
                       >
-                        <div className="text-white/60 w-6">{idx + 1}.</div>
+                        <div className="goal-number-sm">{idx + 1}</div>
 
-                        {typeof priority === "number" && priority <= 3 && (
-                          <span
-                            className={[
-                              "rounded-full border px-2 py-0.5 text-xs font-semibold",
-                              priorityChip(priority),
-                            ].join(" ")}
+                        <div className="flex-1 truncate text-white/90">{g.title}</div>
+
+                        {noteCounts[g.id] > 0 && (
+                          <div
+                            className="text-xs text-cyan-300/80 truncate"
+                            style={{ maxWidth: "140px", flexShrink: 1, minWidth: 0 }}
+                            title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
                           >
-                            P{priority}
-                          </span>
+                            💬 {latestNotes[g.id]}
+                          </div>
                         )}
 
-                        <div className="flex-1 truncate">{g.title}</div>
+                        {typeof priority === "number" && (
+                          <div
+                            className="priority-chip-sm"
+                            style={{
+                              "--p-bg": getPriorityMeta(priority).bg,
+                              "--p-border": getPriorityMeta(priority).border,
+                              "--p-color": getPriorityMeta(priority).color,
+                            } as React.CSSProperties}
+                          >
+                            P{priority}
+                          </div>
+                        )}
 
-                        <div className="text-xs text-white/50">
-                          {g.status === "completed"
-                            ? "✅"
-                            : g.status === "in_progress"
-                            ? "🔄"
-                            : g.status === "blocked"
-                            ? "🚫"
-                            : reviewed
-                            ? "👁️"
-                            : "⏸️"}
+                        <div
+                          className="status-chip-sm"
+                          style={{
+                            "--chip-bg": reviewed ? statusChipColors(g.status).bg : "rgba(245, 158, 11, 0.08)",
+                            "--chip-border": reviewed ? statusChipColors(g.status).border : "rgba(245, 158, 11, 0.3)",
+                            "--chip-color": reviewed ? statusChipColors(g.status).color : "#fcd34d",
+                          } as React.CSSProperties}
+                          title={reviewed ? `Reviewed — ${statusLabel(g.status)}` : "Pending review"}
+                        >
+                          {reviewed ? (
+                            <>
+                              <span>{statusLabel(g.status)}</span>
+                              <span>{statusIcon(g.status)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Pending</span>
+                              <span>⏳</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     );
@@ -399,10 +419,17 @@ export default function DashboardPage() {
 
           {/* Tomorrow Overview */}
           <Link href="/standup/tomorrow" className="block">
-            <div className="card hover:border-white/20 transition cursor-pointer h-full">
+            <div
+              className="card transition cursor-pointer h-full"
+              style={{
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+                border: "2px solid hsla(96, 91%, 49%, 0.69)",
+                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+              }}
+            >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Tomorrow's Plan</h2>
-                <span className="text-xs text-white/50">{tomorrowISO}</span>
+                <h2 className="text-lg font-semibold text-white">Tomorrow's Plan</h2>
+                <span className="text-xs text-white/50">{formatDateDisplay(tomorrowISO)}</span>
               </div>
 
               {sortedTomorrowGoals.length === 0 ? (
@@ -415,34 +442,42 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {sortedTomorrowGoals.slice(0, 5).map((g, idx) => {
-                    const priority = (g as any).priority;
-                    const rowTone =
-                      priority === 1 ? "red" : priority === 2 ? "yellow" : "neutral";
-                    const t = toneStyles(rowTone as any);
+                    const priority = g.priority;
 
                     return (
                       <div
                         key={g.id}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300"
+                        className="goal-row-compact flex items-center gap-3 text-sm transition-all duration-300"
                         style={{
-                          background: t.bg,
-                          border: `2px solid ${t.border}`,
-                        }}
+                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
+                        } as React.CSSProperties}
                       >
-                        <div className="text-white/60 w-6">{idx + 1}.</div>
+                        <div className="goal-number-sm">{idx + 1}</div>
 
-                        {typeof priority === "number" && priority <= 3 && (
-                          <span
-                            className={[
-                              "rounded-full border px-2 py-0.5 text-xs font-semibold",
-                              priorityChip(priority),
-                            ].join(" ")}
+                        <div className="flex-1 truncate text-white/90">{g.title}</div>
+
+                        {noteCounts[g.id] > 0 && (
+                          <div
+                            className="text-xs text-cyan-300/80 truncate"
+                            style={{ maxWidth: "140px", flexShrink: 1, minWidth: 0 }}
+                            title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
                           >
-                            P{priority}
-                          </span>
+                            💬 {latestNotes[g.id]}
+                          </div>
                         )}
 
-                        <div className="flex-1 truncate">{g.title}</div>
+                        {typeof priority === "number" && (
+                          <div
+                            className="priority-chip-sm"
+                            style={{
+                              "--p-bg": getPriorityMeta(priority).bg,
+                              "--p-border": getPriorityMeta(priority).border,
+                              "--p-color": getPriorityMeta(priority).color,
+                            } as React.CSSProperties}
+                          >
+                            P{priority}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -466,7 +501,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions (unchanged) */}
-        <div className="card">
+        <div
+          className="card"
+          style={{
+            background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+            border: "2px solid hsla(96, 91%, 49%, 0.69)",
+            boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+          }}
+        >
           <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
           <div className="flex flex-wrap gap-3">
             {todayPending > 0 && (
@@ -493,6 +535,5 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-    </AuthGate>
   );
 }

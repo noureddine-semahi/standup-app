@@ -2,23 +2,29 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import AuthGate from "@/components/AuthGate";
 import RescheduleModal from "@/components/RescheduleModal";
 import {
   addDays,
+  addGoalNote,
   awardAwarenessPoints,
   awardClosurePoints,
+  enforceSingleP1,
   getPlanWithGoals,
   markGoalReviewed,
+  markPlanReviewed,
   unmarkGoalReviewed,
   updateGoalStatus,
   toISODate,
+  formatDateDisplay,
+  formatDateTimeDisplay,
   upsertGoals,
   type DailyPlan,
   type Goal,
   type GoalStatus,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
+import { getPriorityMeta } from "@/lib/priorityStyles";
+import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
 
 // Priority options matching Tomorrow page
 const PRIORITY_OPTIONS = [
@@ -74,61 +80,6 @@ const PRIORITY_OPTIONS = [
   },
 ];
 
-function getPriorityIcon(priority: number) {
-  const opt = PRIORITY_OPTIONS.find(p => p.v === priority);
-  return opt?.icon || "⚪";
-}
-
-function getPriorityData(priority: number) {
-  return PRIORITY_OPTIONS.find(p => p.v === priority) || PRIORITY_OPTIONS[2];
-}
-
-// Card gradient based on priority
-function getPriorityGradient(priority: number) {
-  switch (priority) {
-    case 1: return "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(225, 29, 72, 0.15))";
-    case 2: return "linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(251, 146, 60, 0.15))";
-    case 3: return "linear-gradient(135deg, rgba(250, 204, 21, 0.15), rgba(253, 224, 71, 0.15))";
-    case 4: return "linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(203, 213, 225, 0.12))";
-    case 5: return "linear-gradient(135deg, rgba(71, 85, 105, 0.12), rgba(51, 65, 85, 0.12))";
-    default: return "linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.06))";
-  }
-}
-
-function getPriorityBorder(priority: number) {
-  switch (priority) {
-    case 1: return "rgba(239, 68, 68, 0.3)";
-    case 2: return "rgba(249, 115, 22, 0.3)";
-    case 3: return "rgba(250, 204, 21, 0.3)";
-    case 4: return "rgba(148, 163, 184, 0.25)";
-    case 5: return "rgba(71, 85, 105, 0.25)";
-    default: return "rgba(255,255,255,0.08)";
-  }
-}
-
-function statusLabel(status: Goal["status"]) {
-  switch (status) {
-    case "not_started": return "Not started";
-    case "in_progress": return "In progress";
-    case "completed": return "Completed";
-    case "attempted": return "Attempted";
-    case "postponed": return "Postponed";
-    case "blocked": return "Blocked";
-    default: return status;
-  }
-}
-
-function statusPillClass(status: Goal["status"]) {
-  switch (status) {
-    case "completed": return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
-    case "in_progress": return "bg-sky-500/15 text-sky-300 border-sky-500/30";
-    case "blocked": return "bg-rose-500/15 text-rose-300 border-rose-500/30";
-    case "postponed": return "bg-amber-500/15 text-amber-300 border-amber-500/30";
-    case "attempted": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
-    case "not_started":
-    default: return "bg-white/10 text-white/70 border-white/20";
-  }
-}
 
 const STATUS_OPTIONS: { value: GoalStatus; label: string }[] = [
   { value: "not_started", label: "Not started" },
@@ -147,14 +98,23 @@ export default function TodayPage() {
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
-  const [busyGoalId, setBusyGoalId] = useState<string | null>(null);
+  // Per-goal busy tracking (a Set, not a single id) — goals are reviewed
+  // independently, so marking goal A busy must not block a click on goal B
+  // while A's request is still in flight.
+  const [busyGoalIds, setBusyGoalIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   const [reopening, setReopening] = useState(false);
   
-  // History & notes tracking
-  const [showHistory, setShowHistory] = useState<Record<string, boolean>>({});
+  // Goal content is static; only the side panel (Notes / History) is tabbed (defaults to "notes")
+  const [activeTab, setActiveTab] = useState<Record<string, "notes" | "history">>({});
   const [goalNotes, setGoalNotes] = useState<Record<string, any[]>>({});
+  const [notesFetched, setNotesFetched] = useState<Record<string, boolean>>({});
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
+  const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
+
+  // Per-goal action menu (collapsed behind the gear icon until clicked)
+  const [showActions, setShowActions] = useState<Record<string, boolean>>({});
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -167,6 +127,29 @@ export default function TodayPage() {
 
   const awarenessAttemptedRef = useRef(false);
   const closureAttemptedRef = useRef(false);
+  // refresh() has no natural request ordering — two overlapping calls (e.g.
+  // triggered by reviewing two goals in quick succession) can resolve out of
+  // order. Without this, a slower-but-earlier-started refresh can land AFTER
+  // a faster-but-later one and clobber its more current goal state. Only the
+  // response matching the latest-issued sequence number is applied.
+  const refreshSeqRef = useRef(0);
+
+  function markGoalBusy(id: string) {
+    setBusyGoalIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }
+
+  function clearGoalBusy(id: string) {
+    setBusyGoalIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
 
   const locked = plan?.status === "locked";
   const dayClosed = !!plan?.reviewed_at;
@@ -174,8 +157,8 @@ export default function TodayPage() {
   const sortedGoals = useMemo(() => {
     const list = [...goals];
     list.sort((a, b) => {
-      const ap = typeof (a as any).priority === "number" ? (a as any).priority : 999;
-      const bp = typeof (b as any).priority === "number" ? (b as any).priority : 999;
+      const ap = typeof a.priority === "number" ? a.priority : 999;
+      const bp = typeof b.priority === "number" ? b.priority : 999;
       if (ap !== bp) return ap - bp;
       return (a.sort_order ?? 0) - (b.sort_order ?? 0);
     });
@@ -183,26 +166,32 @@ export default function TodayPage() {
   }, [goals]);
 
   const reviewedCount = useMemo(
-    () => sortedGoals.filter((g) => !!(g as any).reviewed_at).length,
+    () => sortedGoals.filter((g) => !!g.reviewed_at).length,
     [sortedGoals]
   );
 
   const totalCount = sortedGoals.length;
-  const pendingGoals = useMemo(() => sortedGoals.filter((g) => !(g as any).reviewed_at), [sortedGoals]);
+  const pendingGoals = useMemo(() => sortedGoals.filter((g) => !g.reviewed_at), [sortedGoals]);
   const allReviewed = totalCount === 0 || (totalCount > 0 && reviewedCount === totalCount);
 
   async function refresh() {
+    const mySeq = ++refreshSeqRef.current;
     setLoading(true);
     setMsg(null);
 
     try {
       const { plan: p, goals: gs } = await getPlanWithGoals(todayISO);
+
+      // A newer refresh() was issued after this one — its result is more
+      // current, so drop this stale response instead of overwriting state.
+      if (mySeq !== refreshSeqRef.current) return;
+
       setPlan(p);
-      
+
       // Fetch reschedule info for all goals
       const goalIds = gs.map(g => g.id);
       let rescheduleMap: Record<string, { to_date: string; reason: string | null }> = {};
-      
+
       if (goalIds.length > 0) {
         const { data: reschedules } = await supabase
           .from("goal_reschedules")
@@ -210,7 +199,7 @@ export default function TodayPage() {
           .in("from_goal_id", goalIds)
           .eq("materialized", false)
           .order("created_at", { ascending: false });
-        
+
         reschedules?.forEach((item) => {
           if (!rescheduleMap[item.from_goal_id]) {
             rescheduleMap[item.from_goal_id] = {
@@ -220,19 +209,21 @@ export default function TodayPage() {
           }
         });
       }
-      
+
+      if (mySeq !== refreshSeqRef.current) return;
+
       // Attach reschedule info to goals
       const goalsWithReschedule = gs.map(g => ({
         ...g,
         rescheduled_to: rescheduleMap[g.id]?.to_date || null,
         reschedule_reason: rescheduleMap[g.id]?.reason || null,
       }));
-      
+
       setGoals(goalsWithReschedule);
 
       if (!awarenessAttemptedRef.current && !p.reviewed_at) {
         awarenessAttemptedRef.current = true;
-        const hasPending = goalsWithReschedule.some((g) => !(g as any).reviewed_at);
+        const hasPending = goalsWithReschedule.some((g) => !g.reviewed_at);
         if (hasPending) {
           try {
             await awardAwarenessPoints(p.id, 5);
@@ -242,9 +233,10 @@ export default function TodayPage() {
         }
       }
     } catch (e: any) {
+      if (mySeq !== refreshSeqRef.current) return;
       setMsg(e?.message ?? "Failed to load");
     } finally {
-      setLoading(false);
+      if (mySeq === refreshSeqRef.current) setLoading(false);
     }
   }
 
@@ -255,8 +247,34 @@ export default function TodayPage() {
       .select("*")
       .eq("goal_id", goalId)
       .order("created_at", { ascending: false });
-    
+
     return data || [];
+  }
+
+  async function selectTab(goalId: string, tab: "notes" | "history") {
+    setActiveTab((prev) => ({ ...prev, [goalId]: tab }));
+    if (tab === "notes" && !notesFetched[goalId]) {
+      const notes = await fetchGoalNotes(goalId);
+      setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
+      setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
+    }
+  }
+
+  async function submitNote(goalId: string) {
+    const text = (noteDraft[goalId] ?? "").trim();
+    if (!text) return;
+    setSavingNote((prev) => ({ ...prev, [goalId]: true }));
+    try {
+      await addGoalNote(goalId, text);
+      const notes = await fetchGoalNotes(goalId);
+      setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
+      setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
+      setNoteDraft((prev) => ({ ...prev, [goalId]: "" }));
+    } catch (e: any) {
+      setMsg(e?.message ?? "Failed to add note");
+    } finally {
+      setSavingNote((prev) => ({ ...prev, [goalId]: false }));
+    }
   }
 
   useEffect(() => {
@@ -264,16 +282,16 @@ export default function TodayPage() {
   }, [todayISO]);
 
   async function toggleReviewed(goal: Goal) {
-    if (locked || busyGoalId || dayClosed) return;
+    if (locked || busyGoalIds.has(goal.id) || dayClosed) return;
 
-    setBusyGoalId(goal.id);
+    markGoalBusy(goal.id);
     setMsg(null);
 
     try {
-      const isReviewed = !!(goal as any).reviewed_at;
+      const isReviewed = !!goal.reviewed_at;
       setGoals((prev) =>
         prev.map((g) =>
-          g.id === goal.id ? ({ ...g, reviewed_at: isReviewed ? null : new Date().toISOString() } as any) : g
+          g.id === goal.id ? { ...g, reviewed_at: isReviewed ? null : new Date().toISOString() } : g
         )
       );
 
@@ -288,20 +306,20 @@ export default function TodayPage() {
       setMsg(e?.message ?? "Update failed");
       await refresh();
     } finally {
-      setBusyGoalId(null);
+      clearGoalBusy(goal.id);
     }
   }
 
   async function handleStatusChange(goal: Goal, newStatus: GoalStatus) {
-    if (locked || busyGoalId || dayClosed) return;
+    if (locked || busyGoalIds.has(goal.id) || dayClosed) return;
 
-    const isReviewed = !!(goal as any).reviewed_at;
+    const isReviewed = !!goal.reviewed_at;
     if (!isReviewed) {
       setMsg("Review the goal first before changing its status.");
       return;
     }
 
-    setBusyGoalId(goal.id);
+    markGoalBusy(goal.id);
     setMsg(null);
 
     try {
@@ -314,49 +332,30 @@ export default function TodayPage() {
       setMsg(e?.message ?? "Status update failed");
       await refresh();
     } finally {
-      setBusyGoalId(null);
+      clearGoalBusy(goal.id);
     }
   }
 
   async function closeOutDay() {
-    console.log("🔍 closeOutDay called");
-    console.log("  plan?.id:", plan?.id);
-    console.log("  locked:", locked);
-    console.log("  closing:", closing);
-    console.log("  dayClosed:", dayClosed);
-    console.log("  totalCount:", totalCount);
-    console.log("  allReviewed:", allReviewed);
-    
-    if (!plan?.id || locked || closing || dayClosed) {
-      console.log("❌ Blocked by guard clause");
-      return;
-    }
-    
+    if (!plan?.id || locked || closing || dayClosed) return;
+
     if (totalCount > 0 && !allReviewed) {
-      console.log("❌ Not all goals reviewed");
       setMsg("Review all goals first to close the day.");
       return;
     }
 
     setClosing(true);
     setMsg("Closing day...");
-    console.log("📤 Calling awardClosurePoints with plan.id:", plan.id);
 
     try {
-      const res = await awardClosurePoints(plan.id, 5);
-      console.log("📥 awardClosurePoints response:", res);
-      
-      if (res?.awarded) {
-        setMsg("Day closed ✅ Tomorrow unlocked.");
-        console.log("✅ Day closed successfully");
-      } else {
-        setMsg("Day already closed ✓");
-        console.log("⚠️ Day was already closed");
-      }
-      
+      await awardClosurePoints(plan.id, 5);
+      // The RPC awards points but doesn't set reviewed_at itself — do that explicitly
+      // so the day actually shows as closed and Tomorrow unlocks.
+      await markPlanReviewed(plan.id);
+      setMsg("Day closed ✅ Tomorrow unlocked.");
+
       await refresh();
     } catch (e: any) {
-      console.error("❌ Closure error:", e);
       setMsg(`Error: ${e?.message ?? "Could not close the day."}`);
       await refresh();
     } finally {
@@ -372,54 +371,31 @@ export default function TodayPage() {
     setMsg("Reopening day...");
 
     try {
-      const { error } = await supabase
+      const { error: planErr } = await supabase
         .from("daily_plans")
         .update({ reviewed_at: null })
         .eq("id", plan.id);
+      if (planErr) throw planErr;
 
-      if (error) throw error;
+      // Also clear every goal's reviewed_at. If we only cleared the plan,
+      // every goal would still individually be "reviewed", so the auto-close
+      // effect below would see allReviewed===true again and immediately
+      // re-close the day — the reopen would never actually stick, especially
+      // after a page reload (the in-memory guard that would otherwise block
+      // that effect resets on every mount).
+      const { error: goalsErr } = await supabase
+        .from("goals")
+        .update({ reviewed_at: null })
+        .eq("plan_id", plan.id);
+      if (goalsErr) throw goalsErr;
 
-      setMsg("Day reopened ✅ You can now edit goals.");
+      setMsg("Day reopened ✅ Review your goals again before closing.");
       await refresh();
     } catch (e: any) {
       console.error("Reopen error:", e);
       setMsg(`Error: ${e?.message ?? "Could not reopen the day."}`);
     } finally {
       setReopening(false);
-    }
-  }
-
-  // Manual close function (if RPC fails)
-  async function manualCloseDay() {
-    if (!plan?.id || closing) return;
-    
-    console.log("🔧 Using manual close method");
-    setClosing(true);
-    setMsg("Manually closing day...");
-
-    try {
-      // Directly update the plan
-      const { error: updateError } = await supabase
-        .from("daily_plans")
-        .update({ reviewed_at: new Date().toISOString() })
-        .eq("id", plan.id);
-
-      if (updateError) throw updateError;
-
-      // Award points manually
-      const { error: pointsError } = await supabase.rpc("award_points", {
-        p_points: 5,
-      });
-
-      if (pointsError) console.warn("Points award failed:", pointsError);
-
-      setMsg("Day closed ✅ (manual method)");
-      await refresh();
-    } catch (e: any) {
-      console.error("Manual close error:", e);
-      setMsg(`Error: ${e?.message ?? "Could not close the day."}`);
-    } finally {
-      setClosing(false);
     }
   }
 
@@ -438,15 +414,30 @@ export default function TodayPage() {
     setMsg("Adding goals...");
 
     try {
-      const goalsToAdd = filledGoals.map((g, idx) => ({
+      // Keep at most one P1 in this batch — later entries win.
+      let seenP1 = false;
+      const dedupedGoals = [...filledGoals].reverse().map((g) => {
+        if (g.priority === 1) {
+          if (seenP1) return { ...g, priority: 2 };
+          seenP1 = true;
+        }
+        return g;
+      }).reverse();
+
+      const goalsToAdd = dedupedGoals.map((g, idx) => ({
         title: g.title.trim(),
         priority: g.priority,
         sort_order: goals.length + idx,
         status: "not_started" as GoalStatus,
       }));
 
-      await upsertGoals(plan.id, goalsToAdd as any);
-      
+      const existingIds = new Set(goals.map((g) => g.id));
+      const saved = await upsertGoals(plan.id, goalsToAdd);
+      const newP1 = saved.find((g) => g.priority === 1 && !existingIds.has(g.id));
+      if (newP1) {
+        await enforceSingleP1(plan.id, newP1.id);
+      }
+
       setMsg(`Added ${filledGoals.length} goal(s) ✅`);
       setShowQuickAdd(false);
       setQuickAddGoals([
@@ -464,22 +455,25 @@ export default function TodayPage() {
   }
 
   useEffect(() => {
-    if (!plan?.id || locked || dayClosed || !allReviewed || closureAttemptedRef.current) return;
+    if (!plan?.id || locked || dayClosed || totalCount === 0 || !allReviewed || closureAttemptedRef.current) return;
     closureAttemptedRef.current = true;
     closeOutDay().catch(() => {});
-  }, [plan?.id, locked, dayClosed, allReviewed]);
+  }, [plan?.id, locked, dayClosed, allReviewed, totalCount]);
 
   if (loading) {
-    return (
-      <AuthGate>
-        <div className="card">Loading…</div>
-      </AuthGate>
-    );
+    return <div className="card">Loading…</div>;
   }
 
   return (
-    <AuthGate>
-      <div className="card">
+    <>
+      <div
+        className="card"
+        style={{
+          background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
+          border: "2px solid hsla(96, 91%, 49%, 0.69)",
+          boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
+        }}
+      >
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Today</h1>
@@ -490,7 +484,7 @@ export default function TodayPage() {
             </p>
             {plan?.status && (
               <div className="mt-2 text-sm text-white/60">
-                Date: <b>{todayISO}</b>
+                Date: <b>{formatDateDisplay(todayISO)}</b>
               </div>
             )}
             {dayClosed && plan?.reviewed_at && (
@@ -518,7 +512,10 @@ export default function TodayPage() {
         </div>
 
         {/* Quick Add Section - ALWAYS AVAILABLE */}
-        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
+        <div
+          className="mb-6 rounded-2xl bg-amber-500/[0.04] p-6"
+          style={{ borderLeft: "3px solid rgba(245, 158, 11, 0.5)" }}
+        >
           {dayClosed ? (
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -547,9 +544,9 @@ export default function TodayPage() {
                 </button>
               </div>
               
-              <div className="mt-4 p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+              <div className="mt-4 pl-3" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.25)" }}>
                 <p className="text-xs text-white/60">
-                  <b>Note:</b> Reopening will allow you to add new goals or modify existing ones. 
+                  <b>Note:</b> Reopening will allow you to add new goals or modify existing ones.
                   Remember to close the day again when you're done.
                 </p>
               </div>
@@ -585,19 +582,37 @@ export default function TodayPage() {
               <div>
                 <h3 className="text-sm font-bold text-amber-300">Need to add more goals?</h3>
               </div>
-              {!showQuickAdd && (
+              <div className="flex items-center gap-3">
+                {!showQuickAdd && (
+                  <button
+                    onClick={() => setShowQuickAdd(true)}
+                    className="btn"
+                    style={{
+                      background: "rgba(245, 158, 11, 0.2)",
+                      border: "2px solid rgba(245, 158, 11, 0.4)",
+                      padding: "0.5rem 1rem"
+                    }}
+                  >
+                    ➕ Add Goals
+                  </button>
+                )}
                 <button
-                  onClick={() => setShowQuickAdd(true)}
+                  type="button"
+                  onClick={closeOutDay}
+                  disabled={!allReviewed || closing}
+                  title={!allReviewed ? "Review all goals first" : "Close out the day"}
                   className="btn"
                   style={{
                     background: "rgba(245, 158, 11, 0.2)",
                     border: "2px solid rgba(245, 158, 11, 0.4)",
-                    padding: "0.5rem 1rem"
+                    padding: "0.5rem 1rem",
+                    opacity: !allReviewed || closing ? 0.5 : 1,
+                    cursor: !allReviewed || closing ? "not-allowed" : "pointer"
                   }}
                 >
-                  ➕ Add Goals
+                  {closing ? "Closing…" : "✅ Close out day"}
                 </button>
-              )}
+              </div>
             </div>
           )}
 
@@ -655,7 +670,14 @@ export default function TodayPage() {
 
         {/* Close Out Day Section */}
         {!dayClosed && totalCount > 0 && (
-          <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div
+            className="mb-6 rounded-2xl bg-white/5 p-4"
+            style={{
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderLeftWidth: "3px",
+              borderLeftColor: "rgba(245, 158, 11, 0.5)",
+            }}
+          >
             <div className="flex flex-wrap items-center gap-3">
               {pendingGoals.length > 0 ? (
                 <>
@@ -668,35 +690,11 @@ export default function TodayPage() {
               )}
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="btn"
-                onClick={closeOutDay}
-                disabled={!allReviewed || closing}
-                title={!allReviewed ? "Review all goals first" : "Close out the day"}
-              >
-                {closing ? "Closing…" : "Close out day"}
-              </button>
-              
-              {/* Manual close button for debugging */}
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={manualCloseDay}
-                disabled={closing}
-                title="Manual close (debugging)"
-                style={{ fontSize: "0.75rem" }}
-              >
-                🔧 Manual Close
-              </button>
-              
-              {allReviewed && (
-                <div className="text-sm text-white/60">
-                  Close out to unlock Tomorrow planning.
-                </div>
-              )}
-            </div>
+            {allReviewed && (
+              <div className="mt-3 text-sm text-white/60">
+                Close out to unlock Tomorrow planning.
+              </div>
+            )}
           </div>
         )}
 
@@ -713,31 +711,26 @@ export default function TodayPage() {
           )}
 
           {sortedGoals.map((g, idx) => {
-            const reviewed = !!(g as any).reviewed_at;
-            const p = typeof (g as any).priority === "number" ? (g as any).priority : 3;
-            const isBusy = busyGoalId === g.id;
+            const reviewed = !!g.reviewed_at;
+            const p = typeof g.priority === "number" ? g.priority : 3;
+            const isBusy = busyGoalIds.has(g.id);
 
             return (
               <div
                 key={g.id}
-                className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.005]"
-                style={{
-                  background: getPriorityGradient(p),
-                  border: `2px solid ${getPriorityBorder(p)}`,
-                  padding: "2rem 2.5rem",
-                  opacity: reviewed ? 1 : 0.6
-                }}
+                className="goal-row"
+                data-pending={!reviewed}
+                style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
               >
-                <div className="flex items-center" style={{ gap: "2rem" }}>
-                  {/* Number badge - circular like Tomorrow */}
-                  <div 
-                    className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white text-xl"
+                <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
+                  {/* Number badge */}
+                  <div
+                    className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
                     style={{
-                      width: "56px",
-                      height: "56px",
-                      background: "linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5))",
-                      border: "2px solid rgba(255, 255, 255, 0.25)",
-                      boxShadow: "0 4px 12px rgba(168, 85, 247, 0.3)"
+                      width: "32px",
+                      height: "32px",
+                      background: "rgba(255, 255, 255, 0.06)",
+                      border: "1px solid rgba(255, 255, 255, 0.14)",
                     }}
                   >
                     {idx + 1}
@@ -747,352 +740,325 @@ export default function TodayPage() {
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       {!reviewed && <span className="text-xs text-amber-400 font-semibold">⏳ Pending review</span>}
-                      {reviewed && <span className="text-xs text-emerald-400 font-semibold">✓ Reviewed</span>}
                     </div>
 
-                    <div className="text-white text-xl font-medium mb-2" style={{ padding: "0 1rem" }}>
-                      {g.title}
-                    </div>
-                    
-                    {/* Reschedule info - directly under title */}
-                    {(g as any).rescheduled_to && (
-                      <div className="mb-3" style={{ padding: "0 1rem" }}>
-                        <div className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5">
-                          <span className="text-lg">📅</span>
-                          <div>
-                            <div className="text-xs font-semibold text-blue-300">
-                              Rescheduled to {(g as any).rescheduled_to}
+                    {(() => {
+                      const tab = activeTab[g.id] ?? "notes";
+                      const notes = goalNotes[g.id] ?? [];
+                      return (
+                        <div className="flex flex-wrap gap-6" style={{ padding: "0 1rem" }}>
+                          {/* Goal — static, always visible, ~50% */}
+                          <div style={{ flex: "1 1 45%", minWidth: "220px" }}>
+                            <div className="text-white text-xl font-medium mb-2">{g.title}</div>
+                            {g.details && (
+                              <div className="text-sm text-white/60">{g.details}</div>
+                            )}
+                          </div>
+
+                          {/* Notes / History — tabbed, ~50% */}
+                          <div style={{ flex: "1 1 45%", minWidth: "220px" }}>
+                            <div className="goal-tabs mb-3">
+                              <button type="button" className="goal-tab" data-active={tab === "notes"} onClick={() => selectTab(g.id, "notes")}>
+                                Notes{notesFetched[g.id] && notes.length > 0 ? ` (${notes.length})` : ""}
+                              </button>
+                              <button type="button" className="goal-tab" data-active={tab === "history"} onClick={() => selectTab(g.id, "history")}>
+                                History
+                              </button>
                             </div>
-                            {(g as any).reschedule_reason && (
-                              <div className="text-xs text-blue-300/70 italic mt-0.5">
-                                "{(g as any).reschedule_reason}"
+
+                            {tab === "notes" && (
+                              <div>
+                                {notes.length > 0 ? (
+                                  <div className="space-y-3 mb-3">
+                                    {notes.map((note, i) => (
+                                      <div key={note.id ?? i} className="flex items-start gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0"></div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm text-white/80">💬 {note.note}</div>
+                                          <div className="text-[10px] text-white/40 mt-0.5">
+                                            {formatDateTimeDisplay(note.created_at)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-white/40 italic mb-3">No notes yet</div>
+                                )}
+
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={noteDraft[g.id] ?? ""}
+                                    onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") submitNote(g.id);
+                                    }}
+                                    placeholder="Add a note..."
+                                    disabled={!!savingNote[g.id]}
+                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => submitNote(g.id)}
+                                    disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
+                                    className="btn"
+                                    style={{ padding: "0.375rem 1rem" }}
+                                  >
+                                    {savingNote[g.id] ? "Adding…" : "Add"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {tab === "history" && (
+                              <div className="space-y-3">
+                                {g.created_at && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">Goal created</div>
+                                      <div className="text-[10px] text-white/40 mt-0.5">
+                                        {formatDateTimeDisplay(g.created_at)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {p && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">
+                                        Priority: P{p} - {getPriorityMeta(p).label}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {g.reviewed_at && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">Marked as reviewed</div>
+                                      <div className="text-[10px] text-white/40 mt-0.5">
+                                        {formatDateTimeDisplay(g.reviewed_at)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {g.status !== "not_started" && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-sky-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">
+                                        Status: {statusLabel(g.status)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {g.rescheduled_to && (
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/80 font-medium">
+                                        Rescheduled to {formatDateDisplay(g.rescheduled_to)}
+                                      </div>
+                                      {g.reschedule_reason && (
+                                        <div className="text-xs text-white/60 italic mt-1">
+                                          "{g.reschedule_reason}"
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {!g.reviewed_at && g.status === "not_started" && !g.rescheduled_to && (
+                                  <div className="text-xs text-white/40 italic">
+                                    Nothing else recorded yet.
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
-                    )}
-                    
-                    {/* Goal details */}
-                    {g.details && (
-                      <div className="text-sm text-white/60 mb-3" style={{ padding: "0 1rem" }}>
-                        {g.details}
-                      </div>
-                    )}
-                    
-                    {/* Activity History & Metadata */}
-                    {g.id && (
-                      <div className="mt-4 pt-4 border-t border-white/10" style={{ padding: "0 1rem" }}>
-                        <div className="flex flex-wrap gap-4 text-xs text-white/40 mb-2">
-                          {(g as any).created_at && (
-                            <div>📅 Created {new Date((g as any).created_at).toLocaleString()}</div>
-                          )}
-                          {(g as any).reviewed_at && (
-                            <div className="text-emerald-400/70">✓ Reviewed {new Date((g as any).reviewed_at).toLocaleTimeString()}</div>
-                          )}
-                        </div>
-                        
-                        <button
-                          onClick={async () => {
-                            if (!showHistory[g.id]) {
-                              const notes = await fetchGoalNotes(g.id);
-                              setGoalNotes(prev => ({ ...prev, [g.id]: notes }));
+                      );
+                    })()}
+                  </div>
+
+                  {/* Priority + Actions — grouped together instead of two separate columns.
+                      Priority + status label stay visible even once the day is closed;
+                      only the editable controls (review/status/reschedule) hide then. */}
+                  <div className="flex flex-col gap-3" style={{ minWidth: "160px" }}>
+                    {/* Priority sits right next to the review toggle */}
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={p}
+                        disabled={locked || dayClosed}
+                        onChange={async (e) => {
+                          const newPriority = Number(e.target.value);
+                          markGoalBusy(g.id);
+                          try {
+                            await supabase
+                              .from("goals")
+                              .update({ priority: newPriority })
+                              .eq("id", g.id);
+                            if (newPriority === 1 && plan?.id) {
+                              await enforceSingleP1(plan.id, g.id);
                             }
-                            setShowHistory(prev => ({ ...prev, [g.id]: !prev[g.id] }));
-                          }}
-                          className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
+                            await refresh();
+                          } catch (e: any) {
+                            setMsg(e?.message ?? "Failed to update priority");
+                          } finally {
+                            clearGoalBusy(g.id);
+                          }
+                        }}
+                        className="priority-select"
+                        style={{
+                          "--p-bg": getPriorityMeta(p).bg,
+                          "--p-border": getPriorityMeta(p).border,
+                          "--p-color": getPriorityMeta(p).color,
+                        } as React.CSSProperties}
+                        title={`Priority ${p}`}
+                      >
+                        {[1, 2, 3, 4, 5].map((v) => (
+                          <option key={v} value={v}>
+                            P{v}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Status chip - same fashion as the priority select, distinct color per status */}
+                      <div
+                        className="status-chip"
+                        style={{
+                          "--chip-bg": statusChipColors(g.status).bg,
+                          "--chip-border": statusChipColors(g.status).border,
+                          "--chip-color": statusChipColors(g.status).color,
+                        } as React.CSSProperties}
+                      >
+                        <span>{statusIcon(g.status)}</span>
+                        <span>{statusLabel(g.status)}</span>
+                      </div>
+
+                      {/* Actions gear — everything below stays hidden until this is clicked */}
+                      {!dayClosed && (
+                        <button
+                          type="button"
+                          onClick={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                          disabled={locked}
+                          className="actions-toggle"
+                          data-open={!!showActions[g.id]}
+                          title="Actions"
                         >
-                          {showHistory[g.id] ? "▼ Hide activity log" : "▶ Show activity log"}
+                          ⚙️
                         </button>
-                        
-                        {showHistory[g.id] && (
-                          <div className="mt-3 p-4 rounded-lg bg-black/30 border border-white/10">
-                            <div className="text-xs font-semibold text-white/70 mb-3 flex items-center gap-2">
-                              <span>📋</span>
-                              Activity Timeline
-                            </div>
-                            
-                            <div className="space-y-3">
-                              {(g as any).created_at && (
-                                <div className="flex items-start gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-white/80 font-medium">Goal created</div>
-                                    <div className="text-[10px] text-white/40 mt-0.5">
-                                      {new Date((g as any).created_at).toLocaleString()}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {p && (
-                                <div className="flex items-start gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-white/80 font-medium">
-                                      Priority: {getPriorityIcon(p)} P{p} - {PRIORITY_OPTIONS.find(o => o.v === p)?.label}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {(g as any).reviewed_at && (
-                                <div className="flex items-start gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-white/80 font-medium">Marked as reviewed</div>
-                                    <div className="text-[10px] text-white/40 mt-0.5">
-                                      {new Date((g as any).reviewed_at).toLocaleString()}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {g.status !== "not_started" && (
-                                <div className="flex items-start gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-sky-400 mt-1.5 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-white/80 font-medium">
-                                      Status: {statusLabel(g.status)}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {(g as any).rescheduled_to && (
-                                <div className="flex items-start gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-white/80 font-medium">
-                                      Rescheduled to {(g as any).rescheduled_to}
-                                    </div>
-                                    {(g as any).reschedule_reason && (
-                                      <div className="text-xs text-white/60 italic mt-1">
-                                        "{(g as any).reschedule_reason}"
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {goalNotes[g.id]?.map((note, i) => (
-                                <div key={i} className="flex items-start gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0"></div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-white/80 font-medium">💬 {note.note}</div>
-                                    <div className="text-[10px] text-white/40 mt-0.5">
-                                      {new Date(note.created_at).toLocaleString()}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                              
-                              {!goalNotes[g.id]?.length && g.status === "not_started" && !(g as any).reviewed_at && (
-                                <div className="text-xs text-white/40 italic text-center py-2">
-                                  No activity recorded yet
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                      )}
+                    </div>
+
+                    {/* Stacked action menu - equal-width buttons, revealed by the gear */}
+                    {!dayClosed && showActions[g.id] && (
+                      <div className="flex flex-col gap-2" style={{ minWidth: "180px" }}>
+                        <button
+                          type="button"
+                          onClick={() => toggleReviewed(g)}
+                          disabled={locked || isBusy}
+                          className="action-btn"
+                          style={{
+                            "--btn-bg": reviewed ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                            "--btn-border": reviewed ? "rgba(16, 185, 129, 0.4)" : "rgba(245, 158, 11, 0.4)",
+                            "--btn-color": reviewed ? "#6ee7b7" : "#fcd34d",
+                          } as React.CSSProperties}
+                        >
+                          <span>{reviewed ? "↶" : "✓"}</span>
+                          <span>{isBusy ? "…" : reviewed ? "Mark as pending" : "Mark as reviewed"}</span>
+                        </button>
+
+                        {reviewed && !locked && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(g, "completed")}
+                              disabled={isBusy}
+                              className="action-btn"
+                              style={{
+                                "--btn-bg": g.status === "completed" ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.08)",
+                                "--btn-border": g.status === "completed" ? "rgba(16, 185, 129, 0.7)" : "rgba(16, 185, 129, 0.25)",
+                                "--btn-color": "#6ee7b7",
+                              } as React.CSSProperties}
+                            >
+                              <span>✅</span>
+                              <span>Completed</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(g, "in_progress")}
+                              disabled={isBusy}
+                              className="action-btn"
+                              style={{
+                                "--btn-bg": g.status === "in_progress" ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.08)",
+                                "--btn-border": g.status === "in_progress" ? "rgba(59, 130, 246, 0.7)" : "rgba(59, 130, 246, 0.25)",
+                                "--btn-color": "#93c5fd",
+                              } as React.CSSProperties}
+                            >
+                              <span>⚙️</span>
+                              <span>In Progress</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(g, "blocked")}
+                              disabled={isBusy}
+                              className="action-btn"
+                              style={{
+                                "--btn-bg": g.status === "blocked" ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
+                                "--btn-border": g.status === "blocked" ? "rgba(239, 68, 68, 0.7)" : "rgba(239, 68, 68, 0.25)",
+                                "--btn-color": "#fca5a5",
+                              } as React.CSSProperties}
+                            >
+                              <span>🚫</span>
+                              <span>Blocked</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(g, "postponed")}
+                              disabled={isBusy}
+                              className="action-btn"
+                              style={{
+                                "--btn-bg": g.status === "postponed" ? "rgba(245, 158, 11, 0.2)" : "rgba(245, 158, 11, 0.08)",
+                                "--btn-border": g.status === "postponed" ? "rgba(245, 158, 11, 0.7)" : "rgba(245, 158, 11, 0.25)",
+                                "--btn-color": "#fcd34d",
+                              } as React.CSSProperties}
+                            >
+                              <span>⏸️</span>
+                              <span>Postponed</span>
+                            </button>
+                          </>
+                        )}
+
+                        {reviewed && !locked && g.status !== "completed" && (
+                          <button
+                            type="button"
+                            onClick={() => setRescheduleGoal(g)}
+                            disabled={isBusy}
+                            className="action-btn"
+                            style={{
+                              "--btn-bg": g.rescheduled_to ? "rgba(168, 85, 247, 0.2)" : "rgba(168, 85, 247, 0.08)",
+                              "--btn-border": g.rescheduled_to ? "rgba(168, 85, 247, 0.7)" : "rgba(168, 85, 247, 0.25)",
+                              "--btn-color": "#d8b4fe",
+                            } as React.CSSProperties}
+                          >
+                            <span>📅</span>
+                            <span>{g.rescheduled_to ? `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}` : "Reschedule"}</span>
+                          </button>
                         )}
                       </div>
                     )}
                   </div>
-
-                  {/* Priority button - EXACTLY like Tomorrow page */}
-                  <div className="flex-shrink-0 relative" style={{ width: "56px" }}>
-                    <select
-                      value={p}
-                      disabled={locked || dayClosed}
-                      onChange={async (e) => {
-                        const newPriority = Number(e.target.value);
-                        setBusyGoalId(g.id);
-                        try {
-                          await supabase
-                            .from("goals")
-                            .update({ priority: newPriority })
-                            .eq("id", g.id);
-                          await refresh();
-                        } catch (e: any) {
-                          setMsg(e?.message ?? "Failed to update priority");
-                        } finally {
-                          setBusyGoalId(null);
-                        }
-                      }}
-                      style={{
-                        width: "56px",
-                        height: "56px",
-                        background: getPriorityData(p).buttonBg,
-                        border: `3px solid ${getPriorityData(p).buttonBorder}`,
-                        borderRadius: "50%",
-                        color: "transparent",
-                        boxShadow: getPriorityData(p).buttonShadow,
-                        cursor: locked || dayClosed ? "default" : "pointer"
-                      }}
-                      className="appearance-none cursor-pointer hover:scale-110 hover:brightness-110 transition-all focus:outline-none focus:ring-2 focus:ring-white/30"
-                      title={`Priority ${p}`}
-                    >
-                      {PRIORITY_OPTIONS.map((opt) => (
-                        <option key={opt.v} value={opt.v}>
-                          {opt.icon} P{opt.v}
-                        </option>
-                      ))}
-                    </select>
-                    {/* Icon overlay */}
-                    <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 pointer-events-none text-xl">
-                      {getPriorityIcon(p)}
-                    </div>
-                    {/* P# text overlay */}
-                    <div className="absolute left-1/2 bottom-2 -translate-x-1/2 pointer-events-none text-xs font-black text-white" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
-                      P{p}
-                    </div>
-                  </div>
-
-                  {/* Action section - compact horizontal layout */}
-                  {!dayClosed && (
-                    <div className="flex flex-col gap-3 items-center">
-                      {/* Review/Undo button */}
-                      <button
-                        type="button"
-                        onClick={() => toggleReviewed(g)}
-                        disabled={locked || isBusy}
-                        style={{
-                          width: "56px",
-                          height: "56px",
-                          background: reviewed ? "rgba(16, 185, 129, 0.3)" : "rgba(245, 158, 11, 0.3)",
-                          border: `3px solid ${reviewed ? "rgba(16, 185, 129, 0.6)" : "rgba(245, 158, 11, 0.6)"}`,
-                          borderRadius: "50%"
-                        }}
-                        className="flex items-center justify-center hover:scale-110 transition-all text-2xl font-bold"
-                        title={reviewed ? "Mark as pending" : "Mark as reviewed"}
-                      >
-                        {isBusy ? "..." : reviewed ? "↶" : "✓"}
-                      </button>
-                      
-                      {/* Horizontal status buttons row - only when reviewed */}
-                      {reviewed && !locked && (
-                        <div className="flex gap-2">
-                          {/* Completed */}
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(g, "completed")}
-                            disabled={isBusy}
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              background: g.status === "completed" ? "rgba(16, 185, 129, 0.5)" : "rgba(16, 185, 129, 0.1)",
-                              border: `2px solid ${g.status === "completed" ? "rgba(16, 185, 129, 1)" : "rgba(16, 185, 129, 0.3)"}`,
-                              borderRadius: "50%",
-                              transform: g.status === "completed" ? "scale(1.1)" : "scale(1)",
-                              boxShadow: g.status === "completed" ? "0 0 12px rgba(16, 185, 129, 0.6)" : "none"
-                            }}
-                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
-                            title="Completed"
-                          >
-                            ✅
-                          </button>
-                          
-                          {/* In Progress */}
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(g, "in_progress")}
-                            disabled={isBusy}
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              background: g.status === "in_progress" ? "rgba(59, 130, 246, 0.5)" : "rgba(59, 130, 246, 0.1)",
-                              border: `2px solid ${g.status === "in_progress" ? "rgba(59, 130, 246, 1)" : "rgba(59, 130, 246, 0.3)"}`,
-                              borderRadius: "50%",
-                              transform: g.status === "in_progress" ? "scale(1.1)" : "scale(1)",
-                              boxShadow: g.status === "in_progress" ? "0 0 12px rgba(59, 130, 246, 0.6)" : "none"
-                            }}
-                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
-                            title="In Progress"
-                          >
-                            ⚙️
-                          </button>
-                          
-                          {/* Blocked */}
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(g, "blocked")}
-                            disabled={isBusy}
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              background: g.status === "blocked" ? "rgba(239, 68, 68, 0.5)" : "rgba(239, 68, 68, 0.1)",
-                              border: `2px solid ${g.status === "blocked" ? "rgba(239, 68, 68, 1)" : "rgba(239, 68, 68, 0.3)"}`,
-                              borderRadius: "50%",
-                              transform: g.status === "blocked" ? "scale(1.1)" : "scale(1)",
-                              boxShadow: g.status === "blocked" ? "0 0 12px rgba(239, 68, 68, 0.6)" : "none"
-                            }}
-                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
-                            title="Blocked"
-                          >
-                            🚫
-                          </button>
-                          
-                          {/* Postponed */}
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(g, "postponed")}
-                            disabled={isBusy}
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              background: g.status === "postponed" ? "rgba(245, 158, 11, 0.5)" : "rgba(245, 158, 11, 0.1)",
-                              border: `2px solid ${g.status === "postponed" ? "rgba(245, 158, 11, 1)" : "rgba(245, 158, 11, 0.3)"}`,
-                              borderRadius: "50%",
-                              transform: g.status === "postponed" ? "scale(1.1)" : "scale(1)",
-                              boxShadow: g.status === "postponed" ? "0 0 12px rgba(245, 158, 11, 0.6)" : "none"
-                            }}
-                            className="flex items-center justify-center hover:scale-110 transition-all text-lg"
-                            title="Postponed"
-                          >
-                            ⏸️
-                          </button>
-                        </div>
-                      )}
-                      
-                      {/* Reschedule button - separate row, only if not completed */}
-                      {reviewed && !locked && g.status !== "completed" && (
-                        <button
-                          type="button"
-                          onClick={() => setRescheduleGoal(g)}
-                          disabled={isBusy}
-                          style={{
-                            width: "56px",
-                            height: "40px",
-                            background: (g as any).rescheduled_to ? "rgba(168, 85, 247, 0.4)" : "rgba(168, 85, 247, 0.15)",
-                            border: `2px solid ${(g as any).rescheduled_to ? "rgba(168, 85, 247, 0.8)" : "rgba(168, 85, 247, 0.3)"}`,
-                            borderRadius: "20px",
-                            position: "relative"
-                          }}
-                          className="flex items-center justify-center hover:scale-105 transition-all text-lg"
-                          title={(g as any).rescheduled_to ? `Rescheduled to ${(g as any).rescheduled_to}` : "Reschedule"}
-                        >
-                          📅
-                          {(g as any).rescheduled_to && (
-                            <div 
-                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-purple-500 border-2 border-white flex items-center justify-center text-xs font-bold"
-                            >
-                              ✓
-                            </div>
-                          )}
-                        </button>
-                      )}
-                      
-                      {/* Current status label */}
-                      <div className="text-center">
-                        <div 
-                          className={["text-xs font-bold px-2 py-1 rounded-full border", statusPillClass(g.status)].join(" ")}
-                          style={{ whiteSpace: "nowrap", fontSize: "0.65rem" }}
-                        >
-                          {statusLabel(g.status)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -1117,6 +1083,6 @@ export default function TodayPage() {
           }}
         />
       )}
-    </AuthGate>
+    </>
   );
 }

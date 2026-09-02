@@ -424,3 +424,281 @@ select:focus {
 .goals-root * {
   pointer-events: auto;
 }
+
+/* ✨ Goal rows — a quiet accent bar instead of a fully bordered/tinted box */
+.goal-row {
+  position: relative;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.25rem 1.5rem 1.25rem 1.75rem;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.goal-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.85rem;
+  bottom: 0.85rem;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--p-color, rgba(255, 255, 255, 0.2));
+}
+
+.goal-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.goal-row[data-pending="true"] {
+  opacity: 0.6;
+}
+
+/* ✨ Priority select — a compact flat chip, not a 56px badge with overlays */
+.priority-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 32px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-align: center;
+  text-align-last: center;
+  cursor: pointer;
+  border: 1px solid var(--p-border, rgba(255, 255, 255, 0.15));
+  background: var(--p-bg, rgba(255, 255, 255, 0.06));
+  color: var(--p-color, rgba(255, 255, 255, 0.85));
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.priority-select option {
+  background: #0a0e1a;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.priority-select:hover {
+  transform: scale(1.06);
+  border-color: var(--p-color, rgba(255, 255, 255, 0.4));
+}
+
+.priority-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--p-color, rgba(168, 85, 247, 0.5));
+}
+
+.priority-select:disabled {
+  cursor: default;
+  opacity: 0.6;
+  transform: none;
+}
+
+/* ✨ Goal-row tabs (Notes / History) — same bordered-button fashion as the
+   rest of the app's buttons (.btn / .action-btn), not an underline tab strip. */
+.goal-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.goal-tab {
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+}
+
+.goal-tab:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.goal-tab[data-active="true"] {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.55);
+  color: #d8b4fe;
+}
+
+/* ✨ Status chip — same fashion as .priority-select (height, radius, weight),
+   fixed width so every status reads at the same length, with a color distinct
+   per status. */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 128px;
+  height: 32px;
+  padding: 0 0.4rem;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  border: 1px solid var(--chip-border, rgba(255, 255, 255, 0.18));
+  background: var(--chip-bg, rgba(255, 255, 255, 0.06));
+  color: var(--chip-color, rgba(255, 255, 255, 0.7));
+}
+
+/* ✨ Small numbered circle for dense dashboard preview rows — same idea as
+   the 32px number badge on the Today page, just scaled down. */
+.goal-number-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+/* ✨ Compact variants of the priority/status chips for dense dashboard preview rows */
+.priority-chip-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 24px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+  border: 1px solid var(--p-border, rgba(255, 255, 255, 0.15));
+  background: var(--p-bg, rgba(255, 255, 255, 0.06));
+  color: var(--p-color, rgba(255, 255, 255, 0.85));
+}
+
+.status-chip-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 116px;
+  height: 24px;
+  padding: 0 0.3rem;
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.62rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid var(--chip-border, rgba(255, 255, 255, 0.18));
+  background: var(--chip-bg, rgba(255, 255, 255, 0.06));
+  color: var(--chip-color, rgba(255, 255, 255, 0.7));
+}
+
+/* ✨ Actions gear toggle — same footprint/type scale as .priority-select, so the
+   two controls read as a matched pair instead of mismatched button styles. */
+.actions-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.actions-toggle:hover {
+  transform: scale(1.06);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.actions-toggle[data-open="true"] {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.5);
+  color: #d8b4fe;
+}
+
+.actions-toggle:disabled {
+  cursor: default;
+  opacity: 0.6;
+  transform: none;
+}
+
+/* ✨ Stacked action buttons revealed by the gear toggle — uniform width/height,
+   icon + label sharing the same row instead of a grid of bare icon circles. */
+.action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--btn-border, rgba(255, 255, 255, 0.12));
+  background: var(--btn-bg, rgba(255, 255, 255, 0.04));
+  color: var(--btn-color, rgba(255, 255, 255, 0.85));
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.action-btn:hover {
+  transform: translateX(2px);
+  border-color: var(--btn-color, rgba(255, 255, 255, 0.4));
+}
+
+.action-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+  transform: none;
+}
+
+/* ✨ Compact goal row — same accent-bar idea as .goal-row, for dense list previews */
+.goal-row-compact {
+  position: relative;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.goal-row-compact::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--p-color, rgba(255, 255, 255, 0.2));
+}
+
+.goal-row-compact[data-pending="true"] {
+  opacity: 0.7;
+}
+
+/* ✨ Non-interactive content card — same look as .card, no hover lift/glow.
+   For static reading content (About page, etc.) where a hover-lift implies
+   clickability that isn't actually there. */
+.card.card-static:hover {
+  transform: none;
+  border-color: rgba(168, 85, 247, 0.15);
+  background: rgba(10, 14, 26, 0.6);
+  box-shadow: none;
+}
+
+.card.card-static:hover::before {
+  opacity: 0;
+}

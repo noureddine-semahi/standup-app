@@ -213,7 +213,7 @@ export default function CalendarPage() {
                 key={dateISO}
                 href={isToday ? "/standup/today" : `/standup/date/${dateISO}`}
                 className={[
-                  "aspect-square rounded-full border transition-all duration-200",
+                  "aspect-square rounded-2xl border transition-all duration-200",
                   "flex flex-col items-center justify-center text-center",
                   "hover:scale-[1.04] active:scale-[0.98]",
                   "focus:outline-none focus:ring-2 focus:ring-white/40",
@@ -248,7 +248,7 @@ export default function CalendarPage() {
         <div className="mt-6 flex flex-wrap gap-4 text-xs text-white/60">
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 rounded-full border"
+              className="w-4 h-4 rounded-md border"
               style={{
                 background: toneStyles("today").bg,
                 borderColor: toneStyles("today").border,
@@ -258,7 +258,7 @@ export default function CalendarPage() {
           </div>
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 rounded-full border"
+              className="w-4 h-4 rounded-md border"
               style={{
                 background: toneStyles("closed").bg,
                 borderColor: toneStyles("closed").border,
@@ -268,7 +268,7 @@ export default function CalendarPage() {
           </div>
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 rounded-full border"
+              className="w-4 h-4 rounded-md border"
               style={{
                 background: toneStyles("hasGoals").bg,
                 borderColor: toneStyles("hasGoals").border,
@@ -278,7 +278,7 @@ export default function CalendarPage() {
           </div>
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 rounded-full border"
+              className="w-4 h-4 rounded-md border"
               style={{
                 background: toneStyles("neutral").bg,
                 borderColor: toneStyles("neutral").border,

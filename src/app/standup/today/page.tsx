@@ -186,10 +186,17 @@ export default function TodayPage() {
   const pendingGoals = useMemo(() => sortedGoals.filter((g) => !g.reviewed_at), [sortedGoals]);
   const allReviewed = totalCount === 0 || (totalCount > 0 && reviewedCount === totalCount);
 
-  async function refresh() {
+  // silent: true for refetches after an action (reviewing a goal, closing
+  // the day, etc.) — the page already has content on screen, so re-showing
+  // the full-page loading state would blank everything out and read as a
+  // full page reload. Only the very first load (and the manual Refresh
+  // button) should show it. Silent refreshes also leave `msg` alone, since
+  // the action that triggered them usually just set its own status text.
+  async function refresh(opts: { silent?: boolean } = {}) {
+    const { silent = false } = opts;
     const mySeq = ++refreshSeqRef.current;
-    setLoading(true);
-    setMsg(null);
+    if (!silent) setLoading(true);
+    if (!silent) setMsg(null);
 
     try {
       const { plan: p, goals: gs } = await getPlanWithGoals(todayISO);
@@ -222,6 +229,31 @@ export default function TodayPage() {
         });
       }
 
+      // Preload notes for every goal up front — the Notes tab defaults to
+      // showing them, so without this a goal with real note history would
+      // still read "No notes yet" until the tab was clicked once.
+      if (goalIds.length > 0) {
+        const { data: allNotes } = await supabase
+          .from("goal_notes")
+          .select("*")
+          .in("goal_id", goalIds)
+          .order("created_at", { ascending: false });
+
+        const notesByGoal: Record<string, any[]> = {};
+        (allNotes ?? []).forEach((n) => {
+          (notesByGoal[n.goal_id] ??= []).push(n);
+        });
+
+        if (mySeq !== refreshSeqRef.current) return;
+
+        setGoalNotes(notesByGoal);
+        setNotesFetched((prev) => {
+          const next = { ...prev };
+          goalIds.forEach((id) => (next[id] = true));
+          return next;
+        });
+      }
+
       if (mySeq !== refreshSeqRef.current) return;
 
       // Attach reschedule info to goals
@@ -234,9 +266,9 @@ export default function TodayPage() {
       setGoals(goalsWithReschedule);
     } catch (e: any) {
       if (mySeq !== refreshSeqRef.current) return;
-      setMsg(e?.message ?? "Failed to load");
+      if (!silent) setMsg(e?.message ?? "Failed to load");
     } finally {
-      if (mySeq === refreshSeqRef.current) setLoading(false);
+      if (mySeq === refreshSeqRef.current && !silent) setLoading(false);
     }
   }
 
@@ -335,10 +367,10 @@ export default function TodayPage() {
         await unmarkGoalReviewed(goal.id);
       }
 
-      await refresh();
+      await refresh({ silent: true });
     } catch (e: any) {
       setMsg(e?.message ?? "Update failed");
-      await refresh();
+      await refresh({ silent: true });
     } finally {
       clearGoalBusy(goal.id);
     }
@@ -374,10 +406,10 @@ export default function TodayPage() {
         }, 900);
       }
 
-      await refresh();
+      await refresh({ silent: true });
     } catch (e: any) {
       setMsg(e?.message ?? "Status update failed");
-      await refresh();
+      await refresh({ silent: true });
     } finally {
       clearGoalBusy(goal.id);
     }
@@ -414,10 +446,10 @@ export default function TodayPage() {
           : `Day closed ✅ Tomorrow unlocked. (No extra points — this day already earned its closure bonus.)`
       );
 
-      await refresh();
+      await refresh({ silent: true });
     } catch (e: any) {
       setMsg(`Error: ${e?.message ?? "Could not close the day."}`);
-      await refresh();
+      await refresh({ silent: true });
     } finally {
       setClosing(false);
     }
@@ -448,7 +480,7 @@ export default function TodayPage() {
       if (goalsErr) throw goalsErr;
 
       setMsg("Day reopened ✅ Review your goals again before closing.");
-      await refresh();
+      await refresh({ silent: true });
     } catch (e: any) {
       console.error("Reopen error:", e);
       setMsg(`Error: ${e?.message ?? "Could not reopen the day."}`);
@@ -504,7 +536,7 @@ export default function TodayPage() {
         { title: "", priority: 3 },
       ]);
       
-      await refresh();
+      await refresh({ silent: true });
     } catch (e: any) {
       setMsg(e?.message ?? "Failed to add goals");
     } finally {
@@ -981,7 +1013,7 @@ export default function TodayPage() {
                             if (newPriority === 1 && plan?.id) {
                               await enforceSingleP1(plan.id, g.id);
                             }
-                            await refresh();
+                            await refresh({ silent: true });
                           } catch (e: any) {
                             setMsg(e?.message ?? "Failed to update priority");
                           } finally {
@@ -1152,7 +1184,7 @@ export default function TodayPage() {
           onClose={() => setRescheduleGoal(null)}
           onSuccess={() => {
             setMsg("Goal rescheduled successfully ✓");
-            refresh();
+            refresh({ silent: true });
           }}
         />
       )}

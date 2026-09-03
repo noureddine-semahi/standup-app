@@ -160,9 +160,14 @@ export default function DynamicDatePage() {
     scheduleAutoSave();
   }
 
-  async function refresh() {
-    setLoading(true);
-    setMsg(null);
+  // silent: true for refetches after an action — the page already has
+  // content on screen, so re-showing the full-page loading state would
+  // blank everything out and read as a full reload. Only the initial mount
+  // load should show it.
+  async function refresh(opts: { silent?: boolean } = {}) {
+    const { silent = false } = opts;
+    if (!silent) setLoading(true);
+    if (!silent) setMsg(null);
 
     // Draft access is always open, on any date. Submit eligibility is
     // separate and stricter: only true the day before this date, and only
@@ -230,7 +235,7 @@ export default function DynamicDatePage() {
     setGoals(rows);
     lastSavedHashRef.current = computeHashForSave(rows);
 
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 
   useEffect(() => {
@@ -424,7 +429,7 @@ export default function DynamicDatePage() {
       await upsertGoals(planId, toSave);
       await submitPlan(planId);
 
-      await refresh();
+      await refresh({ silent: true });
       setMsg(`Plan for ${formatDateDisplay(dateISO)} submitted ✅`);
     } catch (e: any) {
       setMsg(e?.message ?? "Submit failed");
@@ -563,7 +568,7 @@ export default function DynamicDatePage() {
             onClose={() => setRescheduleGoal(null)}
             onSuccess={() => {
               setRescheduleGoal(null);
-              refresh();
+              refresh({ silent: true });
             }}
           />
         )}

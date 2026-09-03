@@ -143,9 +143,14 @@ export default function TomorrowGoalsPage() {
     scheduleAutoSave();
   }
 
-  async function refresh() {
-    setLoading(true);
-    setMsg(null);
+  // silent: true for refetches after an action (e.g. submitting the plan) —
+  // the page already has content on screen, so re-showing the full-page
+  // loading state would blank everything out and read as a full reload.
+  // Only the initial mount load should show it.
+  async function refresh(opts: { silent?: boolean } = {}) {
+    const { silent = false } = opts;
+    if (!silent) setLoading(true);
+    if (!silent) setMsg(null);
 
     setSubmitEligible(await isYesterdayReviewed());
 
@@ -209,7 +214,7 @@ export default function TomorrowGoalsPage() {
     setGoals(rows);
     lastSavedHashRef.current = computeHashForSave(rows);
 
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 
   useEffect(() => {
@@ -402,7 +407,7 @@ export default function TomorrowGoalsPage() {
       await upsertGoals(planId, toSave);
       await submitPlan(planId);
 
-      await refresh();
+      await refresh({ silent: true });
       setMsg("Tomorrow plan submitted ✅");
     } catch (e: any) {
       setMsg(e?.message ?? "Submit failed");

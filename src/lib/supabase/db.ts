@@ -38,6 +38,7 @@ export type Profile = {
   phone_number?: string | null;
   avatar_url?: string | null;
   shared_at?: string | null;
+  is_admin?: boolean;
 };
 
 export type GoalNote = {
@@ -196,6 +197,87 @@ export async function deleteAccount() {
   if (profileErr) throw profileErr;
 
   await supabase.auth.signOut();
+}
+
+export type AdminMember = {
+  id: string;
+  email: string;
+  displayName: string | null;
+  points: number;
+  isAdmin: boolean;
+  createdAt: string;
+  totalDaysClosed: number;
+  totalGoalsCompleted: number;
+};
+
+/**
+ * Whether the current user is an admin. The RPC is SECURITY DEFINER so it
+ * can read profiles.is_admin regardless of RLS; a non-admin (or logged-out)
+ * caller just gets false back, not an error.
+ */
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_admin");
+  if (error) throw error;
+  return !!data;
+}
+
+/**
+ * Admin-only: every member with the stats the admin panel needs, including
+ * email (joined from auth.users server-side — the client can never read
+ * that table directly). Throws if the caller isn't an admin.
+ */
+export async function getAdminMembers(): Promise<AdminMember[]> {
+  const { data, error } = await supabase.rpc("admin_list_members");
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    email: row.email,
+    displayName: row.display_name,
+    points: row.points,
+    isAdmin: !!row.is_admin,
+    createdAt: row.created_at,
+    totalDaysClosed: row.total_days_closed ?? 0,
+    totalGoalsCompleted: row.total_goals_completed ?? 0,
+  }));
+}
+
+export async function adminSetPoints(targetUserId: string, points: number) {
+  const { error } = await supabase.rpc("admin_set_points", {
+    p_user_id: targetUserId,
+    p_points: points,
+  });
+  if (error) throw error;
+}
+
+/** Wipes a member's app data (same scope as deleteAccount) without touching their login. */
+export async function adminWipeMemberData(targetUserId: string) {
+  const { error } = await supabase.rpc("admin_wipe_member_data", { p_user_id: targetUserId });
+  if (error) throw error;
+}
+
+export type AdminAuditEntry = {
+  id: string;
+  adminEmail: string | null;
+  targetEmail: string | null;
+  action: string;
+  details: Record<string, any> | null;
+  createdAt: string;
+};
+
+/** Admin-only: recent admin actions (who did what to whom, and when). */
+export async function getAdminAuditLog(limit = 100): Promise<AdminAuditEntry[]> {
+  const { data, error } = await supabase.rpc("admin_get_audit_log", { p_limit: limit });
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    adminEmail: row.admin_email,
+    targetEmail: row.target_email,
+    action: row.action,
+    details: row.details,
+    createdAt: row.created_at,
+  }));
 }
 
 // Same-tab guard against React Strict Mode's dev double-invocation (and any

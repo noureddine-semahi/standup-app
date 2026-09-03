@@ -163,6 +163,15 @@ export default function ProfilePage() {
           >
             Points &amp; Usage History
           </Link>
+          {profile?.is_admin && (
+            <Link
+              href="/standup/admin"
+              className="btn text-center"
+              style={{ boxSizing: "border-box", width: "100%" }}
+            >
+              Admin Panel
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             disabled={loggingOut}

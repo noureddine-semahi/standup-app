@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { getOrCreateProfile, type Profile } from "@/lib/supabase/db";
+import { getOrCreateProfile, consumePendingReferral, type Profile } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
 
 // One nav slot cycles through these three instead of showing all of them at
@@ -32,6 +32,7 @@ export default function Header() {
 
         if (session?.user) {
           setUser(session.user);
+          consumePendingReferral().catch(() => {});
 
           try {
             const p = await getOrCreateProfile();
@@ -57,6 +58,7 @@ export default function Header() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
+        consumePendingReferral().catch(() => {});
         getOrCreateProfile()
           .then((p) => setProfile(p))
           .catch(() => {});

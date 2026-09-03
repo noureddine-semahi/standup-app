@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { toISODate, addDays, computeStreak, computeClosurePoints, formatDateDisplay } from "./db";
+import {
+  toISODate,
+  addDays,
+  computeStreak,
+  computeClosurePoints,
+  computeLongestStreak,
+  formatDateDisplay,
+} from "./db";
+import { getLevelInfo } from "@/lib/levels";
 
 describe("toISODate", () => {
   it("formats a date as YYYY-MM-DD", () => {
@@ -89,5 +97,58 @@ describe("computeClosurePoints", () => {
 
   it("treats a negative streak as zero rather than subtracting", () => {
     expect(computeClosurePoints(-5)).toBe(5);
+  });
+});
+
+describe("computeLongestStreak", () => {
+  it("returns 0 for an empty list", () => {
+    expect(computeLongestStreak([])).toBe(0);
+  });
+
+  it("returns 1 for a single date", () => {
+    expect(computeLongestStreak(["2026-01-05"])).toBe(1);
+  });
+
+  it("finds the longest run of consecutive dates, not just the last one", () => {
+    // 3-day run (1-3), gap, then a shorter 2-day run (7-8)
+    expect(
+      computeLongestStreak(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-07", "2026-01-08"])
+    ).toBe(3);
+  });
+
+  it("ignores order and duplicates in the input", () => {
+    expect(computeLongestStreak(["2026-01-03", "2026-01-01", "2026-01-02", "2026-01-02"])).toBe(3);
+  });
+
+  it("stays at the longest run even after a streak breaks and a shorter one follows", () => {
+    expect(computeLongestStreak(["2026-01-01", "2026-01-02", "2026-01-10"])).toBe(2);
+  });
+});
+
+describe("getLevelInfo", () => {
+  it("starts at level 1 (Starter) with 0 points", () => {
+    const info = getLevelInfo(0);
+    expect(info.level).toBe(1);
+    expect(info.name).toBe("Starter");
+    expect(info.progressPct).toBe(0);
+  });
+
+  it("advances to the next level exactly at its point threshold", () => {
+    const info = getLevelInfo(50);
+    expect(info.level).toBe(2);
+    expect(info.name).toBe("Committed");
+  });
+
+  it("computes points-to-next and progress within the current level", () => {
+    const info = getLevelInfo(100); // Committed spans 50-149
+    expect(info.pointsToNext).toBe(50);
+    expect(info.progressPct).toBe(50);
+  });
+
+  it("caps at the max level with no next threshold", () => {
+    const info = getLevelInfo(999999);
+    expect(info.nextLevelPoints).toBeNull();
+    expect(info.pointsToNext).toBeNull();
+    expect(info.progressPct).toBe(100);
   });
 });

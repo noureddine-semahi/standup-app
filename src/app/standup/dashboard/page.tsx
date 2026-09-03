@@ -19,6 +19,7 @@ import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import ProgressCircle from "@/components/ProgressCircle";
+import { getLevelInfo } from "@/lib/levels";
 
 /**
  * ✅ Reuse the "Tomorrow page" visual language:
@@ -202,6 +203,8 @@ export default function DashboardPage() {
   const sortedTodayGoals = sortGoals(todayGoals);
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
 
+  const levelInfo = getLevelInfo(profile?.points ?? 0);
+
   return (
     <div className="space-y-6">
       {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
@@ -212,6 +215,29 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl font-bold">Dashboard</h1>
               <p className="mt-2 text-white/70">Your daily execution overview</p>
+
+              {/* Level badge — points-based, see src/lib/levels.ts. Links to
+                  Profile, where the fuller level + achievements view lives. */}
+              <Link
+                href="/standup/profile"
+                className="mt-4 inline-flex items-center gap-3 rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1.5 hover:bg-purple-500/15 transition"
+              >
+                <span className="text-xs font-bold text-purple-300">
+                  Lv {levelInfo.level} · {levelInfo.name}
+                </span>
+                <span className="relative h-1.5 w-20 rounded-full overflow-hidden bg-white/10">
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: `${levelInfo.progressPct}%`,
+                      background: "linear-gradient(90deg, var(--accent-purple), var(--accent-blue))",
+                    }}
+                  />
+                </span>
+                <span className="text-[11px] text-white/50">
+                  {levelInfo.pointsToNext !== null ? `${levelInfo.pointsToNext} pts to next` : "Max level"}
+                </span>
+              </Link>
             </div>
 
             <div className="hidden sm:flex gap-2">

@@ -1,6 +1,7 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
-const FAQS: { question: string; answer: string }[] = [
+const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "What is StandUp?",
     answer:
@@ -10,6 +11,21 @@ const FAQS: { question: string; answer: string }[] = [
     question: "How do I earn points?",
     answer:
       "Two ways each day: a small \"awareness\" bonus the first time you review a pending goal, and a larger \"closure\" bonus when you close out the day. The closure bonus scales up with your current streak, up to a cap — so a longer streak earns more per day.",
+  },
+  {
+    question: "What are Levels?",
+    answer:
+      "Your level is based on total points, from Starter up through Transcendent at 5,000 points, with several named tiers in between. Check your current level and progress toward the next one on the Dashboard or Profile.",
+  },
+  {
+    question: "What are Achievements?",
+    answer:
+      "One-time badges for milestones — streaks (both your current run and your longest streak ever, so a broken streak doesn't erase a past achievement), completing goals, completing a goal after rescheduling it or tracking it with notes, points totals, and referrals or sharing. See all of them, including locked ones as a preview of what's next, on your Profile.",
+  },
+  {
+    question: "How do referrals work?",
+    answer:
+      "Copy your link from Profile under \"Invite & Share\" and send it to a friend. When they sign up and complete their first day, you earn 25 bonus points. The same button also lets you share your progress, which unlocks its own achievement.",
   },
   {
     question: "What happens if I miss a day?",
@@ -53,8 +69,16 @@ const FAQS: { question: string; answer: string }[] = [
   },
   {
     question: "Is my personal info required?",
-    answer:
-      "No. First/last name, date of birth, address, phone number, and a profile photo are all optional fields in Settings, kept separate from your display name.",
+    answer: (
+      <>
+        No. First/last name, date of birth, address, phone number, and a profile photo are all
+        optional fields in Settings, kept separate from your display name. See our{" "}
+        <Link href="/privacy" className="text-purple-300 hover:text-purple-200 underline">
+          Privacy Policy
+        </Link>{" "}
+        for how that info is used.
+      </>
+    ),
   },
   {
     question: "Can I delete my account?",

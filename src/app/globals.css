@@ -31,11 +31,20 @@ a {
 
 [data-theme="light"] {
   color-scheme: light;
-  --page-bg: #eef0f5;
+  --page-bg: #d7dae2;
   --page-text: rgba(20, 22, 30, 0.92);
-  --app-bg-wash-1: rgba(168, 85, 247, 0.10);
-  --app-bg-wash-2: rgba(59, 130, 246, 0.08);
-  --app-bg-gradient: linear-gradient(180deg, #f4f5f9 0%, #e7e9f2 45%, #f4f5f9 100%);
+  /* The soft radial glow washes read as a moody accent on the dark canvas,
+     but the same blooms on a light canvas look like a hazy, overexposed
+     blur — dropped entirely here, leaving just the flat gradient below. */
+  --app-bg-wash-1: transparent;
+  --app-bg-wash-2: transparent;
+  --app-bg-gradient: linear-gradient(180deg, #dee1e9 0%, #cdd0da 45%, #dee1e9 100%);
+}
+
+/* Same reasoning as the app-bg washes above — mix-blend-multiply against a
+   light canvas reads as a hazy blur instead of a moody glow. */
+[data-theme="light"] .hero-blob {
+  display: none;
 }
 
 html, body {
@@ -124,6 +133,18 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(5, 6, 10, 0.7);
   border-bottom: 1px solid rgba(168, 85, 247, 0.2);
   transition: all 0.3s ease;
+}
+
+/* Light mode: cards/header are meant to stay dark regardless of theme (see
+   the design note at the top of this file), but at their dark-mode opacity
+   the light canvas underneath bleeds through the blur and washes them out
+   into a hazy gray instead of reading as solid dark glass. Bumped near-opaque
+   here so the blur has almost nothing light to pick up. */
+[data-theme="light"] .app-header {
+  background: rgba(5, 6, 10, 0.94);
+}
+[data-theme="light"] .app-header:hover {
+  background: rgba(5, 6, 10, 0.97);
 }
 
 .app-header:hover {
@@ -341,6 +362,15 @@ h1, h2, h3, h4, h5, h6 {
 
 .card:hover::before {
   opacity: 1;
+}
+
+/* Same reasoning as the light-mode .app-header override above — near-opaque
+   so the light canvas doesn't bleed through the blur as a hazy wash. */
+[data-theme="light"] .card {
+  background: rgba(10, 14, 26, 0.94);
+}
+[data-theme="light"] .card:hover {
+  background: rgba(10, 14, 26, 0.97);
 }
 
 /* A quieter emphasis modifier — replaces the old per-page inline

@@ -97,6 +97,10 @@ export default function ForgotPasswordPage() {
 
         <div className="mt-6 text-center text-xs text-white/40">
           StandUp © 2026 • Intentional work, daily consistency
+          <br />
+          <Link href="/privacy" className="hover:text-white/60 transition">
+            Privacy Policy
+          </Link>
         </div>
       </div>
     </div>

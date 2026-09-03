@@ -37,6 +37,7 @@ export type Profile = {
   address?: string | null;
   phone_number?: string | null;
   avatar_url?: string | null;
+  shared_at?: string | null;
 };
 
 export type GoalNote = {
@@ -693,6 +694,212 @@ export async function getDailyActivity(startISO: string, endISO: string): Promis
   }
 
   return result;
+}
+
+/**
+ * Pure: longest run of calendar-consecutive dates in a list of YYYY-MM-DD
+ * strings (order/duplicates don't matter — sorted and deduped internally).
+ * Unlike computeStreak (current streak, walking back from today), this
+ * scans the whole list for the longest run ever, so a broken streak doesn't
+ * erase a past achievement.
+ */
+export function computeLongestStreak(datesISO: string[]): number {
+  if (datesISO.length === 0) return 0;
+
+  const sorted = [...new Set(datesISO)].sort();
+  let longest = 1;
+  let current = 1;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(`${sorted[i - 1]}T00:00:00`);
+    const cur = new Date(`${sorted[i]}T00:00:00`);
+    const diffDays = Math.round((cur.getTime() - prev.getTime()) / 86400000);
+
+    current = diffDays === 1 ? current + 1 : 1;
+    longest = Math.max(longest, current);
+  }
+
+  return longest;
+}
+
+export type LifetimeStats = {
+  longestStreak: number;
+  totalDaysClosed: number;
+  totalGoalsCompleted: number;
+  maxGoalsCompletedInDay: number;
+  totalReferrals: number;
+  reschedulesCompleted: number;
+  trackedGoalsCompleted: number;
+  totalGoalsSubmitted: number;
+};
+
+/**
+ * Feeds the Achievements list (src/lib/achievements.ts) — history-wide
+ * totals, not scoped to any date window.
+ */
+export async function getLifetimeStats(): Promise<LifetimeStats> {
+  const userId = await getCurrentUserId();
+
+  const { count: totalReferrals, error: referralsError } = await supabase
+    .from("referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_id", userId)
+    .eq("awarded", true);
+  if (referralsError) throw referralsError;
+
+  const { data: plans, error: plansError } = await supabase
+    .from("daily_plans")
+    .select("id, plan_date, reviewed_at")
+    .eq("user_id", userId);
+  if (plansError) throw plansError;
+
+  const reviewedDates = (plans ?? [])
+    .filter((p) => !!p.reviewed_at)
+    .map((p) => p.plan_date as string);
+
+  const { count, error: goalsError } = await supabase
+    .from("goals")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "completed");
+  if (goalsError) throw goalsError;
+
+  const planIds = (plans ?? []).map((p) => p.id);
+  let maxGoalsCompletedInDay = 0;
+  if (planIds.length > 0) {
+    const { data: goalsByPlan, error: byPlanError } = await supabase
+      .from("goals")
+      .select("plan_id, status")
+      .in("plan_id", planIds)
+      .eq("status", "completed");
+    if (byPlanError) throw byPlanError;
+
+    const perPlanCount: Record<string, number> = {};
+    (goalsByPlan ?? []).forEach((g) => {
+      perPlanCount[g.plan_id] = (perPlanCount[g.plan_id] ?? 0) + 1;
+    });
+    maxGoalsCompletedInDay = Math.max(0, ...Object.values(perPlanCount));
+  }
+
+  // Goals that started as a reschedule of an older goal, and ended up
+  // completed anyway — following through after pushing something back.
+  const { data: reschedRows, error: reschedError } = await supabase
+    .from("goal_reschedules")
+    .select("materialized_goal_id")
+    .eq("user_id", userId)
+    .not("materialized_goal_id", "is", null);
+  if (reschedError) throw reschedError;
+
+  const materializedGoalIds = [
+    ...new Set((reschedRows ?? []).map((r) => r.materialized_goal_id).filter(Boolean)),
+  ];
+  let reschedulesCompleted = 0;
+  if (materializedGoalIds.length > 0) {
+    const { count: reschedCompletedCount, error: reschedCountError } = await supabase
+      .from("goals")
+      .select("id", { count: "exact", head: true })
+      .in("id", materializedGoalIds)
+      .eq("status", "completed");
+    if (reschedCountError) throw reschedCountError;
+    reschedulesCompleted = reschedCompletedCount ?? 0;
+  }
+
+  // Goals that were actively tracked with at least one note, and ended up
+  // completed — closing the loop on something you were following up on.
+  const { data: notedRows, error: notesError } = await supabase
+    .from("goal_notes")
+    .select("goal_id")
+    .eq("user_id", userId);
+  if (notesError) throw notesError;
+
+  const notedGoalIds = [...new Set((notedRows ?? []).map((n) => n.goal_id))];
+  let trackedGoalsCompleted = 0;
+  if (notedGoalIds.length > 0) {
+    const { count: trackedCount, error: trackedError } = await supabase
+      .from("goals")
+      .select("id", { count: "exact", head: true })
+      .in("id", notedGoalIds)
+      .eq("status", "completed");
+    if (trackedError) throw trackedError;
+    trackedGoalsCompleted = trackedCount ?? 0;
+  }
+
+  const { count: totalGoalsSubmitted, error: submittedError } = await supabase
+    .from("goals")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (submittedError) throw submittedError;
+
+  return {
+    longestStreak: computeLongestStreak(reviewedDates),
+    totalDaysClosed: reviewedDates.length,
+    totalGoalsCompleted: count ?? 0,
+    maxGoalsCompletedInDay,
+    totalReferrals: totalReferrals ?? 0,
+    reschedulesCompleted,
+    trackedGoalsCompleted,
+    totalGoalsSubmitted: totalGoalsSubmitted ?? 0,
+  };
+}
+
+export function getReferralLink(userId: string): string {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/signup?ref=${userId}`;
+}
+
+const PENDING_REFERRAL_KEY = "standup-pending-referral";
+
+export function storePendingReferral(referrerId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PENDING_REFERRAL_KEY, referrerId);
+  } catch {
+    // Private browsing / storage disabled — referral is simply lost, non-fatal.
+  }
+}
+
+/**
+ * Consumes a referral code stashed by the signup page, if any. Called on
+ * every authenticated session load (see Header.tsx) rather than only right
+ * after signup, since email confirmation means the session that actually
+ * gets created can be a fresh page load with no signup-flow state left.
+ * Safe to call repeatedly — a no-op once nothing's pending, and a stale or
+ * duplicate code just fails the insert quietly (referred_id is unique, and
+ * self-referrals are rejected by RLS).
+ */
+export async function consumePendingReferral() {
+  if (typeof window === "undefined") return;
+
+  let referrerId: string | null = null;
+  try {
+    referrerId = window.localStorage.getItem(PENDING_REFERRAL_KEY);
+  } catch {
+    return;
+  }
+  if (!referrerId) return;
+
+  try {
+    window.localStorage.removeItem(PENDING_REFERRAL_KEY);
+  } catch {
+    // ignore
+  }
+
+  try {
+    const userId = await getCurrentUserId();
+    if (referrerId === userId) return;
+    await supabase.from("referrals").insert({ referrer_id: referrerId, referred_id: userId });
+  } catch {
+    // Already recorded, invalid referrer, or rejected by RLS — fine either way.
+  }
+}
+
+export async function markShared() {
+  const userId = await getCurrentUserId();
+  await supabase
+    .from("profiles")
+    .update({ shared_at: new Date().toISOString() })
+    .eq("id", userId)
+    .is("shared_at", null);
 }
 
 export async function updateDisplayName(name: string) {

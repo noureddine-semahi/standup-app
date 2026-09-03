@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
+import SocialShareButtons from "@/components/SocialShareButtons";
+import { supabase } from "@/lib/supabase/client";
 
 const cardTitleFont = Playfair_Display({
   subsets: ["latin"],
@@ -9,6 +12,14 @@ const cardTitleFont = Playfair_Display({
 });
 
 export default function AboutPage() {
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setSignedIn(!!user);
+    });
+  }, []);
+
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-12">
@@ -211,7 +222,36 @@ export default function AboutPage() {
           </div>
           </div>
 
-          {/* How It Works — full-width footer band, like "Competitions" */}
+          {/* The Story — paired side-by-side with How It Works */}
+          <div
+            className="card card-highlight"
+          >
+          <div className="p-6">
+            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>The Story</h2>
+            <p className="text-white/80 mb-4">
+              StandUp started with a familiar office ritual: the daily standup meeting. Every
+              morning, the team would gather for a few minutes and each person answered the
+              same three things — what got done yesterday, what's the plan for today, and
+              what's blocking you.
+            </p>
+            <p className="text-sm text-white/70">
+              It sounds small, but that daily rhythm of reporting progress, committing to
+              today's goals out loud, and naming blockers before they turned into excuses
+              created real accountability. Nobody could quietly slip for a week — the next
+              day's standup would surface it.
+            </p>
+
+            <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
+              <p className="text-sm text-white/70">
+                <span className="font-semibold text-white">The idea:</span> bring that same
+                daily discipline to your own goals — report on yesterday, commit to today,
+                name what's blocking you. No team required.
+              </p>
+            </div>
+          </div>
+          </div>
+
+          {/* How It Works — paired side-by-side with The Story */}
           <div
             className="card card-highlight"
           >
@@ -247,14 +287,18 @@ export default function AboutPage() {
           </div>
         </div>
 
-        {/* CTA */}
+        {/* CTA — the signup push only makes sense for a signed-out visitor */}
         <div className="text-center">
-          <Link href="/signup" className="btn btn-primary text-lg px-8 py-4">
-            Get Started with StandUp
-          </Link>
-          <p className="mt-4 text-sm text-page-tertiary">
-            Join and start building your daily execution habit today.
-          </p>
+          {!signedIn && (
+            <>
+              <Link href="/signup" className="btn btn-primary text-lg px-8 py-4">
+                Get Started with StandUp
+              </Link>
+              <p className="mt-4 text-sm text-page-tertiary">
+                Join and start building your daily execution habit today.
+              </p>
+            </>
+          )}
           <p className="mt-6 text-sm text-page-tertiary">
             Have questions? Check the{" "}
             <Link href="/faq" className="text-purple-300 hover:text-purple-200 underline">
@@ -264,8 +308,14 @@ export default function AboutPage() {
             <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
               contact us
             </Link>
+            . See our{" "}
+            <Link href="/privacy" className="text-purple-300 hover:text-purple-200 underline">
+              Privacy Policy
+            </Link>
             .
           </p>
+
+          <SocialShareButtons className="mt-8" onPage />
         </div>
       </div>
     </div>

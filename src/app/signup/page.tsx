@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { storePendingReferral } from "@/lib/supabase/db";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,6 +15,15 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Stashed for later rather than acted on now — if email confirmation is
+  // required, the session that actually gets created lands on a fresh page
+  // load with no signup-flow state, so this is picked up in Header.tsx once
+  // that session shows up (see consumePendingReferral in db.ts).
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) storePendingReferral(ref);
+  }, []);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -204,6 +214,10 @@ export default function SignupPage() {
 
         <div className="mt-6 text-center text-xs text-white/40">
           StandUp © 2026 • Intentional work, daily consistency
+          <br />
+          <Link href="/privacy" className="hover:text-white/60 transition">
+            Privacy Policy
+          </Link>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import {
   getOrCreateProfile,
@@ -335,7 +336,11 @@ export default function SettingsPage() {
       <div className="card">
         <h2 className="text-lg font-semibold mb-1">Personal Info</h2>
         <p className="text-sm text-white/50 mb-4">
-          Completely optional — helps us personalize goals and content for you down the line.
+          Completely optional — helps us personalize goals and content for you down the line. See our{" "}
+          <Link href="/privacy" className="text-purple-300 hover:text-purple-200 underline">
+            Privacy Policy
+          </Link>
+          .
         </p>
 
         <div className="flex items-center gap-4 mb-6">

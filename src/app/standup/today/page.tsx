@@ -542,8 +542,8 @@ export default function TodayPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Today</h1>
             <p className="text-white/70">
-              {dayClosed 
-                ? "This day has been closed. Review your goals below." 
+              {dayClosed
+                ? "This day has been closed. You can't add or edit goals on a closed day."
                 : "Review each goal first. Pending goals stay dim until reviewed."}
             </p>
             {plan?.status && (
@@ -559,18 +559,76 @@ export default function TodayPage() {
                 </div>
               </div>
             )}
+            {dayClosed && (
+              <p className="mt-3 text-xs text-white/50">
+                Need to make changes? Reopen this day to add goals or make edits — remember to
+                close it again when you're done.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col items-start sm:items-end gap-3">
             <div className="text-sm text-white/70">
               Reviewed: <b>{reviewedCount}/{totalCount}</b>
             </div>
+            {dayClosed && (
+              <div className="flex flex-row gap-2">
+                <button
+                  onClick={reopenDay}
+                  disabled={reopening}
+                  className="btn bottom-nav-btn"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.3)",
+                    border: "2px solid rgba(245, 158, 11, 0.5)",
+                    fontWeight: "bold",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  {reopening ? "Reopening..." : "🔓 Reopen Day"}
+                </button>
+                <Link
+                  className="btn btn-primary whitespace-nowrap bottom-nav-btn"
+                  href="/standup/tomorrow"
+                  style={{ textAlign: "center" }}
+                >
+                  Plan Tomorrow →
+                </Link>
+              </div>
+            )}
+            {!dayClosed && totalCount > 0 && (
+              <div className="flex flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={closeOutDay}
+                  disabled={!allReviewed || closing}
+                  title={!allReviewed ? "Review all goals first" : "Close out the day"}
+                  className="btn bottom-nav-btn"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.2)",
+                    border: "2px solid rgba(245, 158, 11, 0.4)",
+                    opacity: !allReviewed || closing ? 0.5 : 1,
+                    cursor: !allReviewed || closing ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {closing ? "Closing…" : "✅ Close out day"}
+                </button>
+                <Link
+                  className="btn btn-primary whitespace-nowrap bottom-nav-btn"
+                  href="/standup/tomorrow"
+                  style={{ textAlign: "center" }}
+                >
+                  Plan Tomorrow →
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Quick Add Section - ALWAYS AVAILABLE — styled as its own distinct
-            card (not just a flush inset panel) so it reads as a separate
-            block from the header above and the goal list below. */}
+        {/* Quick Add Section — only relevant while the day is still open;
+            once closed, the equivalent actions (Reopen Day / Plan Tomorrow)
+            live in the header above instead of repeating themselves here. */}
+        {!dayClosed && (
         <div
           className="mb-6 rounded-2xl p-6"
           style={{
@@ -579,50 +637,7 @@ export default function TodayPage() {
             boxShadow: "0 8px 20px -8px rgba(0, 0, 0, 0.45)",
           }}
         >
-          {dayClosed ? (
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-amber-300 mb-2">Day Already Closed</h3>
-                  <p className="text-sm text-white/70 mb-2">
-                    This day has been closed. You can't add or edit goals on a closed day.
-                  </p>
-                  <p className="text-xs text-white/50">
-                    Need to make changes? Reopen this day to add goals or make edits.
-                  </p>
-                </div>
-                <div className="flex flex-row gap-2">
-                  <button
-                    onClick={reopenDay}
-                    disabled={reopening}
-                    className="btn bottom-nav-btn"
-                    style={{
-                      background: "rgba(245, 158, 11, 0.3)",
-                      border: "2px solid rgba(245, 158, 11, 0.5)",
-                      fontWeight: "bold",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    {reopening ? "Reopening..." : "🔓 Reopen Day"}
-                  </button>
-                  <Link
-                    className="btn btn-primary whitespace-nowrap bottom-nav-btn"
-                    href="/standup/tomorrow"
-                    style={{ textAlign: "center" }}
-                  >
-                    Plan Tomorrow →
-                  </Link>
-                </div>
-              </div>
-              
-              <div className="mt-4 pl-3" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.25)" }}>
-                <p className="text-xs text-white/60">
-                  <b>Note:</b> Reopening will allow you to add new goals or modify existing ones.
-                  Remember to close the day again when you're done.
-                </p>
-              </div>
-            </div>
-          ) : totalCount === 0 ? (
+          {totalCount === 0 ? (
             <>
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
@@ -653,48 +668,20 @@ export default function TodayPage() {
               <div>
                 <h3 className="text-sm font-bold text-amber-300">Need to add more goals?</h3>
               </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                {!showQuickAdd && (
-                  <button
-                    onClick={() => setShowQuickAdd(true)}
-                    className="btn day-action-btn-sm"
-                    style={{
-                      background: "rgba(245, 158, 11, 0.2)",
-                      border: "2px solid rgba(245, 158, 11, 0.4)",
-                      padding: "0.5rem 1rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    ➕ Add Goals
-                  </button>
-                )}
-                <div className="flex flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={closeOutDay}
-                    disabled={!allReviewed || closing}
-                    title={!allReviewed ? "Review all goals first" : "Close out the day"}
-                    className="btn day-action-btn-sm"
-                    style={{
-                      background: "rgba(245, 158, 11, 0.2)",
-                      border: "2px solid rgba(245, 158, 11, 0.4)",
-                      padding: "0.5rem 1rem",
-                      opacity: !allReviewed || closing ? 0.5 : 1,
-                      cursor: !allReviewed || closing ? "not-allowed" : "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {closing ? "Closing…" : "✅ Close out day"}
-                  </button>
-                  <Link
-                    className="btn btn-primary whitespace-nowrap day-action-btn-sm"
-                    href="/standup/tomorrow"
-                    style={{ padding: "0.5rem 1rem", textAlign: "center" }}
-                  >
-                    Plan Tomorrow →
-                  </Link>
-                </div>
-              </div>
+              {!showQuickAdd && (
+                <button
+                  onClick={() => setShowQuickAdd(true)}
+                  className="btn day-action-btn-sm"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.2)",
+                    border: "2px solid rgba(245, 158, 11, 0.4)",
+                    padding: "0.5rem 1rem",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ➕ Add Goals
+                </button>
+              )}
             </div>
           )}
 
@@ -749,6 +736,7 @@ export default function TodayPage() {
               </div>
             )}
         </div>
+        )}
 
         {/* Close Out Day Section */}
         {!dayClosed && totalCount > 0 && (

@@ -11,8 +11,8 @@ export type LevelInfo = {
 // Discipline/execution themed, matches the app's "daily execution system"
 // branding. Increasing span per level so early levels come quickly (keeps
 // new users motivated) and later ones take sustained effort. Runs all the
-// way to 5000 points as a long-horizon ceiling for extreme/power users —
-// at a typical 5-15 pts/day that's roughly 1-3 years of daily use.
+// way to 10,000 points as a long-horizon ceiling for extreme/power users —
+// at a typical 5-15 pts/day that's roughly 2-5+ years of daily use.
 const LEVELS: { name: string; minPoints: number }[] = [
   { name: "Starter", minPoints: 0 },
   { name: "Committed", minPoints: 50 },
@@ -25,6 +25,9 @@ const LEVELS: { name: string; minPoints: number }[] = [
   { name: "Mythic", minPoints: 2600 },
   { name: "Immortal", minPoints: 3600 },
   { name: "Transcendent", minPoints: 5000 },
+  { name: "Ascended", minPoints: 6500 },
+  { name: "Eternal", minPoints: 8200 },
+  { name: "Infinite", minPoints: 10000 },
 ];
 
 export function getLevelInfo(points: number): LevelInfo {

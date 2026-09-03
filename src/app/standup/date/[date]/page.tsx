@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  awardPlanningPoints,
   getPlanWithGoals,
   isPrevDayReviewedForPlan,
   submitPlan,
@@ -20,6 +21,7 @@ import {
   type Goal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
+import { notifyPointsUpdated } from "@/lib/pointsBus";
 import {
   applyPriorityChange,
   compactForSave,
@@ -429,8 +431,15 @@ export default function DynamicDatePage() {
       await upsertGoals(planId, toSave);
       await submitPlan(planId);
 
+      const planningResult = await awardPlanningPoints(planId, 5);
+      if (planningResult?.success) notifyPointsUpdated();
+
       await refresh({ silent: true });
-      setMsg(`Plan for ${formatDateDisplay(dateISO)} submitted ✅`);
+      setMsg(
+        planningResult?.success
+          ? `Plan for ${formatDateDisplay(dateISO)} submitted ✅ +5 pts`
+          : `Plan for ${formatDateDisplay(dateISO)} submitted ✅`
+      );
     } catch (e: any) {
       setMsg(e?.message ?? "Submit failed");
     } finally {
@@ -479,7 +488,7 @@ export default function DynamicDatePage() {
 
     return (
       <div className="card card-highlight">
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Goals for {formatDateDisplay(dateISO)}</h1>
             <p className="text-sm text-white/60">
@@ -601,7 +610,7 @@ export default function DynamicDatePage() {
     <div
       className="card card-highlight"
     >
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div className="flex-1">
           <h1 className="text-3xl font-bold mb-2">Goals for {formatDateDisplay(dateISO)}</h1>
           <p className="text-white/70 mb-2">
@@ -718,7 +727,7 @@ export default function DynamicDatePage() {
                     }
                     placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                     style={{ padding: "0 1.5rem" }}
-                    className="flex-1 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
+                    className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                   />
 
                   {/* Show if this goal was rescheduled FROM another date */}

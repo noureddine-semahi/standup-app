@@ -50,6 +50,11 @@ a {
 html, body {
   height: 100%;
   pointer-events: auto;
+  /* Safety net: a single element anywhere with a non-shrinking width wider
+     than the viewport would otherwise push the whole page wider, silently
+     shifting content (like action buttons) off past the right edge instead
+     of visibly breaking — this caps it at the viewport instead. */
+  overflow-x: hidden;
 }
 
 body {
@@ -242,6 +247,82 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(168, 85, 247, 0.15);
 }
 
+.avatar-circle {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+}
+
+/* Mobile header: hidden until the max-width media query below flips these
+   two — .nav-desktop (the full horizontal row) and .nav-mobile-trigger
+   (avatar + hamburger only) are mutually exclusive. */
+.nav-mobile-trigger {
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.hamburger-btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.hamburger-line {
+  display: block;
+  height: 2px;
+  width: 18px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 2px;
+}
+
+/* Only ever in the DOM while open (see Header.tsx), but default to hidden
+   too in case the viewport is resized past the breakpoint while it's open. */
+.mobile-menu-panel {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .nav-desktop {
+    display: none;
+  }
+
+  .nav-mobile-trigger {
+    display: flex;
+  }
+
+  .mobile-menu-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 18px 16px;
+    border-top: 1px solid rgba(168, 85, 247, 0.15);
+    background: rgba(5, 6, 10, 0.96);
+  }
+
+  .mobile-menu-panel .nav-link {
+    flex: none;
+    min-width: 0;
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+
 .nav-link.font-semibold::before {
   width: 80%;
 }
@@ -251,6 +332,63 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 1100px;
   margin: 0 auto;
   padding: 28px 18px 64px;
+}
+
+@media (max-width: 480px) {
+  .app-main {
+    padding: 18px 12px 48px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .status-chip-sm {
+    width: 100px;
+  }
+  .goal-row {
+    padding: 0.85rem 0.85rem 0.85rem 1.1rem;
+  }
+  .stat-tile {
+    padding: 8px !important;
+  }
+}
+
+/* Dashboard's 6 stat tiles stay 2-per-row all the way up to the lg: grid
+   breakpoint (1024px) — .card's own padding only shrinks below 480px, so
+   without this the tiles get squeezed at everything in between too. */
+@media (max-width: 640px) {
+  .stat-tile {
+    padding: 10px;
+  }
+  /* The outer Dashboard card wrapping the whole stat grid — shrinking its
+     padding gives every tile inside it more real width to work with,
+     which matters more than any further per-tile trimming at this point. */
+  .dashboard-shell {
+    padding: 12px;
+  }
+  .day-action-btn-sm {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+  /* Calendar / Refresh / Dashboard row at the bottom of Review Today and
+     Plan Tomorrow — shrunk (and no longer flex-wrap on the container, see
+     the page files) so all of them fit on one line instead of wrapping. */
+  .bottom-nav-btn {
+    padding: 0.32rem 0.55rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+}
+
+/* Below this width the Goal/Notes columns on Today's cards wrap onto their
+   own rows — full width, flush against the same left margin the goal title
+   above it uses (not centered — that read as floating, disconnected from
+   the title). !important because it's overriding the flex-basis/min-width
+   set inline for the desktop layout. */
+@media (max-width: 640px) {
+  .goal-notes-col {
+    flex: 0 1 100% !important;
+  }
 }
 
 /* ✨ Buttons with Ripple Effect */
@@ -760,7 +898,8 @@ select:focus {
   width: 44px;
   height: 32px;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 1.1rem;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -788,7 +927,7 @@ select:focus {
   transform: none;
 }
 
-/* ✨ Stacked action buttons revealed by the gear toggle — uniform width/height,
+/* ✨ Stacked action buttons revealed by the checkbox toggle — uniform width/height,
    icon + label sharing the same row instead of a grid of bare icon circles. */
 .action-btn {
   width: 100%;

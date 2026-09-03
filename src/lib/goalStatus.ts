@@ -8,6 +8,7 @@ export function statusLabel(status: GoalStatus) {
     case "attempted": return "Attempted";
     case "postponed": return "Postponed";
     case "blocked": return "Blocked";
+    case "canceled": return "Canceled";
     default: return status;
   }
 }
@@ -19,6 +20,7 @@ export function statusPillClass(status: GoalStatus) {
     case "blocked": return "bg-rose-500/15 text-rose-300 border-rose-500/30";
     case "postponed": return "bg-amber-500/15 text-amber-300 border-amber-500/30";
     case "attempted": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
+    case "canceled": return "bg-slate-500/15 text-slate-300 border-slate-500/30";
     case "not_started":
     default: return "bg-white/10 text-white/70 border-white/20";
   }
@@ -31,6 +33,7 @@ export function statusIcon(status: GoalStatus) {
     case "blocked": return "🚫";
     case "postponed": return "⏸️";
     case "attempted": return "🔸";
+    case "canceled": return "❌";
     case "not_started":
     default: return "✓";
   }
@@ -51,6 +54,8 @@ export function statusChipColors(status: GoalStatus): StatusChipColors {
       return { bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.45)", color: "#fcd34d" };
     case "attempted":
       return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "#d8b4fe" };
+    case "canceled":
+      return { bg: "rgba(100, 116, 139, 0.15)", border: "rgba(100, 116, 139, 0.5)", color: "#cbd5e1" };
     case "not_started":
     default:
       return { bg: "rgba(255, 255, 255, 0.06)", border: "rgba(255, 255, 255, 0.18)", color: "rgba(255, 255, 255, 0.7)" };

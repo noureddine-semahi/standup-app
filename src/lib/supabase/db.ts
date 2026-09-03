@@ -7,7 +7,8 @@ export type GoalStatus =
   | "completed"
   | "attempted"
   | "postponed"
-  | "blocked";
+  | "blocked"
+  | "canceled";
 
 export type DailyPlan = {
   id: string;
@@ -22,6 +23,12 @@ export type DailyPlan = {
   closure_awarded?: boolean;
   awareness_points?: number;
   closure_points?: number;
+
+  // One-time bonus for actually submitting this day's plan (not just
+  // drafting it) — separate from awareness/closure, which are earned on
+  // the day the plan is reviewed/closed, not the day it was planned.
+  planning_awarded?: boolean;
+  planning_points?: number;
 };
 
 export type Profile = {
@@ -667,6 +674,21 @@ export async function awardClosurePoints(planId: string, points = 5) {
   return row as { success: boolean; points: number };
 }
 
+/**
+ * ✅ Planning bonus: awarded once when a plan is actually submitted (not
+ * just drafted). Lives on the plan being submitted, same as the other two.
+ */
+export async function awardPlanningPoints(planId: string, points = 5) {
+  await getOrCreateProfile();
+  const { data, error } = await supabase.rpc("award_planning_points", {
+    p_plan_id: planId,
+    p_points: points,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row as { success: boolean; points: number };
+}
+
 export async function getPoints() {
   const p = await getOrCreateProfile();
   return p.points ?? 0;
@@ -678,22 +700,26 @@ export type PointsHistoryEntry = {
   awarenessPoints: number;
   closureAwarded: boolean;
   closurePoints: number;
+  planningAwarded: boolean;
+  planningPoints: number;
   reviewedAt: string | null;
 };
 
 /**
- * Recent days that earned at least one points bonus (awareness and/or
- * closure), newest first. The per-day amounts already live on daily_plans —
- * they're just never read back anywhere else in the app.
+ * Recent days that earned at least one points bonus (awareness, closure,
+ * and/or planning), newest first. The per-day amounts already live on
+ * daily_plans — they're just never read back anywhere else in the app.
  */
 export async function getPointsHistory(limit = 30): Promise<PointsHistoryEntry[]> {
   const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
     .from("daily_plans")
-    .select("plan_date, awareness_awarded, awareness_points, closure_awarded, closure_points, reviewed_at")
+    .select(
+      "plan_date, awareness_awarded, awareness_points, closure_awarded, closure_points, planning_awarded, planning_points, reviewed_at"
+    )
     .eq("user_id", userId)
-    .or("awareness_awarded.eq.true,closure_awarded.eq.true")
+    .or("awareness_awarded.eq.true,closure_awarded.eq.true,planning_awarded.eq.true")
     .order("plan_date", { ascending: false })
     .limit(limit);
 
@@ -705,6 +731,8 @@ export async function getPointsHistory(limit = 30): Promise<PointsHistoryEntry[]
     awarenessPoints: row.awareness_points ?? 0,
     closureAwarded: !!row.closure_awarded,
     closurePoints: row.closure_points ?? 0,
+    planningAwarded: !!row.planning_awarded,
+    planningPoints: row.planning_points ?? 0,
     reviewedAt: row.reviewed_at as string | null,
   }));
 }

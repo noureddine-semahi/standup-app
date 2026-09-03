@@ -73,6 +73,20 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     isUnlocked: (s) => s.longestStreak >= 100,
   },
   {
+    id: "streak-200",
+    title: "200-Day Legend",
+    description: "Reach a 200-day streak",
+    icon: "🌌",
+    isUnlocked: (s) => s.longestStreak >= 200,
+  },
+  {
+    id: "streak-365",
+    title: "Full Year",
+    description: "Reach a 365-day streak",
+    icon: "🎆",
+    isUnlocked: (s) => s.longestStreak >= 365,
+  },
+  {
     id: "goals-10",
     title: "10 Goals Down",
     description: "Complete 10 goals",
@@ -92,6 +106,20 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     description: "Complete 100 goals",
     icon: "🚀",
     isUnlocked: (s) => s.totalGoalsCompleted >= 100,
+  },
+  {
+    id: "goals-250",
+    title: "250 Goals Down",
+    description: "Complete 250 goals",
+    icon: "🛡️",
+    isUnlocked: (s) => s.totalGoalsCompleted >= 250,
+  },
+  {
+    id: "goals-500",
+    title: "500 Goals Down",
+    description: "Complete 500 goals",
+    icon: "🏔️",
+    isUnlocked: (s) => s.totalGoalsCompleted >= 500,
   },
   {
     id: "points-100",
@@ -127,6 +155,13 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     description: "Earn 5,000 total points",
     icon: "💎",
     isUnlocked: (s) => s.totalPoints >= 5000,
+  },
+  {
+    id: "points-10000",
+    title: "10,000 Point Club",
+    description: "Earn 10,000 total points",
+    icon: "💠",
+    isUnlocked: (s) => s.totalPoints >= 10000,
   },
   {
     id: "reschedule-closed",

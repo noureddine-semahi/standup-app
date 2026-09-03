@@ -76,12 +76,12 @@ export default function HistoryPage() {
   return (
     <div className="space-y-6">
       <div className="card">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Points &amp; Usage History</h1>
             <p className="mt-2 text-white/70">A day-by-day record of the points you've earned.</p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
               Total Points
             </div>
@@ -109,7 +109,8 @@ export default function HistoryPage() {
           <div className="space-y-3">
             {entries.map((entry) => {
               const total = (entry.awarenessAwarded ? entry.awarenessPoints : 0) +
-                (entry.closureAwarded ? entry.closurePoints : 0);
+                (entry.closureAwarded ? entry.closurePoints : 0) +
+                (entry.planningAwarded ? entry.planningPoints : 0);
 
               return (
                 <div
@@ -122,6 +123,9 @@ export default function HistoryPage() {
                       {formatDateDisplay(entry.planDate)}
                     </div>
                     <div className="mt-1 flex flex-nowrap gap-x-3 text-xs text-white/60 overflow-x-auto">
+                      {entry.planningAwarded && (
+                        <span className="whitespace-nowrap">Planning +{entry.planningPoints}</span>
+                      )}
                       {entry.awarenessAwarded && (
                         <span className="whitespace-nowrap">Awareness +{entry.awarenessPoints}</span>
                       )}
@@ -185,7 +189,7 @@ export default function HistoryPage() {
 
         {!activityError && !activityLoading && (
           <>
-            <div className="mt-6 grid grid-cols-3 gap-3">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-2xl bg-white/5 p-4 text-center">
                 <div className="text-2xl font-bold text-emerald-300">{checkedInDays}</div>
                 <div className="mt-1 text-xs text-white/60">Days checked in</div>

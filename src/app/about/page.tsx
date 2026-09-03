@@ -43,7 +43,7 @@ export default function AboutPage() {
           <div
             className="card card-highlight"
           >
-          <div className="p-6">
+          <div className="p-0 sm:p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Philosophy</h2>
 
             <div className="mb-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
@@ -102,7 +102,7 @@ export default function AboutPage() {
           <div
             className="card card-highlight"
           >
-          <div className="p-6">
+          <div className="p-0 sm:p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Vision</h2>
             <p className="text-white/80 mb-4">
               StandUp is more than a todo list. It’s a daily operating system for
@@ -136,7 +136,7 @@ export default function AboutPage() {
           <div
             className="card card-highlight"
           >
-          <div className="p-6">
+          <div className="p-0 sm:p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>The Bigger Picture</h2>
             <div className="space-y-5">
               <div>
@@ -226,7 +226,7 @@ export default function AboutPage() {
           <div
             className="card card-highlight"
           >
-          <div className="p-6">
+          <div className="p-0 sm:p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>The Story</h2>
             <p className="text-white/80 mb-4">
               StandUp started with a familiar office ritual: the daily standup meeting. Every
@@ -255,7 +255,7 @@ export default function AboutPage() {
           <div
             className="card card-highlight"
           >
-          <div className="p-6">
+          <div className="p-0 sm:p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>How It Works</h2>
             <div className="space-y-8">
               <div>

@@ -10,12 +10,12 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "How do I earn points?",
     answer:
-      "Two ways each day: a small \"awareness\" bonus the first time you review a pending goal, and a larger \"closure\" bonus when you close out the day. The closure bonus scales up with your current streak, up to a cap — so a longer streak earns more per day.",
+      "Three ways: a small \"planning\" bonus when you submit tomorrow's plan, a small \"awareness\" bonus the first time you review a pending goal, and a larger \"closure\" bonus when you close out the day. The closure bonus scales up with your current streak, up to a cap — so a longer streak earns more per day.",
   },
   {
     question: "What are Levels?",
     answer:
-      "Your level is based on total points, from Starter up through Transcendent at 5,000 points, with several named tiers in between. Check your current level and progress toward the next one on the Dashboard or Profile.",
+      "Your level is based on total points, from Starter up through Infinite at 10,000 points, with many named tiers in between. Check your current level and progress toward the next one on the Dashboard or Profile.",
   },
   {
     question: "What are Achievements?",
@@ -119,7 +119,12 @@ export default function FAQPage() {
             Still have questions?{" "}
             <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
               Contact us
-            </Link>
+            </Link>{" "}
+            or learn more{" "}
+            <Link href="/about" className="text-purple-300 hover:text-purple-200 underline">
+              About
+            </Link>{" "}
+            StandUp.
           </p>
         </div>
       </div>

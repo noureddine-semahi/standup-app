@@ -86,6 +86,26 @@ export default function DashboardPage() {
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
+  // Welcome banner for brand-new accounts — dismissal is remembered per
+  // device so it never comes back once acknowledged, even before the
+  // "new user" heuristic below naturally stops being true.
+  const [welcomeDismissed, setWelcomeDismissed] = useState(true);
+  useEffect(() => {
+    try {
+      setWelcomeDismissed(window.localStorage.getItem("standup-welcome-dismissed") === "1");
+    } catch {
+      // Private browsing / storage disabled — just show it every time, harmless.
+    }
+  }, []);
+  function dismissWelcome() {
+    setWelcomeDismissed(true);
+    try {
+      window.localStorage.setItem("standup-welcome-dismissed", "1");
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -205,13 +225,19 @@ export default function DashboardPage() {
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
 
+  // Heuristic for "hasn't really used the app yet" — no points earned and
+  // nothing drafted for either today or tomorrow. Good enough without a
+  // dedicated "onboarded" flag; worst case a lightly-used account sees a
+  // friendly reminder banner once, which is a low-cost false positive.
+  const isNewUser = (profile?.points ?? 0) === 0 && todayGoals.length === 0 && tomorrowGoals.length === 0;
+
   return (
     <div className="space-y-6">
       {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
         <div
-          className="card card-highlight"
+          className="card card-highlight dashboard-shell"
         >
-          <div className="flex items-start justify-between gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
             <div>
               <h1 className="text-3xl font-bold">Dashboard</h1>
               <p className="mt-2 text-white/70">Your daily execution overview</p>
@@ -240,7 +266,7 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="hidden sm:flex gap-2">
+            <div className="flex gap-2">
               <Link href="/standup/today" className="btn">
                 Review Today
               </Link>
@@ -249,6 +275,43 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
+
+          {/* One-time welcome banner for brand-new accounts — see
+              isNewUser/welcomeDismissed above. Separate from the rotating
+              Motivation card below, which is a recurring nicety rather than
+              onboarding content. */}
+          {isNewUser && !welcomeDismissed && (
+            <div
+              className="mt-6 rounded-2xl p-5"
+              style={{ background: "rgba(168, 85, 247, 0.1)", border: "1px solid rgba(168, 85, 247, 0.3)" }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-base font-bold text-white">👋 Welcome to StandUp!</div>
+                  <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                    Here's the loop: <b>Plan Tomorrow</b> — set at least 3 goals — then the next day,{" "}
+                    <b>Review Today</b> to mark them reviewed and close out the day. Do that daily and you'll
+                    build a streak and earn points along the way.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissWelcome}
+                  aria-label="Dismiss welcome message"
+                  className="flex-shrink-0 text-white/50 hover:text-white/80 transition text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              <Link
+                href="/standup/tomorrow"
+                className="btn btn-primary mt-4 inline-block"
+                onClick={dismissWelcome}
+              >
+                Plan Tomorrow →
+              </Link>
+            </div>
+          )}
 
           {/* Welcome / Motivation — one full-length card on its own row */}
           <div
@@ -274,22 +337,22 @@ export default function DashboardPage() {
           </div>
 
           {/* Stat tiles — two rows of three */}
-          <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-3 grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
             {/* Attempted — reviewed, regardless of outcome. This is the
                 metric closing the day actually depends on. */}
             <div
-              className="card card-highlight"
+              className="card card-highlight stat-tile"
             >
-              <div className="p-4 flex items-center gap-4">
-                <div className="relative">
-                  <ProgressCircle percent={todayAttemptedPct} color="var(--accent-blue)" />
-                  <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
+              <div className="text-center sm:text-left sm:flex sm:items-center sm:gap-4">
+                <div className="relative mx-auto sm:mx-0" style={{ width: 48, height: 48 }}>
+                  <ProgressCircle percent={todayAttemptedPct} color="var(--accent-blue)" size={48} strokeWidth={5} />
+                  <div className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white">
                     {todayAttemptedPct}%
                   </div>
                 </div>
-                <div className="min-w-0">
+                <div className="mt-1.5 sm:mt-0 min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Attempted</div>
-                  <div className="mt-1.5 text-xs font-normal text-white/50">
+                  <div className="mt-1 sm:mt-1.5 text-xs font-normal text-white/50">
                     {todayTotal > 0
                       ? `${todayReviewed}/${todayTotal} goals attempted`
                       : "No goals"}
@@ -303,18 +366,18 @@ export default function DashboardPage() {
                 from Attempted on purpose: what a goal gets marked as is
                 secondary detail on top of the attempt itself. */}
             <div
-              className="card card-highlight"
+              className="card card-highlight stat-tile"
             >
-              <div className="p-4 flex items-center gap-4">
-                <div className="relative">
-                  <ProgressCircle percent={todayCompletedPct} color="var(--accent-emerald)" />
-                  <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
+              <div className="text-center sm:text-left sm:flex sm:items-center sm:gap-4">
+                <div className="relative mx-auto sm:mx-0" style={{ width: 48, height: 48 }}>
+                  <ProgressCircle percent={todayCompletedPct} color="var(--accent-emerald)" size={48} strokeWidth={5} />
+                  <div className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white">
                     {todayCompletedPct}%
                   </div>
                 </div>
-                <div className="min-w-0">
+                <div className="mt-1.5 sm:mt-0 min-w-0">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Completed</div>
-                  <div className="mt-1.5 text-xs font-normal text-white/50">
+                  <div className="mt-1 sm:mt-1.5 text-xs font-normal text-white/50">
                     {todayTotal > 0
                       ? `${todayCompleted}/${todayTotal} completed`
                       : "No goals"}
@@ -326,11 +389,11 @@ export default function DashboardPage() {
 
             {/* Streak */}
             <div
-              className="card card-highlight"
+              className="card card-highlight stat-tile"
             >
-              <div className="p-4">
+              <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Streak</div>
-                <div className="mt-3 text-3xl font-bold text-white">
+                <div className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold text-white">
                   {streak} {streak > 0 && "🔥"}
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
@@ -342,7 +405,7 @@ export default function DashboardPage() {
             {/* Total Points / Points Earned Today — one interchangeable
                 card slot, tap to flip between the two metrics. */}
             <div
-              className="card card-highlight cursor-pointer transition"
+              className="card card-highlight stat-tile cursor-pointer transition"
               role="button"
               tabIndex={0}
               onClick={() => setPointsView((v) => (v === "total" ? "today" : "total"))}
@@ -353,14 +416,14 @@ export default function DashboardPage() {
                 }
               }}
             >
-              <div key={pointsView} className="p-4 card-swap-fade">
+              <div key={pointsView} className="card-swap-fade">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
                     {pointsView === "total" ? "Total Points" : "Points Earned Today"}
                   </div>
-                  <div className="text-[10px] text-white/40">⇄</div>
+                  <div className="text-[10px] text-white/40 flex-shrink-0">⇄</div>
                 </div>
-                <div className="mt-3 text-3xl font-bold text-white">
+                <div className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold text-white">
                   <AnimatedNumber value={pointsView === "total" ? profile?.points ?? 0 : todayPointsEarned} />
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
@@ -375,11 +438,11 @@ export default function DashboardPage() {
 
             {/* Day Status */}
             <div
-              className="card card-highlight"
+              className="card card-highlight stat-tile"
             >
-              <div className="p-4">
+              <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Day Status</div>
-                <div className="mt-3 text-xl font-bold">
+                <div className="mt-2 sm:mt-3 text-lg sm:text-xl font-bold">
                   {todayClosed ? (
                     <span className="text-emerald-300">Closed ✓</span>
                   ) : (
@@ -394,11 +457,11 @@ export default function DashboardPage() {
 
             {/* Tomorrow's Plan Status */}
             <div
-              className="card card-highlight"
+              className="card card-highlight stat-tile"
             >
-              <div className="p-4">
+              <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Tomorrow's Plan</div>
-                <div className="mt-3 text-xl font-bold">
+                <div className="mt-2 sm:mt-3 text-lg sm:text-xl font-bold">
                   {tomorrowTotal === 0 ? (
                     <span className="text-white/50">Not started</span>
                   ) : tomorrowSubmitted ? (
@@ -494,60 +557,70 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={g.id}
-                        className="goal-row-compact flex items-center gap-3 text-sm transition-all duration-300"
+                        className="goal-row-compact text-sm transition-all duration-300"
                         data-pending={!reviewed}
                         style={{
                           "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
                         } as React.CSSProperties}
                       >
-                        <div className="goal-number-sm">{idx + 1}</div>
+                        {/* Number + title only on this row — nothing else
+                            competing for space, so it can never overflow no
+                            matter how narrow the screen or long the title. */}
+                        <div className="flex items-center gap-3">
+                          <div className="goal-number-sm">{idx + 1}</div>
+                          <div className="flex-1 min-w-0 truncate text-base font-medium text-white/90">{g.title}</div>
+                        </div>
 
-                        <div className="flex-1 truncate text-base font-medium text-white/90">{g.title}</div>
+                        {/* Chips and note preview live on their own rows
+                            below, indented to sit under the title, instead
+                            of all fighting for space in one row — that's
+                            what was forcing horizontal overflow. */}
+                        <div className="mt-1.5 flex items-center gap-2" style={{ paddingLeft: "32px" }}>
+                          {typeof priority === "number" && (
+                            <div
+                              className="priority-chip-sm"
+                              style={{
+                                "--p-bg": getPriorityMeta(priority).bg,
+                                "--p-border": getPriorityMeta(priority).border,
+                                "--p-color": getPriorityMeta(priority).color,
+                              } as React.CSSProperties}
+                            >
+                              P{priority}
+                            </div>
+                          )}
+
+                          <div
+                            className="status-chip-sm"
+                            style={{
+                              "--chip-bg": reviewed ? statusChipColors(g.status).bg : "rgba(245, 158, 11, 0.08)",
+                              "--chip-border": reviewed ? statusChipColors(g.status).border : "rgba(245, 158, 11, 0.3)",
+                              "--chip-color": reviewed ? statusChipColors(g.status).color : "#fcd34d",
+                            } as React.CSSProperties}
+                            title={reviewed ? `Reviewed — ${statusLabel(g.status)}` : "Pending review"}
+                          >
+                            {reviewed ? (
+                              <>
+                                <span>{statusLabel(g.status)}</span>
+                                <span>{statusIcon(g.status)}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Pending</span>
+                                <span>⏳</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
 
                         {noteCounts[g.id] > 0 && (
                           <div
-                            className="text-xs text-cyan-300/80 truncate"
-                            style={{ maxWidth: "140px", flexShrink: 1, minWidth: 0 }}
+                            className="mt-1.5 truncate text-xs text-cyan-300/80"
+                            style={{ paddingLeft: "32px" }}
                             title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
                           >
                             💬 {latestNotes[g.id]}
                           </div>
                         )}
-
-                        {typeof priority === "number" && (
-                          <div
-                            className="priority-chip-sm"
-                            style={{
-                              "--p-bg": getPriorityMeta(priority).bg,
-                              "--p-border": getPriorityMeta(priority).border,
-                              "--p-color": getPriorityMeta(priority).color,
-                            } as React.CSSProperties}
-                          >
-                            P{priority}
-                          </div>
-                        )}
-
-                        <div
-                          className="status-chip-sm"
-                          style={{
-                            "--chip-bg": reviewed ? statusChipColors(g.status).bg : "rgba(245, 158, 11, 0.08)",
-                            "--chip-border": reviewed ? statusChipColors(g.status).border : "rgba(245, 158, 11, 0.3)",
-                            "--chip-color": reviewed ? statusChipColors(g.status).color : "#fcd34d",
-                          } as React.CSSProperties}
-                          title={reviewed ? `Reviewed — ${statusLabel(g.status)}` : "Pending review"}
-                        >
-                          {reviewed ? (
-                            <>
-                              <span>{statusLabel(g.status)}</span>
-                              <span>{statusIcon(g.status)}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>Pending</span>
-                              <span>⏳</span>
-                            </>
-                          )}
-                        </div>
                       </div>
                     );
                   })}
@@ -588,35 +661,38 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={g.id}
-                        className="goal-row-compact flex items-center gap-3 text-sm transition-all duration-300"
+                        className="goal-row-compact text-sm transition-all duration-300"
                         style={{
                           "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
                         } as React.CSSProperties}
                       >
-                        <div className="goal-number-sm">{idx + 1}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="goal-number-sm">{idx + 1}</div>
+                          <div className="flex-1 min-w-0 truncate text-base font-medium text-white/90">{g.title}</div>
+                        </div>
 
-                        <div className="flex-1 truncate text-base font-medium text-white/90">{g.title}</div>
-
-                        {noteCounts[g.id] > 0 && (
-                          <div
-                            className="text-xs text-cyan-300/80 truncate"
-                            style={{ maxWidth: "140px", flexShrink: 1, minWidth: 0 }}
-                            title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
-                          >
-                            💬 {latestNotes[g.id]}
+                        {typeof priority === "number" && (
+                          <div className="mt-1.5" style={{ paddingLeft: "32px" }}>
+                            <div
+                              className="priority-chip-sm"
+                              style={{
+                                "--p-bg": getPriorityMeta(priority).bg,
+                                "--p-border": getPriorityMeta(priority).border,
+                                "--p-color": getPriorityMeta(priority).color,
+                              } as React.CSSProperties}
+                            >
+                              P{priority}
+                            </div>
                           </div>
                         )}
 
-                        {typeof priority === "number" && (
+                        {noteCounts[g.id] > 0 && (
                           <div
-                            className="priority-chip-sm"
-                            style={{
-                              "--p-bg": getPriorityMeta(priority).bg,
-                              "--p-border": getPriorityMeta(priority).border,
-                              "--p-color": getPriorityMeta(priority).color,
-                            } as React.CSSProperties}
+                            className="mt-1.5 truncate text-xs text-cyan-300/80"
+                            style={{ paddingLeft: "32px" }}
+                            title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
                           >
-                            P{priority}
+                            💬 {latestNotes[g.id]}
                           </div>
                         )}
                       </div>

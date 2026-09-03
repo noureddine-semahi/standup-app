@@ -6,6 +6,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   addDays,
   addGoalNote,
+  awardPlanningPoints,
   getPlanWithGoals,
   isYesterdayReviewed,
   submitPlan,
@@ -16,6 +17,7 @@ import {
   deleteGoal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
+import { notifyPointsUpdated } from "@/lib/pointsBus";
 import {
   applyPriorityChange,
   compactForSave,
@@ -407,8 +409,15 @@ export default function TomorrowGoalsPage() {
       await upsertGoals(planId, toSave);
       await submitPlan(planId);
 
+      const planningResult = await awardPlanningPoints(planId, 5);
+      if (planningResult?.success) notifyPointsUpdated();
+
       await refresh({ silent: true });
-      setMsg("Tomorrow plan submitted ✅");
+      setMsg(
+        planningResult?.success
+          ? "Tomorrow plan submitted ✅ +5 pts"
+          : "Tomorrow plan submitted ✅"
+      );
     } catch (e: any) {
       setMsg(e?.message ?? "Submit failed");
     } finally {
@@ -497,7 +506,7 @@ export default function TomorrowGoalsPage() {
     <div
       className="card card-highlight"
     >
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">Tomorrow Goals</h1>
             <p className="text-white/70 mb-2">
@@ -510,9 +519,6 @@ export default function TomorrowGoalsPage() {
           </div>
           
           <div className="flex flex-row items-center gap-3">
-            <Link className="btn" href="/standup/calendar">
-              ← Calendar
-            </Link>
             {!locked && (
               <button
                 onClick={() => setEditMode(!editMode)}
@@ -691,7 +697,7 @@ export default function TomorrowGoalsPage() {
                                     }}
                                     placeholder="Add a note..."
                                     disabled={!!savingNote[g.id]}
-                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                                   />
                                   <button
                                     type="button"
@@ -874,6 +880,11 @@ export default function TomorrowGoalsPage() {
             This plan is <b>{planStatus}</b>.
           </div>
         )}
+
+        <div className="mt-6 flex items-center gap-2 sm:gap-3">
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← Calendar</Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">Dashboard →</Link>
+        </div>
 
         {msg && (
           <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>

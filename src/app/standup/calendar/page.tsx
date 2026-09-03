@@ -153,9 +153,9 @@ export default function CalendarPage() {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-3xl font-bold">Calendar</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={previousMonth} className="btn btn-ghost">
               ← Prev
             </button>
@@ -170,7 +170,7 @@ export default function CalendarPage() {
 
         <div className="text-center text-xl font-semibold mb-6">{monthName}</div>
 
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-7 gap-1 sm:gap-3">
           {/* Day headers */}
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div
@@ -225,18 +225,12 @@ export default function CalendarPage() {
                 title={formatDateDisplay(dateISO)}
               >
                 {/* Number */}
-                <div
-                    className="leading-none select-none text-white/85"
-                    style={{
-                        fontSize: "1.4rem",
-                        fontWeight: 700,
-                    }}
-                    >
+                <div className="leading-none select-none text-white/85 font-bold text-sm sm:text-2xl">
                     {date.getDate()}
                 </div>
 
                 {/* Text under number */}
-                <div className="mt-1 text-[10px] font-semibold text-white/90 leading-none">
+                <div className="mt-1 text-[8px] sm:text-[10px] font-semibold text-white/90 leading-none">
                   {label || "\u00A0"}
                 </div>
               </Link>

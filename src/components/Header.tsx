@@ -22,6 +22,7 @@ export default function Header() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -80,8 +81,136 @@ export default function Header() {
     };
   }, []);
 
+  // Any navigation (desktop link or mobile dropdown link) closes the
+  // mobile dropdown, so it never stays open across a page change.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isRecoveryPage = pathname === "/reset-password";
+
+  // Rendered once for the desktop row and once for the mobile dropdown, so
+  // the active-page logic lives in one place instead of being duplicated
+  // across two layouts. The About/FAQ/Contact rotation exists to save
+  // horizontal space in the desktop row — the mobile dropdown is a vertical
+  // stack with room to spare, so `expanded` renders all three as separate
+  // links there instead of the single rotating slot.
+  function infoLinks(expanded: boolean) {
+    if (!expanded) {
+      return (
+        <Link
+          href={INFO_ROTATION[pathname]?.href ?? "/about"}
+          className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
+        >
+          {INFO_ROTATION[pathname]?.label ?? "About"}
+        </Link>
+      );
+    }
+
+    return (
+      <>
+        <Link href="/about" className={pathname === "/about" ? "nav-link font-semibold" : "nav-link"}>
+          About
+        </Link>
+        <Link href="/faq" className={pathname === "/faq" ? "nav-link font-semibold" : "nav-link"}>
+          FAQ
+        </Link>
+        <Link href="/contact" className={pathname === "/contact" ? "nav-link font-semibold" : "nav-link"}>
+          Contact
+        </Link>
+      </>
+    );
+  }
+
+  function navLinks(expanded = false) {
+    if (loading) return <div className="text-sm text-white/50">...</div>;
+
+    if (user) {
+      return (
+        <>
+          <Link
+            href="/standup/dashboard"
+            className={pathname === "/standup/dashboard" ? "nav-link font-semibold" : "nav-link"}
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/standup/today"
+            className={pathname === "/standup/today" ? "nav-link font-semibold" : "nav-link"}
+          >
+            Review Today
+          </Link>
+          <Link
+            href="/standup/tomorrow"
+            className={pathname === "/standup/tomorrow" ? "nav-link font-semibold" : "nav-link"}
+          >
+            Plan Tomorrow
+          </Link>
+          <Link
+            href="/standup/calendar"
+            className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
+          >
+            Calendar
+          </Link>
+          {infoLinks(expanded)}
+          <Link
+            href="/standup/profile"
+            className={pathname === "/standup/profile" ? "nav-link font-semibold" : "nav-link"}
+          >
+            {profile?.display_name || user.email?.split("@")[0] || "User"}
+          </Link>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {infoLinks(expanded)}
+
+        {!isAuthPage && (
+          <>
+            <Link href="/login" className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}>
+              Sign In
+            </Link>
+            <Link href="/signup" className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}>
+              Sign Up
+            </Link>
+          </>
+        )}
+      </>
+    );
+  }
+
+  function avatar() {
+    if (!user) return null;
+    return (
+      <Link href="/standup/profile" aria-label="Profile" className="avatar-circle">
+        {profile?.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
+            {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
+          </div>
+        )}
+      </Link>
+    );
+  }
+
+  if (isRecoveryPage) {
+    return (
+      <header className="app-header">
+        <div className="app-header-inner">
+          <Link href={user ? "/standup/dashboard" : "/"} className="brand flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192.png" alt="" className="w-5 h-5 rounded-sm flex-shrink-0" />
+            StandUp
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="app-header">
@@ -92,104 +221,33 @@ export default function Header() {
           StandUp
         </Link>
 
-        <nav className="nav">
-          {isRecoveryPage ? null : loading ? (
-            <div className="text-sm text-white/50">...</div>
-          ) : user ? (
-            <>
-              {/* Logged in: Dashboard, Review Today, Plan Tomorrow, Calendar, About, FAQ, Contact */}
-              <Link
-                href="/standup/dashboard"
-                className={pathname === "/standup/dashboard" ? "nav-link font-semibold" : "nav-link"}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/standup/today"
-                className={pathname === "/standup/today" ? "nav-link font-semibold" : "nav-link"}
-              >
-                Review Today
-              </Link>
-              <Link
-                href="/standup/tomorrow"
-                className={pathname === "/standup/tomorrow" ? "nav-link font-semibold" : "nav-link"}
-              >
-                Plan Tomorrow
-              </Link>
-              <Link
-                href="/standup/calendar"
-                className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
-              >
-                Calendar
-              </Link>
-              {/* One rotating slot instead of three separate links — About,
-                  FAQ, and Contact cycle through the same nav spot based on
-                  which of the three you're currently on, so the header
-                  doesn't need three fixed-width buttons just for these. */}
-              <Link
-                href={INFO_ROTATION[pathname]?.href ?? "/about"}
-                className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
-              >
-                {INFO_ROTATION[pathname]?.label ?? "About"}
-              </Link>
-              {/* Profile picture is its own element, separate from the
-                  name button next to it — both link to the same place. */}
-              <Link
-                href="/standup/profile"
-                className={pathname === "/standup/profile" ? "nav-link font-semibold" : "nav-link"}
-              >
-                {profile?.display_name || user.email?.split("@")[0] || "User"}
-              </Link>
-              <Link
-                href="/standup/profile"
-                aria-label="Profile"
-                className="rounded-full overflow-hidden flex-shrink-0"
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  background: "linear-gradient(135deg, var(--accent-purple), var(--accent-blue))",
-                }}
-              >
-                {profile?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
-                    {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </Link>
-            </>
-          ) : (
-            <>
-              {/* Logged out: rotating About/FAQ/Contact slot, Sign In, Sign Up */}
-              <Link
-                href={INFO_ROTATION[pathname]?.href ?? "/about"}
-                className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
-              >
-                {INFO_ROTATION[pathname]?.label ?? "About"}
-              </Link>
-
-              {!isAuthPage && (
-                <>
-                  <Link
-                    href="/login"
-                    className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-            </>
-          )}
+        {/* Desktop: full horizontal row, avatar included inline. Hidden on
+            mobile — see .nav-desktop in globals.css. */}
+        <nav className="nav nav-desktop">
+          {navLinks()}
+          {!loading && avatar()}
         </nav>
+
+        {/* Mobile: logo stays on the left (above), avatar + hamburger stay
+            visible here, and the rest of the links live in the dropdown
+            panel below. Hidden on desktop — see .nav-mobile-trigger. */}
+        <div className="nav-mobile-trigger">
+          {!loading && avatar()}
+          <button
+            type="button"
+            className="hamburger-btn"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
+            <span className="hamburger-line" />
+          </button>
+        </div>
       </div>
+
+      {menuOpen && <div className="mobile-menu-panel">{navLinks(true)}</div>}
     </header>
   );
 }

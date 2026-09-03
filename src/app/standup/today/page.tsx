@@ -14,7 +14,6 @@ import {
   getStreak,
   markGoalReviewed,
   markPlanReviewed,
-  unmarkGoalReviewed,
   updateGoalStatus,
   toISODate,
   formatDateDisplay,
@@ -327,88 +326,74 @@ export default function TodayPage() {
     refresh();
   }, [todayISO]);
 
-  async function toggleReviewed(goal: Goal) {
+  // One click from the quick-action dropdown does three things at once:
+  // marks the goal reviewed (if it wasn't already), applies the chosen
+  // status (or opens the reschedule modal instead, for "reschedule" — that
+  // one doesn't set a status, rescheduling is tracked separately), and
+  // closes the dropdown. Replaces the old two-step "review, then pick a
+  // status" flow.
+  async function selectQuickAction(goal: Goal, action: GoalStatus | "reschedule") {
     if (locked || busyGoalIds.has(goal.id) || dayClosed) return;
 
     markGoalBusy(goal.id);
     setMsg(null);
+    setShowActions((prev) => ({ ...prev, [goal.id]: false }));
 
     try {
-      const isReviewed = !!goal.reviewed_at;
+      const wasReviewed = !!goal.reviewed_at;
+
       setGoals((prev) =>
         prev.map((g) =>
-          g.id === goal.id ? { ...g, reviewed_at: isReviewed ? null : new Date().toISOString() } : g
+          g.id === goal.id
+            ? {
+                ...g,
+                reviewed_at: g.reviewed_at ?? new Date().toISOString(),
+                status: action === "reschedule" ? g.status : action,
+              }
+            : g
         )
       );
 
-      if (!isReviewed) {
+      if (!wasReviewed) {
         await markGoalReviewed(goal.id);
 
-        // First review action of the day earns the one-time "awareness" bonus.
-        // Gated on the plan's real awareness_awarded flag (not a local/in-memory
-        // guard) so a failed attempt is automatically retried on the very next
-        // goal reviewed, instead of requiring a full page remount.
+        // Same one-time awareness bonus as the old manual review toggle.
         if (plan?.id && !plan.reviewed_at && !plan.awareness_awarded && !awarenessInFlightRef.current) {
           awarenessInFlightRef.current = true;
           try {
             const result = await awardAwarenessPoints(plan.id, 5);
-            if (result?.success) {
-              notifyPointsUpdated();
-              setMsg("Awareness earned ✓");
-              window.setTimeout(() => setMsg((cur) => (cur === "Awareness earned ✓" ? null : cur)), 1200);
-            }
-          } catch (e: any) {
-            setMsg(e?.message ?? "Failed to record awareness points");
+            if (result?.success) notifyPointsUpdated();
+          } catch {
+            // Non-fatal — retried automatically on the next review action.
           } finally {
             awarenessInFlightRef.current = false;
           }
         }
+      }
+
+      if (action === "reschedule") {
+        setRescheduleGoal(goal);
       } else {
-        await unmarkGoalReviewed(goal.id);
+        await updateGoalStatus(goal.id, action);
+        setMsg(`Marked "${statusLabel(action)}" ✓`);
+        window.setTimeout(() => setMsg((cur) => (cur?.startsWith("Marked") ? null : cur)), 1500);
+
+        if (action === "completed") {
+          setCelebratingGoalIds((prev) => new Set(prev).add(goal.id));
+          window.setTimeout(() => {
+            setCelebratingGoalIds((prev) => {
+              if (!prev.has(goal.id)) return prev;
+              const next = new Set(prev);
+              next.delete(goal.id);
+              return next;
+            });
+          }, 900);
+        }
       }
 
       await refresh({ silent: true });
     } catch (e: any) {
       setMsg(e?.message ?? "Update failed");
-      await refresh({ silent: true });
-    } finally {
-      clearGoalBusy(goal.id);
-    }
-  }
-
-  async function handleStatusChange(goal: Goal, newStatus: GoalStatus) {
-    if (locked || busyGoalIds.has(goal.id) || dayClosed) return;
-
-    const isReviewed = !!goal.reviewed_at;
-    if (!isReviewed) {
-      setMsg("Review the goal first before changing its status.");
-      return;
-    }
-
-    markGoalBusy(goal.id);
-    setMsg(null);
-
-    try {
-      setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, status: newStatus } : g)));
-      await updateGoalStatus(goal.id, newStatus);
-      setMsg(`Status updated to "${statusLabel(newStatus)}" ✓`);
-      window.setTimeout(() => setMsg((cur) => (cur?.includes("Status updated") ? null : cur)), 1500);
-
-      if (newStatus === "completed") {
-        setCelebratingGoalIds((prev) => new Set(prev).add(goal.id));
-        window.setTimeout(() => {
-          setCelebratingGoalIds((prev) => {
-            if (!prev.has(goal.id)) return prev;
-            const next = new Set(prev);
-            next.delete(goal.id);
-            return next;
-          });
-        }, 900);
-      }
-
-      await refresh({ silent: true });
-    } catch (e: any) {
-      setMsg(e?.message ?? "Status update failed");
       await refresh({ silent: true });
     } finally {
       clearGoalBusy(goal.id);
@@ -553,9 +538,9 @@ export default function TodayPage() {
       <div
         className="card card-highlight"
       >
-        <div className="flex items-start justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Today</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Today</h1>
             <p className="text-white/70">
               {dayClosed 
                 ? "This day has been closed. Review your goals below." 
@@ -576,20 +561,10 @@ export default function TodayPage() {
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-3">
-            <Link className="btn" href="/standup/calendar">
-              ← Calendar
-            </Link>
+          <div className="flex flex-col items-start sm:items-end gap-3">
             <div className="text-sm text-white/70">
               Reviewed: <b>{reviewedCount}/{totalCount}</b>
             </div>
-            <Link
-              className="btn btn-primary whitespace-nowrap"
-              href="/standup/tomorrow"
-              style={{ minWidth: "150px", textAlign: "center" }}
-            >
-              Plan Tomorrow →
-            </Link>
           </div>
         </div>
 
@@ -606,7 +581,7 @@ export default function TodayPage() {
         >
           {dayClosed ? (
             <div>
-              <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-amber-300 mb-2">Day Already Closed</h3>
                   <p className="text-sm text-white/70 mb-2">
@@ -616,20 +591,28 @@ export default function TodayPage() {
                     Need to make changes? Reopen this day to add goals or make edits.
                   </p>
                 </div>
-                <button
-                  onClick={reopenDay}
-                  disabled={reopening}
-                  className="btn"
-                  style={{
-                    background: "rgba(245, 158, 11, 0.3)",
-                    border: "2px solid rgba(245, 158, 11, 0.5)",
-                    padding: "0.75rem 1.5rem",
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  {reopening ? "Reopening..." : "🔓 Reopen Day"}
-                </button>
+                <div className="flex flex-row gap-2">
+                  <button
+                    onClick={reopenDay}
+                    disabled={reopening}
+                    className="btn bottom-nav-btn"
+                    style={{
+                      background: "rgba(245, 158, 11, 0.3)",
+                      border: "2px solid rgba(245, 158, 11, 0.5)",
+                      fontWeight: "bold",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    {reopening ? "Reopening..." : "🔓 Reopen Day"}
+                  </button>
+                  <Link
+                    className="btn btn-primary whitespace-nowrap bottom-nav-btn"
+                    href="/standup/tomorrow"
+                    style={{ textAlign: "center" }}
+                  >
+                    Plan Tomorrow →
+                  </Link>
+                </div>
               </div>
               
               <div className="mt-4 pl-3" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.25)" }}>
@@ -641,7 +624,7 @@ export default function TodayPage() {
             </div>
           ) : totalCount === 0 ? (
             <>
-              <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-amber-300 mb-1">No goals for today?</h3>
                   <p className="text-sm text-white/70">
@@ -666,40 +649,51 @@ export default function TodayPage() {
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-amber-300">Need to add more goals?</h3>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 {!showQuickAdd && (
                   <button
                     onClick={() => setShowQuickAdd(true)}
-                    className="btn"
+                    className="btn day-action-btn-sm"
                     style={{
                       background: "rgba(245, 158, 11, 0.2)",
                       border: "2px solid rgba(245, 158, 11, 0.4)",
-                      padding: "0.5rem 1rem"
+                      padding: "0.5rem 1rem",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     ➕ Add Goals
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={closeOutDay}
-                  disabled={!allReviewed || closing}
-                  title={!allReviewed ? "Review all goals first" : "Close out the day"}
-                  className="btn"
-                  style={{
-                    background: "rgba(245, 158, 11, 0.2)",
-                    border: "2px solid rgba(245, 158, 11, 0.4)",
-                    padding: "0.5rem 1rem",
-                    opacity: !allReviewed || closing ? 0.5 : 1,
-                    cursor: !allReviewed || closing ? "not-allowed" : "pointer"
-                  }}
-                >
-                  {closing ? "Closing…" : "✅ Close out day"}
-                </button>
+                <div className="flex flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={closeOutDay}
+                    disabled={!allReviewed || closing}
+                    title={!allReviewed ? "Review all goals first" : "Close out the day"}
+                    className="btn day-action-btn-sm"
+                    style={{
+                      background: "rgba(245, 158, 11, 0.2)",
+                      border: "2px solid rgba(245, 158, 11, 0.4)",
+                      padding: "0.5rem 1rem",
+                      opacity: !allReviewed || closing ? 0.5 : 1,
+                      cursor: !allReviewed || closing ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {closing ? "Closing…" : "✅ Close out day"}
+                  </button>
+                  <Link
+                    className="btn btn-primary whitespace-nowrap day-action-btn-sm"
+                    href="/standup/tomorrow"
+                    style={{ padding: "0.5rem 1rem", textAlign: "center" }}
+                  >
+                    Plan Tomorrow →
+                  </Link>
+                </div>
               </div>
             </div>
           )}
@@ -732,7 +726,7 @@ export default function TodayPage() {
                         setQuickAddGoals(newGoals);
                       }}
                       placeholder={`Goal ${idx + 1}...`}
-                      className="flex-1 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
+                      className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
                     />
                   </div>
                 ))}
@@ -836,10 +830,10 @@ export default function TodayPage() {
                       const tab = activeTab[g.id] ?? "notes";
                       const notes = goalNotes[g.id] ?? [];
                       return (
-                        <div className="flex flex-wrap gap-6" style={{ padding: "0 1rem" }}>
+                        <div className="flex flex-wrap gap-6">
                           {/* Goal — static, always visible, ~50% */}
-                          <div style={{ flex: "1 1 45%", minWidth: "220px" }}>
-                            <div className="text-white text-xl font-medium mb-2">{g.title}</div>
+                          <div style={{ flex: "1 1 45%", minWidth: "200px" }}>
+                            <div className="text-white text-lg sm:text-xl font-medium mb-2">{g.title}</div>
                             {g.details && (
                               <div className="text-sm text-white/60">{g.details}</div>
                             )}
@@ -861,7 +855,7 @@ export default function TodayPage() {
                           </div>
 
                           {/* Notes / History — tabbed, ~50% */}
-                          <div style={{ flex: "1 1 45%", minWidth: "220px" }}>
+                          <div className="goal-notes-col" style={{ flex: "1 1 45%", minWidth: "200px" }}>
                             <div className="goal-tabs mb-3">
                               <button type="button" className="goal-tab" data-active={tab === "notes"} onClick={() => selectTab(g.id, "notes")}>
                                 Notes{notesFetched[g.id] && notes.length > 0 ? ` (${notes.length})` : ""}
@@ -901,7 +895,7 @@ export default function TodayPage() {
                                     }}
                                     placeholder="Add a note..."
                                     disabled={!!savingNote[g.id]}
-                                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                                   />
                                   <button
                                     type="button"
@@ -1048,7 +1042,10 @@ export default function TodayPage() {
                         <span>{statusLabel(g.status)}</span>
                       </div>
 
-                      {/* Actions gear — everything below stays hidden until this is clicked */}
+                      {/* Actions checkbox — unchecked until the goal has
+                          been reviewed; opens the same 5-action dropdown
+                          either way, so you can also use it to change an
+                          already-picked action later. */}
                       {!dayClosed && (
                         <button
                           type="button"
@@ -1056,111 +1053,92 @@ export default function TodayPage() {
                           disabled={locked}
                           className="actions-toggle"
                           data-open={!!showActions[g.id]}
-                          title="Actions"
+                          title={reviewed ? "Change action" : "Choose action"}
                         >
-                          ⚙️
+                          {reviewed ? "☑" : "☐"}
                         </button>
                       )}
                     </div>
 
-                    {/* Stacked action menu - equal-width buttons, revealed by the gear */}
+                    {/* Quick-action dropdown — picking any of these reviews
+                        the goal, applies the action, and closes itself in
+                        one click (see selectQuickAction). */}
                     {!dayClosed && showActions[g.id] && (
                       <div className="flex flex-col gap-2" style={{ minWidth: "180px" }}>
                         <button
                           type="button"
-                          onClick={() => toggleReviewed(g)}
+                          onClick={() => selectQuickAction(g, "completed")}
                           disabled={locked || isBusy}
                           className="action-btn"
                           style={{
-                            "--btn-bg": reviewed ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
-                            "--btn-border": reviewed ? "rgba(16, 185, 129, 0.4)" : "rgba(245, 158, 11, 0.4)",
-                            "--btn-color": reviewed ? "#6ee7b7" : "#fcd34d",
+                            "--btn-bg": g.status === "completed" ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.08)",
+                            "--btn-border": g.status === "completed" ? "rgba(16, 185, 129, 0.7)" : "rgba(16, 185, 129, 0.25)",
+                            "--btn-color": "#6ee7b7",
                           } as React.CSSProperties}
                         >
-                          <span>{reviewed ? "↶" : "✓"}</span>
-                          <span>{isBusy ? "…" : reviewed ? "Mark as pending" : "Mark as reviewed"}</span>
+                          <span>✅</span>
+                          <span>Completed</span>
                         </button>
 
-                        {reviewed && !locked && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(g, "completed")}
-                              disabled={isBusy}
-                              className="action-btn"
-                              style={{
-                                "--btn-bg": g.status === "completed" ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.08)",
-                                "--btn-border": g.status === "completed" ? "rgba(16, 185, 129, 0.7)" : "rgba(16, 185, 129, 0.25)",
-                                "--btn-color": "#6ee7b7",
-                              } as React.CSSProperties}
-                            >
-                              <span>✅</span>
-                              <span>Completed</span>
-                            </button>
+                        <button
+                          type="button"
+                          onClick={() => selectQuickAction(g, "in_progress")}
+                          disabled={locked || isBusy}
+                          className="action-btn"
+                          style={{
+                            "--btn-bg": g.status === "in_progress" ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.08)",
+                            "--btn-border": g.status === "in_progress" ? "rgba(59, 130, 246, 0.7)" : "rgba(59, 130, 246, 0.25)",
+                            "--btn-color": "#93c5fd",
+                          } as React.CSSProperties}
+                        >
+                          <span>⚙️</span>
+                          <span>In Progress</span>
+                        </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(g, "in_progress")}
-                              disabled={isBusy}
-                              className="action-btn"
-                              style={{
-                                "--btn-bg": g.status === "in_progress" ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.08)",
-                                "--btn-border": g.status === "in_progress" ? "rgba(59, 130, 246, 0.7)" : "rgba(59, 130, 246, 0.25)",
-                                "--btn-color": "#93c5fd",
-                              } as React.CSSProperties}
-                            >
-                              <span>⚙️</span>
-                              <span>In Progress</span>
-                            </button>
+                        <button
+                          type="button"
+                          onClick={() => selectQuickAction(g, "blocked")}
+                          disabled={locked || isBusy}
+                          className="action-btn"
+                          style={{
+                            "--btn-bg": g.status === "blocked" ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
+                            "--btn-border": g.status === "blocked" ? "rgba(239, 68, 68, 0.7)" : "rgba(239, 68, 68, 0.25)",
+                            "--btn-color": "#fca5a5",
+                          } as React.CSSProperties}
+                        >
+                          <span>🚫</span>
+                          <span>Blocked</span>
+                        </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(g, "blocked")}
-                              disabled={isBusy}
-                              className="action-btn"
-                              style={{
-                                "--btn-bg": g.status === "blocked" ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
-                                "--btn-border": g.status === "blocked" ? "rgba(239, 68, 68, 0.7)" : "rgba(239, 68, 68, 0.25)",
-                                "--btn-color": "#fca5a5",
-                              } as React.CSSProperties}
-                            >
-                              <span>🚫</span>
-                              <span>Blocked</span>
-                            </button>
+                        <button
+                          type="button"
+                          onClick={() => selectQuickAction(g, "canceled")}
+                          disabled={locked || isBusy}
+                          className="action-btn"
+                          style={{
+                            "--btn-bg": g.status === "canceled" ? "rgba(100, 116, 139, 0.25)" : "rgba(100, 116, 139, 0.1)",
+                            "--btn-border": g.status === "canceled" ? "rgba(100, 116, 139, 0.7)" : "rgba(100, 116, 139, 0.3)",
+                            "--btn-color": "#cbd5e1",
+                          } as React.CSSProperties}
+                        >
+                          <span>❌</span>
+                          <span>Canceled</span>
+                        </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(g, "postponed")}
-                              disabled={isBusy}
-                              className="action-btn"
-                              style={{
-                                "--btn-bg": g.status === "postponed" ? "rgba(245, 158, 11, 0.2)" : "rgba(245, 158, 11, 0.08)",
-                                "--btn-border": g.status === "postponed" ? "rgba(245, 158, 11, 0.7)" : "rgba(245, 158, 11, 0.25)",
-                                "--btn-color": "#fcd34d",
-                              } as React.CSSProperties}
-                            >
-                              <span>⏸️</span>
-                              <span>Postponed</span>
-                            </button>
-                          </>
-                        )}
-
-                        {reviewed && !locked && g.status !== "completed" && (
-                          <button
-                            type="button"
-                            onClick={() => setRescheduleGoal(g)}
-                            disabled={isBusy}
-                            className="action-btn"
-                            style={{
-                              "--btn-bg": g.rescheduled_to ? "rgba(168, 85, 247, 0.2)" : "rgba(168, 85, 247, 0.08)",
-                              "--btn-border": g.rescheduled_to ? "rgba(168, 85, 247, 0.7)" : "rgba(168, 85, 247, 0.25)",
-                              "--btn-color": "#d8b4fe",
-                            } as React.CSSProperties}
-                          >
-                            <span>📅</span>
-                            <span>{g.rescheduled_to ? `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}` : "Reschedule"}</span>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => selectQuickAction(g, "reschedule")}
+                          disabled={locked || isBusy}
+                          className="action-btn"
+                          style={{
+                            "--btn-bg": g.rescheduled_to ? "rgba(168, 85, 247, 0.2)" : "rgba(168, 85, 247, 0.08)",
+                            "--btn-border": g.rescheduled_to ? "rgba(168, 85, 247, 0.7)" : "rgba(168, 85, 247, 0.25)",
+                            "--btn-color": "#d8b4fe",
+                          } as React.CSSProperties}
+                        >
+                          <span>📅</span>
+                          <span>{g.rescheduled_to ? `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}` : "Rescheduled"}</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1170,9 +1148,10 @@ export default function TodayPage() {
           })}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button type="button" className="btn btn-ghost" onClick={() => refresh()}>Refresh</button>
-          <Link className="btn btn-ghost" href="/standup/dashboard">Dashboard →</Link>
+        <div className="mt-6 flex items-center gap-2 sm:gap-3">
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← Calendar</Link>
+          <button type="button" className="btn btn-ghost bottom-nav-btn" onClick={() => refresh()}>Refresh</button>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">Dashboard →</Link>
         </div>
 
         {msg && <div className="mt-4 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white animate-fadeIn">{msg}</div>}

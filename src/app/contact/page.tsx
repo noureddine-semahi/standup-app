@@ -28,7 +28,11 @@ export default function ContactPage() {
               <Link href="/faq" className="text-purple-300 hover:text-purple-200 underline">
                 FAQ
               </Link>{" "}
-              first.
+              first, or read more{" "}
+              <Link href="/about" className="text-purple-300 hover:text-purple-200 underline">
+                About
+              </Link>{" "}
+              StandUp.
             </p>
 
             <div className="mt-6 pt-6" style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}>

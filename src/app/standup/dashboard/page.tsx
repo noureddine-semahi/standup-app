@@ -195,7 +195,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ✅ Widgets side-by-side (Tomorrow-like gradient tiles) */}
-          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-7">
+          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-8">
             {/* Welcome / Motivation */}
             <div
               className="card card-highlight col-span-2"
@@ -292,6 +292,31 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
                   {todayClosed ? "Tomorrow unlocked" : "Close to unlock Tomorrow"}
+                </div>
+              </div>
+            </div>
+
+            {/* Tomorrow's Plan Status */}
+            <div
+              className="card card-highlight"
+            >
+              <div className="p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Tomorrow's Plan</div>
+                <div className="mt-3 text-xl font-bold">
+                  {tomorrowTotal === 0 ? (
+                    <span className="text-white/50">Not started</span>
+                  ) : tomorrowSubmitted ? (
+                    <span className="text-emerald-300">Submitted ✓</span>
+                  ) : (
+                    <span className="text-amber-300">Pending</span>
+                  )}
+                </div>
+                <div className="mt-1.5 text-xs font-normal text-white/50">
+                  {tomorrowTotal === 0
+                    ? "No goals drafted yet"
+                    : tomorrowSubmitted
+                    ? `${tomorrowTotal} goals set`
+                    : `${tomorrowTotal} goals drafted`}
                 </div>
               </div>
             </div>

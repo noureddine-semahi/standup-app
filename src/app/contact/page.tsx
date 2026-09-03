@@ -8,7 +8,7 @@ export default function ContactPage() {
       <div className="max-w-2xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4">Contact Us</h1>
-          <p className="text-lg text-white/70">
+          <p className="text-lg text-page-secondary">
             Questions, bug reports, or feature ideas — we'd like to hear them.
           </p>
         </div>

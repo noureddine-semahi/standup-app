@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Anchors default to the browser's underline otherwise — every <Link>-
    wrapped card (P1 highlight, Today/Tomorrow overview, etc.) inherits it
@@ -52,6 +50,45 @@ body {
   font-family: var(--font-body, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial);
   pointer-events: auto;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* For text that sits directly on the page canvas (outside any .card) and
+   needs a muted/secondary weight — hardcoded text-white/70 etc. looks fine
+   in dark mode but goes invisible against the light canvas in light mode.
+   These track the page's theme-aware color instead. */
+.text-page-secondary {
+  color: var(--page-text);
+  opacity: 0.7;
+}
+.text-page-tertiary {
+  color: var(--page-text);
+  opacity: 0.55;
+}
+
+/* Light text on a dark background reads as higher-contrast than the same
+   opacity of dark text on a light background — so light mode needs a
+   noticeably higher opacity (and a touch more weight) to look equally
+   readable, not just "not invisible." */
+[data-theme="light"] .text-page-secondary {
+  opacity: 0.85;
+  font-weight: 500;
+}
+[data-theme="light"] .text-page-tertiary {
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+/* .btn's white text/border is fine inside a card (always dark, regardless
+   of theme) but a ghost/ transparent-background button sitting directly on
+   the page canvas (e.g. the landing page's "Learn More") goes invisible on
+   the light canvas. Opt into this instead of changing .btn globally, since
+   most buttons DO live inside cards and shouldn't flip with the theme. */
+.btn-on-page {
+  color: var(--page-text);
+  border-color: rgba(128, 128, 128, 0.35);
+}
+.btn-on-page:hover {
+  background: rgba(128, 128, 128, 0.12);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -124,16 +161,38 @@ h1, h2, h3, h4, h5, h6 {
 .nav {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
 }
 
 .nav-link {
   text-decoration: none;
   color: rgba(255, 255, 255, 0.75);
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: 8px;
   transition: all 0.3s ease;
   position: relative;
+  font-size: 0.85rem;
+  /* Every nav item (page links + the profile pill) shares this class, so
+     fixing the box here makes them all the same size regardless of label
+     length. flex-basis is the target width when there's room to spare;
+     min-width is a hard floor sized to fit "Plan Tomorrow" (the longest
+     label) at this font/padding without truncating — flex-shrink can
+     compress items to fit tight spaces, but never past that floor. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 130px;
+  /* Generous enough to cover the *bold* active-page state too (font-weight
+     goes up when a nav item is the current page, which widens the text
+     further than the resting weight this was eyeballed against). */
+  min-width: 128px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .nav-link::before {
@@ -244,6 +303,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ✨ Cards with Glow Effect */
 .card {
+  /* Cards always stay dark-glass regardless of light/dark theme (by design
+     — see the light-mode note at the top of this file), but text color
+     isn't part of that: without this, any text lacking its own explicit
+     color class inherits `body`'s color, which DOES flip between themes —
+     landing as unreadable dark-on-dark text inside a card in light mode. */
+  color: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(168, 85, 247, 0.15);
   background: rgba(10, 14, 26, 0.6);
   backdrop-filter: blur(10px) saturate(150%);
@@ -494,6 +559,18 @@ select:focus {
   animation: goalCheckPop 0.9s ease-out forwards;
   pointer-events: none;
   z-index: 2;
+}
+
+/* Crossfade used when a card auto-swaps its content in place (e.g. the
+   Total Points / Points Earned Today card), replayed via a React `key`
+   change rather than looping — no vertical motion, just an in-place fade. */
+@keyframes cardSwapFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.card-swap-fade {
+  animation: cardSwapFade 0.5s ease-out;
 }
 
 /* ✨ Priority select — a compact flat chip, not a 56px badge with overlays */

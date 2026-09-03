@@ -15,19 +15,19 @@ export default function AboutPage() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold mb-4">About StandUp</h1>
-          <p className="text-xl text-white/70 max-w-2xl mx-auto">
+          <p className="text-xl text-page-secondary max-w-2xl mx-auto">
             StandUp is a daily execution and reflection system built to help you
             work with intention — not pressure.
           </p>
-          <p className="mt-4 text-sm text-white/60 max-w-2xl mx-auto">
+          <p className="mt-4 text-sm text-page-tertiary max-w-2xl mx-auto">
             It’s not about doing more. It’s about doing what matters, on purpose —
             and building consistency one day at a time.
           </p>
         </div>
 
-        {/* Article-grid layout: an actual grid with mixed box sizes/spans,
-            like a newspaper page — not a single column-spanning box. */}
-        <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        {/* Two cards per row max — these are text-heavy sections, not
+            compact stat tiles, so they need real width to read comfortably. */}
+        <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-2">
           {/* Philosophy — paired side-by-side with Vision */}
           <div
             className="card card-highlight"
@@ -252,10 +252,10 @@ export default function AboutPage() {
           <Link href="/signup" className="btn btn-primary text-lg px-8 py-4">
             Get Started with StandUp
           </Link>
-          <p className="mt-4 text-sm text-white/60">
+          <p className="mt-4 text-sm text-page-tertiary">
             Join and start building your daily execution habit today.
           </p>
-          <p className="mt-6 text-sm text-white/50">
+          <p className="mt-6 text-sm text-page-tertiary">
             Have questions? Check the{" "}
             <Link href="/faq" className="text-purple-300 hover:text-purple-200 underline">
               FAQ

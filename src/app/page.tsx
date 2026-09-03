@@ -4,10 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
 
 export default function LandingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [theme, setThemeState] = useState<Theme>("dark");
+
+  useEffect(() => {
+    // Client-only, after mount — matches the server-rendered "dark" default
+    // so there's no hydration warning (see Settings page for the same
+    // pattern, where the real toggle for logged-in users lives).
+    setThemeState(getStoredTheme());
+  }, []);
+
+  function handleThemeChange(next: Theme) {
+    setThemeState(next);
+    setTheme(next);
+  }
 
   useEffect(() => {
     async function checkAuth() {
@@ -57,19 +71,50 @@ export default function LandingPage() {
           {/* Hero Headline */}
           <h1 className="text-5xl sm:text-7xl font-bold mb-6 leading-tight">
             <span className="block gradient-text">Build Consistency.</span>
-            <span className="block text-white/90">Execute Daily.</span>
+            <span className="block">Execute Daily.</span>
           </h1>
 
-          <p className="text-xl sm:text-2xl text-white/70 mb-10 max-w-3xl mx-auto">
+          <p className="text-xl sm:text-2xl text-page-secondary mb-8 max-w-3xl mx-auto">
             Transform your goals into daily habits with awareness-driven planning and reflection.
           </p>
+
+          {/* Theme preference — set it before signing in/up */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={theme === "light"}
+              onClick={() => handleThemeChange(theme === "dark" ? "light" : "dark")}
+              className="relative rounded-full transition-colors"
+              style={{
+                width: "52px",
+                height: "28px",
+                background: theme === "light" ? "var(--accent-purple)" : "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.18)",
+              }}
+            >
+              <span
+                className="absolute rounded-full bg-white transition-transform"
+                style={{
+                  width: "22px",
+                  height: "22px",
+                  top: "2px",
+                  left: "2px",
+                  transform: theme === "light" ? "translateX(24px)" : "translateX(0)",
+                }}
+              />
+            </button>
+            <span className="text-sm text-page-secondary">
+              {theme === "light" ? "☀️ Light mode" : "🌙 Dark mode"} — pick before you sign in
+            </span>
+          </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link href="/signup" className="btn btn-primary text-lg px-8 py-4 hover-scale">
               Get Started Free →
             </Link>
-            <Link href="/about" className="btn btn-ghost text-lg px-8 py-4">
+            <Link href="/about" className="btn btn-ghost btn-on-page text-lg px-8 py-4">
               Learn More
             </Link>
           </div>
@@ -101,7 +146,7 @@ export default function LandingPage() {
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4">Why StandUp?</h2>
-          <p className="text-xl text-white/70">Built on proven principles of execution</p>
+          <p className="text-xl text-page-secondary">Built on proven principles of execution</p>
         </div>
 
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -165,7 +210,7 @@ export default function LandingPage() {
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold mb-4">How It Works</h2>
-          <p className="text-xl text-white/70">Three simple steps to daily execution</p>
+          <p className="text-xl text-page-secondary">Three simple steps to daily execution</p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-3">

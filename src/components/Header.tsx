@@ -6,7 +6,16 @@ import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { getOrCreateProfile, type Profile } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
-import AnimatedNumber from "@/components/AnimatedNumber";
+
+// One nav slot cycles through these three instead of showing all of them at
+// once: on each page, the button shows the NEXT one in the loop and links
+// there. Off all three (Dashboard, Today, etc.), it defaults to "About".
+const INFO_ROTATION: Record<string, { label: string; href: string }> = {
+  "/about": { label: "FAQ", href: "/faq" },
+  "/faq": { label: "Contact", href: "/contact" },
+  "/contact": { label: "About", href: "/about" },
+};
+const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 export default function Header() {
   const pathname = usePathname();
@@ -75,7 +84,9 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href={user ? "/standup/dashboard" : "/"} className="brand">
+        <Link href={user ? "/standup/dashboard" : "/"} className="brand flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="" className="w-5 h-5 rounded-sm flex-shrink-0" />
           StandUp
         </Link>
 
@@ -109,56 +120,66 @@ export default function Header() {
               >
                 Calendar
               </Link>
+              {/* One rotating slot instead of three separate links — About,
+                  FAQ, and Contact cycle through the same nav spot based on
+                  which of the three you're currently on, so the header
+                  doesn't need three fixed-width buttons just for these. */}
               <Link
-                href="/about"
-                className={pathname === "/about" ? "nav-link font-semibold" : "nav-link"}
+                href={INFO_ROTATION[pathname]?.href ?? "/about"}
+                className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
               >
-                About
+                {INFO_ROTATION[pathname]?.label ?? "About"}
               </Link>
-              <Link
-                href="/faq"
-                className={pathname === "/faq" ? "nav-link font-semibold" : "nav-link"}
-              >
-                FAQ
-              </Link>
-              <Link
-                href="/contact"
-                className={pathname === "/contact" ? "nav-link font-semibold" : "nav-link"}
-              >
-                Contact
-              </Link>
+              {/* Profile picture is its own element, separate from the
+                  name button next to it — both link to the same place. */}
               <Link
                 href="/standup/profile"
                 className={pathname === "/standup/profile" ? "nav-link font-semibold" : "nav-link"}
               >
                 {profile?.display_name || user.email?.split("@")[0] || "User"}
-                {profile && (
-                  <>
-                    {" · "}
-                    <AnimatedNumber value={profile.points} /> pts
-                  </>
+              </Link>
+              <Link
+                href="/standup/profile"
+                aria-label="Profile"
+                className="rounded-full overflow-hidden flex-shrink-0"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  background: "linear-gradient(135deg, var(--accent-purple), var(--accent-blue))",
+                }}
+              >
+                {profile?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
+                    {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
                 )}
               </Link>
             </>
           ) : (
             <>
-              {/* Logged out: About, FAQ, Contact, Sign In, Sign Up */}
-              <Link href="/about" className="nav-link">
-                About
-              </Link>
-              <Link href="/faq" className="nav-link">
-                FAQ
-              </Link>
-              <Link href="/contact" className="nav-link">
-                Contact
+              {/* Logged out: rotating About/FAQ/Contact slot, Sign In, Sign Up */}
+              <Link
+                href={INFO_ROTATION[pathname]?.href ?? "/about"}
+                className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
+              >
+                {INFO_ROTATION[pathname]?.label ?? "About"}
               </Link>
 
               {!isAuthPage && (
                 <>
-                  <Link href="/login" className="btn btn-ghost">
+                  <Link
+                    href="/login"
+                    className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}
+                  >
                     Sign In
                   </Link>
-                  <Link href="/signup" className="btn btn-primary">
+                  <Link
+                    href="/signup"
+                    className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}
+                  >
                     Sign Up
                   </Link>
                 </>

@@ -18,6 +18,7 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import ProgressCircle from "@/components/ProgressCircle";
 
 /**
  * ✅ Reuse the "Tomorrow page" visual language:
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [streak, setStreak] = useState(0);
+  const [pointsView, setPointsView] = useState<"total" | "today">("total");
 
   // Picked once per mount (lazy initializer), not re-rolled on every render.
   const [motivationalMessage] = useState(
@@ -143,6 +145,17 @@ export default function DashboardPage() {
     return unsubscribe;
   }, [todayISO, tomorrowISO]);
 
+  // Total Points / Points Earned Today auto-swap in place every ~6.5s, on
+  // top of the manual tap-to-flip, so both numbers surface without needing
+  // a second card. Keyed off pointsView (not a bare interval) so a manual
+  // tap resets the countdown instead of risking a flip right on its heels.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setPointsView((v) => (v === "total" ? "today" : "total"));
+    }, 6500);
+    return () => window.clearTimeout(id);
+  }, [pointsView]);
+
   if (loading) {
     return <div className="card">Loading dashboard...</div>;
   }
@@ -150,10 +163,27 @@ export default function DashboardPage() {
   // Today stats
   const todayP1 = todayGoals.find((g) => g.priority === 1);
   const todayPending = todayGoals.filter((g) => !g.reviewed_at).length;
+  // "Attempted" = reviewed, full stop — the outcome status (completed,
+  // blocked, postponed, etc.) never factors into this. Closing the day
+  // itself works the same way: it only ever checks reviewed_at, never
+  // status, so this mirrors the actual gating rule.
   const todayReviewed = todayGoals.filter((g) => !!g.reviewed_at).length;
   const todayTotal = todayGoals.length;
   const todayCompleted = todayGoals.filter((g) => g.status === "completed").length;
+  const todayPostponed = todayGoals.filter((g) => g.status === "postponed").length;
+  const todayBlocked = todayGoals.filter((g) => g.status === "blocked").length;
+  const todayAttemptedStatus = todayGoals.filter((g) => g.status === "attempted").length;
+  const todayInProgress = todayGoals.filter((g) => g.status === "in_progress").length;
+  const todayAttemptedPct = todayTotal > 0 ? Math.round((todayReviewed / todayTotal) * 100) : 0;
+  const todayCompletedPct = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
+  const todayOtherOutcomes = [
+    todayPostponed > 0 ? `${todayPostponed} postponed` : null,
+    todayBlocked > 0 ? `${todayBlocked} blocked` : null,
+    todayAttemptedStatus > 0 ? `${todayAttemptedStatus} attempted` : null,
+    todayInProgress > 0 ? `${todayInProgress} in progress` : null,
+  ].filter(Boolean) as string[];
   const todayClosed = !!todayPlan?.reviewed_at;
+  const todayPointsEarned = (todayPlan?.awareness_points ?? 0) + (todayPlan?.closure_points ?? 0);
 
   // Tomorrow stats
   const tomorrowTotal = tomorrowGoals.length;
@@ -194,26 +224,75 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ✅ Widgets side-by-side (Tomorrow-like gradient tiles) */}
-          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-8">
-            {/* Welcome / Motivation */}
+          {/* Welcome / Motivation — one full-length card on its own row */}
+          <div
+            className="mt-6 card card-highlight"
+          >
+            <div className="p-4 flex items-center gap-4">
+              {profile?.avatar_url && (
+                <div
+                  className="flex-shrink-0 rounded-full overflow-hidden"
+                  style={{ width: "48px", height: "48px" }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={profile.avatar_url} alt="Profile photo" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div>
+                <div className="text-sm text-white/70">✨ Motivation</div>
+                <div className="mt-2 text-base font-semibold text-white leading-snug">
+                  {motivationalMessage(profile?.display_name || user?.email?.split("@")[0] || "there")}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stat tiles — two rows of three */}
+          <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Attempted — reviewed, regardless of outcome. This is the
+                metric closing the day actually depends on. */}
             <div
-              className="card card-highlight col-span-2"
+              className="card card-highlight"
             >
               <div className="p-4 flex items-center gap-4">
-                {profile?.avatar_url && (
-                  <div
-                    className="flex-shrink-0 rounded-full overflow-hidden"
-                    style={{ width: "48px", height: "48px" }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={profile.avatar_url} alt="Profile photo" className="w-full h-full object-cover" />
+                <div className="relative">
+                  <ProgressCircle percent={todayAttemptedPct} color="var(--accent-blue)" />
+                  <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
+                    {todayAttemptedPct}%
                   </div>
-                )}
-                <div>
-                  <div className="text-sm text-white/70">✨ Motivation</div>
-                  <div className="mt-2 text-base font-semibold text-white leading-snug">
-                    {motivationalMessage(profile?.display_name || user?.email?.split("@")[0] || "there")}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Attempted</div>
+                  <div className="mt-1.5 text-xs font-normal text-white/50">
+                    {todayTotal > 0
+                      ? `${todayReviewed}/${todayTotal} goals attempted`
+                      : "No goals"}
+                    {todayPending > 0 && ` • ${todayPending} pending`}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Completed — the specific "completed" outcome only. Separate
+                from Attempted on purpose: what a goal gets marked as is
+                secondary detail on top of the attempt itself. */}
+            <div
+              className="card card-highlight"
+            >
+              <div className="p-4 flex items-center gap-4">
+                <div className="relative">
+                  <ProgressCircle percent={todayCompletedPct} color="var(--accent-emerald)" />
+                  <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
+                    {todayCompletedPct}%
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Completed</div>
+                  <div className="mt-1.5 text-xs font-normal text-white/50">
+                    {todayTotal > 0
+                      ? `${todayCompleted}/${todayTotal} completed`
+                      : "No goals"}
+                    {todayOtherOutcomes.length > 0 && ` • ${todayOtherOutcomes.join(" • ")}`}
                   </div>
                 </div>
               </div>
@@ -234,45 +313,36 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Total Points */}
+            {/* Total Points / Points Earned Today — one interchangeable
+                card slot, tap to flip between the two metrics. */}
             <div
-              className="card card-highlight"
+              className="card card-highlight cursor-pointer transition"
+              role="button"
+              tabIndex={0}
+              onClick={() => setPointsView((v) => (v === "total" ? "today" : "total"))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setPointsView((v) => (v === "total" ? "today" : "total"));
+                }
+              }}
             >
-              <div className="p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Total Points</div>
-                <div className="mt-3 text-3xl font-bold text-white">
-                  <AnimatedNumber value={profile?.points ?? 0} />
+              <div key={pointsView} className="p-4 card-swap-fade">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+                    {pointsView === "total" ? "Total Points" : "Points Earned Today"}
+                  </div>
+                  <div className="text-[10px] text-white/40">⇄</div>
                 </div>
-                <div className="mt-1.5 text-xs font-normal text-white/50">Keep building consistency</div>
-              </div>
-            </div>
-
-            {/* Today's Progress */}
-            <div
-              className="card card-highlight"
-            >
-              <div className="p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Today's Progress</div>
                 <div className="mt-3 text-3xl font-bold text-white">
-                  {todayReviewed}/{todayTotal}
+                  <AnimatedNumber value={pointsView === "total" ? profile?.points ?? 0 : todayPointsEarned} />
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
-                  {todayPending > 0 ? `${todayPending} pending review` : "All reviewed!"}
-                </div>
-              </div>
-            </div>
-
-            {/* Completed Today */}
-            <div
-              className="card card-highlight"
-            >
-              <div className="p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Completed Today</div>
-                <div className="mt-3 text-3xl font-bold text-white">{todayCompleted}</div>
-                <div className="mt-1.5 text-xs font-normal text-white/50">
-                  {todayTotal > 0
-                    ? `${Math.round((todayCompleted / todayTotal) * 100)}% done`
-                    : "No goals"}
+                  {pointsView === "total"
+                    ? "Tap to see today's points"
+                    : todayPointsEarned > 0
+                    ? "Tap to see total points"
+                    : "Review or close today to earn points"}
                 </div>
               </div>
             </div>

@@ -69,7 +69,7 @@ export default function FAQPage() {
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4">Frequently Asked Questions</h1>
-          <p className="text-lg text-white/70 max-w-2xl mx-auto">
+          <p className="text-lg text-page-secondary max-w-2xl mx-auto">
             Everything you need to know about how StandUp works.
           </p>
         </div>
@@ -91,7 +91,7 @@ export default function FAQPage() {
         </div>
 
         <div className="text-center mt-10">
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-page-tertiary">
             Still have questions?{" "}
             <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
               Contact us

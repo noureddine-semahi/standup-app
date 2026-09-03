@@ -830,8 +830,12 @@ export default function TomorrowGoalsPage() {
               onClick={onSubmitPlan}
               disabled={!canSubmit || submitted}
               title={
-                !submitted && !submitEligible
+                submitted
+                  ? ""
+                  : !submitEligible
                   ? `Submit unlocks once ${formatDateDisplay(todayISO)} has been reviewed`
+                  : priorityGoalsFilled < 3
+                  ? `Fill in ${3 - priorityGoalsFilled} more P1/P2/P3 goal(s) — currently ${priorityGoalsFilled}/3`
                   : ""
               }
             >
@@ -851,6 +855,12 @@ export default function TomorrowGoalsPage() {
         {!locked && !submitted && !submitEligible && (
           <div className="mt-3 text-xs text-white/50">
             🔒 Submitting is locked until {formatDateDisplay(todayISO)} is reviewed. You can still save this as a draft.
+          </div>
+        )}
+
+        {!locked && !submitted && submitEligible && priorityGoalsFilled < 3 && (
+          <div className="mt-3 text-xs text-white/50">
+            🔒 Submitting needs {3 - priorityGoalsFilled} more goal(s) set to P1, P2, or P3 (currently {priorityGoalsFilled}/3). Goals at P4/P5 don't count toward this minimum.
           </div>
         )}
 

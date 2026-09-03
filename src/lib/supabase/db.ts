@@ -567,7 +567,7 @@ export async function awardAwarenessPoints(planId: string, points = 5) {
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
-  return row as { awarded: boolean; new_points: number };
+  return row as { success: boolean; points: number };
 }
 
 /**
@@ -581,7 +581,7 @@ export async function awardClosurePoints(planId: string, points = 5) {
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
-  return row as { awarded: boolean; new_points: number };
+  return row as { success: boolean; points: number };
 }
 
 export async function getPoints() {

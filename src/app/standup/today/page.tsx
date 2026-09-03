@@ -319,10 +319,12 @@ export default function TodayPage() {
         if (plan?.id && !plan.reviewed_at && !plan.awareness_awarded && !awarenessInFlightRef.current) {
           awarenessInFlightRef.current = true;
           try {
-            await awardAwarenessPoints(plan.id, 5);
-            notifyPointsUpdated();
-            setMsg("Awareness earned ✓");
-            window.setTimeout(() => setMsg((cur) => (cur === "Awareness earned ✓" ? null : cur)), 1200);
+            const result = await awardAwarenessPoints(plan.id, 5);
+            if (result?.success) {
+              notifyPointsUpdated();
+              setMsg("Awareness earned ✓");
+              window.setTimeout(() => setMsg((cur) => (cur === "Awareness earned ✓" ? null : cur)), 1200);
+            }
           } catch (e: any) {
             setMsg(e?.message ?? "Failed to record awareness points");
           } finally {
@@ -398,12 +400,19 @@ export default function TodayPage() {
       const streakBeforeToday = await getStreak();
       const closurePoints = computeClosurePoints(streakBeforeToday);
 
-      await awardClosurePoints(plan.id, closurePoints);
+      const result = await awardClosurePoints(plan.id, closurePoints);
       // The RPC awards points but doesn't set reviewed_at itself — do that explicitly
       // so the day actually shows as closed and Tomorrow unlocks.
       await markPlanReviewed(plan.id);
       notifyPointsUpdated();
-      setMsg(`Day closed ✅ +${closurePoints} pts. Tomorrow unlocked.`);
+      // result.success is false when this day already earned closure points before
+      // (e.g. reopened then re-closed) — the RPC is a one-time-per-day award, so no
+      // extra points were actually added even though the day is closing again.
+      setMsg(
+        result?.success
+          ? `Day closed ✅ +${closurePoints} pts. Tomorrow unlocked.`
+          : `Day closed ✅ Tomorrow unlocked. (No extra points — this day already earned its closure bonus.)`
+      );
 
       await refresh();
     } catch (e: any) {

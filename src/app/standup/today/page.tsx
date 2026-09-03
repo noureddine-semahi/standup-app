@@ -8,8 +8,10 @@ import {
   addGoalNote,
   awardAwarenessPoints,
   awardClosurePoints,
+  computeClosurePoints,
   enforceSingleP1,
   getPlanWithGoals,
+  getStreak,
   markGoalReviewed,
   markPlanReviewed,
   unmarkGoalReviewed,
@@ -25,6 +27,7 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import { notifyPointsUpdated } from "@/lib/pointsBus";
 
 // Priority options matching Tomorrow page
 const PRIORITY_OPTIONS = [
@@ -102,6 +105,9 @@ export default function TodayPage() {
   // independently, so marking goal A busy must not block a click on goal B
   // while A's request is still in flight.
   const [busyGoalIds, setBusyGoalIds] = useState<Set<string>>(new Set());
+  // Goal ids currently showing the "just completed" celebration animation —
+  // transient, cleared automatically after the animation finishes.
+  const [celebratingGoalIds, setCelebratingGoalIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   const [reopening, setReopening] = useState(false);
@@ -125,8 +131,14 @@ export default function TodayPage() {
   ]);
   const [addingGoals, setAddingGoals] = useState(false);
 
-  const awarenessAttemptedRef = useRef(false);
-  const closureAttemptedRef = useRef(false);
+  // Transient (not permanent) in-flight guard: the awareness-award trigger
+  // reads plan.awareness_awarded from React state, which only updates after
+  // refresh() resolves — so reviewing two goals in quick succession could
+  // otherwise fire the award request twice before either result lands. This
+  // resets in a finally block either way, so a failed attempt can still be
+  // retried on the next goal reviewed.
+  const awarenessInFlightRef = useRef(false);
+
   // refresh() has no natural request ordering — two overlapping calls (e.g.
   // triggered by reviewing two goals in quick succession) can resolve out of
   // order. Without this, a slower-but-earlier-started refresh can land AFTER
@@ -220,18 +232,6 @@ export default function TodayPage() {
       }));
 
       setGoals(goalsWithReschedule);
-
-      if (!awarenessAttemptedRef.current && !p.reviewed_at) {
-        awarenessAttemptedRef.current = true;
-        const hasPending = goalsWithReschedule.some((g) => !g.reviewed_at);
-        if (hasPending) {
-          try {
-            await awardAwarenessPoints(p.id, 5);
-            setMsg("Awareness earned ✓");
-            window.setTimeout(() => setMsg((cur) => (cur === "Awareness earned ✓" ? null : cur)), 1200);
-          } catch {}
-        }
-      }
     } catch (e: any) {
       if (mySeq !== refreshSeqRef.current) return;
       setMsg(e?.message ?? "Failed to load");
@@ -242,21 +242,28 @@ export default function TodayPage() {
 
   // Fetch goal notes/history
   async function fetchGoalNotes(goalId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("goal_notes")
       .select("*")
       .eq("goal_id", goalId)
       .order("created_at", { ascending: false });
 
+    if (error) throw error;
     return data || [];
   }
 
   async function selectTab(goalId: string, tab: "notes" | "history") {
     setActiveTab((prev) => ({ ...prev, [goalId]: tab }));
     if (tab === "notes" && !notesFetched[goalId]) {
-      const notes = await fetchGoalNotes(goalId);
-      setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
-      setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
+      try {
+        const notes = await fetchGoalNotes(goalId);
+        setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
+        setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
+      } catch (e: any) {
+        // Deliberately don't set notesFetched here — a failed fetch should
+        // be retried next time the tab is opened, not cached as "done".
+        setMsg(e?.message ?? "Failed to load notes");
+      }
     }
   }
 
@@ -266,10 +273,17 @@ export default function TodayPage() {
     setSavingNote((prev) => ({ ...prev, [goalId]: true }));
     try {
       await addGoalNote(goalId, text);
-      const notes = await fetchGoalNotes(goalId);
-      setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
-      setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
+      // The note is saved at this point regardless of what happens below —
+      // clear the draft now so a re-fetch failure can't be mistaken for the
+      // add itself having failed (which would tempt a duplicate re-submit).
       setNoteDraft((prev) => ({ ...prev, [goalId]: "" }));
+      try {
+        const notes = await fetchGoalNotes(goalId);
+        setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
+        setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
+      } catch (e: any) {
+        setMsg(e?.message ?? "Note saved, but couldn't refresh the list — reopen the tab to see it.");
+      }
     } catch (e: any) {
       setMsg(e?.message ?? "Failed to add note");
     } finally {
@@ -297,6 +311,24 @@ export default function TodayPage() {
 
       if (!isReviewed) {
         await markGoalReviewed(goal.id);
+
+        // First review action of the day earns the one-time "awareness" bonus.
+        // Gated on the plan's real awareness_awarded flag (not a local/in-memory
+        // guard) so a failed attempt is automatically retried on the very next
+        // goal reviewed, instead of requiring a full page remount.
+        if (plan?.id && !plan.reviewed_at && !plan.awareness_awarded && !awarenessInFlightRef.current) {
+          awarenessInFlightRef.current = true;
+          try {
+            await awardAwarenessPoints(plan.id, 5);
+            notifyPointsUpdated();
+            setMsg("Awareness earned ✓");
+            window.setTimeout(() => setMsg((cur) => (cur === "Awareness earned ✓" ? null : cur)), 1200);
+          } catch (e: any) {
+            setMsg(e?.message ?? "Failed to record awareness points");
+          } finally {
+            awarenessInFlightRef.current = false;
+          }
+        }
       } else {
         await unmarkGoalReviewed(goal.id);
       }
@@ -327,6 +359,19 @@ export default function TodayPage() {
       await updateGoalStatus(goal.id, newStatus);
       setMsg(`Status updated to "${statusLabel(newStatus)}" ✓`);
       window.setTimeout(() => setMsg((cur) => (cur?.includes("Status updated") ? null : cur)), 1500);
+
+      if (newStatus === "completed") {
+        setCelebratingGoalIds((prev) => new Set(prev).add(goal.id));
+        window.setTimeout(() => {
+          setCelebratingGoalIds((prev) => {
+            if (!prev.has(goal.id)) return prev;
+            const next = new Set(prev);
+            next.delete(goal.id);
+            return next;
+          });
+        }, 900);
+      }
+
       await refresh();
     } catch (e: any) {
       setMsg(e?.message ?? "Status update failed");
@@ -348,11 +393,17 @@ export default function TodayPage() {
     setMsg("Closing day...");
 
     try {
-      await awardClosurePoints(plan.id, 5);
+      // getStreak() runs before markPlanReviewed(), so it reflects the unbroken
+      // streak going into today (not counting today) — that's what sizes today's bonus.
+      const streakBeforeToday = await getStreak();
+      const closurePoints = computeClosurePoints(streakBeforeToday);
+
+      await awardClosurePoints(plan.id, closurePoints);
       // The RPC awards points but doesn't set reviewed_at itself — do that explicitly
       // so the day actually shows as closed and Tomorrow unlocks.
       await markPlanReviewed(plan.id);
-      setMsg("Day closed ✅ Tomorrow unlocked.");
+      notifyPointsUpdated();
+      setMsg(`Day closed ✅ +${closurePoints} pts. Tomorrow unlocked.`);
 
       await refresh();
     } catch (e: any) {
@@ -377,12 +428,10 @@ export default function TodayPage() {
         .eq("id", plan.id);
       if (planErr) throw planErr;
 
-      // Also clear every goal's reviewed_at. If we only cleared the plan,
-      // every goal would still individually be "reviewed", so the auto-close
-      // effect below would see allReviewed===true again and immediately
-      // re-close the day — the reopen would never actually stick, especially
-      // after a page reload (the in-memory guard that would otherwise block
-      // that effect resets on every mount).
+      // Also clear every goal's reviewed_at, so reopening the day means
+      // actually re-reviewing it rather than leaving every goal already
+      // marked reviewed (which would make "Close Day" immediately available
+      // again with nothing left to reconsider).
       const { error: goalsErr } = await supabase
         .from("goals")
         .update({ reviewed_at: null })
@@ -454,12 +503,6 @@ export default function TodayPage() {
     }
   }
 
-  useEffect(() => {
-    if (!plan?.id || locked || dayClosed || totalCount === 0 || !allReviewed || closureAttemptedRef.current) return;
-    closureAttemptedRef.current = true;
-    closeOutDay().catch(() => {});
-  }, [plan?.id, locked, dayClosed, allReviewed, totalCount]);
-
   if (loading) {
     return <div className="card">Loading…</div>;
   }
@@ -467,12 +510,7 @@ export default function TodayPage() {
   return (
     <>
       <div
-        className="card"
-        style={{
-          background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-          border: "2px solid hsla(96, 91%, 49%, 0.69)",
-          boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-        }}
+        className="card card-highlight"
       >
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
@@ -498,11 +536,14 @@ export default function TodayPage() {
           </div>
 
           <div className="flex flex-col items-end gap-3">
+            <Link className="btn" href="/standup/calendar">
+              ← Calendar
+            </Link>
             <div className="text-sm text-white/70">
               Reviewed: <b>{reviewedCount}/{totalCount}</b>
             </div>
-            <Link 
-              className="btn btn-primary whitespace-nowrap" 
+            <Link
+              className="btn btn-primary whitespace-nowrap"
               href="/standup/tomorrow"
               style={{ minWidth: "150px", textAlign: "center" }}
             >
@@ -511,10 +552,16 @@ export default function TodayPage() {
           </div>
         </div>
 
-        {/* Quick Add Section - ALWAYS AVAILABLE */}
+        {/* Quick Add Section - ALWAYS AVAILABLE — styled as its own distinct
+            card (not just a flush inset panel) so it reads as a separate
+            block from the header above and the goal list below. */}
         <div
-          className="mb-6 rounded-2xl bg-amber-500/[0.04] p-6"
-          style={{ borderLeft: "3px solid rgba(245, 158, 11, 0.5)" }}
+          className="mb-6 rounded-2xl p-6"
+          style={{
+            background: "rgba(245, 158, 11, 0.06)",
+            border: "1px solid rgba(245, 158, 11, 0.3)",
+            boxShadow: "0 8px 20px -8px rgba(0, 0, 0, 0.45)",
+          }}
         >
           {dayClosed ? (
             <div>
@@ -714,14 +761,16 @@ export default function TodayPage() {
             const reviewed = !!g.reviewed_at;
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
+            const isCelebrating = celebratingGoalIds.has(g.id);
 
             return (
               <div
                 key={g.id}
-                className="goal-row"
+                className={isCelebrating ? "goal-row goal-row-celebrate" : "goal-row"}
                 data-pending={!reviewed}
-                style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
+                style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >
+                {isCelebrating && <div className="goal-complete-badge">✓</div>}
                 <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
                   {/* Number badge */}
                   <div
@@ -752,6 +801,21 @@ export default function TodayPage() {
                             <div className="text-white text-xl font-medium mb-2">{g.title}</div>
                             {g.details && (
                               <div className="text-sm text-white/60">{g.details}</div>
+                            )}
+                            {g.rescheduled_to && (
+                              <div className="mt-2 flex items-start gap-2">
+                                <span className="text-yellow-400 text-xs mt-0.5">↷</span>
+                                <div>
+                                  <div className="text-xs text-yellow-300/90 font-medium">
+                                    Rescheduled to {formatDateDisplay(g.rescheduled_to)}
+                                  </div>
+                                  {g.reschedule_reason && (
+                                    <div className="text-xs text-white/60 italic mt-0.5">
+                                      "{g.reschedule_reason}"
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             )}
                           </div>
 

@@ -30,12 +30,7 @@ export default function AboutPage() {
         <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           {/* Philosophy — paired side-by-side with Vision */}
           <div
-            className="card"
-            style={{
-              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-              border: "3px solid hsla(0, 91%, 49%, 0.72)",
-              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-            }}
+            className="card card-highlight"
           >
           <div className="p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Philosophy</h2>
@@ -72,8 +67,9 @@ export default function AboutPage() {
                   Reflection Before Planning
                 </h3>
                 <p className="text-sm text-white/70">
-                  Tomorrow stays locked until today is reviewed. This prevents
-                  planning on top of unprocessed days and keeps your system real.
+                  You can always draft tomorrow's goals, but finalizing them stays
+                  locked until today is reviewed. This prevents committing to a new
+                  day on top of an unprocessed one and keeps your system real.
                 </p>
               </div>
 
@@ -93,12 +89,7 @@ export default function AboutPage() {
 
           {/* Vision — paired side-by-side with Philosophy */}
           <div
-            className="card"
-            style={{
-              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-              border: "3px solid hsla(0, 91%, 49%, 0.72)",
-              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-            }}
+            className="card card-highlight"
           >
           <div className="p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Vision</h2>
@@ -132,12 +123,7 @@ export default function AboutPage() {
 
           {/* The Bigger Picture — full-width band below the pair */}
           <div
-            className="card"
-            style={{
-              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-              border: "3px solid hsla(0, 91%, 49%, 0.72)",
-              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-            }}
+            className="card card-highlight"
           >
           <div className="p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>The Bigger Picture</h2>
@@ -192,8 +178,22 @@ export default function AboutPage() {
                   Review Gating
                 </h3>
                 <p className="text-sm text-white/60">
-                  Tomorrow’s planning is locked until today is reviewed — no
+                  Draft any date's goals whenever you like — even weeks out via the
+                  Calendar. Submitting a plan, though, only unlocks the evening
+                  before it arrives, once the day before has been reviewed — no
                   drifting into endless planning without learning from today.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">🗓️</span>
+                  Full Calendar History
+                </h3>
+                <p className="text-sm text-white/60">
+                  Every day you've planned lives on the Calendar. Past days open
+                  read-only, exactly as they happened — the only action left is to
+                  "re-attempt" a goal by rescheduling it onto a future date.
                 </p>
               </div>
 
@@ -213,12 +213,7 @@ export default function AboutPage() {
 
           {/* How It Works — full-width footer band, like "Competitions" */}
           <div
-            className="card"
-            style={{
-              background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-              border: "3px solid hsla(0, 91%, 49%, 0.72)",
-              boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-            }}
+            className="card card-highlight"
           >
           <div className="p-6">
             <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>How It Works</h2>
@@ -259,6 +254,17 @@ export default function AboutPage() {
           </Link>
           <p className="mt-4 text-sm text-white/60">
             Join and start building your daily execution habit today.
+          </p>
+          <p className="mt-6 text-sm text-white/50">
+            Have questions? Check the{" "}
+            <Link href="/faq" className="text-purple-300 hover:text-purple-200 underline">
+              FAQ
+            </Link>{" "}
+            or{" "}
+            <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
+              contact us
+            </Link>
+            .
           </p>
         </div>
       </div>

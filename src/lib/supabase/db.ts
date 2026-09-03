@@ -28,6 +28,15 @@ export type Profile = {
   id: string;
   display_name: string | null;
   points: number;
+
+  // Optional personal info — never required, kept for possible future
+  // personalization (e.g. goal suggestions tuned to age/location).
+  first_name?: string | null;
+  last_name?: string | null;
+  date_of_birth?: string | null; // YYYY-MM-DD
+  address?: string | null;
+  phone_number?: string | null;
+  avatar_url?: string | null;
 };
 
 export type GoalNote = {
@@ -110,7 +119,7 @@ export async function getOrCreateProfile() {
 
   const { data: p, error: selErr } = await supabase
     .from("profiles")
-    .select("id, display_name, points")
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
 
@@ -129,11 +138,63 @@ export async function getOrCreateProfile() {
   const { data: created, error: insErr } = await supabase
     .from("profiles")
     .insert({ id: userId, display_name: metaDisplayName, points: 0 })
-    .select("id, display_name, points")
+    .select("*")
     .single();
 
   if (insErr) throw insErr;
   return created as Profile;
+}
+
+/**
+ * Wipes the current user's data and signs them out. This is NOT a true auth
+ * account deletion — the client only has the public/anon key, and removing
+ * the actual login requires the service-role key (server-side only), which
+ * this app doesn't have configured. What this does instead:
+ *  1) Deletes every goal (the only table the client has DELETE rights on per
+ *     RLS) — cascades to goal_notes and goal_reschedules.from_goal_id rows.
+ *  2) Best-effort deletes any leftover goal_reschedules rows (some can
+ *     survive step 1 via "on delete set null" on materialized_goal_id rather
+ *     than cascade) — not fatal if RLS denies it, since there's no
+ *     client-facing delete policy for that table.
+ *  3) Resets every daily_plan back to a blank draft, since rows can't be
+ *     deleted outright (no delete policy) — zeroes out everything that makes
+ *     a plan meaningful instead.
+ *  4) Resets the profile (points, display name).
+ *  5) Signs out.
+ */
+export async function deleteAccount() {
+  const userId = await getCurrentUserId();
+
+  const { error: goalsErr } = await supabase.from("goals").delete().eq("user_id", userId);
+  if (goalsErr) throw goalsErr;
+
+  try {
+    await supabase.from("goal_reschedules").delete().eq("user_id", userId);
+  } catch {
+    // No client-facing delete policy is expected for this table — ignore.
+  }
+
+  const { error: plansErr } = await supabase
+    .from("daily_plans")
+    .update({
+      status: "draft",
+      submitted_at: null,
+      reviewed_at: null,
+      awareness_awarded: false,
+      closure_awarded: false,
+      awareness_points: 0,
+      closure_points: 0,
+    })
+    .eq("user_id", userId);
+  if (plansErr) throw plansErr;
+
+  const { error: profileErr } = await supabase
+    .from("profiles")
+    .update({ points: 0, display_name: null })
+    .eq("id", userId);
+  if (profileErr) throw profileErr;
+
+  await supabase.auth.signOut();
 }
 
 // Same-tab guard against React Strict Mode's dev double-invocation (and any
@@ -223,6 +284,28 @@ async function materializeReschedules(planId: string, planDateISO: string) {
         .single();
 
       if (insErr) throw insErr;
+
+      // Carry the original goal's notes forward onto the new row — the goal
+      // gets a new id on each reschedule, so without this every note written
+      // before a reschedule would become permanently orphaned/invisible.
+      const { data: priorNotes, error: notesSelErr } = await supabase
+        .from("goal_notes")
+        .select("note, created_at")
+        .eq("goal_id", item.from_goal_id);
+
+      if (notesSelErr) throw notesSelErr;
+
+      if (priorNotes && priorNotes.length > 0) {
+        const { error: notesInsErr } = await supabase.from("goal_notes").insert(
+          priorNotes.map((n) => ({
+            user_id: userId,
+            goal_id: inserted.id,
+            note: n.note,
+            created_at: n.created_at,
+          }))
+        );
+        if (notesInsErr) throw notesInsErr;
+      }
 
       // Insert (never update/delete) a "materialized" counterpart row so the
       // target day's goal can show its "Rescheduled from ..." origin — the
@@ -506,6 +589,112 @@ export async function getPoints() {
   return p.points ?? 0;
 }
 
+export type PointsHistoryEntry = {
+  planDate: string;
+  awarenessAwarded: boolean;
+  awarenessPoints: number;
+  closureAwarded: boolean;
+  closurePoints: number;
+  reviewedAt: string | null;
+};
+
+/**
+ * Recent days that earned at least one points bonus (awareness and/or
+ * closure), newest first. The per-day amounts already live on daily_plans —
+ * they're just never read back anywhere else in the app.
+ */
+export async function getPointsHistory(limit = 30): Promise<PointsHistoryEntry[]> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("daily_plans")
+    .select("plan_date, awareness_awarded, awareness_points, closure_awarded, closure_points, reviewed_at")
+    .eq("user_id", userId)
+    .or("awareness_awarded.eq.true,closure_awarded.eq.true")
+    .order("plan_date", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    planDate: row.plan_date as string,
+    awarenessAwarded: !!row.awareness_awarded,
+    awarenessPoints: row.awareness_points ?? 0,
+    closureAwarded: !!row.closure_awarded,
+    closurePoints: row.closure_points ?? 0,
+    reviewedAt: row.reviewed_at as string | null,
+  }));
+}
+
+export type DayActivity = {
+  date: string; // YYYY-MM-DD
+  hasPlan: boolean;
+  checkedIn: boolean; // day was reviewed/closed
+  goalsTotal: number;
+  goalsCompleted: number;
+};
+
+/**
+ * Every day in [startISO, endISO] (inclusive), including days with no plan
+ * at all — a "missed" day is just as meaningful as a "checked in" one here.
+ */
+export async function getDailyActivity(startISO: string, endISO: string): Promise<DayActivity[]> {
+  const userId = await getCurrentUserId();
+
+  const { data: plans, error: plansErr } = await supabase
+    .from("daily_plans")
+    .select("id, plan_date, reviewed_at")
+    .eq("user_id", userId)
+    .gte("plan_date", startISO)
+    .lte("plan_date", endISO);
+
+  if (plansErr) throw plansErr;
+
+  const planIds = (plans ?? []).map((p) => p.id);
+  const goalsByPlan: Record<string, { total: number; completed: number }> = {};
+
+  if (planIds.length > 0) {
+    const { data: goals, error: goalsErr } = await supabase
+      .from("goals")
+      .select("plan_id, status")
+      .in("plan_id", planIds);
+
+    if (goalsErr) throw goalsErr;
+
+    (goals ?? []).forEach((g) => {
+      const entry = goalsByPlan[g.plan_id] ?? { total: 0, completed: 0 };
+      entry.total += 1;
+      if (g.status === "completed") entry.completed += 1;
+      goalsByPlan[g.plan_id] = entry;
+    });
+  }
+
+  const byDate: Record<string, DayActivity> = {};
+  (plans ?? []).forEach((p) => {
+    const g = goalsByPlan[p.id] ?? { total: 0, completed: 0 };
+    byDate[p.plan_date] = {
+      date: p.plan_date,
+      hasPlan: true,
+      checkedIn: !!p.reviewed_at,
+      goalsTotal: g.total,
+      goalsCompleted: g.completed,
+    };
+  });
+
+  const result: DayActivity[] = [];
+  let cursor = new Date(`${startISO}T00:00:00`);
+  const end = new Date(`${endISO}T00:00:00`);
+  while (cursor <= end) {
+    const iso = toISODate(cursor);
+    result.push(
+      byDate[iso] ?? { date: iso, hasPlan: false, checkedIn: false, goalsTotal: 0, goalsCompleted: 0 }
+    );
+    cursor = addDays(cursor, 1);
+  }
+
+  return result;
+}
+
 export async function updateDisplayName(name: string) {
   const userId = await getCurrentUserId();
   const trimmed = name.trim();
@@ -514,10 +703,82 @@ export async function updateDisplayName(name: string) {
     .from("profiles")
     .update({ display_name: trimmed || null })
     .eq("id", userId)
-    .select("id, display_name, points")
+    .select("*")
     .single();
 
   if (error) throw error;
+  return data as Profile;
+}
+
+export type PersonalInfo = {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string; // YYYY-MM-DD, or "" to clear
+  address: string;
+  phoneNumber: string;
+};
+
+/**
+ * All fields optional — an empty string clears that field to null rather
+ * than being rejected, since nothing here is required.
+ */
+export async function updatePersonalInfo(info: PersonalInfo) {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({
+      first_name: info.firstName.trim() || null,
+      last_name: info.lastName.trim() || null,
+      date_of_birth: info.dateOfBirth || null,
+      address: info.address.trim() || null,
+      phone_number: info.phoneNumber.trim() || null,
+    })
+    .eq("id", userId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as Profile;
+}
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
+/**
+ * Uploads to the "avatars" storage bucket under "<user_id>/<filename>" (the
+ * bucket's RLS policies key off that path shape — see
+ * supabase/migrations/20260102000100_profile_personal_info.sql) and saves
+ * the resulting public URL onto the profile.
+ */
+export async function uploadAvatar(file: File) {
+  const userId = await getCurrentUserId();
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please choose an image file.");
+  }
+  if (file.size > AVATAR_MAX_BYTES) {
+    throw new Error("Image must be under 5MB.");
+  }
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${userId}/avatar-${Date.now()}.${ext}`;
+
+  const { error: uploadErr } = await supabase.storage.from("avatars").upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
+  if (uploadErr) throw uploadErr;
+
+  const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(path);
+
+  const { data, error: updateErr } = await supabase
+    .from("profiles")
+    .update({ avatar_url: publicUrlData.publicUrl })
+    .eq("id", userId)
+    .select("*")
+    .single();
+
+  if (updateErr) throw updateErr;
   return data as Profile;
 }
 
@@ -543,6 +804,20 @@ export function computeStreak(reviewedDates: Set<string>, todayISO: string): num
   }
 
   return streak;
+}
+
+const CLOSURE_BASE_POINTS = 5;
+const CLOSURE_STREAK_BONUS_CAP = 10;
+
+/**
+ * Pure: today's closure bonus, given the unbroken streak going into today
+ * (i.e. not counting today itself — see getStreak's timing note below).
+ * Always at least the base amount, so losing a streak never drops you to
+ * zero; the bonus just ramps back down with it.
+ */
+export function computeClosurePoints(streakBeforeToday: number): number {
+  const bonus = Math.min(Math.max(streakBeforeToday, 0), CLOSURE_STREAK_BONUS_CAP);
+  return CLOSURE_BASE_POINTS + bonus;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toISODate, addDays, computeStreak, formatDateDisplay } from "./db";
+import { toISODate, addDays, computeStreak, computeClosurePoints, formatDateDisplay } from "./db";
 
 describe("toISODate", () => {
   it("formats a date as YYYY-MM-DD", () => {
@@ -67,5 +67,27 @@ describe("computeStreak", () => {
   it("counts today plus a consecutive run before it", () => {
     const dates = new Set(["2026-01-08", "2026-01-09", "2026-01-10"]);
     expect(computeStreak(dates, "2026-01-10")).toBe(3);
+  });
+});
+
+describe("computeClosurePoints", () => {
+  it("gives the base amount at a broken/zero streak — never zero", () => {
+    expect(computeClosurePoints(0)).toBe(5);
+  });
+
+  it("adds one point per streak day", () => {
+    expect(computeClosurePoints(1)).toBe(6);
+    expect(computeClosurePoints(3)).toBe(8);
+    expect(computeClosurePoints(5)).toBe(10);
+  });
+
+  it("caps the bonus at +10", () => {
+    expect(computeClosurePoints(10)).toBe(15);
+    expect(computeClosurePoints(20)).toBe(15);
+    expect(computeClosurePoints(400)).toBe(15);
+  });
+
+  it("treats a negative streak as zero rather than subtracting", () => {
+    expect(computeClosurePoints(-5)).toBe(5);
   });
 });

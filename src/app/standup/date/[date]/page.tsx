@@ -14,8 +14,10 @@ import {
   toISODate,
   addDays,
   formatDateDisplay,
+  formatDateTimeDisplay,
   upsertGoals,
   deleteGoal,
+  type Goal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -28,16 +30,27 @@ import {
   type DraftGoal,
 } from "@/lib/goalLogic";
 import { getPriorityMeta } from "@/lib/priorityStyles";
+import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import RescheduleModal from "@/components/RescheduleModal";
 
 export default function DynamicDatePage() {
   const params = useParams();
   const router = useRouter();
   const dateISO = params.date as string; // e.g., "2026-02-15"
   const todayISO = useMemo(() => toISODate(new Date()), []);
+  const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
   const prevDateISO = useMemo(() => toISODate(addDays(new Date(`${dateISO}T00:00:00`), -1)), [dateISO]);
+  // A day that's already happened is view-only — nothing to add or edit,
+  // the only thing you can do is re-attempt a goal on a future date.
+  const isPastDate = dateISO < todayISO;
 
   const [loading, setLoading] = useState(true);
-  const [blocking, setBlocking] = useState(false);
+  const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
+  // Submitting (finalizing) a plan is only ever allowed the day before that
+  // plan's date, and only once today's own plan has been reviewed — this
+  // mirrors the Plan Tomorrow page's discipline loop. Drafting/saving is
+  // always available regardless, on any date past, present, or future.
+  const [submitEligible, setSubmitEligible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [planId, setPlanId] = useState<string | null>(null);
@@ -151,15 +164,13 @@ export default function DynamicDatePage() {
     setLoading(true);
     setMsg(null);
 
-    const ok = await isPrevDayReviewedForPlan(dateISO);
-    if (!ok) {
-      setMsg(`⚠️ ${formatDateDisplay(prevDateISO)} must be reviewed before planning ${formatDateDisplay(dateISO)}.`);
-      setBlocking(true);
-      setLoading(false);
-      return;
-    }
-
-    setBlocking(false);
+    // Draft access is always open, on any date. Submit eligibility is
+    // separate and stricter: only true the day before this date, and only
+    // once today's plan is actually reviewed — never satisfiable in advance
+    // for dates further out, so those just stay draft-only indefinitely
+    // until their eve arrives.
+    const eligible = dateISO === tomorrowISO ? await isPrevDayReviewedForPlan(dateISO) : false;
+    setSubmitEligible(eligible);
 
     const { plan, goals: dbGoals } = await getPlanWithGoals(dateISO);
     setPlanId(plan.id);
@@ -426,15 +437,14 @@ export default function DynamicDatePage() {
     const g = goals[idx];
 
     if (idx < 3) {
+      // Just blank the title — don't delete the row here. If the user
+      // retypes into this slot before the debounced autosave fires, the
+      // existing goal (and its notes) gets updated in place instead of
+      // being destroyed and recreated as an empty-history duplicate.
+      // persistGoals() already deletes rows that end up with no title.
       setGoals((prev) =>
         prev.map((x, i) => (i === idx ? { ...x, title: "" } : x))
       );
-
-      if (g.id) {
-        try {
-          await deleteGoal(g.id);
-        } catch {}
-      }
 
       scheduleAutoSave();
       return;
@@ -459,21 +469,105 @@ export default function DynamicDatePage() {
     return <div className="card">Loading…</div>;
   }
 
-  if (blocking) {
+  if (isPastDate) {
+    const pastGoals = goals.filter((g) => (g.title ?? "").trim().length > 0);
+
     return (
-      <div className="card">
-        <h1 className="text-3xl font-bold">Goals for {formatDateDisplay(dateISO)}</h1>
-        <p className="mt-2 text-white/70">
-          Before you can plan this date, you must review {formatDateDisplay(prevDateISO)} first.
-        </p>
-        <div className="mt-6">
-          <button
-            className="btn btn-primary"
-            onClick={() => router.push(prevDateISO === todayISO ? "/standup/today" : `/standup/date/${prevDateISO}`)}
-          >
-            Review {formatDateDisplay(prevDateISO)} First
+      <div className="card card-highlight">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Goals for {formatDateDisplay(dateISO)}</h1>
+            <p className="text-sm text-white/60">
+              This day has passed — view only. Re-attempt a goal to bring it forward to a future date.
+            </p>
+          </div>
+          <button className="btn" onClick={() => router.push("/standup/calendar")}>
+            ← Calendar
           </button>
         </div>
+
+        {pastGoals.length === 0 ? (
+          <div className="text-white/60 text-sm py-12 text-center">
+            No goals were planned for this day.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {pastGoals.map((g) => {
+              const p = typeof g.priority === "number" ? g.priority : DEFAULT_PRIORITY;
+              const status = g.status ?? "not_started";
+
+              return (
+                <div
+                  key={g.id}
+                  className="goal-row"
+                  style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
+                >
+                  <div className="flex items-start flex-wrap gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-lg font-semibold text-white">{g.title}</div>
+                      {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
+
+                      {g.rescheduled_from_date && (
+                        <div className="mt-2 text-xs text-white/50">
+                          ↩ Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
+                          {g.reschedule_reason && <span className="italic"> — "{g.reschedule_reason}"</span>}
+                        </div>
+                      )}
+
+                      {g.previous_actions && g.previous_actions.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {g.previous_actions.map((note: any, i: number) => (
+                            <div key={note.id ?? i} className="text-xs text-white/60">
+                              💬 {note.note}
+                              <span className="ml-2 text-white/40">
+                                {formatDateTimeDisplay(note.created_at)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <div
+                        className="status-chip"
+                        style={{
+                          "--chip-bg": statusChipColors(status).bg,
+                          "--chip-border": statusChipColors(status).border,
+                          "--chip-color": statusChipColors(status).color,
+                        } as React.CSSProperties}
+                      >
+                        <span>{statusIcon(status)}</span>
+                        <span>{statusLabel(status)}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => setRescheduleGoal(g as Goal)}
+                        style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}
+                      >
+                        🔁 Re-attempt
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {rescheduleGoal && (
+          <RescheduleModal
+            goal={rescheduleGoal}
+            onClose={() => setRescheduleGoal(null)}
+            onSuccess={() => {
+              setRescheduleGoal(null);
+              refresh();
+            }}
+          />
+        )}
+
         {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
       </div>
     );
@@ -494,18 +588,13 @@ export default function DynamicDatePage() {
     .length;
 
   const canSubmit =
-    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting;
+    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting && submitEligible;
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
   return (
     <div
-      className="card"
-      style={{
-        background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-        border: "2px solid hsla(96, 91%, 49%, 0.69)",
-        boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-      }}
+      className="card card-highlight"
     >
       <div className="flex items-start justify-between mb-8">
         <div className="flex-1">
@@ -519,22 +608,24 @@ export default function DynamicDatePage() {
           </p>
         </div>
 
-        {!locked && (
+        <div className="flex flex-row items-center gap-3">
+          <button className="btn" onClick={() => router.push("/standup/calendar")}>
+            ← Calendar
+          </button>
+          {!locked && (
           <button
             onClick={() => setEditMode(!editMode)}
             disabled={submitting}
+            className="btn"
             style={{
-              background: editMode ? "rgba(168, 85, 247, 0.3)" : "rgba(255,255,255,0.05)",
-              border: `2px solid ${editMode ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.1)"}`,
-              minWidth: "140px",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "0.75rem"
+              background: editMode ? "rgba(168, 85, 247, 0.3)" : undefined,
+              borderColor: editMode ? "rgba(168, 85, 247, 0.6)" : undefined,
             }}
-            className="font-semibold transition-all hover:scale-105"
           >
             {editMode ? "✓ Done" : "✏️ Reorder"}
           </button>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -740,6 +831,13 @@ export default function DynamicDatePage() {
             className="btn btn-primary hover-scale"
             onClick={onSubmitPlan}
             disabled={!canSubmit || submitted}
+            title={
+              !submitted && !submitEligible
+                ? dateISO === tomorrowISO
+                  ? `Submit unlocks once ${formatDateDisplay(todayISO)} has been reviewed`
+                  : `Submit unlocks the evening before this date (${formatDateDisplay(prevDateISO)}) — draft and save freely until then`
+                : ""
+            }
           >
             {submitting
               ? "Submitting…"
@@ -751,6 +849,14 @@ export default function DynamicDatePage() {
           <div className="text-sm text-white/60">
             {goals.length}/{MAX_GOALS} goals
           </div>
+        </div>
+      )}
+
+      {!locked && !submitted && !submitEligible && (
+        <div className="mt-3 text-xs text-white/50">
+          {dateISO === tomorrowISO
+            ? `🔒 Submitting is locked until ${formatDateDisplay(todayISO)} is reviewed. You can still save this as a draft.`
+            : `🔒 Submitting opens the evening before this date (${formatDateDisplay(prevDateISO)}). You can still save this as a draft any time before then.`}
         </div>
       )}
 

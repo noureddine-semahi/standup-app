@@ -16,6 +16,8 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
+import { onPointsUpdated } from "@/lib/pointsBus";
+import AnimatedNumber from "@/components/AnimatedNumber";
 
 /**
  * ✅ Reuse the "Tomorrow page" visual language:
@@ -24,6 +26,17 @@ import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
  * - hover scale
  * - glass panels
  */
+
+const MOTIVATIONAL_MESSAGES: Array<(name: string) => string> = [
+  (name) => `Welcome back, ${name}! Let's keep working on your goals and achieve your dreams.`,
+  (name) => `${name}, today is a fresh chance to move closer to what you're building.`,
+  (name) => `Small steps, ${name} — consistency beats intensity every time.`,
+  (name) => `You've got this, ${name}. One goal at a time.`,
+  (name) => `Keep showing up, ${name} — that's how dreams become plans, and plans become reality.`,
+  (name) => `${name}, discipline today is freedom tomorrow. Let's go.`,
+  (name) => `Every day you show up is a step toward the life you're building, ${name}.`,
+  (name) => `Progress, not perfection, ${name}. Keep pushing forward.`,
+];
 
 const WIDGETS = [
   {
@@ -53,8 +66,14 @@ export default function DashboardPage() {
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
 
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [streak, setStreak] = useState(0);
+
+  // Picked once per mount (lazy initializer), not re-rolled on every render.
+  const [motivationalMessage] = useState(
+    () => MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)]
+  );
 
   const [todayPlan, setTodayPlan] = useState<DailyPlan | null>(null);
   const [todayGoals, setTodayGoals] = useState<Goal[]>([]);
@@ -68,6 +87,11 @@ export default function DashboardPage() {
     async function load() {
       setLoading(true);
       try {
+        const {
+          data: { user: u },
+        } = await supabase.auth.getUser();
+        setUser(u);
+
         const p = await getOrCreateProfile();
         setProfile(p);
 
@@ -106,6 +130,17 @@ export default function DashboardPage() {
     }
 
     load();
+
+    // Points earned elsewhere (e.g. closing out Today) wouldn't otherwise
+    // be reflected here until the dashboard is fully remounted — refetch
+    // just the profile so the points widget stays current.
+    const unsubscribe = onPointsUpdated(() => {
+      getOrCreateProfile()
+        .then((p) => setProfile(p))
+        .catch(() => {});
+    });
+
+    return unsubscribe;
   }, [todayISO, tomorrowISO]);
 
   if (loading) {
@@ -141,12 +176,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
         <div
-          className="card"
-          style={{
-            background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-            border: "2px solid hsla(96, 91%, 49%, 0.69)",
-            boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-          }}
+          className="card card-highlight"
         >
           <div className="flex items-start justify-between gap-6">
             <div>
@@ -165,22 +195,40 @@ export default function DashboardPage() {
           </div>
 
           {/* ✅ Widgets side-by-side (Tomorrow-like gradient tiles) */}
-          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-7">
+            {/* Welcome / Motivation */}
+            <div
+              className="card card-highlight col-span-2"
+            >
+              <div className="p-4 flex items-center gap-4">
+                {profile?.avatar_url && (
+                  <div
+                    className="flex-shrink-0 rounded-full overflow-hidden"
+                    style={{ width: "48px", height: "48px" }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={profile.avatar_url} alt="Profile photo" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm text-white/70">✨ Motivation</div>
+                  <div className="mt-2 text-base font-semibold text-white leading-snug">
+                    {motivationalMessage(profile?.display_name || user?.email?.split("@")[0] || "there")}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Streak */}
             <div
-              className="card"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "1px solid hsla(0, 91%, 49%, 0.72)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight"
             >
               <div className="p-4">
-                <div className="text-sm text-white/70">Streak</div>
-                <div className="mt-2 text-3xl font-bold">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Streak</div>
+                <div className="mt-3 text-3xl font-bold text-white">
                   {streak} {streak > 0 && "🔥"}
                 </div>
-                <div className="mt-1 text-xs text-white/50">
+                <div className="mt-1.5 text-xs font-normal text-white/50">
                   {streak > 0 ? "Keep it going" : "Close today to start a streak"}
                 </div>
               </div>
@@ -188,35 +236,27 @@ export default function DashboardPage() {
 
             {/* Total Points */}
             <div
-              className="card"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "1px solid hsla(0, 91%, 49%, 0.72)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight"
             >
               <div className="p-4">
-                <div className="text-sm text-white/70">Total Points</div>
-                <div className="mt-2 text-3xl font-bold">{profile?.points ?? 0}</div>
-                <div className="mt-1 text-xs text-white/50">Keep building consistency</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Total Points</div>
+                <div className="mt-3 text-3xl font-bold text-white">
+                  <AnimatedNumber value={profile?.points ?? 0} />
+                </div>
+                <div className="mt-1.5 text-xs font-normal text-white/50">Keep building consistency</div>
               </div>
             </div>
 
             {/* Today's Progress */}
             <div
-              className="card"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "1px solid hsla(0, 91%, 49%, 0.72)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight"
             >
               <div className="p-4">
-                <div className="text-sm text-white/70">Today's Progress</div>
-                <div className="mt-2 text-3xl font-bold">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Today's Progress</div>
+                <div className="mt-3 text-3xl font-bold text-white">
                   {todayReviewed}/{todayTotal}
                 </div>
-                <div className="mt-1 text-xs text-white/50">
+                <div className="mt-1.5 text-xs font-normal text-white/50">
                   {todayPending > 0 ? `${todayPending} pending review` : "All reviewed!"}
                 </div>
               </div>
@@ -224,17 +264,12 @@ export default function DashboardPage() {
 
             {/* Completed Today */}
             <div
-              className="card"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "1px solid hsla(0, 91%, 49%, 0.72)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight"
             >
               <div className="p-4">
-                <div className="text-sm text-white/70">Completed Today</div>
-                <div className="mt-2 text-3xl font-bold">{todayCompleted}</div>
-                <div className="mt-1 text-xs text-white/50">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Completed Today</div>
+                <div className="mt-3 text-3xl font-bold text-white">{todayCompleted}</div>
+                <div className="mt-1.5 text-xs font-normal text-white/50">
                   {todayTotal > 0
                     ? `${Math.round((todayCompleted / todayTotal) * 100)}% done`
                     : "No goals"}
@@ -244,23 +279,18 @@ export default function DashboardPage() {
 
             {/* Day Status */}
             <div
-              className="card"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "1px solid hsla(0, 91%, 49%, 0.72)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight"
             >
               <div className="p-4">
-                <div className="text-sm text-white/70">Day Status</div>
-                <div className="mt-2 text-xl font-bold">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Day Status</div>
+                <div className="mt-3 text-xl font-bold">
                   {todayClosed ? (
                     <span className="text-emerald-300">Closed ✓</span>
                   ) : (
                     <span className="text-amber-300">Active</span>
                   )}
                 </div>
-                <div className="mt-1 text-xs text-white/50">
+                <div className="mt-1.5 text-xs font-normal text-white/50">
                   {todayClosed ? "Tomorrow unlocked" : "Close to unlock Tomorrow"}
                 </div>
               </div>
@@ -272,40 +302,40 @@ export default function DashboardPage() {
         {todayP1 && (
           <Link href="/standup/today" className="block">
             <div
-              className="card transition-all duration-300 hover:scale-[1.005] cursor-pointer"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "2px solid hsla(96, 91%, 49%, 0.69)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight transition-all duration-300 hover:scale-[1.005] cursor-pointer"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-300">
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-red-300">
                       P1 - Highest Priority
                     </span>
                     {!todayP1.reviewed_at && (
-                      <span className="text-xs text-white/50">Pending review</span>
+                      <span className="text-xs font-normal text-white/50">Pending review</span>
                     )}
                     {todayP1.reviewed_at && (
-                      <span className="text-xs text-white/60">Reviewed ✓</span>
+                      <span className="text-xs font-normal text-white/50">Reviewed ✓</span>
                     )}
                   </div>
 
-                  <div className="mt-3 text-xl font-semibold text-white">{todayP1.title}</div>
+                  {/* The goal itself is the actual content here — biggest,
+                      boldest text on the card, with real breathing room
+                      above/below so it doesn't compete with the label row. */}
+                  <div className="mt-5 text-2xl font-bold text-white leading-snug">
+                    {todayP1.title}
+                  </div>
 
                   {todayP1.details && (
-                    <div className="mt-2 text-sm text-white/70">{todayP1.details}</div>
+                    <div className="mt-2 text-sm font-normal text-white/70">{todayP1.details}</div>
                   )}
 
-                  <div className="mt-3 text-sm text-white/60">
-                    Status:{" "}
-                    <span className="font-medium text-white">
-                      {todayP1.status
-                        .replace("_", " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </span>
+                  <div className="mt-5 text-xs font-normal uppercase tracking-wide text-white/50">
+                    Status
+                  </div>
+                  <div className="mt-1 text-base font-semibold text-white">
+                    {todayP1.status
+                      .replace("_", " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
                   </div>
                 </div>
 
@@ -320,14 +350,9 @@ export default function DashboardPage() {
           {/* Today Overview */}
           <Link href="/standup/today" className="block">
             <div
-              className="card transition cursor-pointer h-full"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "2px solid hsla(96, 91%, 49%, 0.69)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight transition cursor-pointer h-full"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-white">Today's Goals</h2>
                 <span className="text-xs text-white/50">{formatDateDisplay(todayISO)}</span>
               </div>
@@ -340,7 +365,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {sortedTodayGoals.map((g, idx) => {
                     const reviewed = !!g.reviewed_at;
                     const priority = g.priority;
@@ -356,7 +381,7 @@ export default function DashboardPage() {
                       >
                         <div className="goal-number-sm">{idx + 1}</div>
 
-                        <div className="flex-1 truncate text-white/90">{g.title}</div>
+                        <div className="flex-1 truncate text-base font-medium text-white/90">{g.title}</div>
 
                         {noteCounts[g.id] > 0 && (
                           <div
@@ -420,14 +445,9 @@ export default function DashboardPage() {
           {/* Tomorrow Overview */}
           <Link href="/standup/tomorrow" className="block">
             <div
-              className="card transition cursor-pointer h-full"
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-                border: "2px solid hsla(96, 91%, 49%, 0.69)",
-                boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-              }}
+              className="card card-highlight transition cursor-pointer h-full"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-white">Tomorrow's Plan</h2>
                 <span className="text-xs text-white/50">{formatDateDisplay(tomorrowISO)}</span>
               </div>
@@ -440,7 +460,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {sortedTomorrowGoals.slice(0, 5).map((g, idx) => {
                     const priority = g.priority;
 
@@ -454,7 +474,7 @@ export default function DashboardPage() {
                       >
                         <div className="goal-number-sm">{idx + 1}</div>
 
-                        <div className="flex-1 truncate text-white/90">{g.title}</div>
+                        <div className="flex-1 truncate text-base font-medium text-white/90">{g.title}</div>
 
                         {noteCounts[g.id] > 0 && (
                           <div
@@ -502,12 +522,7 @@ export default function DashboardPage() {
 
         {/* Quick Actions (unchanged) */}
         <div
-          className="card"
-          style={{
-            background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-            border: "2px solid hsla(96, 91%, 49%, 0.69)",
-            boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-          }}
+          className="card card-highlight"
         >
           <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
           <div className="flex flex-wrap gap-3">

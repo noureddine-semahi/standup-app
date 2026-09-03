@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   addDays,
@@ -15,7 +16,6 @@ import {
   deleteGoal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import {
   applyPriorityChange,
   compactForSave,
@@ -29,11 +29,13 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 
 
 export default function TomorrowGoalsPage() {
-  const router = useRouter();
-
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
+  const todayISO = useMemo(() => toISODate(new Date()), []);
   const [loading, setLoading] = useState(true);
-  const [blocking, setBlocking] = useState(false);
+  // Drafting/saving tomorrow's plan is always available. Submitting
+  // (finalizing) it is gated separately — only once today has been
+  // reviewed — so this no longer blocks the whole page.
+  const [submitEligible, setSubmitEligible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [planId, setPlanId] = useState<string | null>(null);
@@ -145,18 +147,7 @@ export default function TomorrowGoalsPage() {
     setLoading(true);
     setMsg(null);
 
-    // Check gating
-    const ok = await isYesterdayReviewed();
-
-    if (!ok) {
-      const todayISO = toISODate(new Date());
-      setMsg(`⚠️ Review Today first. Today (${formatDateDisplay(todayISO)}) must be closed before planning tomorrow.`);
-      setBlocking(true);
-      setLoading(false);
-      return;
-    }
-
-    setBlocking(false);
+    setSubmitEligible(await isYesterdayReviewed());
 
     const { plan, goals: dbGoals } = await getPlanWithGoals(tomorrowISO);
     setPlanId(plan.id);
@@ -424,15 +415,14 @@ export default function TomorrowGoalsPage() {
     const g = goals[idx];
 
     if (idx < 3) {
+      // Just blank the title — don't delete the row here. If the user
+      // retypes into this slot before the debounced autosave fires, the
+      // existing goal (and its notes) gets updated in place instead of
+      // being destroyed and recreated as an empty-history duplicate.
+      // persistGoals() already deletes rows that end up with no title.
       setGoals((prev) =>
         prev.map((x, i) => (i === idx ? { ...x, title: "" } : x))
       );
-
-      if (g.id) {
-        try {
-          await deleteGoal(g.id);
-        } catch {}
-      }
 
       scheduleAutoSave();
       return;
@@ -479,26 +469,6 @@ export default function TomorrowGoalsPage() {
     return <div className="card">Loading…</div>;
   }
 
-  if (blocking) {
-    return (
-      <div className="card">
-        <h1 className="text-3xl font-bold">Tomorrow Goals</h1>
-        <p className="mt-2 text-white/70">
-          Before you set tomorrow's goals, you must review your goals for Today.
-        </p>
-        <div className="mt-6">
-          <button
-            className="btn btn-primary"
-            onClick={() => router.push("/standup/today")}
-          >
-            Review Today First
-          </button>
-        </div>
-        {msg && <div className="mt-4 text-sm text-amber-400">{msg}</div>}
-      </div>
-    );
-  }
-
   const locked = planStatus === "locked";
   const submitted = planStatus === "submitted";
 
@@ -514,18 +484,13 @@ export default function TomorrowGoalsPage() {
     .length;
 
   const canSubmit =
-    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting;
+    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting && submitEligible;
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
   return (
     <div
-      className="card"
-      style={{
-        background: "linear-gradient(135deg, rgba(168, 85, 247, 0.10), rgba(59, 130, 246, 0.06))",
-        border: "2px solid hsla(96, 91%, 49%, 0.69)",
-        boxShadow: "0 18px 60px rgba(114, 32, 32, 0.47)",
-      }}
+      className="card card-highlight"
     >
       <div className="flex items-start justify-between mb-8">
           <div className="flex-1">
@@ -539,22 +504,24 @@ export default function TomorrowGoalsPage() {
             </p>
           </div>
           
-          {!locked && (
-            <button
-              onClick={() => setEditMode(!editMode)}
-              disabled={submitting}
-              style={{
-                background: editMode ? "rgba(168, 85, 247, 0.3)" : "rgba(255,255,255,0.05)",
-                border: `2px solid ${editMode ? "rgba(168, 85, 247, 0.6)" : "rgba(255,255,255,0.1)"}`,
-                minWidth: "140px",
-                padding: "0.75rem 1.5rem",
-                borderRadius: "0.75rem"
-              }}
-              className="font-semibold transition-all hover:scale-105"
-            >
-              {editMode ? "✓ Done" : "✏️ Reorder"}
-            </button>
-          )}
+          <div className="flex flex-row items-center gap-3">
+            <Link className="btn" href="/standup/calendar">
+              ← Calendar
+            </Link>
+            {!locked && (
+              <button
+                onClick={() => setEditMode(!editMode)}
+                disabled={submitting}
+                className="btn"
+                style={{
+                  background: editMode ? "rgba(168, 85, 247, 0.3)" : undefined,
+                  borderColor: editMode ? "rgba(168, 85, 247, 0.6)" : undefined,
+                }}
+              >
+                {editMode ? "✓ Done" : "✏️ Reorder"}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -644,6 +611,21 @@ export default function TomorrowGoalsPage() {
                         placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                         className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                       />
+                      {g.rescheduled_from_date && (
+                        <div className="mt-2 flex items-start gap-2">
+                          <span className="text-yellow-400 text-xs mt-0.5">↷</span>
+                          <div>
+                            <div className="text-xs text-yellow-300/90 font-medium">
+                              Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
+                            </div>
+                            {g.reschedule_reason && (
+                              <div className="text-xs text-white/60 italic mt-0.5">
+                                "{g.reschedule_reason}"
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Notes / History — tabbed, ~45%, same as Today page */}
@@ -847,6 +829,11 @@ export default function TomorrowGoalsPage() {
               className="btn btn-primary hover-scale"
               onClick={onSubmitPlan}
               disabled={!canSubmit || submitted}
+              title={
+                !submitted && !submitEligible
+                  ? `Submit unlocks once ${formatDateDisplay(todayISO)} has been reviewed`
+                  : ""
+              }
             >
               {submitting
                 ? "Submitting…"
@@ -858,6 +845,12 @@ export default function TomorrowGoalsPage() {
             <div className="text-sm text-white/60">
               {goals.length}/{MAX_GOALS} goals
             </div>
+          </div>
+        )}
+
+        {!locked && !submitted && !submitEligible && (
+          <div className="mt-3 text-xs text-white/50">
+            🔒 Submitting is locked until {formatDateDisplay(todayISO)} is reviewed. You can still save this as a draft.
           </div>
         )}
 

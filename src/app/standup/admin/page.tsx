@@ -37,6 +37,25 @@ function describeAuditDetails(entry: AdminAuditEntry): string {
   return "—";
 }
 
+// Derived entirely from the member list we already fetch — no new table or
+// RPC needed. Sign-ins and account deletions would need their own event log
+// (accounts vanish on delete, and Supabase only keeps the latest sign-in
+// timestamp), so those are left as a future addition, not built here.
+const DAY_MS = 24 * 60 * 60 * 1000;
+function computeSignupGrowth(members: AdminMember[]) {
+  const now = Date.now();
+  let daily = 0;
+  let weekly = 0;
+  let monthly = 0;
+  for (const m of members) {
+    const age = now - new Date(m.createdAt).getTime();
+    if (age <= DAY_MS) daily++;
+    if (age <= 7 * DAY_MS) weekly++;
+    if (age <= 30 * DAY_MS) monthly++;
+  }
+  return { daily, weekly, monthly, total: members.length };
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
@@ -154,6 +173,36 @@ export default function AdminPage() {
           {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
         </p>
         {msg && <p className="mt-3 text-sm text-purple-300">{msg}</p>}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-1">Growth — Sign-ups</h2>
+        <p className="text-sm text-white/50 mb-4">New accounts created, based on join date.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {(() => {
+            const growth = computeSignupGrowth(members);
+            return (
+              <>
+                <div>
+                  <div className="text-2xl font-bold gradient-text">{growth.daily}</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wide">Last 24h</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold gradient-text">{growth.weekly}</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wide">Last 7 days</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold gradient-text">{growth.monthly}</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wide">Last 30 days</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold gradient-text">{growth.total}</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wide">All time</div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
       </div>
 
       <div className="card overflow-x-auto">

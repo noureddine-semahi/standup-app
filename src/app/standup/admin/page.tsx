@@ -258,7 +258,98 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
+      {/* Mobile: one card per member, everything stacked vertically instead
+          of crammed into table columns — the table below needs 920px of
+          horizontal scroll room, which pushed Role/Level out of view on
+          phones. Desktop/tablet keep the table (hidden below sm:). */}
+      <div className="card sm:hidden space-y-3">
+        {members.map((m) => {
+          const level = getLevelInfo(m.points);
+          const busy = busyIds.has(m.id);
+          return (
+            <div
+              key={m.id}
+              className="rounded-xl p-3"
+              style={{ border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(255, 255, 255, 0.02)" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white truncate">{m.displayName || m.email}</div>
+                  <div className="text-xs text-white/50 truncate">{m.email}</div>
+                </div>
+                <div className="flex-shrink-0">
+                  {sysAdmin && m.id !== currentUserId ? (
+                    <select
+                      value={m.role}
+                      onChange={(e) => handleSetRole(m, e.target.value as AdminRole)}
+                      disabled={busy}
+                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white"
+                    >
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                      <option value="sys_admin">Sys Admin</option>
+                    </select>
+                  ) : (
+                    <span
+                      className={
+                        m.role === "member"
+                          ? "text-xs text-white/50"
+                          : "rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs text-purple-300"
+                      }
+                    >
+                      {ROLE_LABELS[m.role]}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <div>
+                  <div className="text-white/90">Lv {level.level}</div>
+                  <div className="text-xs text-white/50">{level.name}</div>
+                </div>
+                <div className="text-right text-xs text-white/60">
+                  {m.totalDaysClosed} days closed
+                  <br />
+                  {m.totalGoalsCompleted} goals completed
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={pointsDrafts[m.id] ?? ""}
+                  onChange={(e) => setPointsDrafts((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                  disabled={busy}
+                  className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-white"
+                />
+                <button
+                  onClick={() => handleSavePoints(m)}
+                  disabled={busy || pointsDrafts[m.id] === String(m.points)}
+                  className="btn text-xs px-3 py-1.5"
+                >
+                  Save Points
+                </button>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-white/50">Joined {formatDateTimeDisplay(m.createdAt)}</span>
+                <button
+                  onClick={() => handleWipeData(m)}
+                  disabled={busy}
+                  className="btn text-xs px-3 py-1.5"
+                  style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#fca5a5" }}
+                >
+                  Wipe Data
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card overflow-x-auto hidden sm:block">
         <table className="w-full text-sm" style={{ borderCollapse: "collapse", minWidth: "920px" }}>
           <thead>
             <tr className="text-left text-white/50 text-xs uppercase tracking-wide">

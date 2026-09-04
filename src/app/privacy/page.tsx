@@ -35,9 +35,11 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white mb-2">Homepage visits</h2>
             <p className="text-sm text-white/70">
-              When you land on our homepage without being signed in, we log a timestamp so we can
-              see how many people find the app — nothing that identifies you, no cookies, and no
-              tracking across other sites. This stops the moment you're signed in.
+              The first time you land on our homepage without being signed in, we log a timestamp
+              so we can see how many people find the app — nothing that identifies you, no
+              cookies, and no tracking across other sites. Your browser remembers locally that
+              you've visited before (not sent to us) so repeat visits and refreshes aren't
+              double-counted, and this stops entirely the moment you're signed in.
             </p>
           </section>
 

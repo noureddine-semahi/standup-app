@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase/client";
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
 import { logLandingPageVisit } from "@/lib/supabase/db";
 
+const VISITED_KEY = "standup-landing-visited";
+
 export default function LandingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -35,8 +37,18 @@ export default function LandingPage() {
       } else {
         setLoading(false);
         // Only for actual visitors landing here signed out — logged-in
-        // users get redirected above before ever seeing this page.
-        logLandingPageVisit();
+        // users get redirected above before ever seeing this page. A local
+        // flag (not a cookie, never sent anywhere) keeps a repeat visit from
+        // the same browser from being logged again, so the count reflects
+        // unique visitors rather than every page load/refresh.
+        try {
+          if (!window.localStorage.getItem(VISITED_KEY)) {
+            window.localStorage.setItem(VISITED_KEY, "1");
+            logLandingPageVisit();
+          }
+        } catch {
+          logLandingPageVisit();
+        }
       }
     }
 

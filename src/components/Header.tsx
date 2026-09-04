@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { getOrCreateProfile, consumePendingReferral, type Profile } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
@@ -19,10 +19,25 @@ const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      setMenuOpen(false);
+      router.push("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      setLoggingOut(false);
+    }
+  }
 
   useEffect(() => {
     async function loadUser() {
@@ -247,7 +262,21 @@ export default function Header() {
         </div>
       </div>
 
-      {menuOpen && <div className="mobile-menu-panel">{navLinks(true)}</div>}
+      {menuOpen && (
+        <div className="mobile-menu-panel">
+          {navLinks(true)}
+          {user && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="nav-link nav-link-logout"
+            >
+              {loggingOut ? "Logging out…" : "Logout"}
+            </button>
+          )}
+        </div>
+      )}
     </header>
   );
 }

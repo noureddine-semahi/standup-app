@@ -557,9 +557,13 @@ export default function DashboardPage() {
         {/* Today & Tomorrow Overview Grid (keep logic; enhance row styles) */}
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Today Overview */}
-          <Link href="/standup/today" className="block">
+          {/* min-w-0 on both the grid item and its card is required — CSS Grid
+              items default to min-width:auto, so a long unbreakable note
+              preview below could otherwise stretch this whole column (and
+              the card inside it) past the viewport instead of truncating. */}
+          <Link href="/standup/today" className="block min-w-0">
             <div
-              className="card card-highlight transition cursor-pointer h-full"
+              className="card card-highlight transition cursor-pointer h-full min-w-0"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-white">Today's Goals</h2>
@@ -662,9 +666,9 @@ export default function DashboardPage() {
           </Link>
 
           {/* Tomorrow Overview */}
-          <Link href="/standup/tomorrow" className="block">
+          <Link href="/standup/tomorrow" className="block min-w-0">
             <div
-              className="card card-highlight transition cursor-pointer h-full"
+              className="card card-highlight transition cursor-pointer h-full min-w-0"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-white">Tomorrow's Plan</h2>

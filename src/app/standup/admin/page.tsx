@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   isCurrentUserAdmin,
+  isCurrentUserSysAdmin,
+  getCurrentUserId,
   getAdminMembers,
   adminSetPoints,
+  adminSetRole,
   adminWipeMemberData,
   getAdminAuditLog,
   getAdminLandingVisitStats,
   formatDateTimeDisplay,
   type AdminMember,
   type AdminAuditEntry,
+  type AdminRole,
   type LandingVisitStats,
 } from "@/lib/supabase/db";
 import { getLevelInfo } from "@/lib/levels";
@@ -28,11 +32,23 @@ function errorMessage(err: unknown): string {
 const ACTION_LABELS: Record<string, string> = {
   set_points: "Set Points",
   wipe_data: "Wipe Data",
+  set_role: "Change Role",
+};
+
+const ROLE_LABELS: Record<AdminRole, string> = {
+  member: "Member",
+  admin: "Admin",
+  sys_admin: "Sys Admin",
 };
 
 function describeAuditDetails(entry: AdminAuditEntry): string {
   if (entry.action === "set_points" && entry.details) {
     return `${entry.details.old_points ?? "?"} → ${entry.details.new_points ?? "?"}`;
+  }
+  if (entry.action === "set_role" && entry.details) {
+    const oldRole = ROLE_LABELS[entry.details.old_role as AdminRole] ?? entry.details.old_role ?? "?";
+    const newRole = ROLE_LABELS[entry.details.new_role as AdminRole] ?? entry.details.new_role ?? "?";
+    return `${oldRole} → ${newRole}`;
   }
   return "—";
 }
@@ -60,6 +76,8 @@ export default function AdminPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [sysAdmin, setSysAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [auditLog, setAuditLog] = useState<AdminAuditEntry[]>([]);
   const [visitStats, setVisitStats] = useState<LandingVisitStats | null>(null);
@@ -82,6 +100,18 @@ export default function AdminPage() {
       if (!isAdmin) {
         router.push("/standup/dashboard");
         return;
+      }
+
+      try {
+        setSysAdmin(await isCurrentUserSysAdmin());
+      } catch {
+        setSysAdmin(false);
+      }
+
+      try {
+        setCurrentUserId(await getCurrentUserId());
+      } catch {
+        setCurrentUserId(null);
       }
 
       await refresh();
@@ -161,6 +191,29 @@ export default function AdminPage() {
     }
   }
 
+  async function handleSetRole(member: AdminMember, role: AdminRole) {
+    if (role === member.role) return;
+    if (
+      !window.confirm(
+        `Change ${member.email}'s role from ${ROLE_LABELS[member.role]} to ${ROLE_LABELS[role]}?`
+      )
+    ) {
+      return;
+    }
+
+    markBusy(member.id, true);
+    setMsg(null);
+    try {
+      await adminSetRole(member.id, role);
+      await refresh();
+      setMsg(`Updated ${member.email}'s role to ${ROLE_LABELS[role]}.`);
+    } catch (err) {
+      setMsg(errorMessage(err));
+    } finally {
+      markBusy(member.id, false);
+    }
+  }
+
   if (checking || (!authorized && !checking)) {
     return <div className="card">Checking access…</div>;
   }
@@ -206,10 +259,11 @@ export default function AdminPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm" style={{ borderCollapse: "collapse", minWidth: "820px" }}>
+        <table className="w-full text-sm" style={{ borderCollapse: "collapse", minWidth: "920px" }}>
           <thead>
             <tr className="text-left text-white/50 text-xs uppercase tracking-wide">
               <th className="pb-3 pr-4">Member</th>
+              <th className="pb-3 pr-4">Role</th>
               <th className="pb-3 pr-4">Level</th>
               <th className="pb-3 pr-4">Points</th>
               <th className="pb-3 pr-4">Days Closed</th>
@@ -226,17 +280,35 @@ export default function AdminPage() {
                 <tr key={m.id} style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
                   <td className="py-3 pr-4">
                     <div className="font-semibold text-white">{m.displayName || m.email}</div>
-                    <div className="text-xs text-white/50">
-                      {m.email}
-                      {m.isAdmin && (
-                        <span className="ml-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-purple-300">
-                          Admin
-                        </span>
-                      )}
-                    </div>
+                    <div className="text-xs text-white/50">{m.email}</div>
                   </td>
                   <td className="py-3 pr-4 whitespace-nowrap">
-                    Lv {level.level} · {level.name}
+                    {sysAdmin && m.id !== currentUserId ? (
+                      <select
+                        value={m.role}
+                        onChange={(e) => handleSetRole(m, e.target.value as AdminRole)}
+                        disabled={busy}
+                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white"
+                      >
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                        <option value="sys_admin">Sys Admin</option>
+                      </select>
+                    ) : (
+                      <span
+                        className={
+                          m.role === "member"
+                            ? "text-xs text-white/50"
+                            : "rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs text-purple-300"
+                        }
+                      >
+                        {ROLE_LABELS[m.role]}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 whitespace-nowrap">
+                    <div>Lv {level.level}</div>
+                    <div className="text-xs text-white/50">{level.name}</div>
                   </td>
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">

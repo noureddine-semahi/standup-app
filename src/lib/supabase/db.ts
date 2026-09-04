@@ -206,12 +206,15 @@ export async function deleteAccount() {
   await supabase.auth.signOut();
 }
 
+export type AdminRole = "member" | "admin" | "sys_admin";
+
 export type AdminMember = {
   id: string;
   email: string;
   displayName: string | null;
   points: number;
   isAdmin: boolean;
+  role: AdminRole;
   createdAt: string;
   totalDaysClosed: number;
   totalGoalsCompleted: number;
@@ -224,6 +227,13 @@ export type AdminMember = {
  */
 export async function isCurrentUserAdmin(): Promise<boolean> {
   const { data, error } = await supabase.rpc("is_admin");
+  if (error) throw error;
+  return !!data;
+}
+
+/** Sys Admins are the only ones who can grant/revoke Admin and Sys Admin roles. */
+export async function isCurrentUserSysAdmin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_sys_admin");
   if (error) throw error;
   return !!data;
 }
@@ -243,6 +253,7 @@ export async function getAdminMembers(): Promise<AdminMember[]> {
     displayName: row.display_name,
     points: row.points,
     isAdmin: !!row.is_admin,
+    role: (row.role ?? "member") as AdminRole,
     createdAt: row.created_at,
     totalDaysClosed: row.total_days_closed ?? 0,
     totalGoalsCompleted: row.total_goals_completed ?? 0,
@@ -253,6 +264,15 @@ export async function adminSetPoints(targetUserId: string, points: number) {
   const { error } = await supabase.rpc("admin_set_points", {
     p_user_id: targetUserId,
     p_points: points,
+  });
+  if (error) throw error;
+}
+
+/** Sys Admin-only: grant or revoke Admin/Sys Admin. Blocked server-side if it would remove the last Sys Admin. */
+export async function adminSetRole(targetUserId: string, role: AdminRole) {
+  const { error } = await supabase.rpc("admin_set_role", {
+    p_user_id: targetUserId,
+    p_role: role,
   });
   if (error) throw error;
 }

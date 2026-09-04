@@ -27,8 +27,17 @@ export default function PrivacyPage() {
               Your goals, notes, and history power the app's core features — tracking, streaks,
               points, and levels. The optional personal info fields exist for possible future
               personalization, like more relevant goal suggestions — they're never required, and
-              nothing is sold or shared with third-party advertisers. We don't run any analytics
-              or tracking scripts.
+              nothing is sold or shared with third-party advertisers. We don't run any third-party
+              analytics or tracking scripts.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold text-white mb-2">Homepage visits</h2>
+            <p className="text-sm text-white/70">
+              When you land on our homepage without being signed in, we log a timestamp so we can
+              see how many people find the app — nothing that identifies you, no cookies, and no
+              tracking across other sites. This stops the moment you're signed in.
             </p>
           </section>
 

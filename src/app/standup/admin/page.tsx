@@ -8,9 +8,11 @@ import {
   adminSetPoints,
   adminWipeMemberData,
   getAdminAuditLog,
+  getAdminLandingVisitStats,
   formatDateTimeDisplay,
   type AdminMember,
   type AdminAuditEntry,
+  type LandingVisitStats,
 } from "@/lib/supabase/db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -41,6 +43,7 @@ export default function AdminPage() {
   const [authorized, setAuthorized] = useState(false);
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [auditLog, setAuditLog] = useState<AdminAuditEntry[]>([]);
+  const [visitStats, setVisitStats] = useState<LandingVisitStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [pointsDrafts, setPointsDrafts] = useState<Record<string, string>>({});
@@ -70,9 +73,14 @@ export default function AdminPage() {
   async function refresh() {
     setLoading(true);
     try {
-      const [rows, log] = await Promise.all([getAdminMembers(), getAdminAuditLog()]);
+      const [rows, log, visits] = await Promise.all([
+        getAdminMembers(),
+        getAdminAuditLog(),
+        getAdminLandingVisitStats(),
+      ]);
       setMembers(rows);
       setAuditLog(log);
+      setVisitStats(visits);
       const drafts: Record<string, string> = {};
       rows.forEach((m) => (drafts[m.id] = String(m.points)));
       setPointsDrafts(drafts);
@@ -257,6 +265,43 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-1">Landing Page Visits</h2>
+        <p className="text-sm text-white/50 mb-4">
+          Signed-out visitors who landed on the homepage, whether or not they signed up.
+        </p>
+
+        {visitStats === null ? (
+          <p className="text-sm text-white/50">Loading…</p>
+        ) : (
+          <>
+            <div className="text-4xl font-bold gradient-text mb-4">{visitStats.total}</div>
+            {visitStats.byDay.length === 0 ? (
+              <p className="text-sm text-white/50">No visits recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm" style={{ borderCollapse: "collapse", minWidth: "320px" }}>
+                  <thead>
+                    <tr className="text-left text-white/50 text-xs uppercase tracking-wide">
+                      <th className="pb-3 pr-4">Date</th>
+                      <th className="pb-3 pr-4">Visits</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visitStats.byDay.map((row) => (
+                      <tr key={row.date} style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                        <td className="py-3 pr-4 whitespace-nowrap text-white/70">{row.date}</td>
+                        <td className="py-3 pr-4">{row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

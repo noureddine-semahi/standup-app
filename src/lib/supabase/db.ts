@@ -263,6 +263,44 @@ export async function adminWipeMemberData(targetUserId: string) {
   if (error) throw error;
 }
 
+/**
+ * Anonymous page-view logging for the landing page only, only for visitors
+ * who aren't signed in (see src/app/page.tsx) — just a timestamp, nothing
+ * that identifies who visited. Fails silently; a dropped log entry should
+ * never be visible to a real visitor.
+ */
+export async function logLandingPageVisit() {
+  try {
+    await supabase.from("landing_page_visits").insert({});
+  } catch {
+    // non-fatal
+  }
+}
+
+export type LandingVisitStats = {
+  total: number;
+  byDay: { date: string; count: number }[];
+};
+
+/** Admin-only: landing page visit counts, total and per-day for the last `days` days. */
+export async function getAdminLandingVisitStats(days = 30): Promise<LandingVisitStats> {
+  const [{ data: totalData, error: totalError }, { data: byDayData, error: byDayError }] = await Promise.all([
+    supabase.rpc("admin_get_landing_visits_total"),
+    supabase.rpc("admin_get_landing_visits", { p_days: days }),
+  ]);
+
+  if (totalError) throw totalError;
+  if (byDayError) throw byDayError;
+
+  return {
+    total: totalData ?? 0,
+    byDay: (byDayData ?? []).map((row: any) => ({
+      date: row.visit_date as string,
+      count: row.visit_count as number,
+    })),
+  };
+}
+
 export type AdminAuditEntry = {
   id: string;
   adminEmail: string | null;

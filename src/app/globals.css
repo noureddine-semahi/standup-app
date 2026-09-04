@@ -57,6 +57,17 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Native <select> dropdowns: the closed box picks up our custom dark
+   styling fine, but many browsers render the OPEN options list using their
+   own OS-level colors regardless of the select's CSS or `color-scheme` —
+   forcing it here so it never renders as an unreadable white-on-white (or
+   white-on-dark) list, on any theme or device. Matches .card/.btn already
+   staying dark regardless of light/dark mode. */
+select option {
+  background-color: #0a0e1a;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 body {
   margin: 0;
   color: var(--page-text);

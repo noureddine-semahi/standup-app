@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
+import { logLandingPageVisit } from "@/lib/supabase/db";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -33,6 +34,9 @@ export default function LandingPage() {
         router.push("/standup/dashboard");
       } else {
         setLoading(false);
+        // Only for actual visitors landing here signed out — logged-in
+        // users get redirected above before ever seeing this page.
+        logLandingPageVisit();
       }
     }
 

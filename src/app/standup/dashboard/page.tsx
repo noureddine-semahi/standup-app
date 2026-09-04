@@ -38,6 +38,16 @@ const MOTIVATIONAL_MESSAGES: Array<(name: string) => string> = [
   (name) => `${name}, discipline today is freedom tomorrow. Let's go.`,
   (name) => `Every day you show up is a step toward the life you're building, ${name}.`,
   (name) => `Progress, not perfection, ${name}. Keep pushing forward.`,
+  (name) => `The greatest reward is your success, ${name} — everything else follows from it.`,
+  (name) => `${name}, motivation gets you started. Habit is what keeps you going.`,
+  (name) => `You don't have to be great to start, ${name}, but you have to start to be great.`,
+  (name) => `Consistency is the quiet force behind every big win, ${name}.`,
+  (name) => `${name}, the work you do today is the person you become tomorrow.`,
+  (name) => `Discomfort today, ${name}. Freedom tomorrow.`,
+  (name) => `${name}, a little progress each day adds up to big results.`,
+  (name) => `Don't count the days, ${name} — make the days count.`,
+  (name) => `${name}, the streak isn't the goal. Who you become while building it is.`,
+  (name) => `Show up for yourself today, ${name}. That's the whole game.`,
 ];
 
 const WIDGETS = [
@@ -73,10 +83,25 @@ export default function DashboardPage() {
   const [streak, setStreak] = useState(0);
   const [pointsView, setPointsView] = useState<"total" | "today">("total");
 
-  // Picked once per mount (lazy initializer), not re-rolled on every render.
-  const [motivationalMessage] = useState(
-    () => MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)]
+  // Cycles to a new (different) random quote every ~10s — see the effect
+  // below, which reschedules itself off motivationIndex the same way the
+  // Total Points / Points Earned Today card auto-swaps.
+  const [motivationIndex, setMotivationIndex] = useState(() =>
+    Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)
   );
+  const motivationalMessage = MOTIVATIONAL_MESSAGES[motivationIndex];
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setMotivationIndex((prev) => {
+        if (MOTIVATIONAL_MESSAGES.length <= 1) return prev;
+        let next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
+        while (next === prev) next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
+        return next;
+      });
+    }, 10000);
+    return () => window.clearTimeout(id);
+  }, [motivationIndex]);
 
   const [todayPlan, setTodayPlan] = useState<DailyPlan | null>(null);
   const [todayGoals, setTodayGoals] = useState<Goal[]>([]);
@@ -327,7 +352,7 @@ export default function DashboardPage() {
                   <img src={profile.avatar_url} alt="Profile photo" className="w-full h-full object-cover" />
                 </div>
               )}
-              <div>
+              <div key={motivationIndex} className="card-swap-fade">
                 <div className="text-sm text-white/70">✨ Motivation</div>
                 <div className="mt-2 text-base font-semibold text-white leading-snug">
                   {motivationalMessage(profile?.display_name || user?.email?.split("@")[0] || "there")}

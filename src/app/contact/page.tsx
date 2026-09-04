@@ -1,7 +1,7 @@
 import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
 
-const CONTACT_EMAIL = "support@standup.app";
+const CONTACT_EMAIL = "deandevsolutions@gmail.com";
 
 export default function ContactPage() {
   return (

@@ -952,9 +952,14 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
   };
 }
 
+// Hardcoded rather than window.location.origin — this link gets shared
+// with other people, who need to land on the real production site
+// regardless of where the current user happens to be viewing the app from
+// (e.g. testing locally over the LAN).
+const PRODUCTION_URL = "https://standup-app-two.vercel.app";
+
 export function getReferralLink(userId: string): string {
-  if (typeof window === "undefined") return "";
-  return `${window.location.origin}/signup?ref=${userId}`;
+  return `${PRODUCTION_URL}/signup?ref=${userId}`;
 }
 
 const PENDING_REFERRAL_KEY = "standup-pending-referral";

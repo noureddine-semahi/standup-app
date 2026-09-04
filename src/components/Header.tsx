@@ -2,10 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { getOrCreateProfile, consumePendingReferral, type Profile } from "@/lib/supabase/db";
+import { getOrCreateProfile, updateThemePreference, consumePendingReferral, type Profile } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
+import { getStoredTheme, setTheme } from "@/lib/theme";
+
+// A profile's theme defaults to "dark" (DB column default), so this can't
+// tell "explicitly chosen dark" apart from "never chosen" — but it doesn't
+// need to. It only fires when the DB still says the default AND this
+// browser's local value says otherwise, which only happens for someone who
+// picked light mode before per-account themes existed; that one-time nudge
+// carries their existing choice into their profile instead of discarding it.
+function applyAccountTheme(p: Profile) {
+  if (p.theme === "dark" && getStoredTheme() === "light") {
+    setTheme("light");
+    updateThemePreference("light").catch(() => {});
+  } else {
+    setTheme(p.theme);
+  }
+}
 
 // One nav slot cycles through these three instead of showing all of them at
 // once: on each page, the button shows the NEXT one in the loop and links
@@ -19,7 +35,6 @@ const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 export default function Header() {
   const pathname = usePathname();
-  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,8 +46,15 @@ export default function Header() {
     setLoggingOut(true);
     try {
       await supabase.auth.signOut();
-      setMenuOpen(false);
-      router.push("/");
+      // Signed-out visitors always see dark by default — reset here rather
+      // than leaving whatever this account had chosen.
+      setTheme("dark");
+      // A full reload (not router.push) so the fresh page load reads the
+      // now-cleared session from scratch — client-side navigation right
+      // after signOut() could still see the stale in-memory session for a
+      // moment and bounce back to the dashboard, which is what made logout
+      // look like it "didn't work" until a second click.
+      window.location.href = "/";
     } catch (error) {
       console.error("Logout error:", error);
       setLoggingOut(false);
@@ -53,6 +75,7 @@ export default function Header() {
           try {
             const p = await getOrCreateProfile();
             setProfile(p);
+            applyAccountTheme(p);
           } catch {
             // ignore if profile fails
           }
@@ -76,7 +99,10 @@ export default function Header() {
         setUser(session.user);
         consumePendingReferral().catch(() => {});
         getOrCreateProfile()
-          .then((p) => setProfile(p))
+          .then((p) => {
+            setProfile(p);
+            applyAccountTheme(p);
+          })
           .catch(() => {});
       } else {
         setUser(null);

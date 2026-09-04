@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
+import type { Theme } from "@/lib/theme";
 
 export type PlanStatus = "draft" | "submitted" | "locked";
 export type GoalStatus =
@@ -35,6 +36,7 @@ export type Profile = {
   id: string;
   display_name: string | null;
   points: number;
+  theme: Theme;
 
   // Optional personal info — never required, kept for possible future
   // personalization (e.g. goal suggestions tuned to age/location).
@@ -146,12 +148,19 @@ export async function getOrCreateProfile() {
 
   const { data: created, error: insErr } = await supabase
     .from("profiles")
-    .insert({ id: userId, display_name: metaDisplayName, points: 0 })
+    .insert({ id: userId, display_name: metaDisplayName, points: 0, theme: "dark" })
     .select("*")
     .single();
 
   if (insErr) throw insErr;
   return created as Profile;
+}
+
+/** Persists the signed-in user's theme choice to their profile so it follows them across devices and logins, instead of living only in this browser's localStorage. */
+export async function updateThemePreference(theme: Theme) {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase.from("profiles").update({ theme }).eq("id", userId);
+  if (error) throw error;
 }
 
 /**

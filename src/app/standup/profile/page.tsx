@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import {
   getOrCreateProfile,
@@ -12,13 +11,13 @@ import {
   type Profile,
   type LifetimeStats,
 } from "@/lib/supabase/db";
+import { setTheme } from "@/lib/theme";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -94,7 +93,13 @@ export default function ProfilePage() {
 
     try {
       await supabase.auth.signOut();
-      router.push("/");
+      // Signed-out visitors always see dark by default.
+      setTheme("dark");
+      // Full reload, not router.push — a client-side navigation right after
+      // signOut() could still see the stale in-memory session for a moment
+      // and bounce back to a protected page, which looked like logout
+      // "didn't work" until a second click.
+      window.location.href = "/";
     } catch (error) {
       console.error("Logout error:", error);
       setLoggingOut(false);

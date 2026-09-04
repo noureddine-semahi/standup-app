@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import {
@@ -10,6 +9,7 @@ import {
   updatePersonalInfo,
   uploadAvatar,
   deleteAccount,
+  updateThemePreference,
 } from "@/lib/supabase/db";
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
 
@@ -25,7 +25,6 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 export default function SettingsPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
 
@@ -83,6 +82,9 @@ export default function SettingsPage() {
   function handleThemeChange(next: Theme) {
     setThemeState(next);
     setTheme(next);
+    // Persists to the profile so this choice follows the account across
+    // devices/logins instead of living only in this browser.
+    updateThemePreference(next).catch(() => {});
   }
 
   useEffect(() => {
@@ -95,6 +97,11 @@ export default function SettingsPage() {
         setEmail(user?.email ?? "");
 
         const profile = await getOrCreateProfile();
+        // Source of truth is the profile, not this browser's localStorage —
+        // matters most on a fresh device/browser signing into an account
+        // that already has a saved preference.
+        setThemeState(profile.theme);
+        setTheme(profile.theme);
         setDisplayName(profile.display_name ?? "");
         setFirstName(profile.first_name ?? "");
         setLastName(profile.last_name ?? "");
@@ -249,7 +256,9 @@ export default function SettingsPage() {
 
     try {
       await deleteAccount();
-      router.push("/");
+      setTheme("dark");
+      // Full reload — see the same note on Header/Profile's logout handlers.
+      window.location.href = "/";
     } catch (err) {
       setDeleteErr(errorMessage(err, "Failed to delete account."));
       setDeleting(false);

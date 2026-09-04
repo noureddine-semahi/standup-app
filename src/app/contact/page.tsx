@@ -19,7 +19,8 @@ export default function ContactPage() {
             <div className="text-sm text-white/60 mb-2">Reach us at</div>
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-2xl font-semibold text-purple-300 hover:text-purple-200 transition"
+              className="text-sm sm:text-2xl font-semibold text-purple-300 hover:text-purple-200 transition"
+              style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
             >
               {CONTACT_EMAIL}
             </a>

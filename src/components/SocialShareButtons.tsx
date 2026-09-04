@@ -32,6 +32,22 @@ export default function SocialShareButtons({
   const xHref = `https://twitter.com/intent/tweet?url=${encodeURIComponent(PRODUCTION_URL)}&text=${encodeURIComponent(SHARE_TEXT)}`;
   const linkClass = `btn btn-ghost text-sm px-4 py-2${onPage ? " btn-on-page" : ""}`;
 
+  function FacebookIcon() {
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+        <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z" />
+      </svg>
+    );
+  }
+
+  function XIcon() {
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    );
+  }
+
   async function handleNativeShare() {
     const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -54,10 +70,22 @@ export default function SocialShareButtons({
         <button type="button" onClick={handleNativeShare} className={linkClass}>
           📤 Share
         </button>
-        <a href={facebookHref} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <a
+          href={facebookHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${linkClass} inline-flex items-center gap-2`}
+        >
+          <FacebookIcon />
           Share on Facebook
         </a>
-        <a href={xHref} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <a
+          href={xHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${linkClass} inline-flex items-center gap-2`}
+        >
+          <XIcon />
           Share on X
         </a>
       </div>

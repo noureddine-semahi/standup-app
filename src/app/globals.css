@@ -437,17 +437,6 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Below this width the Goal/Notes columns on Today's cards wrap onto their
-   own rows — full width, flush against the same left margin the goal title
-   above it uses (not centered — that read as floating, disconnected from
-   the title). !important because it's overriding the flex-basis/min-width
-   set inline for the desktop layout. */
-@media (max-width: 640px) {
-  .goal-notes-col {
-    flex: 0 1 100% !important;
-  }
-}
-
 /* ✨ Buttons with Ripple Effect */
 .btn {
   border: 1px solid rgba(255, 255, 255, 0.18);

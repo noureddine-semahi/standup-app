@@ -112,8 +112,9 @@ export default function TodayPage() {
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   const [reopening, setReopening] = useState(false);
   
-  // Goal content is static; only the side panel (Notes / History) is tabbed (defaults to "notes")
-  const [activeTab, setActiveTab] = useState<Record<string, "notes" | "history">>({});
+  // Notes + the derived history facts render as one merged timeline below
+  // the goal now (see the entries computation in the render below) instead
+  // of behind Notes/History tabs — both are preloaded up front regardless.
   const [goalNotes, setGoalNotes] = useState<Record<string, any[]>>({});
   const [notesFetched, setNotesFetched] = useState<Record<string, boolean>>({});
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
@@ -121,6 +122,8 @@ export default function TodayPage() {
 
   // Per-goal action menu (collapsed behind the gear icon until clicked)
   const [showActions, setShowActions] = useState<Record<string, boolean>>({});
+  // Per-goal "Add Note" input, toggled from next to the action controls.
+  const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -287,21 +290,6 @@ export default function TodayPage() {
 
     if (error) throw error;
     return data || [];
-  }
-
-  async function selectTab(goalId: string, tab: "notes" | "history") {
-    setActiveTab((prev) => ({ ...prev, [goalId]: tab }));
-    if (tab === "notes" && !notesFetched[goalId]) {
-      try {
-        const notes = await fetchGoalNotes(goalId);
-        setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
-        setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
-      } catch (e: any) {
-        // Deliberately don't set notesFetched here — a failed fetch should
-        // be retried next time the tab is opened, not cached as "done".
-        setMsg(e?.message ?? "Failed to load notes");
-      }
-    }
   }
 
   async function submitNote(goalId: string) {
@@ -832,165 +820,116 @@ export default function TodayPage() {
                       {!reviewed && <span className="text-xs text-amber-400 font-semibold">⏳ Pending review</span>}
                     </div>
 
+                    <div className="text-white text-lg sm:text-xl font-medium mb-2">{g.title}</div>
+                    {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
+
                     {(() => {
-                      const tab = activeTab[g.id] ?? "notes";
                       const notes = goalNotes[g.id] ?? [];
+
+                      type TimelineEntry = {
+                        key: string;
+                        kind: "history" | "note";
+                        label: string;
+                        detail?: string;
+                        timestamp?: string;
+                      };
+
+                      const entries: TimelineEntry[] = [];
+                      if (g.created_at) {
+                        entries.push({ key: "created", kind: "history", label: "Goal created", timestamp: g.created_at });
+                      }
+                      entries.push({
+                        key: "priority",
+                        kind: "history",
+                        label: `Priority: P${p} · ${getPriorityMeta(p).label}`,
+                      });
+                      if (g.reviewed_at) {
+                        entries.push({ key: "reviewed", kind: "history", label: "Marked as reviewed", timestamp: g.reviewed_at });
+                      }
+                      if (g.status !== "not_started") {
+                        entries.push({ key: "status", kind: "history", label: `Status: ${statusLabel(g.status)}` });
+                      }
+                      if (g.rescheduled_to) {
+                        entries.push({
+                          key: "rescheduled",
+                          kind: "history",
+                          label: `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}`,
+                          detail: g.reschedule_reason ?? undefined,
+                        });
+                      }
+                      notes.forEach((note, i) => {
+                        entries.push({
+                          key: note.id ?? `note-${i}`,
+                          kind: "note",
+                          label: note.note,
+                          timestamp: note.created_at,
+                        });
+                      });
+
+                      // Timestamped entries newest-first; the handful of
+                      // undated "current state" facts (priority, status)
+                      // sink to the end since they're not tied to a moment.
+                      const dated = entries
+                        .filter((e) => e.timestamp)
+                        .sort((a, b) => new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime());
+                      const undated = entries.filter((e) => !e.timestamp);
+                      const timeline = [...dated, ...undated];
+
                       return (
-                        <div className="flex flex-wrap gap-6">
-                          {/* Goal — static, always visible, ~50% */}
-                          <div style={{ flex: "1 1 45%", minWidth: "200px" }}>
-                            <div className="text-white text-lg sm:text-xl font-medium mb-2">{g.title}</div>
-                            {g.details && (
-                              <div className="text-sm text-white/60">{g.details}</div>
-                            )}
-                            {g.rescheduled_to && (
-                              <div className="mt-2 flex items-start gap-2">
-                                <span className="text-yellow-400 text-xs mt-0.5">↷</span>
-                                <div>
-                                  <div className="text-xs text-yellow-300/90 font-medium">
-                                    Rescheduled to {formatDateDisplay(g.rescheduled_to)}
+                        <div className="mt-3 space-y-2">
+                          {timeline.map((e) => (
+                            <div key={e.key} className="flex items-start gap-2">
+                              <span
+                                className="flex-shrink-0 rounded uppercase font-semibold tracking-wide"
+                                style={{
+                                  fontSize: "9px",
+                                  padding: "2px 5px",
+                                  background: e.kind === "note" ? "rgba(34, 211, 238, 0.12)" : "rgba(255, 255, 255, 0.06)",
+                                  color: e.kind === "note" ? "#67e8f9" : "rgba(255, 255, 255, 0.5)",
+                                }}
+                              >
+                                {e.kind === "note" ? "Note" : "History"}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-white/70">{e.label}</div>
+                                {e.detail && <div className="text-xs text-white/50 italic mt-0.5">"{e.detail}"</div>}
+                                {e.timestamp && (
+                                  <div className="text-[10px] text-white/35 mt-0.5">
+                                    {formatDateTimeDisplay(e.timestamp)}
                                   </div>
-                                  {g.reschedule_reason && (
-                                    <div className="text-xs text-white/60 italic mt-0.5">
-                                      "{g.reschedule_reason}"
-                                    </div>
-                                  )}
-                                </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-
-                          {/* Notes / History — tabbed, ~50% */}
-                          <div className="goal-notes-col" style={{ flex: "1 1 45%", minWidth: "200px" }}>
-                            <div className="goal-tabs mb-3">
-                              <button type="button" className="goal-tab" data-active={tab === "notes"} onClick={() => selectTab(g.id, "notes")}>
-                                Notes{notesFetched[g.id] && notes.length > 0 ? ` (${notes.length})` : ""}
-                              </button>
-                              <button type="button" className="goal-tab" data-active={tab === "history"} onClick={() => selectTab(g.id, "history")}>
-                                History
-                              </button>
                             </div>
-
-                            {tab === "notes" && (
-                              <div>
-                                {notes.length > 0 ? (
-                                  <div className="space-y-3 mb-3">
-                                    {notes.map((note, i) => (
-                                      <div key={note.id ?? i} className="flex items-start gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0"></div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm text-white/80">💬 {note.note}</div>
-                                          <div className="text-[10px] text-white/40 mt-0.5">
-                                            {formatDateTimeDisplay(note.created_at)}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-white/40 italic mb-3">No notes yet</div>
-                                )}
-
-                                <div className="flex gap-2">
-                                  <input
-                                    type="text"
-                                    value={noteDraft[g.id] ?? ""}
-                                    onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id]: e.target.value }))}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") submitNote(g.id);
-                                    }}
-                                    placeholder="Add a note..."
-                                    disabled={!!savingNote[g.id]}
-                                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => submitNote(g.id)}
-                                    disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
-                                    className="btn"
-                                    style={{ padding: "0.375rem 1rem" }}
-                                  >
-                                    {savingNote[g.id] ? "Adding…" : "Add"}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {tab === "history" && (
-                              <div className="space-y-3">
-                                {g.created_at && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">Goal created</div>
-                                      <div className="text-[10px] text-white/40 mt-0.5">
-                                        {formatDateTimeDisplay(g.created_at)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {p && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">
-                                        Priority: P{p} - {getPriorityMeta(p).label}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {g.reviewed_at && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">Marked as reviewed</div>
-                                      <div className="text-[10px] text-white/40 mt-0.5">
-                                        {formatDateTimeDisplay(g.reviewed_at)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {g.status !== "not_started" && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-sky-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">
-                                        Status: {statusLabel(g.status)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {g.rescheduled_to && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">
-                                        Rescheduled to {formatDateDisplay(g.rescheduled_to)}
-                                      </div>
-                                      {g.reschedule_reason && (
-                                        <div className="text-xs text-white/60 italic mt-1">
-                                          "{g.reschedule_reason}"
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {!g.reviewed_at && g.status === "not_started" && !g.rescheduled_to && (
-                                  <div className="text-xs text-white/40 italic">
-                                    Nothing else recorded yet.
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          ))}
                         </div>
                       );
                     })()}
+
+                    {showNoteInput[g.id] && (
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          type="text"
+                          value={noteDraft[g.id] ?? ""}
+                          onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") submitNote(g.id);
+                          }}
+                          placeholder="Add a note..."
+                          disabled={!!savingNote[g.id]}
+                          autoFocus
+                          className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => submitNote(g.id)}
+                          disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
+                          className="btn"
+                          style={{ padding: "0.375rem 1rem" }}
+                        >
+                          {savingNote[g.id] ? "Adding…" : "Add"}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Priority + Actions — grouped together instead of two separate columns.
@@ -1064,6 +1003,19 @@ export default function TodayPage() {
                           {reviewed ? "☑" : "☐"}
                         </button>
                       )}
+
+                      {/* Add Note — lives next to the action controls now;
+                          entries render in the merged timeline below the
+                          goal instead of behind a separate Notes tab. */}
+                      <button
+                        type="button"
+                        onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                        className="actions-toggle"
+                        data-open={!!showNoteInput[g.id]}
+                        title="Add note"
+                      >
+                        💬
+                      </button>
                     </div>
 
                     {/* Quick-action dropdown — picking any of these reviews

@@ -6,12 +6,14 @@ import {
   getOrCreateProfile,
   getPointsHistory,
   getDailyActivity,
+  getLifetimeStats,
   formatDateDisplay,
   toISODate,
   addDays,
   type Profile,
   type PointsHistoryEntry,
   type DayActivity,
+  type LifetimeStats,
 } from "@/lib/supabase/db";
 import AnimatedNumber from "@/components/AnimatedNumber";
 
@@ -22,6 +24,7 @@ export default function HistoryPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [entries, setEntries] = useState<PointsHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [lifetimeStats, setLifetimeStats] = useState<LifetimeStats | null>(null);
 
   const [period, setPeriod] = useState<ActivityPeriod>("week");
   const [activity, setActivity] = useState<DayActivity[]>([]);
@@ -33,9 +36,14 @@ export default function HistoryPage() {
       setLoading(true);
       setError(null);
       try {
-        const [p, history] = await Promise.all([getOrCreateProfile(), getPointsHistory()]);
+        const [p, history, stats] = await Promise.all([
+          getOrCreateProfile(),
+          getPointsHistory(),
+          getLifetimeStats(),
+        ]);
         setProfile(p);
         setEntries(history);
+        setLifetimeStats(stats);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load history");
       } finally {
@@ -78,8 +86,8 @@ export default function HistoryPage() {
       <div className="card">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Points &amp; Usage History</h1>
-            <p className="mt-2 text-white/70">A day-by-day record of the points you've earned.</p>
+            <h1 className="text-3xl font-bold">Data &amp; Metrics</h1>
+            <p className="mt-2 text-white/70">Your goals, streaks, and points, all in one place.</p>
           </div>
           <div className="text-left sm:text-right">
             <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
@@ -90,6 +98,52 @@ export default function HistoryPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold text-white mb-1">Goals &amp; Streaks</h2>
+        <p className="text-sm text-white/60 mb-4">Lifetime totals across every day you've used StandUp.</p>
+
+        {lifetimeStats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{lifetimeStats.totalGoalsSubmitted}</div>
+              <div className="mt-1 text-xs text-white/60">Goals submitted</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-emerald-300">{lifetimeStats.totalGoalsCompleted}</div>
+              <div className="mt-1 text-xs text-white/60">Goals completed</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-amber-300">{lifetimeStats.totalDaysClosed}</div>
+              <div className="mt-1 text-xs text-white/60">Days closed</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-sky-300">{lifetimeStats.longestStreak}</div>
+              <div className="mt-1 text-xs text-white/60">Longest streak</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{lifetimeStats.maxGoalsCompletedInDay}</div>
+              <div className="mt-1 text-xs text-white/60">Best single day</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{lifetimeStats.reschedulesCompleted}</div>
+              <div className="mt-1 text-xs text-white/60">Reschedules followed through</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{lifetimeStats.trackedGoalsCompleted}</div>
+              <div className="mt-1 text-xs text-white/60">Tracked goals completed</div>
+            </div>
+            <div className="rounded-2xl bg-white/5 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{lifetimeStats.totalReferrals}</div>
+              <div className="mt-1 text-xs text-white/60">Successful referrals</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold text-white/90 mb-3">Points &amp; Usage</h2>
       </div>
 
       <div className="card">

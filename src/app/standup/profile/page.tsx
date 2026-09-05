@@ -166,7 +166,7 @@ export default function ProfilePage() {
             className="btn text-center"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
-            Points &amp; Usage History
+            Data &amp; Metrics
           </Link>
           {profile?.is_admin && (
             <Link

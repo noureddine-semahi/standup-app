@@ -1096,6 +1096,72 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
   };
 }
 
+export type ArchivedGoal = Goal & { plan_date: string | null };
+
+/**
+ * Backs the "Goals completed" / "Goals submitted" drill-down on Data &
+ * Metrics — "submitted" matches totalGoalsSubmitted's definition above
+ * (every goal row ever created for this user, not filtered by whether its
+ * plan was ever actually submitted), so the list count always matches the
+ * tile it was opened from. Newest first, capped at `limit` since a
+ * long-running account could otherwise return an unbounded number of rows.
+ */
+export async function getGoalsByFilter(
+  filter: "completed" | "submitted",
+  limit = 200
+): Promise<ArchivedGoal[]> {
+  const userId = await getCurrentUserId();
+
+  let query = supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (filter === "completed") {
+    query = query.eq("status", "completed");
+  }
+
+  const { data: goalRows, error } = await query;
+  if (error) throw error;
+
+  const rows = goalRows ?? [];
+  const planIds = [...new Set(rows.map((g) => g.plan_id).filter(Boolean))];
+
+  const planDateById: Record<string, string> = {};
+  if (planIds.length > 0) {
+    const { data: plans, error: plansErr } = await supabase
+      .from("daily_plans")
+      .select("id, plan_date")
+      .in("id", planIds);
+    if (plansErr) throw plansErr;
+    (plans ?? []).forEach((p) => {
+      planDateById[p.id] = p.plan_date;
+    });
+  }
+
+  return rows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null })) as ArchivedGoal[];
+}
+
+/** Notes + logged history events for a batch of goals — feeds buildGoalTimeline for each. */
+export async function getNotesForGoals(goalIds: string[]): Promise<Record<string, any[]>> {
+  if (goalIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("goal_notes")
+    .select("goal_id, note, created_at, kind")
+    .in("goal_id", goalIds)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const byGoal: Record<string, any[]> = {};
+  (data ?? []).forEach((n) => {
+    (byGoal[n.goal_id] ??= []).push(n);
+  });
+  return byGoal;
+}
+
 // Hardcoded rather than window.location.origin — this link gets shared
 // with other people, who need to land on the real production site
 // regardless of where the current user happens to be viewing the app from

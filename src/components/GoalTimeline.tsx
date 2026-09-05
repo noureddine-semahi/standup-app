@@ -4,9 +4,15 @@ import { useState } from "react";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
 import type { TimelineEntry } from "@/lib/goalTimeline";
 
-/** Renders a goal's chronological history/notes list with a collapse toggle. Shared by Review Today and a past day's archive view. */
-export default function GoalTimeline({ entries }: { entries: TimelineEntry[] }) {
-  const [expanded, setExpanded] = useState(true);
+/** Renders a goal's chronological history/notes list with a collapse toggle. Shared by Review Today, a past day's archive view, and the Data & Metrics goal lists. */
+export default function GoalTimeline({
+  entries,
+  defaultExpanded = true,
+}: {
+  entries: TimelineEntry[];
+  defaultExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
     <div className="mt-3">

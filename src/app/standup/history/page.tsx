@@ -7,6 +7,8 @@ import {
   getPointsHistory,
   getDailyActivity,
   getLifetimeStats,
+  getGoalsByFilter,
+  getNotesForGoals,
   formatDateDisplay,
   toISODate,
   addDays,
@@ -14,10 +16,16 @@ import {
   type PointsHistoryEntry,
   type DayActivity,
   type LifetimeStats,
+  type ArchivedGoal,
 } from "@/lib/supabase/db";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import GoalTimeline from "@/components/GoalTimeline";
+import { buildGoalTimeline } from "@/lib/goalTimeline";
+import { getPriorityMeta } from "@/lib/priorityStyles";
+import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
 
 type ActivityPeriod = "week" | "month";
+type GoalListFilter = "completed" | "submitted";
 
 export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
@@ -30,6 +38,30 @@ export default function HistoryPage() {
   const [activity, setActivity] = useState<DayActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState<string | null>(null);
+
+  // Drill-down opened by clicking the "Goals submitted"/"Goals completed"
+  // tiles below — lists every matching goal with its full history/notes.
+  const [goalListFilter, setGoalListFilter] = useState<GoalListFilter | null>(null);
+  const [goalList, setGoalList] = useState<ArchivedGoal[]>([]);
+  const [goalNotesMap, setGoalNotesMap] = useState<Record<string, any[]>>({});
+  const [goalListLoading, setGoalListLoading] = useState(false);
+  const [goalListError, setGoalListError] = useState<string | null>(null);
+
+  async function openGoalList(filter: GoalListFilter) {
+    setGoalListFilter(filter);
+    setGoalListLoading(true);
+    setGoalListError(null);
+    try {
+      const goals = await getGoalsByFilter(filter);
+      setGoalList(goals);
+      const notes = await getNotesForGoals(goals.map((g) => g.id));
+      setGoalNotesMap(notes);
+    } catch (e: any) {
+      setGoalListError(e?.message ?? "Failed to load goals");
+    } finally {
+      setGoalListLoading(false);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -106,14 +138,28 @@ export default function HistoryPage() {
 
         {lifetimeStats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
+            <button
+              type="button"
+              onClick={() => openGoalList("submitted")}
+              className="rounded-2xl bg-white/5 p-4 text-center hover:bg-white/10 transition text-left"
+              style={{
+                border: goalListFilter === "submitted" ? "1px solid rgba(245, 158, 11, 0.5)" : "1px solid transparent",
+              }}
+            >
               <div className="text-2xl font-bold text-white">{lifetimeStats.totalGoalsSubmitted}</div>
               <div className="mt-1 text-xs text-white/60">Goals submitted</div>
-            </div>
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
+            </button>
+            <button
+              type="button"
+              onClick={() => openGoalList("completed")}
+              className="rounded-2xl bg-white/5 p-4 text-center hover:bg-white/10 transition text-left"
+              style={{
+                border: goalListFilter === "completed" ? "1px solid rgba(245, 158, 11, 0.5)" : "1px solid transparent",
+              }}
+            >
               <div className="text-2xl font-bold text-emerald-300">{lifetimeStats.totalGoalsCompleted}</div>
               <div className="mt-1 text-xs text-white/60">Goals completed</div>
-            </div>
+            </button>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-amber-300">{lifetimeStats.totalDaysClosed}</div>
               <div className="mt-1 text-xs text-white/60">Days closed</div>
@@ -141,6 +187,80 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+
+      {goalListFilter && (
+        <div className="card">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white">
+                {goalListFilter === "completed" ? "Completed Goals" : "Submitted Goals"}
+              </h2>
+              <p className="mt-1 text-sm text-white/60">
+                {goalList.length} goal{goalList.length === 1 ? "" : "s"}, newest first — each with its full
+                history and notes.
+              </p>
+            </div>
+            <button type="button" className="btn" onClick={() => setGoalListFilter(null)}>
+              ✕ Close
+            </button>
+          </div>
+
+          {goalListError && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {goalListError}
+            </div>
+          )}
+
+          {!goalListError && goalListLoading && (
+            <div className="text-white/60 text-sm text-center py-8">Loading goals…</div>
+          )}
+
+          {!goalListError && !goalListLoading && goalList.length === 0 && (
+            <div className="text-white/60 text-sm text-center py-8">Nothing here yet.</div>
+          )}
+
+          {!goalListError && !goalListLoading && goalList.length > 0 && (
+            <div className="space-y-3">
+              {goalList.map((g) => {
+                const p = typeof g.priority === "number" ? g.priority : 3;
+                const status = g.status ?? "not_started";
+                return (
+                  <div
+                    key={g.id}
+                    className="goal-row"
+                    style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
+                  >
+                    <div className="flex items-start flex-wrap gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-white/50 mb-1">
+                          {g.plan_date ? formatDateDisplay(g.plan_date) : "Unknown date"}
+                        </div>
+                        <div className="text-lg font-semibold text-white">{g.title}</div>
+                        {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
+                        <GoalTimeline
+                          entries={buildGoalTimeline(g, goalNotesMap[g.id] ?? [])}
+                          defaultExpanded={false}
+                        />
+                      </div>
+                      <div
+                        className="status-chip flex-shrink-0"
+                        style={{
+                          "--chip-bg": statusChipColors(status).bg,
+                          "--chip-border": statusChipColors(status).border,
+                          "--chip-color": statusChipColors(status).color,
+                        } as React.CSSProperties}
+                      >
+                        <span>{statusIcon(status)}</span>
+                        <span>{statusLabel(status)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <h2 className="text-lg font-semibold text-white/90 mb-3">Points &amp; Usage</h2>

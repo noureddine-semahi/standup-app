@@ -11,9 +11,15 @@ type DayData = {
   goalCount: number;
   reviewed: boolean;
   completedCount: number;
+  // A past, never-closed day still counts as handled once every one of its
+  // goals has either been reviewed or re-attempted (rescheduled forward) —
+  // rescheduling sets a goal's status to "postponed" but never touches
+  // reviewed_at (only the same-day review flow does that), so this checks
+  // both rather than reviewed_at alone.
+  allGoalsHandled: boolean;
 };
 
-function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue") {
+function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue" | "cleared") {
   // Flat, quiet tint per state — no layered radial "sphere" gradients or heavy glow.
   switch (tone) {
     case "today":
@@ -41,6 +47,16 @@ function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue
       return {
         bg: "rgba(239, 68, 68, 0.10)",
         border: "rgba(239, 68, 68, 0.35)",
+        glow: "none",
+      };
+    // Every goal on a missed day has since been reviewed or re-attempted
+    // (rescheduled forward) — no longer a warning, but distinct from
+    // "closed" since the day itself was never formally closed (no streak/
+    // points credit for it).
+    case "cleared":
+      return {
+        bg: "rgba(59, 130, 246, 0.08)",
+        border: "rgba(59, 130, 246, 0.28)",
         glow: "none",
       };
     case "neutral":
@@ -97,7 +113,7 @@ export default function CalendarPage() {
         if (planIds.length > 0) {
           const { data: goals, error: goalsErr } = await supabase
             .from("goals")
-            .select("plan_id, status")
+            .select("plan_id, status, reviewed_at")
             .in("plan_id", planIds);
 
           if (goalsErr) throw goalsErr;
@@ -116,6 +132,9 @@ export default function CalendarPage() {
             goalCount: planGoals.length,
             reviewed: !!plan.reviewed_at,
             completedCount: completedGoals.length,
+            allGoalsHandled:
+              planGoals.length > 0 &&
+              planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at),
           };
         });
 
@@ -197,7 +216,9 @@ export default function CalendarPage() {
             const dateISO = toISODate(date);
             const data = dayData[dateISO];
             const isToday = dateISO === todayISO;
-            const isOverdue = dateISO < todayISO && !!data?.hasGoals && !data?.reviewed;
+            const isPast = dateISO < todayISO;
+            const isCleared = isPast && !!data?.hasGoals && !data?.reviewed && data?.allGoalsHandled;
+            const isOverdue = isPast && !!data?.hasGoals && !data?.reviewed && !data?.allGoalsHandled;
 
             const tone = isToday
               ? "today"
@@ -205,6 +226,8 @@ export default function CalendarPage() {
               ? "closed"
               : isOverdue
               ? "overdue"
+              : isCleared
+              ? "cleared"
               : data?.hasGoals
               ? "hasGoals"
               : "neutral";
@@ -218,6 +241,8 @@ export default function CalendarPage() {
               ? "Closed"
               : isOverdue
               ? "Missed"
+              : isCleared
+              ? "Cleared"
               : data?.hasGoals
               ? `${data.completedCount}/${data.goalCount}`
               : "";
@@ -293,6 +318,16 @@ export default function CalendarPage() {
               }}
             />
             <span>Missed (unreviewed)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-4 h-4 rounded-md border"
+              style={{
+                background: toneStyles("cleared").bg,
+                borderColor: toneStyles("cleared").border,
+              }}
+            />
+            <span>Cleared (rescheduled)</span>
           </div>
           <div className="flex items-center gap-2">
             <div

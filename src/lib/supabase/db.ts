@@ -1251,25 +1251,48 @@ export type OverdueSummary = {
  * past days — so this exists purely to flag the gap; the user's only
  * recourse for anything still worth pursuing is re-attempting (rescheduling)
  * individual goals forward from that day's view-only page.
+ *
+ * A day drops out of this count once every one of its goals has either been
+ * reviewed or re-attempted (rescheduled forward, which sets status to
+ * "postponed" but never touches reviewed_at) — matches the Calendar page's
+ * "Missed" vs "Cleared" distinction, so the two stay consistent.
  */
 export async function getOverdueSummary(todayISO: string): Promise<OverdueSummary> {
   const userId = await getCurrentUserId();
 
-  const { data, error } = await supabase
+  const { data: candidatePlans, error: plansErr } = await supabase
     .from("daily_plans")
-    .select("plan_date")
+    .select("id, plan_date")
     .eq("user_id", userId)
     .eq("status", "submitted")
     .is("reviewed_at", null)
     .lt("plan_date", todayISO)
     .order("plan_date", { ascending: true });
 
-  if (error) throw error;
+  if (plansErr) throw plansErr;
+  const plans = candidatePlans ?? [];
+  if (plans.length === 0) return { count: 0, oldestDate: null };
 
-  const rows = data ?? [];
+  const { data: goalsData, error: goalsErr } = await supabase
+    .from("goals")
+    .select("plan_id, status, reviewed_at")
+    .in(
+      "plan_id",
+      plans.map((p) => p.id)
+    );
+
+  if (goalsErr) throw goalsErr;
+  const goals = goalsData ?? [];
+
+  const stillOverdue = plans.filter((plan) => {
+    const planGoals = goals.filter((g) => g.plan_id === plan.id);
+    if (planGoals.length === 0) return true;
+    return !planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at);
+  });
+
   return {
-    count: rows.length,
-    oldestDate: rows.length > 0 ? (rows[0].plan_date as string) : null,
+    count: stillOverdue.length,
+    oldestDate: stillOverdue.length > 0 ? (stillOverdue[0].plan_date as string) : null,
   };
 }
 

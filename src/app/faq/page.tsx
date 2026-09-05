@@ -30,12 +30,12 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "What happens if I miss a day?",
     answer:
-      "Your streak resets, but you don't lose access to anything — the next day you close out still earns the base closure bonus. Missed days also show up clearly on your Points & Usage History page.",
+      "Your streak resets, but you don't lose access to anything — the next day you close out still earns the base closure bonus. A missed day shows up in red on your Calendar; if you'd rather dismiss it than reschedule every goal on it, open that day and use \"Clear this day\" to mark it handled.",
   },
   {
     question: "Where can I see my points and activity history?",
     answer:
-      "From your Profile, open \"Points & Usage History.\" It lists every day you earned points with the breakdown, plus an Activity Overview further down — days checked in, days missed, and days with completed goals, with a weekly or monthly bar chart.",
+      "From your Profile, open \"Data & Metrics.\" It starts with lifetime totals — goals submitted, goals completed, days closed, longest streak, and more — followed by your day-by-day points breakdown and an Activity Overview further down (days checked in, days missed, and days with completed goals, with a weekly or monthly bar chart).",
   },
   {
     question: "Can I reschedule a goal instead of completing it?",
@@ -60,12 +60,12 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "Can I go back and look at past days?",
     answer:
-      "Yes — past dates on the Calendar open in a view-only summary: title, priority, status, and any notes, exactly as they were. You can't add or edit anything on a day that's already passed, but you can \"re-attempt\" any goal from it, which reschedules a fresh copy onto a future date of your choice.",
+      "Yes — past dates on the Calendar open in a view-only summary: title, priority, and status, exactly as they were, plus each goal's full chronological history and notes below it. You can't add or edit anything on a day that's already passed, but you can \"re-attempt\" any goal from it (rescheduling a fresh copy onto a future date), and if the day was never reviewed you can mark it \"Cleared\" directly.",
   },
   {
     question: "Can I use dark or light mode?",
     answer:
-      "Yes — there's a theme switch in Settings under Appearance. Your choice is remembered on this device.",
+      "Yes — there's a theme switch in Settings under Appearance. It's saved to your account, so it follows you across devices and logins, not just this browser.",
   },
   {
     question: "Is my personal info required?",

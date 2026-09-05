@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Playfair_Display } from "next/font/google";
 import SocialShareButtons from "@/components/SocialShareButtons";
 import { supabase } from "@/lib/supabase/client";
-
-const cardTitleFont = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["700"],
-});
 
 export default function AboutPage() {
   const [signedIn, setSignedIn] = useState(false);
@@ -44,7 +38,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-4`}>Our Philosophy</h2>
+            <h2 className={`text-2xl text-amber-300 mb-4`}>Our Philosophy</h2>
 
             <div className="mb-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
@@ -103,7 +97,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-4`}>Our Vision</h2>
+            <h2 className={`text-2xl text-amber-300 mb-4`}>Our Vision</h2>
             <p className="text-white/80 mb-4">
               StandUp is more than a todo list. It’s a daily operating system for
               intentional work. We believe:
@@ -137,7 +131,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-6`}>The Bigger Picture</h2>
+            <h2 className={`text-2xl text-amber-300 mb-6`}>The Bigger Picture</h2>
             <div className="space-y-5">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
@@ -202,9 +196,10 @@ export default function AboutPage() {
                   Full Calendar History
                 </h3>
                 <p className="text-sm text-white/60">
-                  Every day you've planned lives on the Calendar. Past days open
-                  read-only, exactly as they happened — the only action left is to
-                  "re-attempt" a goal by rescheduling it onto a future date.
+                  Every day you've planned lives on the Calendar, complete with each
+                  goal's full chronological history and notes. Past days open
+                  read-only, but you can "re-attempt" a goal by rescheduling it
+                  forward, or mark a never-reviewed day "Cleared."
                 </p>
               </div>
 
@@ -227,7 +222,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-4`}>The Story</h2>
+            <h2 className={`text-2xl text-amber-300 mb-4`}>The Story</h2>
             <p className="text-white/80 mb-4">
               StandUp started with a familiar office ritual: the daily standup meeting. Every
               morning, the team would gather for a few minutes and each person answered the
@@ -256,7 +251,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-6`}>How It Works</h2>
+            <h2 className={`text-2xl text-amber-300 mb-6`}>How It Works</h2>
             <div className="space-y-8">
               <div>
                 <h3 className="font-semibold text-white mb-1">Plan Tomorrow</h3>

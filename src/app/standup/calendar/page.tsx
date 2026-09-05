@@ -13,7 +13,7 @@ type DayData = {
   completedCount: number;
 };
 
-function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals") {
+function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue") {
   // Flat, quiet tint per state — no layered radial "sphere" gradients or heavy glow.
   switch (tone) {
     case "today":
@@ -32,6 +32,15 @@ function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals") {
       return {
         bg: "rgba(250, 204, 21, 0.07)",
         border: "rgba(250, 204, 21, 0.24)",
+        glow: "none",
+      };
+    // A past day that had goals but was never reviewed/closed — distinct
+    // from the yellow "hasGoals" tone, which future/upcoming planned days
+    // also use and isn't a warning.
+    case "overdue":
+      return {
+        bg: "rgba(239, 68, 68, 0.10)",
+        border: "rgba(239, 68, 68, 0.35)",
         glow: "none",
       };
     case "neutral":
@@ -188,11 +197,14 @@ export default function CalendarPage() {
             const dateISO = toISODate(date);
             const data = dayData[dateISO];
             const isToday = dateISO === todayISO;
+            const isOverdue = dateISO < todayISO && !!data?.hasGoals && !data?.reviewed;
 
             const tone = isToday
               ? "today"
               : data?.reviewed
               ? "closed"
+              : isOverdue
+              ? "overdue"
               : data?.hasGoals
               ? "hasGoals"
               : "neutral";
@@ -204,6 +216,8 @@ export default function CalendarPage() {
               ? "Today"
               : data?.reviewed
               ? "Closed"
+              : isOverdue
+              ? "Missed"
               : data?.hasGoals
               ? `${data.completedCount}/${data.goalCount}`
               : "";
@@ -269,6 +283,16 @@ export default function CalendarPage() {
               }}
             />
             <span>Has Goals</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-4 h-4 rounded-md border"
+              style={{
+                background: toneStyles("overdue").bg,
+                borderColor: toneStyles("overdue").border,
+              }}
+            />
+            <span>Missed (unreviewed)</span>
           </div>
           <div className="flex items-center gap-2">
             <div

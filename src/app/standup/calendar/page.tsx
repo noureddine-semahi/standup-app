@@ -15,7 +15,8 @@ type DayData = {
   // goals has either been reviewed or re-attempted (rescheduled forward) —
   // rescheduling sets a goal's status to "postponed" but never touches
   // reviewed_at (only the same-day review flow does that), so this checks
-  // both rather than reviewed_at alone.
+  // both rather than reviewed_at alone. Also true if the day was manually
+  // cleared via the "Clear this day" button on its view-only page.
   allGoalsHandled: boolean;
 };
 
@@ -100,7 +101,7 @@ export default function CalendarPage() {
 
         const { data: plans, error: plansErr } = await supabase
           .from("daily_plans")
-          .select("id, plan_date, reviewed_at")
+          .select("id, plan_date, reviewed_at, cleared_at")
           .eq("user_id", userId)
           .gte("plan_date", startISO)
           .lte("plan_date", endISO);
@@ -133,8 +134,9 @@ export default function CalendarPage() {
             reviewed: !!plan.reviewed_at,
             completedCount: completedGoals.length,
             allGoalsHandled:
-              planGoals.length > 0 &&
-              planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at),
+              !!plan.cleared_at ||
+              (planGoals.length > 0 &&
+                planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at)),
           };
         });
 

@@ -11,6 +11,7 @@ import {
   awardPlanningPoints,
   getPlanWithGoals,
   isPrevDayReviewedForPlan,
+  markDayCleared,
   submitPlan,
   toISODate,
   addDays,
@@ -57,6 +58,9 @@ export default function DynamicDatePage() {
 
   const [planId, setPlanId] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<string>("draft");
+  const [planReviewedAt, setPlanReviewedAt] = useState<string | null>(null);
+  const [planClearedAt, setPlanClearedAt] = useState<string | null>(null);
+  const [clearingDay, setClearingDay] = useState(false);
 
   const [goals, setGoals] = useState<DraftGoal[]>([
     { title: "", sort_order: 0, priority: DEFAULT_PRIORITY },
@@ -182,6 +186,8 @@ export default function DynamicDatePage() {
     const { plan, goals: dbGoals } = await getPlanWithGoals(dateISO);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
+    setPlanReviewedAt(plan.reviewed_at);
+    setPlanClearedAt(plan.cleared_at ?? null);
 
     // Fetch reschedule origin data for goals on this date
     const goalIds = dbGoals.map((g) => g.id).filter(Boolean) as string[];
@@ -447,6 +453,29 @@ export default function DynamicDatePage() {
     }
   }
 
+  async function handleClearDay() {
+    if (!planId || clearingDay) return;
+    if (
+      !window.confirm(
+        `Mark ${formatDateDisplay(dateISO)} as cleared? This day can't be reviewed retroactively — this just dismisses it from the "Missed" list on your Calendar.`
+      )
+    ) {
+      return;
+    }
+
+    setClearingDay(true);
+    setMsg(null);
+    try {
+      await markDayCleared(planId);
+      await refresh({ silent: true });
+      setMsg(`${formatDateDisplay(dateISO)} marked as cleared.`);
+    } catch (e: any) {
+      setMsg(e?.message ?? "Failed to clear this day.");
+    } finally {
+      setClearingDay(false);
+    }
+  }
+
   async function removeGoal(idx: number) {
     const g = goals[idx];
 
@@ -485,6 +514,7 @@ export default function DynamicDatePage() {
 
   if (isPastDate) {
     const pastGoals = goals.filter((g) => (g.title ?? "").trim().length > 0);
+    const isMissed = planStatus === "submitted" && !planReviewedAt && !planClearedAt;
 
     return (
       <div className="card card-highlight">
@@ -494,10 +524,27 @@ export default function DynamicDatePage() {
             <p className="text-sm text-white/60">
               This day has passed — view only. Re-attempt a goal to bring it forward to a future date.
             </p>
+            {isMissed && (
+              <p className="mt-2 text-xs text-red-400">
+                ⚠️ This day was never reviewed — it shows as "Missed" on your Calendar.
+              </p>
+            )}
+            {!!planClearedAt && (
+              <p className="mt-2 text-xs text-emerald-400">
+                ✅ Cleared on {formatDateTimeDisplay(planClearedAt)}.
+              </p>
+            )}
           </div>
-          <button className="btn" onClick={() => router.push("/standup/calendar")}>
-            ← Calendar
-          </button>
+          <div className="flex flex-row gap-2">
+            {isMissed && (
+              <button className="btn" onClick={handleClearDay} disabled={clearingDay}>
+                {clearingDay ? "Clearing…" : "Clear this day"}
+              </button>
+            )}
+            <button className="btn" onClick={() => router.push("/standup/calendar")}>
+              ← Calendar
+            </button>
+          </div>
         </div>
 
         {pastGoals.length === 0 ? (

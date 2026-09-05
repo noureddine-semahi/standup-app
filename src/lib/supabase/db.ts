@@ -18,6 +18,10 @@ export type DailyPlan = {
   status: PlanStatus;
   submitted_at: string | null;
   reviewed_at: string | null;
+  // Manually dismissed via the "Clear this day" button on a past day's
+  // view-only page — distinct from reviewed_at, which past days can never
+  // get (no retroactive review). Just clears the Calendar's "Missed" flag.
+  cleared_at?: string | null;
 
   // ✅ two-phase scoring flags
   awareness_awarded?: boolean;
@@ -669,6 +673,24 @@ export async function markPlanReviewed(planId: string) {
   return data as DailyPlan;
 }
 
+/**
+ * Manually dismisses a past day's "Missed" flag from its view-only page —
+ * past days can never be reviewed retroactively, so this is the explicit
+ * alternative to rescheduling every individual goal just to make the
+ * Calendar/overdue-count stop flagging it.
+ */
+export async function markDayCleared(planId: string) {
+  const { data, error } = await supabase
+    .from("daily_plans")
+    .update({ cleared_at: new Date().toISOString() })
+    .eq("id", planId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as DailyPlan;
+}
+
 export async function addGoalNote(goalId: string, note: string) {
   const userId = await getCurrentUserId();
   const trimmed = note.trim();
@@ -1254,7 +1276,8 @@ export type OverdueSummary = {
  *
  * A day drops out of this count once every one of its goals has either been
  * reviewed or re-attempted (rescheduled forward, which sets status to
- * "postponed" but never touches reviewed_at) — matches the Calendar page's
+ * "postponed" but never touches reviewed_at), or once it's been manually
+ * cleared via the "Clear this day" button — matches the Calendar page's
  * "Missed" vs "Cleared" distinction, so the two stay consistent.
  */
 export async function getOverdueSummary(todayISO: string): Promise<OverdueSummary> {
@@ -1266,6 +1289,7 @@ export async function getOverdueSummary(todayISO: string): Promise<OverdueSummar
     .eq("user_id", userId)
     .eq("status", "submitted")
     .is("reviewed_at", null)
+    .is("cleared_at", null)
     .lt("plan_date", todayISO)
     .order("plan_date", { ascending: true });
 

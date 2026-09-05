@@ -35,6 +35,8 @@ import {
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
 import RescheduleModal from "@/components/RescheduleModal";
+import GoalTimeline from "@/components/GoalTimeline";
+import { buildGoalTimeline } from "@/lib/goalTimeline";
 
 export default function DynamicDatePage() {
   const params = useParams();
@@ -221,7 +223,7 @@ export default function DynamicDatePage() {
     if (goalIds.length > 0) {
       const { data: notes } = await supabase
         .from("goal_notes")
-        .select("goal_id, note, created_at")
+        .select("goal_id, note, created_at, kind")
         .in("goal_id", goalIds)
         .order("created_at", { ascending: false });
 
@@ -575,18 +577,7 @@ export default function DynamicDatePage() {
                         </div>
                       )}
 
-                      {g.previous_actions && g.previous_actions.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          {g.previous_actions.map((note: any, i: number) => (
-                            <div key={note.id ?? i} className="text-xs text-white/60">
-                              💬 {note.note}
-                              <span className="ml-2 text-white/40">
-                                {formatDateTimeDisplay(note.created_at)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
                     </div>
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">

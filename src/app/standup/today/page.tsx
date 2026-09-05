@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import RescheduleModal from "@/components/RescheduleModal";
+import GoalTimeline from "@/components/GoalTimeline";
+import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
   addGoalNote,
@@ -125,8 +127,6 @@ export default function TodayPage() {
   const [showActions, setShowActions] = useState<Record<string, boolean>>({});
   // Per-goal "Add Note" input, toggled from next to the action controls.
   const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
-  // Per-goal history/notes timeline visibility — expanded by default.
-  const [timelineExpanded, setTimelineExpanded] = useState<Record<string, boolean>>({});
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -826,120 +826,7 @@ export default function TodayPage() {
                     <div className="text-white text-lg sm:text-xl font-medium mb-2">{g.title}</div>
                     {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
 
-                    {(() => {
-                      const notes = goalNotes[g.id] ?? [];
-
-                      type TimelineEntry = {
-                        key: string;
-                        kind: "history" | "note";
-                        label: string;
-                        timestamp: string;
-                      };
-
-                      // Every entry is a real event with its own real
-                      // timestamp now — status/priority changes, reviews,
-                      // and reschedules are logged into goal_notes at the
-                      // moment they happen (see logGoalEvent in db.ts), the
-                      // same append-only table real notes use, distinguished
-                      // by `kind`. Ascending order: creation first, most
-                      // recent action last — exactly the sequence it
-                      // happened in, notes and actions interleaved.
-                      const entries: TimelineEntry[] = [];
-                      if (g.created_at) {
-                        entries.push({ key: "created", kind: "history", label: "Goal created", timestamp: g.created_at });
-                      }
-                      notes.forEach((note, i) => {
-                        entries.push({
-                          key: note.id ?? `note-${i}`,
-                          kind: note.kind && note.kind !== "note" ? "history" : "note",
-                          label: note.note,
-                          timestamp: note.created_at,
-                        });
-                      });
-
-                      // Backfill for goals actioned before this logging
-                      // existed: their current state (reviewed/status/
-                      // rescheduled) has no matching logged event, so it
-                      // would otherwise just vanish instead of showing up
-                      // undated the way it used to. Only fires when no real
-                      // logged event of that kind exists yet, so it never
-                      // duplicates once actions start being logged live.
-                      const hasLoggedKind = (kind: string) => notes.some((n) => n.kind === kind);
-                      const fallbackTimestamp = g.reviewed_at ?? g.created_at;
-
-                      if (g.reviewed_at && !hasLoggedKind("reviewed")) {
-                        entries.push({
-                          key: "reviewed-fallback",
-                          kind: "history",
-                          label: "Marked as reviewed",
-                          timestamp: g.reviewed_at,
-                        });
-                      }
-                      if (g.status !== "not_started" && !hasLoggedKind("status_change")) {
-                        entries.push({
-                          key: "status-fallback",
-                          kind: "history",
-                          label: `Status: ${statusLabel(g.status)}`,
-                          timestamp: fallbackTimestamp,
-                        });
-                      }
-                      if (g.rescheduled_to && !hasLoggedKind("rescheduled")) {
-                        entries.push({
-                          key: "rescheduled-fallback",
-                          kind: "history",
-                          label: `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}${
-                            g.reschedule_reason ? ` — "${g.reschedule_reason}"` : ""
-                          }`,
-                          timestamp: fallbackTimestamp,
-                        });
-                      }
-
-                      entries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-                      const expanded = timelineExpanded[g.id] ?? true;
-
-                      return (
-                        <div className="mt-3">
-                          <button
-                            type="button"
-                            onClick={() => setTimelineExpanded((prev) => ({ ...prev, [g.id]: !expanded }))}
-                            className="text-xs text-white/50 hover:text-white/80 transition"
-                          >
-                            {expanded ? "▾" : "▸"} History &amp; notes{entries.length > 0 ? ` (${entries.length})` : ""}
-                          </button>
-
-                          {expanded && (
-                            <div className="mt-2 space-y-2">
-                              {entries.length === 0 ? (
-                                <div className="text-xs text-white/40 italic">Nothing recorded yet.</div>
-                              ) : (
-                                entries.map((e) => (
-                                  <div key={e.key} className="flex items-start gap-2">
-                                    <span
-                                      className="flex-shrink-0 rounded uppercase font-semibold tracking-wide"
-                                      style={{
-                                        fontSize: "9px",
-                                        padding: "2px 5px",
-                                        background: e.kind === "note" ? "rgba(34, 211, 238, 0.12)" : "rgba(255, 255, 255, 0.06)",
-                                        color: e.kind === "note" ? "#67e8f9" : "rgba(255, 255, 255, 0.5)",
-                                      }}
-                                    >
-                                      {e.kind === "note" ? "Note" : "History"}
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/70">{e.label}</div>
-                                      <div className="text-[10px] text-white/35 mt-0.5">
-                                        {formatDateTimeDisplay(e.timestamp)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                    <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />
 
                     {showNoteInput[g.id] && (
                       <div className="mt-3 flex gap-2">

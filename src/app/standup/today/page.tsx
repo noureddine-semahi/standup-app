@@ -12,6 +12,7 @@ import {
   enforceSingleP1,
   getPlanWithGoals,
   getStreak,
+  hoursUntilMidnight,
   markGoalReviewed,
   markPlanReviewed,
   updateGoalStatus,
@@ -184,6 +185,11 @@ export default function TodayPage() {
   const totalCount = sortedGoals.length;
   const pendingGoals = useMemo(() => sortedGoals.filter((g) => !g.reviewed_at), [sortedGoals]);
   const allReviewed = totalCount === 0 || (totalCount > 0 && reviewedCount === totalCount);
+
+  // No push/email in this app — the only "reminder" is this banner, shown
+  // while the user has the page open, once 6 or fewer hours remain today.
+  const hoursLeftToday = hoursUntilMidnight();
+  const showEndOfDayReminder = !dayClosed && totalCount > 0 && !allReviewed && hoursLeftToday <= 6;
 
   // silent: true for refetches after an action (reviewing a goal, closing
   // the day, etc.) — the page already has content on screen, so re-showing
@@ -564,6 +570,18 @@ export default function TodayPage() {
                 Need to make changes? Reopen this day to add goals or make edits — remember to
                 close it again when you're done.
               </p>
+            )}
+            {showEndOfDayReminder && (
+              <div
+                className="mt-3 rounded-lg px-3 py-2 inline-flex items-center gap-2"
+                style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
+              >
+                <span className="text-lg">⏰</span>
+                <div className="text-sm text-amber-300">
+                  {hoursLeftToday < 1 ? "Less than an hour" : `${Math.round(hoursLeftToday)} hours`} left —
+                  close out today before midnight or it can't be reviewed retroactively.
+                </div>
+              </div>
             )}
           </div>
 

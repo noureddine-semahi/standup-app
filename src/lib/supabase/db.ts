@@ -93,6 +93,11 @@ export function addDays(date: Date, days: number) {
   return copy;
 }
 
+/** Hours remaining in the local day (e.g. 5.5 at 6:30 PM) — used to nudge an end-of-day review reminder. */
+export function hoursUntilMidnight(now: Date = new Date()): number {
+  return 24 - now.getHours() - now.getMinutes() / 60;
+}
+
 // Display-only: "YYYY-MM-DD" -> "MM/DD/YYYY". Pure string manipulation
 // (no Date parsing) so it can't shift a day across timezones. The
 // underlying ISO string is still what's used for routing/keys/comparisons.
@@ -1233,6 +1238,39 @@ export async function getStreak(): Promise<number> {
   );
 
   return computeStreak(reviewedDates, todayISO);
+}
+
+export type OverdueSummary = {
+  count: number;
+  oldestDate: string | null;
+};
+
+/**
+ * Past days that were planned (submitted) but never reviewed/closed. These
+ * can't be reviewed retroactively — /standup/date/[date] is view-only for
+ * past days — so this exists purely to flag the gap; the user's only
+ * recourse for anything still worth pursuing is re-attempting (rescheduling)
+ * individual goals forward from that day's view-only page.
+ */
+export async function getOverdueSummary(todayISO: string): Promise<OverdueSummary> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("daily_plans")
+    .select("plan_date")
+    .eq("user_id", userId)
+    .eq("status", "submitted")
+    .is("reviewed_at", null)
+    .lt("plan_date", todayISO)
+    .order("plan_date", { ascending: true });
+
+  if (error) throw error;
+
+  const rows = data ?? [];
+  return {
+    count: rows.length,
+    oldestDate: rows.length > 0 ? (rows[0].plan_date as string) : null,
+  };
 }
 
 /**

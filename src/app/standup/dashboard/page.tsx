@@ -9,9 +9,12 @@ import {
   getPlanWithGoals,
   getOrCreateProfile,
   getStreak,
+  getOverdueSummary,
+  hoursUntilMidnight,
   type Goal,
   type Profile,
   type DailyPlan,
+  type OverdueSummary,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -108,6 +111,7 @@ export default function DashboardPage() {
 
   const [tomorrowPlan, setTomorrowPlan] = useState<DailyPlan | null>(null);
   const [tomorrowGoals, setTomorrowGoals] = useState<Goal[]>([]);
+  const [overdue, setOverdue] = useState<OverdueSummary>({ count: 0, oldestDate: null });
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
@@ -145,6 +149,10 @@ export default function DashboardPage() {
 
         const s = await getStreak();
         setStreak(s);
+
+        getOverdueSummary(todayISO)
+          .then(setOverdue)
+          .catch(() => {});
 
         const { plan: todayP, goals: todayG } = await getPlanWithGoals(todayISO);
         setTodayPlan(todayP);
@@ -256,6 +264,13 @@ export default function DashboardPage() {
   // friendly reminder banner once, which is a low-cost false positive.
   const isNewUser = (profile?.points ?? 0) === 0 && todayGoals.length === 0 && tomorrowGoals.length === 0;
 
+  // No push/email in this app, so the only "reminder" is a banner shown
+  // while the user is actually looking at the dashboard — fires once
+  // there are 6 or fewer hours left in the local day and today still has
+  // unreviewed goals.
+  const hoursLeftToday = hoursUntilMidnight();
+  const showEndOfDayReminder = !todayClosed && todayTotal > 0 && todayPending > 0 && hoursLeftToday <= 6;
+
   return (
     <div className="space-y-6">
       {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
@@ -334,6 +349,51 @@ export default function DashboardPage() {
                 onClick={dismissWelcome}
               >
                 Plan Tomorrow →
+              </Link>
+            </div>
+          )}
+
+          {/* Overdue warning — past days that were submitted but never
+              reviewed/closed. These can't be reviewed retroactively (past
+              days are view-only), so this just surfaces the gap and points
+              at Calendar, where any goal still worth pursuing can be
+              re-attempted (rescheduled) forward. */}
+          {overdue.count > 0 && (
+            <div
+              className="mt-6 rounded-2xl p-5"
+              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
+            >
+              <div className="text-base font-bold text-amber-300">
+                ⚠️ {overdue.count} past day{overdue.count === 1 ? "" : "s"} left unreviewed
+              </div>
+              <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                Once a day passes it can't be reviewed retroactively, but you can still re-attempt
+                any goals still worth pursuing by rescheduling them forward from Calendar.
+              </p>
+              <Link href="/standup/calendar" className="btn mt-4 inline-block">
+                View Calendar →
+              </Link>
+            </div>
+          )}
+
+          {/* End-of-day reminder — the only "notification" this app can give
+              without push/email: a banner shown while the dashboard is open,
+              once there are 6 or fewer hours left and today isn't closed. */}
+          {showEndOfDayReminder && (
+            <div
+              className="mt-6 rounded-2xl p-5"
+              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
+            >
+              <div className="text-base font-bold text-amber-300">
+                ⏰ {hoursLeftToday < 1 ? "Less than an hour" : `${Math.round(hoursLeftToday)} hours`} left
+                today
+              </div>
+              <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                {todayPending} goal{todayPending === 1 ? "" : "s"} still need review. Close out today
+                before midnight — after that it can't be reviewed retroactively.
+              </p>
+              <Link href="/standup/today" className="btn mt-4 inline-block">
+                Review Today →
               </Link>
             </div>
           )}

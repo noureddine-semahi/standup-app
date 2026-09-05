@@ -15,6 +15,7 @@ import {
   hoursUntilMidnight,
   markGoalReviewed,
   markPlanReviewed,
+  updateGoalPriority,
   updateGoalStatus,
   toISODate,
   formatDateDisplay,
@@ -124,6 +125,8 @@ export default function TodayPage() {
   const [showActions, setShowActions] = useState<Record<string, boolean>>({});
   // Per-goal "Add Note" input, toggled from next to the action controls.
   const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
+  // Per-goal history/notes timeline visibility — expanded by default.
+  const [timelineExpanded, setTimelineExpanded] = useState<Record<string, boolean>>({});
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -830,77 +833,72 @@ export default function TodayPage() {
                         key: string;
                         kind: "history" | "note";
                         label: string;
-                        detail?: string;
-                        timestamp?: string;
+                        timestamp: string;
                       };
 
+                      // Every entry is a real event with its own real
+                      // timestamp now — status/priority changes, reviews,
+                      // and reschedules are logged into goal_notes at the
+                      // moment they happen (see logGoalEvent in db.ts), the
+                      // same append-only table real notes use, distinguished
+                      // by `kind`. Ascending order: creation first, most
+                      // recent action last — exactly the sequence it
+                      // happened in, notes and actions interleaved.
                       const entries: TimelineEntry[] = [];
                       if (g.created_at) {
                         entries.push({ key: "created", kind: "history", label: "Goal created", timestamp: g.created_at });
                       }
-                      entries.push({
-                        key: "priority",
-                        kind: "history",
-                        label: `Priority: P${p} · ${getPriorityMeta(p).label}`,
-                      });
-                      if (g.reviewed_at) {
-                        entries.push({ key: "reviewed", kind: "history", label: "Marked as reviewed", timestamp: g.reviewed_at });
-                      }
-                      if (g.status !== "not_started") {
-                        entries.push({ key: "status", kind: "history", label: `Status: ${statusLabel(g.status)}` });
-                      }
-                      if (g.rescheduled_to) {
-                        entries.push({
-                          key: "rescheduled",
-                          kind: "history",
-                          label: `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}`,
-                          detail: g.reschedule_reason ?? undefined,
-                        });
-                      }
                       notes.forEach((note, i) => {
                         entries.push({
                           key: note.id ?? `note-${i}`,
-                          kind: "note",
+                          kind: note.kind && note.kind !== "note" ? "history" : "note",
                           label: note.note,
                           timestamp: note.created_at,
                         });
                       });
+                      entries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-                      // Timestamped entries newest-first; the handful of
-                      // undated "current state" facts (priority, status)
-                      // sink to the end since they're not tied to a moment.
-                      const dated = entries
-                        .filter((e) => e.timestamp)
-                        .sort((a, b) => new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime());
-                      const undated = entries.filter((e) => !e.timestamp);
-                      const timeline = [...dated, ...undated];
+                      const expanded = timelineExpanded[g.id] ?? true;
 
                       return (
-                        <div className="mt-3 space-y-2">
-                          {timeline.map((e) => (
-                            <div key={e.key} className="flex items-start gap-2">
-                              <span
-                                className="flex-shrink-0 rounded uppercase font-semibold tracking-wide"
-                                style={{
-                                  fontSize: "9px",
-                                  padding: "2px 5px",
-                                  background: e.kind === "note" ? "rgba(34, 211, 238, 0.12)" : "rgba(255, 255, 255, 0.06)",
-                                  color: e.kind === "note" ? "#67e8f9" : "rgba(255, 255, 255, 0.5)",
-                                }}
-                              >
-                                {e.kind === "note" ? "Note" : "History"}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs text-white/70">{e.label}</div>
-                                {e.detail && <div className="text-xs text-white/50 italic mt-0.5">"{e.detail}"</div>}
-                                {e.timestamp && (
-                                  <div className="text-[10px] text-white/35 mt-0.5">
-                                    {formatDateTimeDisplay(e.timestamp)}
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => setTimelineExpanded((prev) => ({ ...prev, [g.id]: !expanded }))}
+                            className="text-xs text-white/50 hover:text-white/80 transition"
+                          >
+                            {expanded ? "▾" : "▸"} History &amp; notes{entries.length > 0 ? ` (${entries.length})` : ""}
+                          </button>
+
+                          {expanded && (
+                            <div className="mt-2 space-y-2">
+                              {entries.length === 0 ? (
+                                <div className="text-xs text-white/40 italic">Nothing recorded yet.</div>
+                              ) : (
+                                entries.map((e) => (
+                                  <div key={e.key} className="flex items-start gap-2">
+                                    <span
+                                      className="flex-shrink-0 rounded uppercase font-semibold tracking-wide"
+                                      style={{
+                                        fontSize: "9px",
+                                        padding: "2px 5px",
+                                        background: e.kind === "note" ? "rgba(34, 211, 238, 0.12)" : "rgba(255, 255, 255, 0.06)",
+                                        color: e.kind === "note" ? "#67e8f9" : "rgba(255, 255, 255, 0.5)",
+                                      }}
+                                    >
+                                      {e.kind === "note" ? "Note" : "History"}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs text-white/70">{e.label}</div>
+                                      <div className="text-[10px] text-white/35 mt-0.5">
+                                        {formatDateTimeDisplay(e.timestamp)}
+                                      </div>
+                                    </div>
                                   </div>
-                                )}
-                              </div>
+                                ))
+                              )}
                             </div>
-                          ))}
+                          )}
                         </div>
                       );
                     })()}
@@ -943,15 +941,10 @@ export default function TodayPage() {
                         disabled={locked || dayClosed}
                         onChange={async (e) => {
                           const newPriority = Number(e.target.value);
+                          if (!plan?.id) return;
                           markGoalBusy(g.id);
                           try {
-                            await supabase
-                              .from("goals")
-                              .update({ priority: newPriority })
-                              .eq("id", g.id);
-                            if (newPriority === 1 && plan?.id) {
-                              await enforceSingleP1(plan.id, g.id);
-                            }
+                            await updateGoalPriority(g.id, plan.id, newPriority);
                             await refresh({ silent: true });
                           } catch (e: any) {
                             setMsg(e?.message ?? "Failed to update priority");

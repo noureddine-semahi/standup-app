@@ -456,7 +456,7 @@ async function materializeReschedules(planId: string, planDateISO: string) {
       // before a reschedule would become permanently orphaned/invisible.
       const { data: priorNotes, error: notesSelErr } = await supabase
         .from("goal_notes")
-        .select("note, created_at")
+        .select("note, created_at, kind")
         .eq("goal_id", item.from_goal_id);
 
       if (notesSelErr) throw notesSelErr;
@@ -468,6 +468,7 @@ async function materializeReschedules(planId: string, planDateISO: string) {
             goal_id: inserted.id,
             note: n.note,
             created_at: n.created_at,
+            kind: n.kind ?? "note",
           }))
         );
         if (notesInsErr) throw notesInsErr;
@@ -700,14 +701,62 @@ export async function addGoalNote(goalId: string, note: string) {
     user_id: userId,
     goal_id: goalId,
     note: trimmed,
+    kind: "note",
   });
 
   if (error) throw error;
 }
 
+export type GoalEventKind = "status_change" | "priority_change" | "reviewed" | "rescheduled";
+
+/**
+ * System-generated timeline entries share the `goal_notes` table with real
+ * user notes (distinguished by `kind`) rather than a separate log — that
+ * table is already timestamped and already carried forward across a
+ * reschedule's new goal row (see materializeReschedules above), so reusing
+ * it gives every action a real, permanent moment in time for free instead
+ * of deriving an approximate, unordered summary from current-state fields.
+ * Never throws into the caller: a missed log entry shouldn't fail the
+ * action that triggered it.
+ */
+async function logGoalEvent(goalId: string, kind: GoalEventKind, label: string) {
+  try {
+    const userId = await getCurrentUserId();
+    await supabase.from("goal_notes").insert({
+      user_id: userId,
+      goal_id: goalId,
+      note: label,
+      kind,
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
+const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
+  not_started: "Not started",
+  in_progress: "In progress",
+  completed: "Completed",
+  attempted: "Attempted",
+  postponed: "Postponed",
+  blocked: "Blocked",
+  canceled: "Canceled",
+};
+
 export async function updateGoalStatus(goalId: string, status: GoalStatus) {
   const { error } = await supabase.from("goals").update({ status }).eq("id", goalId);
   if (error) throw error;
+  await logGoalEvent(goalId, "status_change", `Status changed to ${GOAL_STATUS_LABELS[status] ?? status}`);
+}
+
+/** Updates a goal's priority and logs it as a timestamped timeline event (see logGoalEvent). */
+export async function updateGoalPriority(goalId: string, planId: string, priority: number) {
+  const { error } = await supabase.from("goals").update({ priority }).eq("id", goalId);
+  if (error) throw error;
+  if (priority === 1) {
+    await enforceSingleP1(planId, goalId);
+  }
+  await logGoalEvent(goalId, "priority_change", `Priority changed to P${priority}`);
 }
 
 /**
@@ -730,6 +779,7 @@ export async function markGoalReviewed(goalId: string) {
     .update({ reviewed_at: new Date().toISOString() })
     .eq("id", goalId);
   if (error) throw error;
+  await logGoalEvent(goalId, "reviewed", "Marked as reviewed");
 }
 
 export async function unmarkGoalReviewed(goalId: string) {
@@ -1404,6 +1454,13 @@ export async function rescheduleGoalToDate(params: {
   });
 
   if (logErr) throw logErr;
+
+  const reason = (params.reason ?? "").trim();
+  await logGoalEvent(
+    params.goal.id,
+    "rescheduled",
+    `Rescheduled to ${formatDateDisplay(params.toDateISO)}${reason ? ` — "${reason}"` : ""}`
+  );
 
   // 3) If rescheduled to tomorrow, ensure it appears quickly by opening tomorrow plan
   const tomorrowISO = toISODate(addDays(new Date(), 1));

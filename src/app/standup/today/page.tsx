@@ -920,7 +920,7 @@ export default function TodayPage() {
                               <div className="space-y-3">
                                 {g.created_at && (
                                   <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-xs text-white/80 font-medium">Goal created</div>
                                       <div className="text-[10px] text-white/40 mt-0.5">
@@ -932,7 +932,7 @@ export default function TodayPage() {
 
                                 {p && (
                                   <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-xs text-white/80 font-medium">
                                         Priority: P{p} - {getPriorityMeta(p).label}

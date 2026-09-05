@@ -157,8 +157,8 @@ export default function HistoryPage() {
               onClick={() => setPeriod("week")}
               className="btn"
               style={{
-                background: period === "week" ? "rgba(168, 85, 247, 0.25)" : undefined,
-                borderColor: period === "week" ? "rgba(168, 85, 247, 0.6)" : undefined,
+                background: period === "week" ? "rgba(245, 158, 11, 0.25)" : undefined,
+                borderColor: period === "week" ? "rgba(245, 158, 11, 0.6)" : undefined,
               }}
             >
               Weekly
@@ -168,8 +168,8 @@ export default function HistoryPage() {
               onClick={() => setPeriod("month")}
               className="btn"
               style={{
-                background: period === "month" ? "rgba(168, 85, 247, 0.25)" : undefined,
-                borderColor: period === "month" ? "rgba(168, 85, 247, 0.6)" : undefined,
+                background: period === "month" ? "rgba(245, 158, 11, 0.25)" : undefined,
+                borderColor: period === "month" ? "rgba(245, 158, 11, 0.6)" : undefined,
               }}
             >
               Monthly

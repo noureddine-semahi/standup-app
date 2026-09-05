@@ -16,16 +16,22 @@ a {
    white-on-dark text baked into individual pages needs to change. */
 :root {
   color-scheme: dark;
-  --accent-purple: #a855f7;
-  --accent-blue: #3b82f6;
+  /* Repointed to the seven-segment-display world's palette (amber/emerald)
+     rather than renamed everywhere they're referenced — every existing
+     var(--accent-purple)/var(--accent-blue) call site (this file and a
+     handful of inline styles in dashboard/settings/profile/ProgressCircle)
+     now resolves to the new colors without needing to be hunted down. */
+  --accent-purple: #f59e0b;
+  --accent-blue: #10b981;
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
+  --accent-red: #ef4444;
   --accent-rose: #f43f5e;
 
   --page-bg: #05060a;
   --page-text: rgba(255, 255, 255, 0.92);
-  --app-bg-wash-1: rgba(168, 85, 247, 0.08);
-  --app-bg-wash-2: rgba(59, 130, 246, 0.06);
+  --app-bg-wash-1: rgba(245, 158, 11, 0.08);
+  --app-bg-wash-2: rgba(16, 185, 129, 0.06);
   --app-bg-gradient: linear-gradient(180deg, #05060a 0%, #0a0e1a 45%, #05060a 100%);
 }
 
@@ -147,7 +153,7 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 50;
   backdrop-filter: blur(12px) saturate(180%);
   background: rgba(5, 6, 10, 0.7);
-  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
   transition: all 0.3s ease;
 }
 
@@ -164,7 +170,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .app-header:hover {
-  border-bottom-color: rgba(168, 85, 247, 0.4);
+  border-bottom-color: rgba(245, 158, 11, 0.4);
   background: rgba(5, 6, 10, 0.8);
 }
 
@@ -181,12 +187,10 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading, var(--font-body, ui-sans-serif, system-ui));
   font-weight: 700;
   font-size: 1.25rem;
+  letter-spacing: -0.01em;
   text-decoration: none;
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  transition: all 0.3s ease;
+  color: var(--accent-amber);
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 
 .brand:hover {
@@ -210,8 +214,8 @@ h1, h2, h3, h4, h5, h6 {
   /* Always visibly a "chip" (not plain text) — hover and active shift to
      their own distinct shades below instead of going from transparent to
      colored, so every state reads as a deliberately different button color. */
-  background: rgba(168, 85, 247, 0.08);
-  border: 1px solid rgba(168, 85, 247, 0.18);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.18);
   padding: 6px 10px;
   border-radius: 8px;
   transition: all 0.2s ease;
@@ -242,33 +246,33 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   bottom: 0;
   left: 50%;
-  width: 0;
+  width: 80%;
   height: 2px;
   background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
-  transform: translateX(-50%);
-  transition: width 0.3s ease;
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 0.3s ease;
 }
 
 .nav-link:hover {
   color: rgba(255, 255, 255, 0.98);
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 .nav-link:hover::before {
-  width: 80%;
+  transform: translateX(-50%) scaleX(1);
 }
 
 .nav-link:active {
-  background: rgba(168, 85, 247, 0.35);
-  border-color: rgba(168, 85, 247, 0.6);
+  background: rgba(245, 158, 11, 0.35);
+  border-color: rgba(245, 158, 11, 0.6);
   transform: translateY(1px);
 }
 
 .nav-link.font-semibold {
   color: rgba(255, 255, 255, 0.98);
-  background: rgba(168, 85, 247, 0.22);
-  border-color: rgba(168, 85, 247, 0.45);
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.45);
 }
 
 /* Logout sits at the bottom of the mobile dropdown, reusing .nav-link's
@@ -363,7 +367,7 @@ h1, h2, h3, h4, h5, h6 {
     flex-direction: column;
     gap: 4px;
     padding: 10px 18px 16px;
-    border-top: 1px solid rgba(168, 85, 247, 0.15);
+    border-top: 1px solid rgba(245, 158, 11, 0.15);
     background: rgba(5, 6, 10, 0.96);
   }
 
@@ -377,7 +381,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nav-link.font-semibold::before {
-  width: 80%;
+  transform: translateX(-50%) scaleX(1);
 }
 
 /* ✨ Main Content */
@@ -450,9 +454,10 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
   padding: 9px 14px;
-  border-radius: 12px;
+  border-radius: 6px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -463,17 +468,16 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 0;
-  height: 0;
+  width: 300px;
+  height: 300px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s ease, height 0.6s ease;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.6s ease;
 }
 
 .btn:hover::before {
-  width: 300px;
-  height: 300px;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .btn:hover {
@@ -495,21 +499,24 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* Flat lit-amber cell, not a gradient fill — the primary action reads as a
+   switch that's on, matching the landing page's .led-switch-primary. */
 .btn-primary {
-  border: 1px solid rgba(168, 85, 247, 0.4);
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.85), rgba(59, 130, 246, 0.85));
-  color: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-amber);
   font-weight: 700;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
 }
 
 .btn-primary::before {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(245, 158, 11, 0.25);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.95), rgba(59, 130, 246, 0.95));
-  border-color: rgba(168, 85, 247, 0.6);
-  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.75);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.75), 0 0 22px rgba(245, 158, 11, 0.4);
   transform: translateY(-1px);
 }
 
@@ -521,10 +528,10 @@ h1, h2, h3, h4, h5, h6 {
      color class inherits `body`'s color, which DOES flip between themes —
      landing as unreadable dark-on-dark text inside a card in light mode. */
   color: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.15);
   background: rgba(10, 14, 26, 0.6);
   backdrop-filter: blur(10px) saturate(150%);
-  border-radius: 24px;
+  border-radius: 10px;
   padding: 24px;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -539,13 +546,13 @@ h1, h2, h3, h4, h5, h6 {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.5), transparent);
   opacity: 0;
   transition: opacity 0.4s ease;
 }
 
 .card:hover {
-  border-color: rgba(168, 85, 247, 0.25);
+  border-color: rgba(245, 158, 11, 0.25);
   background: rgba(10, 14, 26, 0.8);
   transform: translateY(-2px);
   box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
@@ -568,7 +575,7 @@ h1, h2, h3, h4, h5, h6 {
    saturated-hue border + heavy colored glow with one consistent,
    low-key treatment. */
 .card-highlight {
-  border-color: rgba(168, 85, 247, 0.25) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
   box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
 }
 
@@ -596,8 +603,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.5); }
+  0%, 100% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.5); }
 }
 
 @keyframes spin {
@@ -609,8 +616,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: rgba(168, 85, 247, 0.5) !important;
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
   transform: scale(1.01);
   transition: all 0.3s ease;
 }
@@ -632,12 +639,12 @@ select:focus {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.8), rgba(16, 185, 129, 0.8));
 }
 
 /* ✨ Selection */
 ::selection {
-  background: rgba(168, 85, 247, 0.3);
+  background: rgba(245, 158, 11, 0.3);
   color: white;
 }
 
@@ -665,15 +672,6 @@ select:focus {
   animation: fadeIn 1s ease-out;
 }
 
-.bounce {
-  animation: bounce 2s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
 .hover-scale {
   transition: transform 0.3s ease;
 }
@@ -682,22 +680,15 @@ select:focus {
   transform: scale(1.02);
 }
 
+/* Solid lit-amber instead of a gradient clip — emphasis here comes from
+   weight/size/glow, the same language as the landing page's LED digits. */
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue), var(--accent-emerald));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientShift 5s ease infinite;
-  background-size: 200% 200%;
-}
-
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  color: var(--accent-amber);
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
 }
 
 .loading-spinner {
-  border: 3px solid rgba(168, 85, 247, 0.2);
+  border: 3px solid rgba(245, 158, 11, 0.2);
   border-top-color: var(--accent-purple);
   border-radius: 50%;
   width: 40px;
@@ -829,7 +820,7 @@ select:focus {
 
 .priority-select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px var(--p-color, rgba(168, 85, 247, 0.5));
+  box-shadow: 0 0 0 2px var(--p-color, rgba(245, 158, 11, 0.5));
   opacity: 1;
 }
 
@@ -865,8 +856,8 @@ select:focus {
 }
 
 .goal-tab[data-active="true"] {
-  background: rgba(168, 85, 247, 0.22);
-  border-color: rgba(168, 85, 247, 0.55);
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.55);
   color: #d8b4fe;
 }
 
@@ -969,8 +960,8 @@ select:focus {
 }
 
 .actions-toggle[data-open="true"] {
-  background: rgba(168, 85, 247, 0.22);
-  border-color: rgba(168, 85, 247, 0.5);
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.5);
   color: #d8b4fe;
 }
 
@@ -1040,9 +1031,98 @@ select:focus {
    clickability that isn't actually there. */
 .card.card-static:hover {
   transform: none;
-  border-color: rgba(168, 85, 247, 0.15);
+  border-color: rgba(245, 158, 11, 0.15);
   background: rgba(10, 14, 26, 0.6);
   box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Landing page only — the seven-segment-display world (see
+   .impeccable/surfaces/src-app-page-tsx.md for the direction contract).
+   Scoped entirely under .led-world so nothing here reaches any other page;
+   the rest of the app stays in its established purple/blue identity until
+   (and unless) that migration happens separately. */
+
+.led-world {
+  --led-bg: #030304;
+  --led-cell: rgba(255, 255, 255, 0.03);
+  --led-border: rgba(255, 255, 255, 0.09);
+  --led-red: #ef4444;
+  --led-amber: #f59e0b;
+  --led-green: #10b981;
+  --led-text: rgba(255, 255, 255, 0.88);
+  --led-text-dim: rgba(255, 255, 255, 0.55);
+  background: var(--led-bg);
+  color: var(--led-text);
+}
+
+.led-mono {
+  font-family: var(--font-led, ui-monospace, "Space Mono", monospace);
+}
+
+.led-headline {
+  font-family: var(--font-led, ui-monospace, "Space Mono", monospace);
+  letter-spacing: -0.02em;
+}
+
+/* A physical control-panel switch, not a rounded gradient button — the
+   primary/secondary action's vocabulary in this world. */
+.led-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-led, ui-monospace, "Space Mono", monospace);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  padding: 14px 28px;
+  border-radius: 4px;
+  border: 1px solid var(--led-border);
+  background: var(--led-cell);
+  color: var(--led-text);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.led-switch:hover,
+.led-switch:focus-visible {
+  border-color: var(--led-amber);
+  color: var(--led-amber);
+  box-shadow: 0 0 0 1px var(--led-amber), 0 0 16px rgba(245, 158, 11, 0.35);
+  outline: none;
+}
+
+.led-switch-primary {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: var(--led-amber);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+}
+
+.led-switch-primary:hover,
+.led-switch-primary:focus-visible {
+  box-shadow: 0 0 0 1px var(--led-amber), 0 0 22px rgba(245, 158, 11, 0.5);
+}
+
+.led-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.led-cell {
+  border: 1px solid var(--led-border);
+  background: var(--led-cell);
+  border-radius: 6px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.led-cell:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .card.card-static:hover::before {

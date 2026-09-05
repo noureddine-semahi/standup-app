@@ -225,7 +225,7 @@ export default function AdminPage() {
         <p className="mt-2 text-white/70">
           {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
         </p>
-        {msg && <p className="mt-3 text-sm text-purple-300">{msg}</p>}
+        {msg && <p className="mt-3 text-sm text-amber-300">{msg}</p>}
       </div>
 
       <div className="card">
@@ -294,7 +294,7 @@ export default function AdminPage() {
                       className={
                         m.role === "member"
                           ? "text-xs text-white/50"
-                          : "rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs text-purple-300"
+                          : "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300"
                       }
                     >
                       {ROLE_LABELS[m.role]}
@@ -390,7 +390,7 @@ export default function AdminPage() {
                         className={
                           m.role === "member"
                             ? "text-xs text-white/50"
-                            : "rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs text-purple-300"
+                            : "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300"
                         }
                       >
                         {ROLE_LABELS[m.role]}

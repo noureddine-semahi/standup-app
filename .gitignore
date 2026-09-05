@@ -39,6 +39,11 @@ yarn-error.log*
 # claude code (local/machine-specific — settings.json, if any, stays tracked)
 .claude/settings.local.json
 
+# impeccable skill — ephemeral working files (review screenshots, hook
+# cache); surfaces/ (direction contracts) and PRODUCT.md stay tracked
+.impeccable/review/
+.impeccable/hook.cache.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -618,7 +618,7 @@ export default function DynamicDatePage() {
           </p>
           <p className="text-sm text-white/50">
             Current priority goals: <b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
-            {priorityGoalsFilled > 3 && <span className="text-blue-400"> (+{priorityGoalsFilled - 3} extra)</span>}
+            {priorityGoalsFilled > 3 && <span className="text-emerald-400"> (+{priorityGoalsFilled - 3} extra)</span>}
           </p>
         </div>
 
@@ -632,8 +632,8 @@ export default function DynamicDatePage() {
             disabled={submitting}
             className="btn"
             style={{
-              background: editMode ? "rgba(168, 85, 247, 0.3)" : undefined,
-              borderColor: editMode ? "rgba(168, 85, 247, 0.6)" : undefined,
+              background: editMode ? "rgba(245, 158, 11, 0.3)" : undefined,
+              borderColor: editMode ? "rgba(245, 158, 11, 0.6)" : undefined,
             }}
           >
             {editMode ? "✓ Done" : "✏️ Reorder"}
@@ -733,14 +733,14 @@ export default function DynamicDatePage() {
                   {/* Show if this goal was rescheduled FROM another date */}
                   {g.id && g.rescheduled_from_date && (
                     <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
-                      <div className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-1.5">
+                      <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
                         <span className="text-lg">↩️</span>
                         <div>
-                          <div className="text-xs font-semibold text-purple-300">
+                          <div className="text-xs font-semibold text-amber-300">
                             Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
                           </div>
                           {g.reschedule_reason && (
-                            <div className="text-xs text-purple-300/70 italic mt-0.5">
+                            <div className="text-xs text-amber-300/70 italic mt-0.5">
                               "{g.reschedule_reason}"
                             </div>
                           )}
@@ -753,7 +753,7 @@ export default function DynamicDatePage() {
                   {g.id && g.previous_actions && g.previous_actions.length > 0 && (
                     <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
                       <details className="text-xs">
-                        <summary className="text-blue-400 cursor-pointer hover:text-blue-300">
+                        <summary className="text-emerald-400 cursor-pointer hover:text-emerald-300">
                           💬 {g.previous_actions.length} previous action{g.previous_actions.length > 1 ? 's' : ''}
                         </summary>
                         <div className="mt-2 space-y-1 pl-4">

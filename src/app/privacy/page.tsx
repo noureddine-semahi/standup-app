@@ -76,7 +76,7 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-white mb-2">Questions</h2>
             <p className="text-sm text-white/70">
               Reach out any time via the{" "}
-              <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
+              <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">
                 Contact
               </Link>{" "}
               page.

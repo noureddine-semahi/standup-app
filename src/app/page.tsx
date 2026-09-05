@@ -4,27 +4,82 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
 import { logLandingPageVisit } from "@/lib/supabase/db";
+import { SevenSegmentDigit, SevenSegmentReadout } from "@/components/SevenSegmentDigit";
 
 const VISITED_KEY = "standup-landing-visited";
+
+const READOUTS = [
+  { label: "Points", value: "247", color: "var(--led-amber)" },
+  { label: "Streak", value: "12", color: "var(--led-red)" },
+  { label: "Complete", value: "85", color: "var(--led-green)" },
+];
+
+const FEATURES = [
+  {
+    color: "var(--led-amber)",
+    title: "Awareness First",
+    body: "Review before acting. Every goal gets conscious attention before execution.",
+  },
+  {
+    color: "var(--led-green)",
+    title: "Daily Reflection",
+    body: "Learn from yesterday. Plan tomorrow only after reviewing today.",
+  },
+  {
+    color: "var(--led-red)",
+    title: "Progress Tracking",
+    body: "Earn points, build streaks, and watch your consistency compound.",
+  },
+  {
+    color: "var(--led-amber)",
+    title: "Priority Focus",
+    body: "One P1 goal per day keeps you focused on what truly matters.",
+  },
+  {
+    color: "var(--led-green)",
+    title: "Smart Scheduling",
+    body: "Reschedule goals seamlessly. They appear automatically on the right day.",
+  },
+  {
+    color: "var(--led-red)",
+    title: "Daily Habits",
+    body: "Small wins compound. Build lasting habits through daily engagement.",
+  },
+];
+
+const STEPS = [
+  {
+    n: "1",
+    color: "var(--led-amber)",
+    title: "Plan Tomorrow",
+    body: "Every evening, set at least 3 goals. Assign priorities (only one P1). Submit your plan.",
+  },
+  {
+    n: "2",
+    color: "var(--led-green)",
+    title: "Review Today",
+    body: "Each morning, review yesterday's goals. Update status, add notes, close out the day.",
+  },
+  {
+    n: "3",
+    color: "var(--led-red)",
+    title: "Build Momentum",
+    body: "Earn points, track streaks, and watch your daily execution habit strengthen over time.",
+  },
+];
 
 export default function LandingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [theme, setThemeState] = useState<Theme>("dark");
+  // Digits light in from ghost cells on mount rather than appearing lit —
+  // the one authored motion moment for this surface (see craft-floor.md).
+  const [lit, setLit] = useState(false);
 
   useEffect(() => {
-    // Client-only, after mount — matches the server-rendered "dark" default
-    // so there's no hydration warning (see Settings page for the same
-    // pattern, where the real toggle for logged-in users lives).
-    setThemeState(getStoredTheme());
+    const id = window.setTimeout(() => setLit(true), 300);
+    return () => window.clearTimeout(id);
   }, []);
-
-  function handleThemeChange(next: Theme) {
-    setThemeState(next);
-    setTheme(next);
-  }
 
   useEffect(() => {
     async function checkAuth() {
@@ -64,215 +119,109 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 -z-10">
-          <div className="hero-blob absolute top-0 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-          <div className="hero-blob absolute top-0 right-1/4 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
-          <div className="hero-blob absolute bottom-0 left-1/2 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
-        </div>
-
-        <div className="max-w-6xl mx-auto px-4 py-20 sm:py-32 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-purple-500/30 bg-purple-500/10 mb-8 animate-fadeIn">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500" />
-            </span>
-            <span className="text-sm text-purple-300 font-medium">Daily Execution System</span>
-          </div>
-
-          {/* Hero Headline */}
-          <h1 className="text-5xl sm:text-7xl font-bold mb-6 leading-tight">
-            <span className="block gradient-text">Build Consistency.</span>
-            <span className="block">Execute Daily.</span>
-          </h1>
-
-          <p className="text-xl sm:text-2xl text-page-secondary mb-8 max-w-3xl mx-auto">
-            Transform your goals into daily habits with awareness-driven planning and reflection.
-          </p>
-
-          {/* Theme preference — set it before signing in/up */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={theme === "light"}
-              onClick={() => handleThemeChange(theme === "dark" ? "light" : "dark")}
-              className="relative rounded-full transition-colors"
-              style={{
-                width: "52px",
-                height: "28px",
-                background: theme === "light" ? "var(--accent-purple)" : "rgba(255,255,255,0.15)",
-                border: "1px solid rgba(255,255,255,0.18)",
-              }}
-            >
-              <span
-                className="absolute rounded-full bg-white transition-transform"
-                style={{
-                  width: "22px",
-                  height: "22px",
-                  top: "2px",
-                  left: "2px",
-                  transform: theme === "light" ? "translateX(24px)" : "translateX(0)",
-                }}
-              />
-            </button>
-            <span className="text-sm text-page-secondary">
-              {theme === "light" ? "☀️ Light mode" : "🌙 Dark mode"} — pick before you sign in
-            </span>
-          </div>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link href="/signup" className="btn btn-primary text-lg px-8 py-4 hover-scale">
-              Get Started Free →
-            </Link>
-            <Link href="/about" className="btn btn-ghost btn-on-page text-lg px-8 py-4">
-              Learn More
-            </Link>
-          </div>
-
-          {/* Visual Mockup */}
-          <div className="relative max-w-5xl mx-auto">
-            <div className="card hover-scale">
-              {/* Simplified dashboard preview */}
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/10 p-6">
-                  <div className="text-sm text-purple-300 mb-2">Total Points</div>
-                  <div className="text-4xl font-bold gradient-text">247</div>
-                </div>
-                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-                  <div className="text-sm text-blue-300 mb-2">Daily Streak</div>
-                  <div className="text-4xl font-bold text-blue-400">12 🔥</div>
-                </div>
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
-                  <div className="text-sm text-emerald-300 mb-2">Completed</div>
-                  <div className="text-4xl font-bold text-emerald-400">85%</div>
-                </div>
+    <div className="led-world min-h-screen">
+      {/* Hero — the day itself rendered as a bank of scoreboard digits,
+          lit segments in ghost-cell mode until they light on load. */}
+      <div className="max-w-5xl mx-auto px-4 py-20 sm:py-28 text-center">
+        <div className="flex items-end justify-center gap-6 sm:gap-10 mb-10 flex-wrap">
+          {READOUTS.map((r) => (
+            <div key={r.label} className="flex flex-col items-center gap-3">
+              <SevenSegmentReadout value={lit ? r.value : "0".repeat(r.value.length)} color={r.color} size={36} />
+              <div
+                className="led-mono text-[11px] tracking-widest uppercase"
+                style={{ color: "var(--led-text-dim)" }}
+              >
+                {r.label}
               </div>
             </div>
-          </div>
+          ))}
+        </div>
+
+        <h1 className="led-headline text-3xl sm:text-5xl font-bold mb-5 leading-tight">
+          Build Consistency. Execute Daily.
+        </h1>
+
+        <p className="led-mono text-sm sm:text-base mb-10 max-w-2xl mx-auto" style={{ color: "var(--led-text-dim)" }}>
+          Transform your goals into daily habits with awareness-driven planning and reflection.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link href="/signup" className="led-switch led-switch-primary">
+            Get Started →
+          </Link>
+          <Link href="/about" className="led-switch">
+            Learn More
+          </Link>
         </div>
       </div>
 
-      {/* Features Section */}
+      {/* Features */}
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">Why StandUp?</h2>
-          <p className="text-xl text-page-secondary">Built on proven principles of execution</p>
+          <h2 className="led-headline text-3xl font-bold mb-3">Why StandUp?</h2>
+          <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
+            Built on proven principles of execution
+          </p>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Feature 1 */}
-          <div className="card hover-scale group">
-            <div className="text-5xl mb-4 group-hover:bounce">🧠</div>
-            <h3 className="text-xl font-bold mb-2">Awareness First</h3>
-            <p className="text-white/70">
-              Review before acting. Every goal gets conscious attention before execution.
-            </p>
-          </div>
-
-          {/* Feature 2 */}
-          <div className="card hover-scale group">
-            <div className="text-5xl mb-4 group-hover:bounce">🔄</div>
-            <h3 className="text-xl font-bold mb-2">Daily Reflection</h3>
-            <p className="text-white/70">
-              Learn from yesterday. Plan tomorrow only after reviewing today.
-            </p>
-          </div>
-
-          {/* Feature 3 */}
-          <div className="card hover-scale group">
-            <div className="text-5xl mb-4 group-hover:bounce">📈</div>
-            <h3 className="text-xl font-bold mb-2">Progress Tracking</h3>
-            <p className="text-white/70">
-              Earn points, build streaks, and watch your consistency compound.
-            </p>
-          </div>
-
-          {/* Feature 4 */}
-          <div className="card hover-scale group">
-            <div className="text-5xl mb-4 group-hover:bounce">🎯</div>
-            <h3 className="text-xl font-bold mb-2">Priority Focus</h3>
-            <p className="text-white/70">
-              One P1 goal per day keeps you focused on what truly matters.
-            </p>
-          </div>
-
-          {/* Feature 5 */}
-          <div className="card hover-scale group">
-            <div className="text-5xl mb-4 group-hover:bounce">📅</div>
-            <h3 className="text-xl font-bold mb-2">Smart Scheduling</h3>
-            <p className="text-white/70">
-              Reschedule goals seamlessly. They appear automatically on the right day.
-            </p>
-          </div>
-
-          {/* Feature 6 */}
-          <div className="card hover-scale group">
-            <div className="text-5xl mb-4 group-hover:bounce">🔥</div>
-            <h3 className="text-xl font-bold mb-2">Daily Habits</h3>
-            <p className="text-white/70">
-              Small wins compound. Build lasting habits through daily engagement.
-            </p>
-          </div>
+        {/* min-w-0 on every grid item — a CSS Grid item's default min-width:auto
+            let unbreakable content stretch a track past the viewport on the
+            Dashboard earlier this session; cheap insurance against a repeat. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="led-cell p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className="led-dot"
+                  style={{ background: f.color, boxShadow: `0 0 8px ${f.color}` }}
+                />
+                <h3 className="led-mono text-sm font-bold uppercase tracking-wide">{f.title}</h3>
+              </div>
+              <p className="text-sm" style={{ color: "var(--led-text-dim)" }}>
+                {f.body}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* How It Works */}
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">How It Works</h2>
-          <p className="text-xl text-page-secondary">Three simple steps to daily execution</p>
+          <h2 className="led-headline text-3xl font-bold mb-3">How It Works</h2>
+          <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
+            Three steps to daily execution
+          </p>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="card hover-scale relative">
-            <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-xl font-bold">
-              1
+        <div className="grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
+          {STEPS.map((s) => (
+            <div key={s.n} className="led-cell p-6">
+              <div className="mb-4">
+                <SevenSegmentDigit char={s.n} color={s.color} size={28} />
+              </div>
+              <h3 className="led-mono text-sm font-bold uppercase tracking-wide mb-2">{s.title}</h3>
+              <p className="text-sm" style={{ color: "var(--led-text-dim)" }}>
+                {s.body}
+              </p>
             </div>
-            <h3 className="text-xl font-bold mb-3 mt-4">Plan Tomorrow</h3>
-            <p className="text-white/70">
-              Every evening, set at least 3 goals. Assign priorities (only one P1). Submit your plan.
-            </p>
-          </div>
-
-          <div className="card hover-scale relative">
-            <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center text-xl font-bold">
-              2
-            </div>
-            <h3 className="text-xl font-bold mb-3 mt-4">Review Today</h3>
-            <p className="text-white/70">
-              Each morning, review yesterday's goals. Update status, add notes, close out the day.
-            </p>
-          </div>
-
-          <div className="card hover-scale relative">
-            <div className="absolute -top-4 -left-4 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-purple-500 flex items-center justify-center text-xl font-bold">
-              3
-            </div>
-            <h3 className="text-xl font-bold mb-3 mt-4">Build Momentum</h3>
-            <p className="text-white/70">
-              Earn points, track streaks, and watch your daily execution habit strengthen over time.
-            </p>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <div className="card bg-gradient-to-br from-purple-500/20 to-blue-500/20 border-purple-500/30">
-          <h2 className="text-4xl font-bold mb-4">Ready to Build Your Habit?</h2>
-          <p className="text-xl text-white/70 mb-8">
+      {/* CTA */}
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+        <div className="led-cell p-10" style={{ borderColor: "rgba(245, 158, 11, 0.35)" }}>
+          <h2 className="led-headline text-3xl font-bold mb-3">Ready to Build Your Habit?</h2>
+          <p className="led-mono text-sm mb-8" style={{ color: "var(--led-text-dim)" }}>
             Join StandUp today and start your daily execution journey.
           </p>
-          <Link href="/signup" className="btn btn-primary text-lg px-8 py-4 hover-scale">
-            Get Started Free →
+          <Link href="/signup" className="led-switch led-switch-primary">
+            Get Started →
           </Link>
-          <p className="text-sm text-white/50 mt-4">No credit card required</p>
+          <p className="led-mono text-xs mt-4" style={{ color: "var(--led-text-dim)" }}>
+            No credit card required
+          </p>
         </div>
       </div>
     </div>

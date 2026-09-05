@@ -192,8 +192,8 @@ export default function ProfilePage() {
         <div
           className="mt-8 rounded-2xl p-6 text-center"
           style={{
-            background: "rgba(168, 85, 247, 0.08)",
-            border: "1px solid rgba(168, 85, 247, 0.2)",
+            background: "rgba(245, 158, 11, 0.08)",
+            border: "1px solid rgba(245, 158, 11, 0.2)",
           }}
         >
           <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
@@ -205,7 +205,7 @@ export default function ProfilePage() {
 
           <div className="mt-5 max-w-xs mx-auto">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-purple-300">
+              <span className="font-bold text-amber-300">
                 Level {levelInfo.level} · {levelInfo.name}
               </span>
               <span className="text-white/50">

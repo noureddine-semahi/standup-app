@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Sora } from "next/font/google";
+import { Space_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import RegisterSW from "@/components/RegisterSW";
 
-// Calmer, more standard productivity-tool pairing: Inter for body copy
-// (clean, highly legible), Sora for headings (a little character without
-// tipping into the neon-gaming look the rest of the theme is moving away from).
-const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
-const sora = Sora({ subsets: ["latin"], variable: "--font-heading" });
+// One monospace/LCD-adjacent voice app-wide — the seven-segment-display
+// world's typography (see .impeccable/surfaces/src-app-page-tsx.md), not a
+// "technical" costume on top of an unrelated sans pairing. 400 for body,
+// 700 for headings/emphasis.
+const ledFont = Space_Mono({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-body" });
 
 export const metadata: Metadata = {
   title: "StandUp - Daily Execution & Accountability",
@@ -38,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
+    <html lang="en" className={ledFont.variable}>
       <head>
         {/* Runs before paint so the stored theme applies immediately —
             avoids a flash of the wrong theme on load. Reads directly from

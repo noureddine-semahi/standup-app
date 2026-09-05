@@ -346,7 +346,7 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold mb-1">Personal Info</h2>
         <p className="text-sm text-white/50 mb-4">
           Completely optional — helps us personalize goals and content for you down the line. See our{" "}
-          <Link href="/privacy" className="text-purple-300 hover:text-purple-200 underline">
+          <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
             Privacy Policy
           </Link>
           .

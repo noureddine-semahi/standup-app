@@ -514,7 +514,7 @@ export default function TomorrowGoalsPage() {
             </p>
             <p className="text-sm text-white/50">
               Current priority goals: <b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
-              {priorityGoalsFilled > 3 && <span className="text-blue-400"> (+{priorityGoalsFilled - 3} extra)</span>}
+              {priorityGoalsFilled > 3 && <span className="text-emerald-400"> (+{priorityGoalsFilled - 3} extra)</span>}
             </p>
           </div>
           
@@ -525,8 +525,8 @@ export default function TomorrowGoalsPage() {
                 disabled={submitting}
                 className="btn"
                 style={{
-                  background: editMode ? "rgba(168, 85, 247, 0.3)" : undefined,
-                  borderColor: editMode ? "rgba(168, 85, 247, 0.6)" : undefined,
+                  background: editMode ? "rgba(245, 158, 11, 0.3)" : undefined,
+                  borderColor: editMode ? "rgba(245, 158, 11, 0.6)" : undefined,
                 }}
               >
                 {editMode ? "✓ Done" : "✏️ Reorder"}
@@ -714,7 +714,7 @@ export default function TomorrowGoalsPage() {
                               <div className="space-y-3">
                                 {g.created_at && (
                                   <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-xs text-white/80 font-medium">Goal created</div>
                                       <div className="text-[10px] text-white/40 mt-0.5">
@@ -726,7 +726,7 @@ export default function TomorrowGoalsPage() {
 
                                 {p >= 1 && p <= 3 && (
                                   <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-xs text-white/80 font-medium">
                                         Priority: P{p} - {opt.label}

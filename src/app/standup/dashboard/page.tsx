@@ -286,9 +286,9 @@ export default function DashboardPage() {
                   Profile, where the fuller level + achievements view lives. */}
               <Link
                 href="/standup/profile"
-                className="mt-4 inline-flex items-center gap-3 rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1.5 hover:bg-purple-500/15 transition"
+                className="mt-4 inline-flex items-center gap-3 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 hover:bg-amber-500/15 transition"
               >
-                <span className="text-xs font-bold text-purple-300">
+                <span className="text-xs font-bold text-amber-300">
                   Lv {levelInfo.level} · {levelInfo.name}
                 </span>
                 <span className="relative h-1.5 w-20 rounded-full overflow-hidden bg-white/10">
@@ -323,7 +323,7 @@ export default function DashboardPage() {
           {isNewUser && !welcomeDismissed && (
             <div
               className="mt-6 rounded-2xl p-5"
-              style={{ background: "rgba(168, 85, 247, 0.1)", border: "1px solid rgba(168, 85, 247, 0.3)" }}
+              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)" }}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>

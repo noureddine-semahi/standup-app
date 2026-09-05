@@ -44,9 +44,9 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Philosophy</h2>
+            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-4`}>Our Philosophy</h2>
 
-            <div className="mb-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
+            <div className="mb-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
                 Most productivity tools focus on checking boxes. StandUp focuses on{" "}
                 <b>awareness</b>, <b>review</b>, and <b>follow-through</b>. Completion
@@ -103,7 +103,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>Our Vision</h2>
+            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-4`}>Our Vision</h2>
             <p className="text-white/80 mb-4">
               StandUp is more than a todo list. It’s a daily operating system for
               intentional work. We believe:
@@ -123,7 +123,7 @@ export default function AboutPage() {
               with AI assistance where it genuinely helps.
             </p>
 
-            <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
+            <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
                 <span className="font-semibold text-white">North Star:</span>{" "}
                 Awareness before action. Progress begins with review.
@@ -137,7 +137,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>The Bigger Picture</h2>
+            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-6`}>The Bigger Picture</h2>
             <div className="space-y-5">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
@@ -227,7 +227,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-4`}>The Story</h2>
+            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-4`}>The Story</h2>
             <p className="text-white/80 mb-4">
               StandUp started with a familiar office ritual: the daily standup meeting. Every
               morning, the team would gather for a few minutes and each person answered the
@@ -241,7 +241,7 @@ export default function AboutPage() {
               day's standup would surface it.
             </p>
 
-            <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(168, 85, 247, 0.3)" }}>
+            <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
                 <span className="font-semibold text-white">The idea:</span> bring that same
                 daily discipline to your own goals — report on yesterday, commit to today,
@@ -256,7 +256,7 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`${cardTitleFont.className} text-2xl text-purple-300 mb-6`}>How It Works</h2>
+            <h2 className={`${cardTitleFont.className} text-2xl text-amber-300 mb-6`}>How It Works</h2>
             <div className="space-y-8">
               <div>
                 <h3 className="font-semibold text-white mb-1">Plan Tomorrow</h3>
@@ -301,15 +301,15 @@ export default function AboutPage() {
           )}
           <p className="mt-6 text-sm text-page-tertiary">
             Have questions? Check the{" "}
-            <Link href="/faq" className="text-purple-300 hover:text-purple-200 underline">
+            <Link href="/faq" className="text-amber-300 hover:text-amber-200 underline">
               FAQ
             </Link>{" "}
             or{" "}
-            <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
+            <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">
               contact us
             </Link>
             . See our{" "}
-            <Link href="/privacy" className="text-purple-300 hover:text-purple-200 underline">
+            <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
               Privacy Policy
             </Link>
             .

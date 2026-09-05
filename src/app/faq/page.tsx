@@ -73,7 +73,7 @@ const FAQS: { question: string; answer: ReactNode }[] = [
       <>
         No. First/last name, date of birth, address, phone number, and a profile photo are all
         optional fields in Settings, kept separate from your display name. See our{" "}
-        <Link href="/privacy" className="text-purple-300 hover:text-purple-200 underline">
+        <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
           Privacy Policy
         </Link>{" "}
         for how that info is used.
@@ -117,11 +117,11 @@ export default function FAQPage() {
         <div className="text-center mt-10">
           <p className="text-sm text-page-tertiary">
             Still have questions?{" "}
-            <Link href="/contact" className="text-purple-300 hover:text-purple-200 underline">
+            <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">
               Contact us
             </Link>{" "}
             or learn more{" "}
-            <Link href="/about" className="text-purple-300 hover:text-purple-200 underline">
+            <Link href="/about" className="text-amber-300 hover:text-amber-200 underline">
               About
             </Link>{" "}
             StandUp.

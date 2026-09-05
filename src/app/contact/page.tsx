@@ -19,18 +19,18 @@ export default function ContactPage() {
             <div className="text-sm text-white/60 mb-2">Reach us at</div>
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-sm sm:text-2xl font-semibold text-purple-300 hover:text-purple-200 transition"
+              className="text-sm sm:text-2xl font-semibold text-amber-300 hover:text-amber-200 transition"
               style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
             >
               {CONTACT_EMAIL}
             </a>
             <p className="mt-6 text-sm text-white/60">
               For a faster answer on how something works, check the{" "}
-              <Link href="/faq" className="text-purple-300 hover:text-purple-200 underline">
+              <Link href="/faq" className="text-amber-300 hover:text-amber-200 underline">
                 FAQ
               </Link>{" "}
               first, or read more{" "}
-              <Link href="/about" className="text-purple-300 hover:text-purple-200 underline">
+              <Link href="/about" className="text-amber-300 hover:text-amber-200 underline">
                 About
               </Link>{" "}
               StandUp.

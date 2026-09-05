@@ -856,6 +856,44 @@ export default function TodayPage() {
                           timestamp: note.created_at,
                         });
                       });
+
+                      // Backfill for goals actioned before this logging
+                      // existed: their current state (reviewed/status/
+                      // rescheduled) has no matching logged event, so it
+                      // would otherwise just vanish instead of showing up
+                      // undated the way it used to. Only fires when no real
+                      // logged event of that kind exists yet, so it never
+                      // duplicates once actions start being logged live.
+                      const hasLoggedKind = (kind: string) => notes.some((n) => n.kind === kind);
+                      const fallbackTimestamp = g.reviewed_at ?? g.created_at;
+
+                      if (g.reviewed_at && !hasLoggedKind("reviewed")) {
+                        entries.push({
+                          key: "reviewed-fallback",
+                          kind: "history",
+                          label: "Marked as reviewed",
+                          timestamp: g.reviewed_at,
+                        });
+                      }
+                      if (g.status !== "not_started" && !hasLoggedKind("status_change")) {
+                        entries.push({
+                          key: "status-fallback",
+                          kind: "history",
+                          label: `Status: ${statusLabel(g.status)}`,
+                          timestamp: fallbackTimestamp,
+                        });
+                      }
+                      if (g.rescheduled_to && !hasLoggedKind("rescheduled")) {
+                        entries.push({
+                          key: "rescheduled-fallback",
+                          kind: "history",
+                          label: `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}${
+                            g.reschedule_reason ? ` — "${g.reschedule_reason}"` : ""
+                          }`,
+                          timestamp: fallbackTimestamp,
+                        });
+                      }
+
                       entries.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
                       const expanded = timelineExpanded[g.id] ?? true;

@@ -230,20 +230,18 @@ export default function HistoryPage() {
                     className="goal-row"
                     style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
                   >
-                    <div className="flex items-start flex-wrap gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-white/50 mb-1">
-                          {g.plan_date ? formatDateDisplay(g.plan_date) : "Unknown date"}
-                        </div>
-                        <div className="text-lg font-semibold text-white">{g.title}</div>
-                        {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
-                        <GoalTimeline
-                          entries={buildGoalTimeline(g, goalNotesMap[g.id] ?? [])}
-                          defaultExpanded={false}
-                        />
-                      </div>
+                    <div className="text-xs text-white/50 mb-1">
+                      {g.plan_date ? formatDateDisplay(g.plan_date) : "Unknown date"}
+                    </div>
+                    <div className="text-lg font-semibold text-white">{g.title}</div>
+                    {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
+                    <GoalTimeline
+                      entries={buildGoalTimeline(g, goalNotesMap[g.id] ?? [])}
+                      defaultExpanded={false}
+                    />
+                    <div className="mt-3">
                       <div
-                        className="status-chip flex-shrink-0"
+                        className="status-chip"
                         style={{
                           "--chip-bg": statusChipColors(status).bg,
                           "--chip-border": statusChipColors(status).border,

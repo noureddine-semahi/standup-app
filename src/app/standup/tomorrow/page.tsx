@@ -28,6 +28,8 @@ import {
   type DraftGoal,
 } from "@/lib/goalLogic";
 import { getPriorityMeta } from "@/lib/priorityStyles";
+import GoalTimeline from "@/components/GoalTimeline";
+import { buildGoalTimeline } from "@/lib/goalTimeline";
 
 
 export default function TomorrowGoalsPage() {
@@ -54,10 +56,10 @@ export default function TomorrowGoalsPage() {
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
 
-  // Notes / History tabs (same as Today page) — defaults to "notes"
-  const [activeTab, setActiveTab] = useState<Record<string, "notes" | "history">>({});
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
+  // Per-goal "Add Note" input, toggled from next to the priority/remove controls.
+  const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -193,7 +195,7 @@ export default function TomorrowGoalsPage() {
     if (goalIds.length > 0) {
       const { data: notes } = await supabase
         .from("goal_notes")
-        .select("goal_id, note, created_at")
+        .select("goal_id, note, created_at, kind")
         .in("goal_id", goalIds)
         .order("created_at", { ascending: false });
       
@@ -639,126 +641,42 @@ export default function TomorrowGoalsPage() {
                       )}
                     </div>
 
-                    {/* Notes / History — tabbed, ~45%, same as Today page */}
+                    {/* History & notes — merged chronological timeline, same
+                        component as Review Today and the Calendar archive
+                        view, instead of separate Notes/History tabs. */}
                     <div style={{ flex: "1 1 40%", minWidth: "220px" }}>
-                      {(() => {
-                        const tab = activeTab[g.id ?? ""] ?? "notes";
-                        const notes = g.previous_actions ?? [];
-                        return (
-                          <>
-                            <div className="goal-tabs mb-3">
+                      {!g.id ? (
+                        <div className="text-xs text-white/30 italic">Save this goal to add notes</div>
+                      ) : (
+                        <>
+                          <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
+                          {showNoteInput[g.id] && (
+                            <div className="mt-3 flex gap-2">
+                              <input
+                                type="text"
+                                value={noteDraft[g.id] ?? ""}
+                                onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id as string]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") submitNote(g.id as string, idx);
+                                }}
+                                placeholder="Add a note..."
+                                disabled={!!savingNote[g.id]}
+                                autoFocus
+                                className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                              />
                               <button
                                 type="button"
-                                className="goal-tab"
-                                data-active={tab === "notes"}
-                                onClick={() => g.id && setActiveTab((prev) => ({ ...prev, [g.id as string]: "notes" }))}
+                                onClick={() => submitNote(g.id as string, idx)}
+                                disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
+                                className="btn"
+                                style={{ padding: "0.375rem 1rem" }}
                               >
-                                Notes{notes.length > 0 ? ` (${notes.length})` : ""}
-                              </button>
-                              <button
-                                type="button"
-                                className="goal-tab"
-                                data-active={tab === "history"}
-                                onClick={() => g.id && setActiveTab((prev) => ({ ...prev, [g.id as string]: "history" }))}
-                              >
-                                History
+                                {savingNote[g.id] ? "Adding…" : "Add"}
                               </button>
                             </div>
-
-                            {!g.id ? (
-                              <div className="text-xs text-white/30 italic">Save this goal to add notes</div>
-                            ) : tab === "notes" ? (
-                              <div>
-                                {notes.length > 0 ? (
-                                  <div className="space-y-3 mb-3">
-                                    {notes.map((note: any, i: number) => (
-                                      <div key={note.id ?? i} className="flex items-start gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0"></div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm text-white/80">💬 {note.note}</div>
-                                          <div className="text-[10px] text-white/40 mt-0.5">
-                                            {formatDateTimeDisplay(note.created_at)}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-white/40 italic mb-3">No notes yet</div>
-                                )}
-
-                                <div className="flex gap-2">
-                                  <input
-                                    type="text"
-                                    value={noteDraft[g.id] ?? ""}
-                                    onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id as string]: e.target.value }))}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") submitNote(g.id as string, idx);
-                                    }}
-                                    placeholder="Add a note..."
-                                    disabled={!!savingNote[g.id]}
-                                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => submitNote(g.id as string, idx)}
-                                    disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
-                                    className="btn"
-                                    style={{ padding: "0.375rem 1rem" }}
-                                  >
-                                    {savingNote[g.id] ? "Adding…" : "Add"}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {g.created_at && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">Goal created</div>
-                                      <div className="text-[10px] text-white/40 mt-0.5">
-                                        {formatDateTimeDisplay(g.created_at)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {p >= 1 && p <= 3 && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">
-                                        Priority: P{p} - {opt.label}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {g.rescheduled_from_date && (
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 flex-shrink-0"></div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs text-white/80 font-medium">
-                                        Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
-                                      </div>
-                                      {g.reschedule_reason && (
-                                        <div className="text-xs text-white/60 italic mt-1">
-                                          "{g.reschedule_reason}"
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {!g.created_at && !g.rescheduled_from_date && (
-                                  <div className="text-xs text-white/40 italic">Nothing recorded yet.</div>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
+                          )}
+                        </>
+                      )}
                     </div>
 
                     {/* Priority + Remove — grouped together instead of two separate cramped columns.
@@ -804,6 +722,18 @@ export default function TomorrowGoalsPage() {
                           title={(p >= 1 && p <= 3) ? "Clear priority goal" : "Remove goal"}
                         >
                           ✕
+                        </button>
+                      )}
+
+                      {g.id && (
+                        <button
+                          type="button"
+                          onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id as string]: !prev[g.id as string] }))}
+                          className="actions-toggle"
+                          data-open={!!showNoteInput[g.id]}
+                          title="Add note"
+                        >
+                          💬
                         </button>
                       )}
                     </div>

@@ -819,37 +819,6 @@ select:focus {
   transform: none;
 }
 
-/* ✨ Goal-row tabs (Notes / History) — same bordered-button fashion as the
-   rest of the app's buttons (.btn / .action-btn), not an underline tab strip. */
-.goal-tabs {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.goal-tab {
-  padding: 0.35rem 0.85rem;
-  border-radius: 8px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
-  transition: all 0.2s ease;
-}
-
-.goal-tab:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.goal-tab[data-active="true"] {
-  background: rgba(245, 158, 11, 0.22);
-  border-color: rgba(245, 158, 11, 0.55);
-  color: #d8b4fe;
-}
-
 /* ✨ Status chip — same fashion as .priority-select (height, radius, weight),
    fixed width so every status reads at the same length, with a color distinct
    per status. */

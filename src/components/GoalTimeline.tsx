@@ -21,7 +21,7 @@ export default function GoalTimeline({
         onClick={() => setExpanded((v) => !v)}
         className="text-xs text-white/50 hover:text-white/80 transition"
       >
-        {expanded ? "▾" : "▸"} History &amp; notes{entries.length > 0 ? ` (${entries.length})` : ""}
+        {expanded ? "▾" : "▸"} Actions &amp; notes{entries.length > 0 ? ` (${entries.length})` : ""}
       </button>
 
       {expanded && (
@@ -40,7 +40,7 @@ export default function GoalTimeline({
                     color: e.kind === "note" ? "#67e8f9" : "rgba(255, 255, 255, 0.5)",
                   }}
                 >
-                  {e.kind === "note" ? "Note" : "History"}
+                  {e.kind === "note" ? "Note" : "Action"}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white/70">{e.label}</div>

@@ -5,12 +5,13 @@ import { createPortal } from "react-dom";
 import { toISODate, addDays, rescheduleGoalToDate, type Goal } from "@/lib/supabase/db";
 
 type RescheduleModalProps = {
-  goal: Goal;
+  goals: Goal[];
   onClose: () => void;
   onSuccess: () => void;
 };
 
-export default function RescheduleModal({ goal, onClose, onSuccess }: RescheduleModalProps) {
+export default function RescheduleModal({ goals, onClose, onSuccess }: RescheduleModalProps) {
+  const isBulk = goals.length > 1;
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [reason, setReason] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -53,11 +54,17 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
     setError(null);
 
     try {
-      await rescheduleGoalToDate({
-        goal,
-        toDateISO: selectedDate,
-        reason: reason.trim() || undefined,
-      });
+      // Sequential, not Promise.all — each call inserts into
+      // goal_reschedules and (when the target is tomorrow) can trigger
+      // materialization, so keeping these one-at-a-time avoids racing
+      // that against itself for a multi-goal day.
+      for (const goal of goals) {
+        await rescheduleGoalToDate({
+          goal,
+          toDateISO: selectedDate,
+          reason: reason.trim() || undefined,
+        });
+      }
 
       onSuccess();
       onClose();
@@ -102,8 +109,10 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
       >
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h2 className="text-xl font-bold">Reschedule Goal</h2>
-            <p className="mt-1 text-sm text-white/70">Move this goal to a future date</p>
+            <h2 className="text-xl font-bold">{isBulk ? "Re-attempt Whole Day" : "Reschedule Goal"}</h2>
+            <p className="mt-1 text-sm text-white/70">
+              {isBulk ? `Move all ${goals.length} goals to a future date` : "Move this goal to a future date"}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -124,8 +133,18 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
         </div>
 
         <div className="rounded-lg border border-white/10 bg-white/5 p-3 mb-4">
-          <div className="text-sm text-white/60">Goal:</div>
-          <div className="mt-1 font-medium">{goal.title}</div>
+          <div className="text-sm text-white/60">{isBulk ? `${goals.length} goals:` : "Goal:"}</div>
+          {isBulk ? (
+            <ul className="mt-1 space-y-0.5">
+              {goals.map((g) => (
+                <li key={g.id} className="font-medium text-sm truncate">
+                  {g.title}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-1 font-medium">{goals[0]?.title}</div>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -174,7 +193,7 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
               disabled={saving || !selectedDate}
               className="btn btn-primary flex-1"
             >
-              {saving ? "Rescheduling..." : "Reschedule Goal"}
+              {saving ? "Rescheduling..." : isBulk ? "Re-attempt Day" : "Reschedule Goal"}
             </button>
             <button
               onClick={onClose}
@@ -187,7 +206,9 @@ export default function RescheduleModal({ goal, onClose, onSuccess }: Reschedule
         </div>
 
         <div className="mt-4 text-xs text-white/50">
-          The goal will be marked as "postponed" and will appear automatically on the selected date.
+          {isBulk
+            ? `All ${goals.length} goals will be marked as "postponed" and will appear automatically on the selected date.`
+            : 'The goal will be marked as "postponed" and will appear automatically on the selected date.'}
         </div>
       </div>
     </div>

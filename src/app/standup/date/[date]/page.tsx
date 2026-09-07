@@ -51,6 +51,7 @@ export default function DynamicDatePage() {
 
   const [loading, setLoading] = useState(true);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
+  const [reschedulingWholeDay, setReschedulingWholeDay] = useState(false);
   // Submitting (finalizing) a plan is only ever allowed the day before that
   // plan's date, and only once today's own plan has been reviewed — this
   // mirrors the Plan Tomorrow page's discipline loop. Drafting/saving is
@@ -517,6 +518,12 @@ export default function DynamicDatePage() {
   if (isPastDate) {
     const pastGoals = goals.filter((g) => (g.title ?? "").trim().length > 0);
     const isMissed = planStatus === "submitted" && !planReviewedAt && !planClearedAt;
+    // Whole-day re-attempt only offered when nothing on this day has been
+    // touched at all — if even one goal was already completed or
+    // individually rescheduled, a blanket "move everything" would carry
+    // that one along too, which isn't what re-attempting a missed day means.
+    const allUntouched =
+      pastGoals.length > 0 && pastGoals.every((g) => (g.status ?? "not_started") === "not_started");
 
     return (
       <div className="card card-highlight">
@@ -537,7 +544,12 @@ export default function DynamicDatePage() {
               </p>
             )}
           </div>
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-row flex-wrap gap-2">
+            {isMissed && allUntouched && (
+              <button className="btn" onClick={() => setReschedulingWholeDay(true)}>
+                🔁 Re-attempt whole day
+              </button>
+            )}
             {isMissed && (
               <button className="btn" onClick={handleClearDay} disabled={clearingDay}>
                 {clearingDay ? "Clearing…" : "Clear this day"}
@@ -609,12 +621,16 @@ export default function DynamicDatePage() {
           </div>
         )}
 
-        {rescheduleGoal && (
+        {(rescheduleGoal || reschedulingWholeDay) && (
           <RescheduleModal
-            goal={rescheduleGoal}
-            onClose={() => setRescheduleGoal(null)}
+            goals={reschedulingWholeDay ? (pastGoals as Goal[]) : rescheduleGoal ? [rescheduleGoal] : []}
+            onClose={() => {
+              setRescheduleGoal(null);
+              setReschedulingWholeDay(false);
+            }}
             onSuccess={() => {
               setRescheduleGoal(null);
+              setReschedulingWholeDay(false);
               refresh({ silent: true });
             }}
           />

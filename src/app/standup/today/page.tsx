@@ -1035,7 +1035,7 @@ export default function TodayPage() {
 
       {rescheduleGoal && (
         <RescheduleModal
-          goal={rescheduleGoal}
+          goals={[rescheduleGoal]}
           onClose={() => setRescheduleGoal(null)}
           onSuccess={() => {
             setMsg("Goal rescheduled successfully ✓");

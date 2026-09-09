@@ -370,8 +370,8 @@ export default function DashboardPage() {
                 Once a day passes it can't be reviewed retroactively, but you can still re-attempt
                 any goals still worth pursuing by rescheduling them forward from Calendar.
               </p>
-              <Link href="/standup/calendar" className="btn mt-4 inline-block">
-                View Calendar →
+              <Link href="/standup/calendar?unreviewed=1" className="btn mt-4 inline-block">
+                View unreviewed days →
               </Link>
             </div>
           )}

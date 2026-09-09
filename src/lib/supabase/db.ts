@@ -1383,6 +1383,11 @@ export type OverdueSummary = {
   oldestDate: string | null;
 };
 
+export type OverdueDay = {
+  date: string;
+  goalCount: number;
+};
+
 /**
  * Past days that were planned (submitted) but never reviewed/closed. These
  * can't be reviewed retroactively — /standup/date/[date] is view-only for
@@ -1390,13 +1395,13 @@ export type OverdueSummary = {
  * recourse for anything still worth pursuing is re-attempting (rescheduling)
  * individual goals forward from that day's view-only page.
  *
- * A day drops out of this count once every one of its goals has either been
+ * A day drops out of this list once every one of its goals has either been
  * reviewed or re-attempted (rescheduled forward, which sets status to
  * "postponed" but never touches reviewed_at), or once it's been manually
  * cleared via the "Clear this day" button — matches the Calendar page's
  * "Missed" vs "Cleared" distinction, so the two stay consistent.
  */
-export async function getOverdueSummary(todayISO: string): Promise<OverdueSummary> {
+export async function getOverdueDays(todayISO: string): Promise<OverdueDay[]> {
   const userId = await getCurrentUserId();
 
   const { data: candidatePlans, error: plansErr } = await supabase
@@ -1411,7 +1416,7 @@ export async function getOverdueSummary(todayISO: string): Promise<OverdueSummar
 
   if (plansErr) throw plansErr;
   const plans = candidatePlans ?? [];
-  if (plans.length === 0) return { count: 0, oldestDate: null };
+  if (plans.length === 0) return [];
 
   const { data: goalsData, error: goalsErr } = await supabase
     .from("goals")
@@ -1424,15 +1429,23 @@ export async function getOverdueSummary(todayISO: string): Promise<OverdueSummar
   if (goalsErr) throw goalsErr;
   const goals = goalsData ?? [];
 
-  const stillOverdue = plans.filter((plan) => {
-    const planGoals = goals.filter((g) => g.plan_id === plan.id);
-    if (planGoals.length === 0) return true;
-    return !planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at);
-  });
+  return plans
+    .filter((plan) => {
+      const planGoals = goals.filter((g) => g.plan_id === plan.id);
+      if (planGoals.length === 0) return true;
+      return !planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at);
+    })
+    .map((plan) => ({
+      date: plan.plan_date as string,
+      goalCount: goals.filter((g) => g.plan_id === plan.id).length,
+    }));
+}
 
+export async function getOverdueSummary(todayISO: string): Promise<OverdueSummary> {
+  const days = await getOverdueDays(todayISO);
   return {
-    count: stillOverdue.length,
-    oldestDate: stillOverdue.length > 0 ? (stillOverdue[0].plan_date as string) : null,
+    count: days.length,
+    oldestDate: days.length > 0 ? days[0].date : null,
   };
 }
 

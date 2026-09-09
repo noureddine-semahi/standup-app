@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { toISODate, formatDateDisplay, getCurrentUserId } from "@/lib/supabase/db";
+import { toISODate, formatDateDisplay, getCurrentUserId, getOverdueDays, type OverdueDay } from "@/lib/supabase/db";
 
 type DayData = {
   date: string;
@@ -74,8 +75,17 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [dayData, setDayData] = useState<Record<string, DayData>>({});
+  const [overdueDays, setOverdueDays] = useState<OverdueDay[]>([]);
+  const searchParams = useSearchParams();
+  const [showOverdueList, setShowOverdueList] = useState(() => searchParams.get("unreviewed") === "1");
 
   const todayISO = useMemo(() => toISODate(new Date()), []);
+
+  useEffect(() => {
+    getOverdueDays(todayISO)
+      .then(setOverdueDays)
+      .catch((error) => console.error("Error loading unreviewed days:", error));
+  }, [todayISO]);
 
   const monthStart = useMemo(() => {
     return new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -195,8 +205,43 @@ export default function CalendarPage() {
             <button onClick={nextMonth} className="btn btn-ghost">
               Next →
             </button>
+            {overdueDays.length > 0 && (
+              <button
+                onClick={() => setShowOverdueList((v) => !v)}
+                className="btn"
+                style={{ background: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.4)" }}
+              >
+                ⚠️ {overdueDays.length} unreviewed {showOverdueList ? "▴" : "▾"}
+              </button>
+            )}
           </div>
         </div>
+
+        {showOverdueList && overdueDays.length > 0 && (
+          <div
+            className="mb-6 rounded-2xl p-4"
+            style={{ background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.3)" }}
+          >
+            <div className="text-sm font-semibold text-red-300 mb-3">
+              Missed days — never reviewed or fully re-attempted
+            </div>
+            <div className="flex flex-col gap-2">
+              {overdueDays.map((day) => (
+                <Link
+                  key={day.date}
+                  href={`/standup/date/${day.date}`}
+                  className="flex items-center justify-between rounded-xl px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                  style={{ border: "1px solid rgba(239, 68, 68, 0.25)" }}
+                >
+                  <span className="font-medium text-white/90">{formatDateDisplay(day.date)}</span>
+                  <span className="text-white/60">
+                    {day.goalCount} goal{day.goalCount === 1 ? "" : "s"} →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="text-center text-xl font-semibold mb-6">{monthName}</div>
 

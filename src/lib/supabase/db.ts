@@ -213,6 +213,24 @@ export async function updateThemePreference(theme: Theme) {
 export async function deleteAccount() {
   const userId = await getCurrentUserId();
 
+  // Uploaded files live in Supabase Storage, not Postgres — the cascade
+  // delete on `goals` below removes goal_attachments' DB rows but never the
+  // underlying objects, so those must be cleaned up separately while we
+  // still know which paths were ours.
+  try {
+    const { data: attachments } = await supabase
+      .from("goal_attachments")
+      .select("storage_path")
+      .eq("user_id", userId);
+    const paths = [...new Set((attachments ?? []).map((a) => a.storage_path as string))];
+    if (paths.length > 0) {
+      await supabase.storage.from(ATTACHMENT_BUCKET).remove(paths);
+    }
+  } catch {
+    // Non-fatal — worst case is an orphaned file rather than a failed
+    // account deletion; the DB rows are gone either way once goals go.
+  }
+
   const { error: goalsErr } = await supabase.from("goals").delete().eq("user_id", userId);
   if (goalsErr) throw goalsErr;
 
@@ -316,7 +334,14 @@ export async function adminSetRole(targetUserId: string, role: AdminRole) {
   if (error) throw error;
 }
 
-/** Wipes a member's app data (same scope as deleteAccount) without touching their login. */
+/**
+ * Wipes a member's app data (same scope as deleteAccount) without touching
+ * their login. KNOWN GAP: unlike deleteAccount, this runs as a server-side
+ * SQL RPC and has no way to also call the Storage API for another user's
+ * files — any goal_attachments objects that member uploaded are not
+ * confirmed to be cleaned up here. Verify the live RPC's behavior before
+ * relying on this for a real data-wipe request.
+ */
 export async function adminWipeMemberData(targetUserId: string) {
   const { error } = await supabase.rpc("admin_wipe_member_data", { p_user_id: targetUserId });
   if (error) throw error;

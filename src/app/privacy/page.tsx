@@ -15,9 +15,10 @@ export default function PrivacyPage() {
             <p className="text-sm text-white/70">
               An email and password for your account (handled by our authentication provider,
               Supabase). Everything you enter to use StandUp itself — goals, priorities, statuses,
-              notes, reschedules, and your points/streak history. And, only if you choose to fill
-              them in under Settings, optional personal info: first/last name, date of birth,
-              address, phone number, and a profile photo.
+              notes, checklists, reschedules, and your points/streak history. Any files you
+              choose to attach to a goal (receipts, documents — images or PDF, up to 5MB). And,
+              only if you choose to fill them in under Settings, optional personal info:
+              first/last name, date of birth, address, phone number, and a profile photo.
             </p>
           </section>
 
@@ -57,9 +58,12 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-white mb-2">Where it's stored</h2>
             <p className="text-sm text-white/70">
               In a Postgres database via Supabase, protected by row-level security — access is
-              restricted so your data is only readable by your own account. A small amount of
-              on-device storage (your browser's local storage) remembers preferences like your
-              theme choice, entirely on your device.
+              restricted so your data is only readable by your own account. Files you attach to
+              a goal are kept in Supabase Storage under the same restriction, and are only ever
+              viewed through a short-lived link generated for you at the moment you open one —
+              never a public, permanently-guessable URL. A small amount of on-device storage
+              (your browser's local storage) remembers preferences like your theme choice,
+              entirely on your device.
             </p>
           </section>
 

@@ -88,7 +88,7 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "Can I delete my account?",
     answer:
-      "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, and reschedule history, and resets your points to zero.",
+      "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, checklists, attached files, and reschedule history, and resets your points to zero.",
   },
 ];
 

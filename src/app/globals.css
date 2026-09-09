@@ -721,6 +721,64 @@ select:focus {
   opacity: 0.6;
 }
 
+/* Collapsed completed/canceled goal — a compact row with a large diagonal
+   status stamp over it, in place of the full card. --done-color/-border/-bg
+   come from statusChipColors() so the stamp matches the status chip's
+   existing per-status color instead of introducing a new palette. */
+.goal-row-done-collapsed {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  min-height: 60px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  overflow: hidden;
+}
+
+.goal-row-done-collapsed:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.goal-done-banner {
+  position: absolute;
+  top: 50%;
+  right: 1.25rem;
+  transform: translateY(-50%) rotate(-6deg);
+  padding: 0.4rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 900;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--done-color);
+  background: var(--done-bg);
+  border: 2px solid var(--done-border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.goal-done-collapse-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.9rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  z-index: 3;
+}
+
+.goal-done-collapse-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.12);
+}
+
 /* ✨ Goal-completion celebration — a brief emerald pulse on the row plus a
    small checkmark badge that pops in and fades out. Purely decorative,
    auto-clears itself (see today/page.tsx's celebratingGoalIds). */

@@ -1,5 +1,5 @@
 // src/lib/supabase/client.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient, processLock } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -12,4 +12,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Default (navigatorLock) coordinates token refreshes across tabs via
+    // the Web Locks API, but throws "signal is aborted without reason" when
+    // that lock gets stuck or contended — easy to hit with several tabs of
+    // the app open at once. processLock is in-memory only (no cross-tab
+    // coordination) but can't get stuck this way.
+    lock: processLock,
+  },
+});

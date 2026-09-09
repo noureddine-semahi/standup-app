@@ -72,6 +72,17 @@ export type ChecklistItem = {
   created_at: string;
 };
 
+export type GoalAttachment = {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+};
+
 export type Goal = {
   id: string;
   user_id: string;
@@ -507,6 +518,31 @@ async function materializeReschedules(planId: string, planDateISO: string) {
         if (itemsInsErr) throw itemsInsErr;
       }
 
+      // Same carry-forward for file attachments — points the new goal's row
+      // at the SAME storage object rather than re-uploading/duplicating the
+      // file, since the goal_attachments storage path is keyed by user id,
+      // not goal id (see the migration's comment on why).
+      const { data: priorAttachments, error: attachSelErr } = await supabase
+        .from("goal_attachments")
+        .select("storage_path, file_name, mime_type, size_bytes")
+        .eq("goal_id", item.from_goal_id);
+
+      if (attachSelErr) throw attachSelErr;
+
+      if (priorAttachments && priorAttachments.length > 0) {
+        const { error: attachInsErr } = await supabase.from("goal_attachments").insert(
+          priorAttachments.map((a) => ({
+            user_id: userId,
+            goal_id: inserted.id,
+            storage_path: a.storage_path,
+            file_name: a.file_name,
+            mime_type: a.mime_type,
+            size_bytes: a.size_bytes,
+          }))
+        );
+        if (attachInsErr) throw attachInsErr;
+      }
+
       // Insert (never update/delete) a "materialized" counterpart row so the
       // target day's goal can show its "Rescheduled from ..." origin — the
       // UI looks this up by materialized_goal_id — and so the check above
@@ -784,6 +820,104 @@ export async function toggleChecklistItem(itemId: string, isChecked: boolean) {
 export async function deleteChecklistItem(itemId: string) {
   const { error } = await supabase.from("goal_checklist_items").delete().eq("id", itemId);
   if (error) throw error;
+}
+
+const ATTACHMENT_BUCKET = "goal-attachments";
+export const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+export const ATTACHMENT_ALLOWED_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/heic",
+  "application/pdf",
+];
+
+/** A goal's optional file attachments (receipts, documents). Kept out of the notes/timeline log for the same reason checklist items are. Uploaded to a private bucket — read access always goes through a short-lived signed URL (getAttachmentUrl), never a plain public link. */
+export async function getAttachmentsForGoals(goalIds: string[]): Promise<Record<string, GoalAttachment[]>> {
+  if (goalIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("goal_attachments")
+    .select("*")
+    .in("goal_id", goalIds)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  const map: Record<string, GoalAttachment[]> = {};
+  (data ?? []).forEach((row) => {
+    (map[row.goal_id] ??= []).push(row as GoalAttachment);
+  });
+  return map;
+}
+
+export async function uploadGoalAttachment(goalId: string, file: File): Promise<GoalAttachment> {
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    throw new Error(`File too large — max ${Math.round(ATTACHMENT_MAX_BYTES / (1024 * 1024))}MB.`);
+  }
+  if (!ATTACHMENT_ALLOWED_TYPES.includes(file.type)) {
+    throw new Error("Only images and PDFs are supported.");
+  }
+
+  const userId = await getCurrentUserId();
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
+  const storagePath = `${userId}/${crypto.randomUUID()}${ext}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .upload(storagePath, file, { contentType: file.type });
+  if (uploadErr) throw uploadErr;
+
+  const { data, error } = await supabase
+    .from("goal_attachments")
+    .insert({
+      user_id: userId,
+      goal_id: goalId,
+      storage_path: storagePath,
+      file_name: file.name,
+      mime_type: file.type,
+      size_bytes: file.size,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    // Row insert failed — clean up the object we just uploaded so it doesn't
+    // become an orphaned file the user can never see or remove.
+    await supabase.storage.from(ATTACHMENT_BUCKET).remove([storagePath]);
+    throw error;
+  }
+
+  return data as GoalAttachment;
+}
+
+/** Short-lived (5 min) signed URL — the bucket is private, so this is the only way to view or download a file. */
+export async function getAttachmentUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .createSignedUrl(storagePath, 60 * 5);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function deleteGoalAttachment(attachmentId: string, storagePath: string) {
+  const { error: delErr } = await supabase.from("goal_attachments").delete().eq("id", attachmentId);
+  if (delErr) throw delErr;
+
+  // Only remove the underlying file once nothing else still references it —
+  // a rescheduled goal's attachment row points at the same storage object as
+  // its original (see materializeReschedules), so deleting one shouldn't
+  // pull the file out from under the other.
+  const { data: stillReferenced, error: checkErr } = await supabase
+    .from("goal_attachments")
+    .select("id")
+    .eq("storage_path", storagePath)
+    .limit(1);
+
+  if (checkErr) return; // non-fatal — the row is gone either way; skip storage cleanup
+  if (!stillReferenced || stillReferenced.length === 0) {
+    await supabase.storage.from(ATTACHMENT_BUCKET).remove([storagePath]);
+  }
 }
 
 export type GoalEventKind = "status_change" | "priority_change" | "reviewed" | "rescheduled";

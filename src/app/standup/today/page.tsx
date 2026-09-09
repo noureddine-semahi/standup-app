@@ -5,6 +5,7 @@ import Link from "next/link";
 import RescheduleModal from "@/components/RescheduleModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
+import GoalAttachments from "@/components/GoalAttachments";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -13,6 +14,7 @@ import {
   awardClosurePoints,
   computeClosurePoints,
   enforceSingleP1,
+  getAttachmentsForGoals,
   getChecklistItemsForGoals,
   getPlanWithGoals,
   getStreak,
@@ -28,6 +30,7 @@ import {
   type ChecklistItem,
   type DailyPlan,
   type Goal,
+  type GoalAttachment,
   type GoalStatus,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
@@ -124,6 +127,7 @@ export default function TodayPage() {
   const [goalNotes, setGoalNotes] = useState<Record<string, any[]>>({});
   const [notesFetched, setNotesFetched] = useState<Record<string, boolean>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
+  const [attachments, setAttachments] = useState<Record<string, GoalAttachment[]>>({});
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
 
@@ -269,6 +273,7 @@ export default function TodayPage() {
         });
 
         setChecklistItems(await getChecklistItemsForGoals(goalIds));
+        setAttachments(await getAttachmentsForGoals(goalIds));
       }
 
       if (mySeq !== refreshSeqRef.current) return;
@@ -839,6 +844,15 @@ export default function TodayPage() {
                       items={checklistItems[g.id] ?? []}
                       onItemsChange={(items) =>
                         setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
+                      }
+                      readOnly={dayClosed}
+                    />
+
+                    <GoalAttachments
+                      goalId={g.id}
+                      items={attachments[g.id] ?? []}
+                      onItemsChange={(items) =>
+                        setAttachments((prev) => ({ ...prev, [g.id]: items }))
                       }
                       readOnly={dayClosed}
                     />

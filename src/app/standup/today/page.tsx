@@ -117,6 +117,10 @@ export default function TodayPage() {
   // Goal ids currently showing the "just completed" celebration animation —
   // transient, cleared automatically after the animation finishes.
   const [celebratingGoalIds, setCelebratingGoalIds] = useState<Set<string>>(new Set());
+  // Completed/canceled goals collapse under a status banner by default to
+  // keep a reviewed list scannable — this tracks which ones have been
+  // manually expanded back open (e.g. to re-read notes or change status).
+  const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   const [reopening, setReopening] = useState(false);
@@ -173,6 +177,15 @@ export default function TodayPage() {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
       next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleExpandedDone(id: string) {
+    setExpandedDoneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -815,6 +828,50 @@ export default function TodayPage() {
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
             const isCelebrating = celebratingGoalIds.has(g.id);
+            const isDone = g.status === "completed" || g.status === "canceled";
+            const isCollapsed = isDone && !expandedDoneIds.has(g.id);
+            const doneColors = statusChipColors(g.status);
+
+            if (isCollapsed) {
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => toggleExpandedDone(g.id)}
+                  className="goal-row goal-row-done-collapsed"
+                  style={
+                    {
+                      "--p-color": getPriorityMeta(p).color,
+                      "--done-color": doneColors.color,
+                      "--done-border": doneColors.border,
+                      "--done-bg": doneColors.bg,
+                      position: "relative",
+                    } as React.CSSProperties
+                  }
+                  title="Click to expand"
+                >
+                  <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
+                    <div
+                      className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        background: "rgba(255, 255, 255, 0.06)",
+                        border: "1px solid rgba(255, 255, 255, 0.14)",
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
+                      {g.title}
+                    </div>
+                  </div>
+                  <div className="goal-done-banner">
+                    {statusIcon(g.status)} {statusLabel(g.status)}
+                  </div>
+                </button>
+              );
+            }
 
             return (
               <div
@@ -824,6 +881,16 @@ export default function TodayPage() {
                 style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >
                 {isCelebrating && <div className="goal-complete-badge">✓</div>}
+                {isDone && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedDone(g.id)}
+                    className="goal-done-collapse-btn"
+                    title="Collapse"
+                  >
+                    ▾ Collapse
+                  </button>
+                )}
                 <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
                   {/* Number badge */}
                   <div

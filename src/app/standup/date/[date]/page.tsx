@@ -241,8 +241,18 @@ export default function DynamicDatePage() {
         notesMap[note.goal_id].push(note);
       });
       setGoalComments(notesMap);
-      setChecklistItems(await getChecklistItemsForGoals(goalIds));
-      setAttachments(await getAttachmentsForGoals(goalIds));
+      // Isolated from the goals fetch below: a missing/misconfigured
+      // table here shouldn't take down the whole goals list.
+      try {
+        setChecklistItems(await getChecklistItemsForGoals(goalIds));
+      } catch (e) {
+        console.error("Failed to load checklist items", e);
+      }
+      try {
+        setAttachments(await getAttachmentsForGoals(goalIds));
+      } catch (e) {
+        console.error("Failed to load attachments", e);
+      }
     }
 
     const goalsWithData = goalsWithOrigin.map((g) => ({

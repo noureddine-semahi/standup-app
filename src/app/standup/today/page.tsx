@@ -272,8 +272,18 @@ export default function TodayPage() {
           return next;
         });
 
-        setChecklistItems(await getChecklistItemsForGoals(goalIds));
-        setAttachments(await getAttachmentsForGoals(goalIds));
+        // Isolated from the goals fetch above: a missing/misconfigured
+        // table here shouldn't take down the whole goals list.
+        try {
+          setChecklistItems(await getChecklistItemsForGoals(goalIds));
+        } catch (e) {
+          console.error("Failed to load checklist items", e);
+        }
+        try {
+          setAttachments(await getAttachmentsForGoals(goalIds));
+        } catch (e) {
+          console.error("Failed to load attachments", e);
+        }
       }
 
       if (mySeq !== refreshSeqRef.current) return;

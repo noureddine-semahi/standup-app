@@ -105,6 +105,16 @@ export type Goal = {
   previous_actions?: GoalNote[];
 };
 
+/** An undated goal in the backlog — not yet attached to any daily_plans row. Promoted to a real Goal via promoteBacklogGoal() when a day opens up for it. */
+export type BacklogGoal = {
+  id: string;
+  user_id: string;
+  title: string;
+  details: string | null;
+  priority: number;
+  created_at: string;
+};
+
 export function toISODate(d: Date) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -238,6 +248,13 @@ export async function deleteAccount() {
     await supabase.from("goal_reschedules").delete().eq("user_id", userId);
   } catch {
     // No client-facing delete policy is expected for this table — ignore.
+  }
+
+  try {
+    await supabase.from("goal_backlog").delete().eq("user_id", userId);
+  } catch {
+    // Backlog items aren't reachable via the goals cascade above (they're
+    // never attached to a plan) — clear them explicitly, non-fatally.
   }
 
   const { error: plansErr } = await supabase
@@ -747,6 +764,80 @@ export async function upsertGoals(
 export async function deleteGoal(goalId: string) {
   const { error } = await supabase.from("goals").delete().eq("id", goalId);
   if (error) throw error;
+}
+
+export async function getBacklogGoals(): Promise<BacklogGoal[]> {
+  const userId = await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from("goal_backlog")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as BacklogGoal[];
+}
+
+export async function addBacklogGoal(title: string, details: string | null, priority: number): Promise<BacklogGoal> {
+  const userId = await getCurrentUserId();
+  const trimmed = title.trim();
+
+  const { data, error } = await supabase
+    .from("goal_backlog")
+    .insert({ user_id: userId, title: trimmed, details: details?.trim() || null, priority })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as BacklogGoal;
+}
+
+export async function deleteBacklogGoal(backlogId: string) {
+  const { error } = await supabase.from("goal_backlog").delete().eq("id", backlogId);
+  if (error) throw error;
+}
+
+/**
+ * Pushes a backlog item onto an actual day's plan: creates a real Goal on
+ * planDateISO (appended after that day's existing goals) and removes the
+ * backlog row. Two separate calls rather than one transaction — there's no
+ * RPC for this, and a delete that fails after a successful insert just
+ * leaves the item in both places rather than losing it, which is the safer
+ * failure mode for a promote-not-consume action.
+ */
+export async function promoteBacklogGoal(backlog: BacklogGoal, planDateISO: string): Promise<Goal> {
+  const plan = await getOrCreatePlan(planDateISO);
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("goals")
+    .select("sort_order")
+    .eq("plan_id", plan.id)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  if (existingErr) throw existingErr;
+
+  const nextSortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const userId = await getCurrentUserId();
+  const { data: created, error: insertErr } = await supabase
+    .from("goals")
+    .insert({
+      user_id: userId,
+      plan_id: plan.id,
+      title: backlog.title,
+      details: backlog.details,
+      status: "not_started",
+      sort_order: nextSortOrder,
+      priority: backlog.priority,
+    })
+    .select()
+    .single();
+  if (insertErr) throw insertErr;
+
+  await deleteBacklogGoal(backlog.id);
+
+  return created as Goal;
 }
 
 export async function submitPlan(planId: string) {

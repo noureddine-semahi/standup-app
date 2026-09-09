@@ -189,6 +189,12 @@ export default function Header() {
             Plan Tomorrow
           </Link>
           <Link
+            href="/standup/backlog"
+            className={pathname === "/standup/backlog" ? "nav-link font-semibold" : "nav-link"}
+          >
+            Backlog
+          </Link>
+          <Link
             href="/standup/calendar"
             className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
           >

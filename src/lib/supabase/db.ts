@@ -336,13 +336,28 @@ export async function adminSetRole(targetUserId: string, role: AdminRole) {
 
 /**
  * Wipes a member's app data (same scope as deleteAccount) without touching
- * their login. KNOWN GAP: unlike deleteAccount, this runs as a server-side
- * SQL RPC and has no way to also call the Storage API for another user's
- * files — any goal_attachments objects that member uploaded are not
- * confirmed to be cleaned up here. Verify the live RPC's behavior before
- * relying on this for a real data-wipe request.
+ * their login. admin_wipe_member_data() is a plain SQL RPC — its cascade
+ * delete on `goals` removes goal_attachments' DB rows but can't reach
+ * Storage, so the target's uploaded files are removed here first. This
+ * needs the requesting admin to have Storage access to another user's
+ * folder (not just their own), granted by the
+ * goal_attachments_storage_admin_* policies — see that migration.
  */
 export async function adminWipeMemberData(targetUserId: string) {
+  try {
+    const { data: files, error: listErr } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .list(targetUserId);
+    if (listErr) throw listErr;
+
+    const paths = (files ?? []).map((f) => `${targetUserId}/${f.name}`);
+    if (paths.length > 0) {
+      await supabase.storage.from(ATTACHMENT_BUCKET).remove(paths);
+    }
+  } catch {
+    // Non-fatal — worst case is an orphaned file rather than a blocked wipe.
+  }
+
   const { error } = await supabase.rpc("admin_wipe_member_data", { p_user_id: targetUserId });
   if (error) throw error;
 }

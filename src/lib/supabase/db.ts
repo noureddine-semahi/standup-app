@@ -62,6 +62,16 @@ export type GoalNote = {
   created_at: string;
 };
 
+export type ChecklistItem = {
+  id: string;
+  goal_id: string;
+  user_id: string;
+  text: string;
+  is_checked: boolean;
+  position: number;
+  created_at: string;
+};
+
 export type Goal = {
   id: string;
   user_id: string;
@@ -474,6 +484,29 @@ async function materializeReschedules(planId: string, planDateISO: string) {
         if (notesInsErr) throw notesInsErr;
       }
 
+      // Same carry-forward for checklist items — a rescheduled grocery-list
+      // goal keeps its list (and whatever was already checked off) instead
+      // of starting over on the new date.
+      const { data: priorItems, error: itemsSelErr } = await supabase
+        .from("goal_checklist_items")
+        .select("text, is_checked, position")
+        .eq("goal_id", item.from_goal_id);
+
+      if (itemsSelErr) throw itemsSelErr;
+
+      if (priorItems && priorItems.length > 0) {
+        const { error: itemsInsErr } = await supabase.from("goal_checklist_items").insert(
+          priorItems.map((it) => ({
+            user_id: userId,
+            goal_id: inserted.id,
+            text: it.text,
+            is_checked: it.is_checked,
+            position: it.position,
+          }))
+        );
+        if (itemsInsErr) throw itemsInsErr;
+      }
+
       // Insert (never update/delete) a "materialized" counterpart row so the
       // target day's goal can show its "Rescheduled from ..." origin — the
       // UI looks this up by materialized_goal_id — and so the check above
@@ -704,6 +737,52 @@ export async function addGoalNote(goalId: string, note: string) {
     kind: "note",
   });
 
+  if (error) throw error;
+}
+
+/** Sub-items within a goal (e.g. a grocery list under "Go to HEB"). Independent of the notes/timeline system — checking items off isn't logged there, since that would flood a goal's history with one entry per item. */
+export async function getChecklistItemsForGoals(goalIds: string[]): Promise<Record<string, ChecklistItem[]>> {
+  if (goalIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("goal_checklist_items")
+    .select("*")
+    .in("goal_id", goalIds)
+    .order("position", { ascending: true });
+
+  if (error) throw error;
+
+  const map: Record<string, ChecklistItem[]> = {};
+  (data ?? []).forEach((item) => {
+    (map[item.goal_id] ??= []).push(item as ChecklistItem);
+  });
+  return map;
+}
+
+export async function addChecklistItem(goalId: string, text: string, position: number): Promise<ChecklistItem> {
+  const userId = await getCurrentUserId();
+  const trimmed = text.trim();
+
+  const { data, error } = await supabase
+    .from("goal_checklist_items")
+    .insert({ user_id: userId, goal_id: goalId, text: trimmed, position })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as ChecklistItem;
+}
+
+export async function toggleChecklistItem(itemId: string, isChecked: boolean) {
+  const { error } = await supabase
+    .from("goal_checklist_items")
+    .update({ is_checked: isChecked })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function deleteChecklistItem(itemId: string) {
+  const { error } = await supabase.from("goal_checklist_items").delete().eq("id", itemId);
   if (error) throw error;
 }
 

@@ -8,6 +8,7 @@ alter table public.profiles enable row level security;
 alter table public.daily_plans enable row level security;
 alter table public.goals enable row level security;
 alter table public.goal_notes enable row level security;
+alter table public.goal_checklist_items enable row level security;
 alter table public.goal_reschedules enable row level security;
 
 -- profiles
@@ -42,6 +43,18 @@ create policy "goal_notes_select_own" on public.goal_notes
   for select using (auth.uid() = user_id);
 create policy "goal_notes_insert_own" on public.goal_notes
   for insert with check (auth.uid() = user_id);
+
+-- goal_checklist_items: unlike goal_notes, the client checks items off and
+-- deletes them (see toggleChecklistItem/deleteChecklistItem in db.ts), so
+-- this gets the full set of policies.
+create policy "goal_checklist_items_select_own" on public.goal_checklist_items
+  for select using (auth.uid() = user_id);
+create policy "goal_checklist_items_insert_own" on public.goal_checklist_items
+  for insert with check (auth.uid() = user_id);
+create policy "goal_checklist_items_update_own" on public.goal_checklist_items
+  for update using (auth.uid() = user_id);
+create policy "goal_checklist_items_delete_own" on public.goal_checklist_items
+  for delete using (auth.uid() = user_id);
 
 -- goal_reschedules: the client only ever selects and inserts directly; the
 -- materialized/materialized_goal_id columns are updated exclusively by the

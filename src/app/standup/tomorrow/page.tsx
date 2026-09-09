@@ -7,6 +7,7 @@ import {
   addDays,
   addGoalNote,
   awardPlanningPoints,
+  getChecklistItemsForGoals,
   getPlanWithGoals,
   isYesterdayReviewed,
   submitPlan,
@@ -15,6 +16,7 @@ import {
   formatDateTimeDisplay,
   upsertGoals,
   deleteGoal,
+  type ChecklistItem,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -29,6 +31,7 @@ import {
 } from "@/lib/goalLogic";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import GoalTimeline from "@/components/GoalTimeline";
+import GoalChecklist from "@/components/GoalChecklist";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 
 
@@ -55,6 +58,7 @@ export default function TomorrowGoalsPage() {
   const [editMode, setEditMode] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
+  const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
 
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
@@ -204,8 +208,9 @@ export default function TomorrowGoalsPage() {
         notesMap[note.goal_id].push(note);
       });
       setGoalComments(notesMap);
+      setChecklistItems(await getChecklistItemsForGoals(goalIds));
     }
-    
+
     // Attach comments to goals using notesMap (not state which is stale)
     const goalsWithData = goalsWithOrigin.map(g => ({
       ...g,
@@ -650,6 +655,14 @@ export default function TomorrowGoalsPage() {
                       ) : (
                         <>
                           <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
+                          <GoalChecklist
+                            goalId={g.id}
+                            items={checklistItems[g.id] ?? []}
+                            onItemsChange={(items) =>
+                              setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                            }
+                            readOnly={locked}
+                          />
                           {showNoteInput[g.id] && (
                             <div className="mt-3 flex gap-2">
                               <input

@@ -9,6 +9,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   awardPlanningPoints,
+  getChecklistItemsForGoals,
   getPlanWithGoals,
   isPrevDayReviewedForPlan,
   markDayCleared,
@@ -19,6 +20,7 @@ import {
   formatDateTimeDisplay,
   upsertGoals,
   deleteGoal,
+  type ChecklistItem,
   type Goal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
@@ -36,6 +38,7 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
 import RescheduleModal from "@/components/RescheduleModal";
 import GoalTimeline from "@/components/GoalTimeline";
+import GoalChecklist from "@/components/GoalChecklist";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 
 export default function DynamicDatePage() {
@@ -75,6 +78,7 @@ export default function DynamicDatePage() {
   const [editMode, setEditMode] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
+  const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -233,6 +237,7 @@ export default function DynamicDatePage() {
         notesMap[note.goal_id].push(note);
       });
       setGoalComments(notesMap);
+      setChecklistItems(await getChecklistItemsForGoals(goalIds));
     }
 
     const goalsWithData = goalsWithOrigin.map((g) => ({
@@ -590,6 +595,14 @@ export default function DynamicDatePage() {
                       )}
 
                       <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
+                      {g.id && (
+                        <GoalChecklist
+                          goalId={g.id}
+                          items={checklistItems[g.id] ?? []}
+                          onItemsChange={() => {}}
+                          readOnly
+                        />
+                      )}
                     </div>
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -819,6 +832,19 @@ export default function DynamicDatePage() {
                           ))}
                         </div>
                       </details>
+                    </div>
+                  )}
+
+                  {g.id && (
+                    <div className="mt-2 mb-3" style={{ padding: "0 1.5rem", flexBasis: "100%" }}>
+                      <GoalChecklist
+                        goalId={g.id}
+                        items={checklistItems[g.id] ?? []}
+                        onItemsChange={(items) =>
+                          setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                        }
+                        readOnly={locked}
+                      />
                     </div>
                   )}
 

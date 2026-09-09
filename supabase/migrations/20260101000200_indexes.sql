@@ -11,6 +11,9 @@ create index if not exists idx_goals_plan_id_sort_order
 create index if not exists idx_goal_notes_goal_id
   on public.goal_notes (goal_id);
 
+create index if not exists idx_goal_checklist_items_goal_id
+  on public.goal_checklist_items (goal_id);
+
 -- Supports materialize_reschedules()'s pending-reschedule lookup
 -- (goal_reschedules where to_date = :date and materialized = false).
 create index if not exists idx_goal_reschedules_to_date_materialized

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import RescheduleModal from "@/components/RescheduleModal";
 import GoalTimeline from "@/components/GoalTimeline";
+import GoalChecklist from "@/components/GoalChecklist";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -12,6 +13,7 @@ import {
   awardClosurePoints,
   computeClosurePoints,
   enforceSingleP1,
+  getChecklistItemsForGoals,
   getPlanWithGoals,
   getStreak,
   hoursUntilMidnight,
@@ -23,6 +25,7 @@ import {
   formatDateDisplay,
   formatDateTimeDisplay,
   upsertGoals,
+  type ChecklistItem,
   type DailyPlan,
   type Goal,
   type GoalStatus,
@@ -120,6 +123,7 @@ export default function TodayPage() {
   // of behind Notes/History tabs — both are preloaded up front regardless.
   const [goalNotes, setGoalNotes] = useState<Record<string, any[]>>({});
   const [notesFetched, setNotesFetched] = useState<Record<string, boolean>>({});
+  const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
 
@@ -263,6 +267,8 @@ export default function TodayPage() {
           goalIds.forEach((id) => (next[id] = true));
           return next;
         });
+
+        setChecklistItems(await getChecklistItemsForGoals(goalIds));
       }
 
       if (mySeq !== refreshSeqRef.current) return;
@@ -827,6 +833,15 @@ export default function TodayPage() {
                     {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
 
                     <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />
+
+                    <GoalChecklist
+                      goalId={g.id}
+                      items={checklistItems[g.id] ?? []}
+                      onItemsChange={(items) =>
+                        setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
+                      }
+                      readOnly={dayClosed}
+                    />
 
                     {showNoteInput[g.id] && (
                       <div className="mt-3 flex gap-2">

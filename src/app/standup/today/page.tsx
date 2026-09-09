@@ -828,9 +828,22 @@ export default function TodayPage() {
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
             const isCelebrating = celebratingGoalIds.has(g.id);
-            const isDone = g.status === "completed" || g.status === "canceled";
+            // Rescheduled isn't a GoalStatus value — the goal keeps its
+            // original status and rescheduled_to just gets set alongside it
+            // (see selectQuickAction) — so it needs its own condition and
+            // its own banner color/text rather than statusChipColors, which
+            // has no "rescheduled" case. A goal that's both (e.g. blocked,
+            // then rescheduled) shows the reschedule banner — where it's
+            // going next matters more than why it stalled.
+            const isRescheduled = !!g.rescheduled_to;
+            const isDone = g.status === "completed" || g.status === "canceled" || g.status === "blocked" || isRescheduled;
             const isCollapsed = isDone && !expandedDoneIds.has(g.id);
-            const doneColors = statusChipColors(g.status);
+            const doneColors = isRescheduled
+              ? { color: "#d8b4fe", border: "rgba(168, 85, 247, 0.7)", bg: "rgba(168, 85, 247, 0.12)" }
+              : statusChipColors(g.status);
+            const bannerText = isRescheduled
+              ? `📅 Rescheduled to ${formatDateDisplay(g.rescheduled_to!)}`
+              : `${statusIcon(g.status)} ${statusLabel(g.status)}`;
 
             if (isCollapsed) {
               return (
@@ -866,9 +879,7 @@ export default function TodayPage() {
                       {g.title}
                     </div>
                   </div>
-                  <div className="goal-done-banner">
-                    {statusIcon(g.status)} {statusLabel(g.status)}
-                  </div>
+                  <div className="goal-done-banner">{bannerText}</div>
                 </button>
               );
             }

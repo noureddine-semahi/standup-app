@@ -58,6 +58,11 @@ const FAQS: { question: string; answer: ReactNode }[] = [
       "Yes — click any date on the Calendar to draft goals for it, days or weeks out. Drafting and saving is always open on any date. Submitting (finalizing) a plan only unlocks the evening before that date arrives, once the day before it has been reviewed — the same rule that governs Plan Tomorrow.",
   },
   {
+    question: "Can I break a goal into smaller steps or attach a file to it?",
+    answer:
+      "Yes — every goal has an optional checklist for sub-items (like a grocery list under \"Go to HEB\") and a place to attach files (receipts, documents — images or PDF, up to 5MB). Both show up below the goal on Plan Tomorrow, Review Today, and past days, and carry forward automatically if you reschedule the goal.",
+  },
+  {
     question: "Can I go back and look at past days?",
     answer:
       "Yes — past dates on the Calendar open in a view-only summary: title, priority, and status, exactly as they were, plus each goal's full chronological history and notes below it. You can't add or edit anything on a day that's already passed, but you can \"re-attempt\" any goal from it (rescheduling a fresh copy onto a future date), and if the day was never reviewed you can mark it \"Cleared\" directly.",

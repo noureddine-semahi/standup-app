@@ -213,6 +213,18 @@ export default function AboutPage() {
                   can be marked attempted, blocked, or postponed — without guilt.
                 </p>
               </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <span className="text-lg">🛒</span>
+                  Sub-Tasks &amp; Files
+                </h3>
+                <p className="text-sm text-white/60">
+                  Break a goal into a checklist of smaller steps, or attach a
+                  receipt or document to it. Both carry forward automatically
+                  if you reschedule the goal.
+                </p>
+              </div>
             </div>
           </div>
           </div>

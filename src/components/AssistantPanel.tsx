@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase/client";
 import { toISODate, addDays } from "@/lib/supabase/db";
@@ -23,14 +23,56 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
   const [lastResponse, setLastResponse] = useState<AssistantResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     setMounted(true);
     document.body.style.overflow = "hidden";
+
+    // Browser-native speech-to-text — Chrome (desktop and Android) supports
+    // it well, Safari/iOS is spotty, Firefox doesn't have it at all. Just
+    // hide the mic button entirely rather than show something that'll
+    // silently fail on an unsupported browser.
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognitionCtor) setVoiceSupported(true);
+
     return () => {
       document.body.style.overflow = "unset";
+      recognitionRef.current?.abort?.();
     };
   }, []);
+
+  function toggleListening() {
+    if (listening) {
+      recognitionRef.current?.stop?.();
+      return;
+    }
+
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = navigator.language || "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? "";
+      if (!transcript) return;
+      // Fills the box rather than sending automatically — a misheard word
+      // shouldn't be able to trigger the wrong action on a real goal
+      // without a chance to glance at it first.
+      setInput((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript));
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  }
 
   async function handleSend() {
     const message = input.trim();
@@ -121,21 +163,42 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
           "mark my workout done."
         </p>
 
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          disabled={sending}
-          placeholder="What would you like to do?"
-          autoFocus
-          rows={2}
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
-        />
+        <div className="relative">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            disabled={sending}
+            placeholder={listening ? "Listening…" : "What would you like to do?"}
+            autoFocus
+            rows={2}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
+          />
+          {voiceSupported && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={sending}
+              title={listening ? "Stop listening" : "Speak instead of typing"}
+              className="absolute top-2 right-2 flex items-center justify-center disabled:opacity-50"
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "9999px",
+                background: listening ? "rgba(239, 68, 68, 0.25)" : "rgba(255,255,255,0.08)",
+                border: listening ? "1px solid rgba(239, 68, 68, 0.6)" : "1px solid rgba(255,255,255,0.15)",
+                color: listening ? "#fca5a5" : "rgba(255,255,255,0.8)",
+              }}
+            >
+              {listening ? "⏹️" : "🎤"}
+            </button>
+          )}
+        </div>
 
         <div className="flex gap-3 mt-3">
           <button onClick={handleSend} disabled={sending || !input.trim()} className="btn btn-primary flex-1">

@@ -387,6 +387,18 @@ export default function CalendarPage() {
             <span>No Plan</span>
           </div>
         </div>
+
+        <div className="mt-6 flex items-center gap-2 sm:gap-3 flex-wrap">
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/today">
+            Review Today
+          </Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
+            Plan Tomorrow
+          </Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog">
+            Store in Backlog
+          </Link>
+        </div>
       </div>
   );
 }

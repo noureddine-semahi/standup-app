@@ -33,6 +33,15 @@ const INFO_ROTATION: Record<string, { label: string; href: string }> = {
 };
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
+// Same space-saving trick as the About/FAQ/Contact rotation above, applied
+// to Calendar/Backlog — a two-page loop, so each just links straight to
+// the other.
+const CALENDAR_ROTATION: Record<string, { label: string; href: string }> = {
+  "/standup/calendar": { label: "Backlog", href: "/standup/backlog" },
+  "/standup/backlog": { label: "Calendar", href: "/standup/calendar" },
+};
+const CALENDAR_PAGES = Object.keys(CALENDAR_ROTATION);
+
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
@@ -164,6 +173,36 @@ export default function Header() {
     );
   }
 
+  function calendarLinks(expanded: boolean) {
+    if (!expanded) {
+      return (
+        <Link
+          href={CALENDAR_ROTATION[pathname]?.href ?? "/standup/calendar"}
+          className={CALENDAR_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
+        >
+          {CALENDAR_ROTATION[pathname]?.label ?? "Calendar"}
+        </Link>
+      );
+    }
+
+    return (
+      <>
+        <Link
+          href="/standup/calendar"
+          className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
+        >
+          Calendar
+        </Link>
+        <Link
+          href="/standup/backlog"
+          className={pathname === "/standup/backlog" ? "nav-link font-semibold" : "nav-link"}
+        >
+          Backlog
+        </Link>
+      </>
+    );
+  }
+
   function navLinks(expanded = false) {
     if (loading) return <div className="text-sm text-white/50">...</div>;
 
@@ -188,23 +227,22 @@ export default function Header() {
           >
             Plan Tomorrow
           </Link>
-          <Link
-            href="/standup/backlog"
-            className={pathname === "/standup/backlog" ? "nav-link font-semibold" : "nav-link"}
-          >
-            Backlog
-          </Link>
-          <Link
-            href="/standup/calendar"
-            className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
-          >
-            Calendar
-          </Link>
+          {calendarLinks(expanded)}
           {infoLinks(expanded)}
           <Link
             href="/standup/profile"
-            className={pathname === "/standup/profile" ? "nav-link font-semibold" : "nav-link"}
+            className={pathname === "/standup/profile" ? "nav-link font-semibold flex items-center gap-2" : "nav-link flex items-center gap-2"}
           >
+            <span className="avatar-circle" style={{ width: 22, height: 22 }}>
+              {profile?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white">
+                  {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </span>
             {profile?.display_name || user.email?.split("@")[0] || "User"}
           </Link>
         </>
@@ -268,12 +306,11 @@ export default function Header() {
           StandUp
         </Link>
 
-        {/* Desktop: full horizontal row, avatar included inline. Hidden on
-            mobile — see .nav-desktop in globals.css. */}
-        <nav className="nav nav-desktop">
-          {navLinks()}
-          {!loading && avatar()}
-        </nav>
+        {/* Desktop: full horizontal row. The avatar is now folded into the
+            profile nav-link chip itself (see navLinks), so it isn't
+            rendered separately here anymore. Hidden on mobile — see
+            .nav-desktop in globals.css. */}
+        <nav className="nav nav-desktop">{navLinks()}</nav>
 
         {/* Mobile: logo stays on the left (above), avatar + hamburger stay
             visible here, and the rest of the links live in the dropdown

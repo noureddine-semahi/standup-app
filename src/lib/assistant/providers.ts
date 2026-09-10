@@ -74,7 +74,12 @@ export async function callAnthropic(apiKey: string, systemPrompt: string, userMe
   };
 }
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+// gemini-2.0-flash was retired — confirmed live against the API in
+// September 2026 via its own 404 error, which named this replacement.
+// generateContent (used below) is still fully supported for this model;
+// Google's newer "Interactions API" is only the *preferred* surface for
+// new projects, not a hard requirement — not worth migrating to yet.
+const GEMINI_MODEL = "gemini-3.6-flash";
 
 export async function callGemini(apiKey: string, systemPrompt: string, userMessage: string): Promise<ProviderResult> {
   const res = await fetch(

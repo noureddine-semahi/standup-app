@@ -18,6 +18,7 @@ import {
   toISODate,
   addDays,
   formatDateDisplay,
+  formatTimeOfDay,
   formatDateTimeDisplay,
   upsertGoals,
   deleteGoal,
@@ -241,8 +242,18 @@ export default function DynamicDatePage() {
         notesMap[note.goal_id].push(note);
       });
       setGoalComments(notesMap);
-      setChecklistItems(await getChecklistItemsForGoals(goalIds));
-      setAttachments(await getAttachmentsForGoals(goalIds));
+      // Isolated from the goals fetch below: a missing/misconfigured
+      // table here shouldn't take down the whole goals list.
+      try {
+        setChecklistItems(await getChecklistItemsForGoals(goalIds));
+      } catch (e) {
+        console.error("Failed to load checklist items", e);
+      }
+      try {
+        setAttachments(await getAttachmentsForGoals(goalIds));
+      } catch (e) {
+        console.error("Failed to load attachments", e);
+      }
     }
 
     const goalsWithData = goalsWithOrigin.map((g) => ({
@@ -589,7 +600,14 @@ export default function DynamicDatePage() {
                 >
                   <div className="flex items-start flex-wrap gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="text-lg font-semibold text-white">{g.title}</div>
+                      <div className="text-lg font-semibold text-white">
+                        {g.title}
+                        {g.time_of_day && (
+                          <span className="ml-2 text-sm font-normal text-white/50">
+                            🕐 {formatTimeOfDay(g.time_of_day)}
+                          </span>
+                        )}
+                      </div>
                       {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
 
                       {g.rescheduled_from_date && (
@@ -808,6 +826,31 @@ export default function DynamicDatePage() {
                     placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                     style={{ padding: "0 1.5rem" }}
                     className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
+                  />
+
+                  <input
+                    type="time"
+                    value={g.time_of_day?.slice(0, 5) ?? ""}
+                    disabled={locked || submitting}
+                    onBlur={() => {
+                      if (skipNextBlurAutosaveRef.current) {
+                        skipNextBlurAutosaveRef.current = false;
+                        return;
+                      }
+                      if (priorityChangeInProgressRef.current) {
+                        return;
+                      }
+                      scheduleAutoSave();
+                    }}
+                    onChange={(e) =>
+                      setGoals((prev) =>
+                        prev.map((x, i) =>
+                          i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                        )
+                      )
+                    }
+                    className="flex-shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                    title="Optional time"
                   />
 
                   {/* Show if this goal was rescheduled FROM another date */}

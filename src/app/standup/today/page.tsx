@@ -25,6 +25,7 @@ import {
   updateGoalStatus,
   toISODate,
   formatDateDisplay,
+  formatTimeOfDay,
   formatDateTimeDisplay,
   upsertGoals,
   type ChecklistItem,
@@ -117,6 +118,10 @@ export default function TodayPage() {
   // Goal ids currently showing the "just completed" celebration animation —
   // transient, cleared automatically after the animation finishes.
   const [celebratingGoalIds, setCelebratingGoalIds] = useState<Set<string>>(new Set());
+  // Completed/canceled goals collapse under a status banner by default to
+  // keep a reviewed list scannable — this tracks which ones have been
+  // manually expanded back open (e.g. to re-read notes or change status).
+  const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   const [reopening, setReopening] = useState(false);
@@ -139,9 +144,9 @@ export default function TodayPage() {
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddGoals, setQuickAddGoals] = useState([
-    { title: "", priority: 1 },
-    { title: "", priority: 2 },
-    { title: "", priority: 3 },
+    { title: "", priority: 1, time_of_day: "" },
+    { title: "", priority: 2, time_of_day: "" },
+    { title: "", priority: 3, time_of_day: "" },
   ]);
   const [addingGoals, setAddingGoals] = useState(false);
 
@@ -173,6 +178,15 @@ export default function TodayPage() {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
       next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleExpandedDone(id: string) {
+    setExpandedDoneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -272,8 +286,18 @@ export default function TodayPage() {
           return next;
         });
 
-        setChecklistItems(await getChecklistItemsForGoals(goalIds));
-        setAttachments(await getAttachmentsForGoals(goalIds));
+        // Isolated from the goals fetch above: a missing/misconfigured
+        // table here shouldn't take down the whole goals list.
+        try {
+          setChecklistItems(await getChecklistItemsForGoals(goalIds));
+        } catch (e) {
+          console.error("Failed to load checklist items", e);
+        }
+        try {
+          setAttachments(await getAttachmentsForGoals(goalIds));
+        } catch (e) {
+          console.error("Failed to load attachments", e);
+        }
       }
 
       if (mySeq !== refreshSeqRef.current) return;
@@ -512,6 +536,7 @@ export default function TodayPage() {
         priority: g.priority,
         sort_order: goals.length + idx,
         status: "not_started" as GoalStatus,
+        time_of_day: g.time_of_day || null,
       }));
 
       const existingIds = new Set(goals.map((g) => g.id));
@@ -524,9 +549,9 @@ export default function TodayPage() {
       setMsg(`Added ${filledGoals.length} goal(s) ✅`);
       setShowQuickAdd(false);
       setQuickAddGoals([
-        { title: "", priority: 1 },
-        { title: "", priority: 2 },
-        { title: "", priority: 3 },
+        { title: "", priority: 1, time_of_day: "" },
+        { title: "", priority: 2, time_of_day: "" },
+        { title: "", priority: 3, time_of_day: "" },
       ]);
       
       await refresh({ silent: true });
@@ -735,6 +760,17 @@ export default function TodayPage() {
                       placeholder={`Goal ${idx + 1}...`}
                       className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
                     />
+                    <input
+                      type="time"
+                      value={g.time_of_day}
+                      onChange={(e) => {
+                        const newGoals = [...quickAddGoals];
+                        newGoals[idx].time_of_day = e.target.value;
+                        setQuickAddGoals(newGoals);
+                      }}
+                      className="flex-shrink-0 rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-white text-sm outline-none focus:border-white/40"
+                      title="Optional time"
+                    />
                   </div>
                 ))}
                 
@@ -805,6 +841,61 @@ export default function TodayPage() {
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
             const isCelebrating = celebratingGoalIds.has(g.id);
+            // Rescheduled isn't a GoalStatus value — the goal keeps its
+            // original status and rescheduled_to just gets set alongside it
+            // (see selectQuickAction) — so it needs its own condition and
+            // its own banner color/text rather than statusChipColors, which
+            // has no "rescheduled" case. A goal that's both (e.g. blocked,
+            // then rescheduled) shows the reschedule banner — where it's
+            // going next matters more than why it stalled.
+            const isRescheduled = !!g.rescheduled_to;
+            const isDone = g.status === "completed" || g.status === "canceled" || g.status === "blocked" || isRescheduled;
+            const isCollapsed = isDone && !expandedDoneIds.has(g.id);
+            const doneColors = isRescheduled
+              ? { color: "#d8b4fe", border: "rgba(168, 85, 247, 0.7)", bg: "rgba(168, 85, 247, 0.12)" }
+              : statusChipColors(g.status);
+            const bannerText = isRescheduled
+              ? `📅 Rescheduled to ${formatDateDisplay(g.rescheduled_to!)}`
+              : `${statusIcon(g.status)} ${statusLabel(g.status)}`;
+
+            if (isCollapsed) {
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => toggleExpandedDone(g.id)}
+                  className="goal-row goal-row-done-collapsed"
+                  style={
+                    {
+                      "--p-color": getPriorityMeta(p).color,
+                      "--done-color": doneColors.color,
+                      "--done-border": doneColors.border,
+                      "--done-bg": doneColors.bg,
+                      position: "relative",
+                    } as React.CSSProperties
+                  }
+                  title="Click to expand"
+                >
+                  <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
+                    <div
+                      className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        background: "rgba(255, 255, 255, 0.06)",
+                        border: "1px solid rgba(255, 255, 255, 0.14)",
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
+                      {g.title}
+                    </div>
+                  </div>
+                  <div className="goal-done-banner">{bannerText}</div>
+                </button>
+              );
+            }
 
             return (
               <div
@@ -814,6 +905,16 @@ export default function TodayPage() {
                 style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >
                 {isCelebrating && <div className="goal-complete-badge">✓</div>}
+                {isDone && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpandedDone(g.id)}
+                    className="goal-done-collapse-btn"
+                    title="Collapse"
+                  >
+                    ▾ Collapse
+                  </button>
+                )}
                 <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
                   {/* Number badge */}
                   <div
@@ -834,7 +935,14 @@ export default function TodayPage() {
                       {!reviewed && <span className="text-xs text-amber-400 font-semibold">⏳ Pending review</span>}
                     </div>
 
-                    <div className="text-white text-lg sm:text-xl font-medium mb-2">{g.title}</div>
+                    <div className="text-white text-lg sm:text-xl font-medium mb-2">
+                      {g.title}
+                      {g.time_of_day && (
+                        <span className="ml-2 text-sm font-normal text-white/50">
+                          🕐 {formatTimeOfDay(g.time_of_day)}
+                        </span>
+                      )}
+                    </div>
                     {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
 
                     <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />

@@ -93,6 +93,9 @@ export type Goal = {
   sort_order: number;
   priority?: number;
   reviewed_at?: string | null;
+  // Optional "HH:MM" (or "HH:MM:SS", as Postgres' `time` type comes back)
+  // time-of-day — display-only, no reminders/notifications attached.
+  time_of_day?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;
@@ -140,6 +143,18 @@ export function formatDateDisplay(isoDate: string): string {
   const [yyyy, mm, dd] = isoDate.split("-");
   if (!yyyy || !mm || !dd) return isoDate;
   return `${mm}/${dd}/${yyyy}`;
+}
+
+// Display-only: a goal's optional time_of_day ("HH:MM" or "HH:MM:SS", as
+// Postgres' `time` type comes back from supabase-js) -> "h:mm AM/PM". Pure
+// string manipulation, same reasoning as formatDateDisplay above.
+export function formatTimeOfDay(time: string): string {
+  const [hh, mm] = time.split(":");
+  const h = Number(hh);
+  if (!Number.isFinite(h) || !mm) return time;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${mm} ${period}`;
 }
 
 // Display-only: full timestamp as "MM/DD/YYYY, h:mm AM/PM" regardless of
@@ -719,6 +734,7 @@ export async function upsertGoals(
         details: g.details ?? null,
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
+        time_of_day: g.time_of_day || null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;
@@ -741,6 +757,7 @@ export async function upsertGoals(
         details: g.details ?? null,
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
+        time_of_day: g.time_of_day || null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;

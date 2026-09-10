@@ -25,6 +25,7 @@ import {
   updateGoalStatus,
   toISODate,
   formatDateDisplay,
+  formatTimeOfDay,
   formatDateTimeDisplay,
   upsertGoals,
   type ChecklistItem,
@@ -143,9 +144,9 @@ export default function TodayPage() {
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddGoals, setQuickAddGoals] = useState([
-    { title: "", priority: 1 },
-    { title: "", priority: 2 },
-    { title: "", priority: 3 },
+    { title: "", priority: 1, time_of_day: "" },
+    { title: "", priority: 2, time_of_day: "" },
+    { title: "", priority: 3, time_of_day: "" },
   ]);
   const [addingGoals, setAddingGoals] = useState(false);
 
@@ -535,6 +536,7 @@ export default function TodayPage() {
         priority: g.priority,
         sort_order: goals.length + idx,
         status: "not_started" as GoalStatus,
+        time_of_day: g.time_of_day || null,
       }));
 
       const existingIds = new Set(goals.map((g) => g.id));
@@ -547,9 +549,9 @@ export default function TodayPage() {
       setMsg(`Added ${filledGoals.length} goal(s) ✅`);
       setShowQuickAdd(false);
       setQuickAddGoals([
-        { title: "", priority: 1 },
-        { title: "", priority: 2 },
-        { title: "", priority: 3 },
+        { title: "", priority: 1, time_of_day: "" },
+        { title: "", priority: 2, time_of_day: "" },
+        { title: "", priority: 3, time_of_day: "" },
       ]);
       
       await refresh({ silent: true });
@@ -758,6 +760,17 @@ export default function TodayPage() {
                       placeholder={`Goal ${idx + 1}...`}
                       className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
                     />
+                    <input
+                      type="time"
+                      value={g.time_of_day}
+                      onChange={(e) => {
+                        const newGoals = [...quickAddGoals];
+                        newGoals[idx].time_of_day = e.target.value;
+                        setQuickAddGoals(newGoals);
+                      }}
+                      className="flex-shrink-0 rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-white text-sm outline-none focus:border-white/40"
+                      title="Optional time"
+                    />
                   </div>
                 ))}
                 
@@ -922,7 +935,14 @@ export default function TodayPage() {
                       {!reviewed && <span className="text-xs text-amber-400 font-semibold">⏳ Pending review</span>}
                     </div>
 
-                    <div className="text-white text-lg sm:text-xl font-medium mb-2">{g.title}</div>
+                    <div className="text-white text-lg sm:text-xl font-medium mb-2">
+                      {g.title}
+                      {g.time_of_day && (
+                        <span className="ml-2 text-sm font-normal text-white/50">
+                          🕐 {formatTimeOfDay(g.time_of_day)}
+                        </span>
+                      )}
+                    </div>
                     {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
 
                     <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />

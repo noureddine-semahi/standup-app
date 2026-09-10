@@ -58,6 +58,11 @@ const FAQS: { question: string; answer: ReactNode }[] = [
       "Yes — click any date on the Calendar to draft goals for it, days or weeks out. Drafting and saving is always open on any date. Submitting (finalizing) a plan only unlocks the evening before that date arrives, once the day before it has been reviewed — the same rule that governs Plan Tomorrow.",
   },
   {
+    question: "What's the Backlog for?",
+    answer:
+      "A holding pen for goals you know you want to do but haven't committed to a specific day yet. Add one from Backlog with a title, details, and priority, then push it onto the Calendar for any date whenever the time opens up — it becomes a real dated goal on that day and disappears from the Backlog.",
+  },
+  {
     question: "Can I break a goal into smaller steps or attach a file to it?",
     answer:
       "Yes — every goal has an optional checklist for sub-items (like a grocery list under \"Go to HEB\") and a place to attach files (receipts, documents — images or PDF, up to 5MB). Both show up below the goal on Plan Tomorrow, Review Today, and past days, and carry forward automatically if you reschedule the goal.",
@@ -88,7 +93,7 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "Can I delete my account?",
     answer:
-      "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, checklists, attached files, and reschedule history, and resets your points to zero.",
+      "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, checklists, attached files, Backlog items, and reschedule history, and resets your points to zero.",
   },
 ];
 

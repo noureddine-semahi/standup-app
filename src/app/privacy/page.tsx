@@ -15,10 +15,11 @@ export default function PrivacyPage() {
             <p className="text-sm text-white/70">
               An email and password for your account (handled by our authentication provider,
               Supabase). Everything you enter to use StandUp itself — goals, priorities, statuses,
-              notes, checklists, reschedules, and your points/streak history. Any files you
-              choose to attach to a goal (receipts, documents — images or PDF, up to 5MB). And,
-              only if you choose to fill them in under Settings, optional personal info:
-              first/last name, date of birth, address, phone number, and a profile photo.
+              notes, checklists, reschedules, Backlog goals you haven't scheduled yet, and your
+              points/streak history. Any files you choose to attach to a goal (receipts,
+              documents — images or PDF, up to 5MB). And, only if you choose to fill them in
+              under Settings, optional personal info: first/last name, date of birth, address,
+              phone number, and a profile photo.
             </p>
           </section>
 

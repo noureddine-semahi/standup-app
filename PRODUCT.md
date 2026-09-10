@@ -26,7 +26,7 @@ A solo daily ritual: typically once in the evening (plan tomorrow) and once duri
 
 - Daily plan/goal lifecycle: draft → submitted → reviewed/closed. One plan per day, a minimum of 3 goals to submit, at most one Priority-1 goal per plan.
 - Points, streaks, levels, and achievements are awarded for planning, awareness (review), and closure. Goals can be "re-attempted" (rescheduled) forward, but a past day itself can never be reviewed retroactively once it has passed — those days are view-only.
-- No push notifications or email exist or are planned — every reminder (end-of-day nudge, overdue-day warning) is an in-app banner shown only while the app is open.
+- No push notifications or email exist today — every reminder (end-of-day nudge, overdue-day warning) is an in-app banner shown only while the app is open. Notifications/email, along with several other ideas (i18n, an enterprise/team version, shared goals, monetization), are recorded as deliberately parked, not scheduled — see PRODUCT_LOG.md.
 - Auth and data run on Supabase (Postgres + RLS). No service-role key is available, so schema/RPC changes are applied by the user directly in the Supabase SQL editor rather than through automated migrations.
 - Referral links and native/social sharing exist to support growth. Anonymous landing-page visits and sign-up counts are tracked (deduped per browser, stops once signed in) for growth visibility in the Admin panel.
 - No point penalty exists for a missed/unreviewed day by deliberate design decision — a broken streak is considered penalty enough.
@@ -44,7 +44,7 @@ No real testimonials, case studies, press, or third-party proof exist yet — th
 - Review before plan — awareness is a gate, not a suggestion.
 - One real priority per day (a single P1) — focus over an exhaustive task list.
 - No punitive mechanics — a missed day costs streak, never points; recovery stays possible.
-- No push/email — every nudge is an in-app banner, shown only while the user is actually looking.
+- No push/email today — every nudge is an in-app banner, shown only while the user is actually looking. (Parked as a future idea, not a permanent constraint — see PRODUCT_LOG.md.)
 - Public-launch-ready surfaces (landing, signup, sharing, growth tracking) matter as much as the core daily loop itself.
 
 ## Accessibility & Inclusion

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   isCurrentUserAdmin,
@@ -221,10 +222,17 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <div className="card card-highlight">
-        <h1 className="text-3xl font-bold">Admin — Members</h1>
-        <p className="mt-2 text-white/70">
-          {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Admin — Members</h1>
+            <p className="mt-2 text-white/70">
+              {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
+            </p>
+          </div>
+          <Link href="/standup/admin/product-log" className="btn btn-ghost whitespace-nowrap">
+            📋 Product Log
+          </Link>
+        </div>
         {msg && <p className="mt-3 text-sm text-amber-300">{msg}</p>}
       </div>
 

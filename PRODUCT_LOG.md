@@ -1,0 +1,83 @@
+# StandUp — Product Log
+
+_Last updated: 2026-09-11. Also viewable in-app: Admin → Product Log._
+
+This is the running record of what StandUp is built on, what's shipped, and
+what's been deliberately set aside for later. Not wired into CI or any build
+step — a hand-maintained snapshot, updated alongside major feature work.
+
+## Framework & Architecture
+
+- **Frontend** — Next.js 16 (App Router, TypeScript), Tailwind CSS v4. Deployed
+  on Vercel, auto-deploying on every push to `main`.
+- **Backend** — Supabase: Postgres with Row-Level Security as the only
+  access-control layer (there's no server-side API gating data beyond RLS),
+  Supabase Auth, and Supabase Storage for file attachments (private buckets,
+  accessed only through short-lived signed URLs — never a public link).
+- **Testing** — Vitest, unit and smoke tests.
+- **Schema changes** are applied by hand in the Supabase SQL Editor — this
+  environment has no service-role key, so nothing is scripted or CI-wired.
+  `/supabase/migrations` documents what's live, reconstructed after the fact
+  rather than generated from a real migration history.
+- **Auth** uses Supabase's `processLock` session strategy to avoid cross-tab
+  hangs.
+
+## Release Notes
+
+### Foundation
+Dashboard, Today/Tomorrow planning, authentication, calendar, and the core
+rescheduling logic.
+
+### V1.0 & Admin Tools — early September 2026
+A mobile-friendly layout pass; an Admin panel with member management, points
+editing, and Member/Admin/Sys Admin role control; landing-page visit tracking
+and sign-up growth stats; a per-profile theme preference (dark by default);
+a logout reliability fix.
+
+### Accountability & History — September 5
+Overdue-day warnings and an end-of-day review reminder; a distinct "missed"
+calendar color plus a manual "Clear this day" option; the seven-segment LED
+visual identity applied across the whole app; Notes and History merged into
+one real, chronologically-ordered timeline per goal; Points & Usage relaunched
+as Data & Metrics, with lifetime stats and drill-down goal lists.
+
+### Reschedule & Review Depth — September 7–8
+Whole-day re-attempt for missed days that were never touched; the
+chronological timeline extended to Plan Tomorrow; per-goal checklists for
+sub-items (e.g. a grocery list under "Go to HEB"); per-goal file attachments
+(receipts, documents) backed by private Supabase Storage; a direct
+unreviewed-days list on the Calendar.
+
+### Backlog & Reliability — September 9–10
+An undated goal Backlog — park a goal, push it onto a date later; completed,
+canceled, and blocked goals collapse under a status banner to keep Today
+readable; a fix for auth hangs across tabs; an optional time-of-day field on
+goals; a navigation overflow fix that merged Calendar/Backlog into one
+rotating nav slot and folded the avatar into the profile chip.
+
+## Parked for Later
+
+Not scheduled, but deliberately kept — revisit any of these when there's a
+real reason to, not just because the list exists.
+
+- **Multi-language support** — the framework side is straightforward
+  (`next-intl` with locale routing); the real cost is extracting hardcoded UI
+  strings across an app that's grown large.
+- **Enterprise/team version** — concluded this is a separate product, not an
+  extension of StandUp's single-user design.
+- **Growth monitor** — tracking sign-ins and account deletions over time
+  needs new event-log tables (sign-up growth itself is already tracked).
+- **Gesture-based review actions** — drawing a shape (checkmark, X, reverse-C)
+  over a goal to complete/cancel/reschedule it. A simpler directional-swipe
+  version is the recommended path if this gets revisited — true freeform
+  shape recognition fights the browser's native scroll gesture on the same
+  list.
+- **Shared goals / connections** — friends, visibility permissions, and task
+  sharing. Scope small (a single shareable read-only link) before building
+  any connections graph.
+- **Notifications & email** — no delivery infrastructure exists today; every
+  reminder is currently an in-app banner. Email is the lower-effort first
+  step if this gets pursued.
+- **Monetization** — subscriptions or advertising. Advertising would conflict
+  with the Privacy Policy's current no-third-party-tracking commitment, so
+  that tension needs resolving before either path is chosen.

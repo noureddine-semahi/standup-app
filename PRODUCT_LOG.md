@@ -18,9 +18,15 @@ step — a hand-maintained snapshot, updated alongside major feature work.
   there, it calls Supabase with the calling user's own access token rather
   than a service-role key (none exists in this project), so RLS still
   governs every query the same way it does from the browser.
-- **AI** — the Dashboard assistant calls the Anthropic API directly via
-  `fetch` (no SDK dependency) with a small fixed set of tools mapped onto
-  existing goal actions. Requires `ANTHROPIC_API_KEY` set server-side.
+- **AI** — the Dashboard assistant calls an LLM directly via `fetch` (no SDK
+  dependency) with a small fixed set of tools mapped onto existing goal
+  actions. Two interchangeable providers behind one normalized interface
+  (`src/lib/assistant/providers.ts`): **Gemini** (`gemini-2.0-flash`,
+  genuinely free tier, current default) and **Anthropic** (`claude-haiku-4-5`,
+  better tool-use reliability, no free tier — the target once this is
+  profitable enough to justify the cost). Switch via the `ASSISTANT_PROVIDER`
+  env var (`gemini` or `anthropic`); each needs its own key
+  (`GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) set server-side.
 - **Testing** — Vitest, unit and smoke tests.
 - **Schema changes** are applied by hand in the Supabase SQL Editor — this
   environment has no service-role key, so nothing is scripted or CI-wired.
@@ -69,11 +75,13 @@ one concept everywhere (they were always the same event under the hood —
 see Framework note below); a mobile truncation fix for the collapsed
 "Rescheduled" banner. Also: a 🤖 Assistant button on the Dashboard — type a
 plain request ("add a goal to call the dentist tomorrow," "mark my workout
-done") and it adds or updates the matching goal. This is the app's first
-feature with a real per-use cost, so it ships free with a hard cap (20
-actions per rolling 30-day period per account) rather than fully free or
-gated behind billing that doesn't exist yet — see the Monetization entry
-below for how this connects.
+done") and it adds or updates the matching goal. Running on Gemini's free
+tier for now (not Anthropic, which has no permanent free tier) to keep this
+at zero ongoing cost — see the AI entry under Framework above for how to
+switch providers later. Still ships with a hard cap (20 actions per rolling
+30-day period per account) regardless of provider, since it's the app's
+first feature with a real per-use cost once it does move to a paid
+provider — see the Monetization entry below for how this connects.
 
 ## Up Next
 

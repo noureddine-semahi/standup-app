@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { computeUsageState, hasUsesRemaining, remainingUses, ASSISTANT_FREE_CAP } from "@/lib/assistant/usage";
-import { ASSISTANT_TOOLS } from "@/lib/assistant/tools";
+import { getActiveProvider, getProviderApiKeyEnvVar, callProvider } from "@/lib/assistant/providers";
 import {
   addGoalAction,
   updateGoalStatusAction,
@@ -9,15 +9,18 @@ import {
   moveGoalToBacklogAction,
 } from "@/lib/assistant/serverActions";
 
-const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
-
 type GoalContext = { id: string; title: string; status: string };
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // ASSISTANT_PROVIDER=gemini (default, free tier, current) or "anthropic"
+  // (better tool-use reliability, no free tier — the target once this is
+  // profitable enough to justify the cost). See src/lib/assistant/providers.ts.
+  const provider = getActiveProvider();
+  const apiKeyEnvVar = getProviderApiKeyEnvVar(provider);
+  const apiKey = process.env[apiKeyEnvVar];
   if (!apiKey) {
     return NextResponse.json(
-      { message: "The assistant isn't configured yet — no Anthropic API key is set on the server." },
+      { message: `The assistant isn't configured yet — no ${apiKeyEnvVar} is set on the server.` },
       { status: 503 }
     );
   }
@@ -117,43 +120,21 @@ export async function POST(req: NextRequest) {
     `Keep any plain-text reply short — one or two sentences.`,
   ].join("\n");
 
-  // --- Call Claude directly via fetch — a single endpoint, not worth a new SDK dependency ---
-  let anthropicRes: Response;
+  // --- Call the active provider — both return the same normalized shape ---
+  let providerResult: { toolCall: { name: string; input: Record<string, any> } | null; text: string };
   try {
-    anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        tools: ASSISTANT_TOOLS,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+    providerResult = await callProvider(provider, apiKey, systemPrompt, userMessage);
   } catch (e: any) {
-    return NextResponse.json({ message: `Couldn't reach the assistant: ${e?.message ?? "network error"}` }, { status: 502 });
+    return NextResponse.json({ message: e?.message ?? "Couldn't reach the assistant." }, { status: 502 });
   }
 
-  if (!anthropicRes.ok) {
-    const errBody = await anthropicRes.text().catch(() => "");
-    return NextResponse.json({ message: `Assistant request failed (${anthropicRes.status}): ${errBody}` }, { status: 502 });
-  }
-
-  const claudeData = await anthropicRes.json();
-  const content: any[] = claudeData.content ?? [];
-  const toolUse = content.find((block) => block.type === "tool_use");
-  const textBlocks = content.filter((block) => block.type === "text").map((block) => block.text);
+  const toolUse = providerResult.toolCall;
 
   if (!toolUse) {
     // The model asked a clarifying question or just responded in text —
     // no action taken, so no usage counted against the cap.
     return NextResponse.json({
-      message: textBlocks.join(" ") || "I didn't understand that — could you rephrase?",
+      message: providerResult.text || "I didn't understand that — could you rephrase?",
       remaining: remainingUses(usage.uses),
     });
   }

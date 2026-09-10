@@ -23,7 +23,7 @@ const FRAMEWORK: { label: string; detail: string }[] = [
   {
     label: "AI",
     detail:
-      "The Dashboard assistant calls the Anthropic API directly via fetch (no SDK dependency) with a small fixed set of tools mapped onto existing goal actions. Requires ANTHROPIC_API_KEY set server-side.",
+      "The Dashboard assistant calls an LLM directly via fetch (no SDK dependency) with a small fixed set of tools. Two interchangeable providers behind one normalized interface (src/lib/assistant/providers.ts): Gemini (gemini-2.0-flash, genuinely free tier, current default) and Anthropic (claude-haiku-4-5, better tool-use reliability, no free tier -- the target once profitable). Switch via the ASSISTANT_PROVIDER env var; each needs its own key (GEMINI_API_KEY or ANTHROPIC_API_KEY) set server-side.",
   },
   { label: "Testing", detail: "Vitest, unit and smoke tests." },
   {
@@ -66,7 +66,7 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
   {
     period: "Reschedule Polish & Dashboard Assistant — September 11",
     summary:
-      "Move-to-Backlog added to the Reschedule modal; Blocked now requires a reason, saved as a real note; \"postponed\" and \"rescheduled\" unified into one concept everywhere; a mobile truncation fix for the collapsed \"Rescheduled\" banner. Also: a 🤖 Assistant button on the Dashboard for plain-language goal actions -- the app's first feature with a real per-use cost, so it ships free with a hard cap (20 actions per rolling 30-day period per account) rather than fully free or gated behind billing that doesn't exist yet.",
+      "Move-to-Backlog added to the Reschedule modal; Blocked now requires a reason, saved as a real note; \"postponed\" and \"rescheduled\" unified into one concept everywhere; a mobile truncation fix for the collapsed \"Rescheduled\" banner. Also: a 🤖 Assistant button on the Dashboard for plain-language goal actions -- running on Gemini's free tier for now (not Anthropic, which has no permanent free tier) to keep this at zero ongoing cost. Still ships with a hard cap (20 actions per rolling 30-day period per account) regardless of provider, since it's the app's first feature with a real per-use cost once it does move to a paid provider.",
   },
 ];
 

@@ -177,6 +177,18 @@ export async function getCurrentUserId() {
   return data.user.id;
 }
 
+/** Free-tier assistant usage for the current user — see src/lib/assistant/usage.ts for the cap/reset logic this feeds. Read-only; the actual increment/reset happens server-side in src/app/api/assistant/route.ts. */
+export async function getAssistantUsage(): Promise<{ uses: number; resetAt: string }> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("assistant_uses_this_period, assistant_period_reset_at")
+    .eq("id", userId)
+    .single();
+  if (error) throw error;
+  return { uses: data.assistant_uses_this_period, resetAt: data.assistant_period_reset_at };
+}
+
 export async function getOrCreateProfile() {
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw userErr;

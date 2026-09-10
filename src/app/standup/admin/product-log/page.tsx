@@ -18,7 +18,12 @@ const FRAMEWORK: { label: string; detail: string }[] = [
   {
     label: "Backend",
     detail:
-      "Supabase: Postgres with Row-Level Security as the only access-control layer, Supabase Auth, and Supabase Storage for file attachments (private buckets, accessed only through short-lived signed URLs).",
+      "Supabase: Postgres with Row-Level Security as the only access-control layer, Supabase Auth, and Supabase Storage for file attachments (private buckets, accessed only through short-lived signed URLs). One Next.js API route exists (/api/assistant) -- even there, it calls Supabase with the calling user's own access token rather than a service-role key (none exists in this project), so RLS still governs every query.",
+  },
+  {
+    label: "AI",
+    detail:
+      "The Dashboard assistant calls the Anthropic API directly via fetch (no SDK dependency) with a small fixed set of tools mapped onto existing goal actions. Requires ANTHROPIC_API_KEY set server-side.",
   },
   { label: "Testing", detail: "Vitest, unit and smoke tests." },
   {
@@ -57,6 +62,11 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
     period: "Backlog & Reliability — September 9–10",
     summary:
       "An undated goal Backlog; completed/canceled/blocked goals collapse under a status banner on Today; a fix for auth hangs across tabs; an optional time-of-day field on goals; a navigation overflow fix merging Calendar/Backlog into one rotating nav slot.",
+  },
+  {
+    period: "Reschedule Polish & Dashboard Assistant — September 11",
+    summary:
+      "Move-to-Backlog added to the Reschedule modal; Blocked now requires a reason, saved as a real note; \"postponed\" and \"rescheduled\" unified into one concept everywhere; a mobile truncation fix for the collapsed \"Rescheduled\" banner. Also: a 🤖 Assistant button on the Dashboard for plain-language goal actions -- the app's first feature with a real per-use cost, so it ships free with a hard cap (20 actions per rolling 30-day period per account) rather than fully free or gated behind billing that doesn't exist yet.",
   },
 ];
 
@@ -111,7 +121,7 @@ const PARKED: { title: string; detail: string }[] = [
   {
     title: "Monetization",
     detail:
-      "Subscriptions or advertising. Advertising would conflict with the Privacy Policy's no-third-party-tracking commitment, so that tension needs resolving before either path is chosen.",
+      "Subscriptions or advertising. Advertising would conflict with the Privacy Policy's no-third-party-tracking commitment, so that tension needs resolving before either path is chosen. The Dashboard assistant's free usage cap is the first concrete candidate for a paid tier -- \"unlimited assistant\" -- once this gets picked back up.",
   },
 ];
 

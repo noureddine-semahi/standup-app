@@ -11,9 +11,16 @@ step — a hand-maintained snapshot, updated alongside major feature work.
 - **Frontend** — Next.js 16 (App Router, TypeScript), Tailwind CSS v4. Deployed
   on Vercel, auto-deploying on every push to `main`.
 - **Backend** — Supabase: Postgres with Row-Level Security as the only
-  access-control layer (there's no server-side API gating data beyond RLS),
-  Supabase Auth, and Supabase Storage for file attachments (private buckets,
-  accessed only through short-lived signed URLs — never a public link).
+  access-control layer, Supabase Auth, and Supabase Storage for file
+  attachments (private buckets, accessed only through short-lived signed
+  URLs — never a public link). One Next.js API route exists
+  (`/api/assistant`, added September 11 for the Dashboard assistant) — even
+  there, it calls Supabase with the calling user's own access token rather
+  than a service-role key (none exists in this project), so RLS still
+  governs every query the same way it does from the browser.
+- **AI** — the Dashboard assistant calls the Anthropic API directly via
+  `fetch` (no SDK dependency) with a small fixed set of tools mapped onto
+  existing goal actions. Requires `ANTHROPIC_API_KEY` set server-side.
 - **Testing** — Vitest, unit and smoke tests.
 - **Schema changes** are applied by hand in the Supabase SQL Editor — this
   environment has no service-role key, so nothing is scripted or CI-wired.
@@ -54,6 +61,19 @@ canceled, and blocked goals collapse under a status banner to keep Today
 readable; a fix for auth hangs across tabs; an optional time-of-day field on
 goals; a navigation overflow fix that merged Calendar/Backlog into one
 rotating nav slot and folded the avatar into the profile chip.
+
+### Reschedule Polish & Dashboard Assistant — September 11
+Move-to-Backlog added to the Reschedule modal; Blocked now requires a
+reason, saved as a real note; "postponed" and "rescheduled" unified into
+one concept everywhere (they were always the same event under the hood —
+see Framework note below); a mobile truncation fix for the collapsed
+"Rescheduled" banner. Also: a 🤖 Assistant button on the Dashboard — type a
+plain request ("add a goal to call the dentist tomorrow," "mark my workout
+done") and it adds or updates the matching goal. This is the app's first
+feature with a real per-use cost, so it ships free with a hard cap (20
+actions per rolling 30-day period per account) rather than fully free or
+gated behind billing that doesn't exist yet — see the Monetization entry
+below for how this connects.
 
 ## Up Next
 
@@ -122,4 +142,7 @@ real reason to, not just because the list exists.
   step if this gets pursued.
 - **Monetization** — subscriptions or advertising. Advertising would conflict
   with the Privacy Policy's current no-third-party-tracking commitment, so
-  that tension needs resolving before either path is chosen.
+  that tension needs resolving before either path is chosen. The Dashboard
+  assistant's free usage cap (see Release Notes above) is the first concrete
+  candidate for a paid tier — "unlimited assistant" — once this gets picked
+  back up.

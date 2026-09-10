@@ -58,6 +58,11 @@ const FAQS: { question: string; answer: ReactNode }[] = [
       "Yes — click any date on the Calendar to draft goals for it, days or weeks out. Drafting and saving is always open on any date. Submitting (finalizing) a plan only unlocks the evening before that date arrives, once the day before it has been reviewed — the same rule that governs Plan Tomorrow.",
   },
   {
+    question: "What does the Dashboard Assistant do?",
+    answer:
+      "Click 🤖 Assistant on the Dashboard and type a plain request — \"add a goal to call the dentist tomorrow\" or \"mark my workout done\" — and it adds or updates the matching goal for you. It's free, capped at 20 actions per rolling 30-day period per account; asking a question it can't confidently match to one goal doesn't use up an action, it'll just ask you to clarify.",
+  },
+  {
     question: "What's the Backlog for?",
     answer:
       "A holding pen for goals you know you want to do but haven't committed to a specific day yet. Add one from Backlog with a title, details, and priority, then push it onto the Calendar for any date whenever the time opens up — it becomes a real dated goal on that day and disappears from the Backlog. It also works the other way: if a goal already scheduled on a specific day isn't something you're sure you'll get to, open its reschedule option and choose \"Move to Backlog\" instead of picking a new date — though its notes, checklist, and attached files won't come along, since Backlog items don't have those.",

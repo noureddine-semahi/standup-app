@@ -22,6 +22,7 @@ import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import ProgressCircle from "@/components/ProgressCircle";
+import AssistantPanel from "@/components/AssistantPanel";
 import { getLevelInfo } from "@/lib/levels";
 
 /**
@@ -82,6 +83,12 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [showAssistant, setShowAssistant] = useState(false);
+  // Bumped by the assistant after it actually takes an action, so the main
+  // data-loading effect below re-runs and picks up whatever it just
+  // changed — the assistant's own API route has no way to update this
+  // page's React state directly.
+  const [refreshKey, setRefreshKey] = useState(0);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [streak, setStreak] = useState(0);
   const [pointsView, setPointsView] = useState<"total" | "today">("total");
@@ -197,7 +204,7 @@ export default function DashboardPage() {
     });
 
     return unsubscribe;
-  }, [todayISO, tomorrowISO]);
+  }, [todayISO, tomorrowISO, refreshKey]);
 
   // Total Points / Points Earned Today auto-swap in place every ~6.5s, on
   // top of the manual tap-to-flip, so both numbers surface without needing
@@ -306,7 +313,10 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn">
+                🤖 Assistant
+              </button>
               <Link href="/standup/today" className="btn">
                 Review Today
               </Link>
@@ -835,6 +845,13 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
+
+        {showAssistant && (
+          <AssistantPanel
+            onClose={() => setShowAssistant(false)}
+            onActionTaken={() => setRefreshKey((k) => k + 1)}
+          />
+        )}
       </div>
   );
 }

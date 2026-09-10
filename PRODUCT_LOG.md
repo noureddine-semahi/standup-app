@@ -55,6 +55,44 @@ readable; a fix for auth hangs across tabs; an optional time-of-day field on
 goals; a navigation overflow fix that merged Calendar/Backlog into one
 rotating nav slot and folded the avatar into the profile chip.
 
+## Up Next
+
+Scoped and ready to build, not started yet.
+
+### Phase 1 — Recurring suggestion chips
+The gym-motivation use case: "Workout" (or any goal) reappears as a
+tap-to-add suggestion on the days it's due, instead of retyping it daily.
+- New `recurring_goal_templates` table: title, details, default priority,
+  optional time-of-day, days-of-week, active flag.
+- A small management screen to create/edit/retire templates.
+- Plan Tomorrow gets a "Suggested" row of chips for templates due tomorrow;
+  tapping one creates a real goal for that date. Decision made up front: add
+  a nullable `source_template_id` on `goals` for a clean "already added"
+  check, rather than matching by title.
+- Deliberately **not** automatic goal creation — every principle this app
+  already runs on ("review before plan," a conscious daily choice) argues
+  for a tap, not a silent injection.
+
+### Phase 2 — Long-term goals (resolutions, monthly goals)
+"Learn Spanish this year," New Year's resolutions, monthly goals — same
+park-it-then-act-on-it mechanic as Backlog, just longer horizon.
+- Likely an extension of Backlog rather than a new table: add an optional
+  `target_date` and a `category` label to `goal_backlog` first, and only
+  build a dedicated table if that proves insufficient.
+- Can attach the existing checklist feature for milestones once a goal
+  exists.
+
+### Phase 3 — Challenges (parked deliberately, not scoped)
+Fixed-window, rule-based challenges ("75 Hard"-style) with their own
+streak/badge mechanics distinct from the daily streak. This is a bigger
+positioning shift, similar in kind to the network/monetization ideas below
+— revisit only with a deliberate decision to go there, not as a natural
+extension of Phase 1/2.
+
+**Build order:** Phase 1 first (small, high-value, already scoped down to
+implementation detail), Phase 2 next (cheap once Phase 1's template
+thinking exists), Phase 3 stays parked.
+
 ## Parked for Later
 
 Not scheduled, but deliberately kept — revisit any of these when there's a

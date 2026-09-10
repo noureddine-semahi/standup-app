@@ -60,6 +60,24 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
   },
 ];
 
+const UP_NEXT: { phase: string; detail: string }[] = [
+  {
+    phase: "Phase 1 — Recurring suggestion chips",
+    detail:
+      "The gym-motivation use case: \"Workout\" reappears as a tap-to-add suggestion on the days it's due, instead of retyping it daily. New recurring_goal_templates table (title, details, default priority, optional time-of-day, days-of-week, active flag); a small management screen; Plan Tomorrow gets a \"Suggested\" row of chips for templates due tomorrow. A nullable source_template_id on goals gives a clean \"already added\" check. Deliberately not automatic goal creation — every principle this app runs on argues for a tap, not a silent injection.",
+  },
+  {
+    phase: "Phase 2 — Long-term goals (resolutions, monthly goals)",
+    detail:
+      "\"Learn Spanish this year,\" New Year's resolutions, monthly goals — same park-it-then-act-on-it mechanic as Backlog, longer horizon. Likely an extension of Backlog (add target_date and category) rather than a new table; can attach the existing checklist feature for milestones.",
+  },
+  {
+    phase: "Phase 3 — Challenges (parked, not scoped)",
+    detail:
+      "Fixed-window, rule-based challenges (\"75 Hard\"-style) with their own streak/badge mechanics. A bigger positioning shift, similar in kind to the network/monetization ideas below — revisit only with a deliberate decision, not as a natural extension of Phase 1/2.",
+  },
+];
+
 const PARKED: { title: string; detail: string }[] = [
   {
     title: "Multi-language support",
@@ -157,6 +175,23 @@ export default function ProductLogPage() {
             <div key={note.period}>
               <div className="text-sm font-semibold text-white">{note.period}</div>
               <p className="mt-1 text-sm text-white/70 leading-relaxed">{note.summary}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-1">Up Next</h2>
+        <p className="text-sm text-white/50 mb-4">Scoped and ready to build, not started yet. Build order: 1 → 2 → 3.</p>
+        <div className="space-y-4">
+          {UP_NEXT.map((item) => (
+            <div
+              key={item.phase}
+              className="rounded-xl p-3"
+              style={{ border: "1px solid rgba(245, 158, 11, 0.2)", background: "rgba(245, 158, 11, 0.04)" }}
+            >
+              <div className="text-sm font-semibold text-amber-300">{item.phase}</div>
+              <p className="mt-1 text-sm text-white/60 leading-relaxed">{item.detail}</p>
             </div>
           ))}
         </div>

@@ -60,7 +60,7 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "What's the Backlog for?",
     answer:
-      "A holding pen for goals you know you want to do but haven't committed to a specific day yet. Add one from Backlog with a title, details, and priority, then push it onto the Calendar for any date whenever the time opens up — it becomes a real dated goal on that day and disappears from the Backlog.",
+      "A holding pen for goals you know you want to do but haven't committed to a specific day yet. Add one from Backlog with a title, details, and priority, then push it onto the Calendar for any date whenever the time opens up — it becomes a real dated goal on that day and disappears from the Backlog. It also works the other way: if a goal already scheduled on a specific day isn't something you're sure you'll get to, open its reschedule option and choose \"Move to Backlog\" instead of picking a new date — though its notes, checklist, and attached files won't come along, since Backlog items don't have those.",
   },
   {
     question: "Can I break a goal into smaller steps or attach a file to it?",

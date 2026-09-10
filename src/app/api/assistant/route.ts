@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { computeUsageState, hasUsesRemaining, remainingUses, ASSISTANT_FREE_CAP } from "@/lib/assistant/usage";
 import { getActiveProvider, getProviderApiKeyEnvVar, callProvider } from "@/lib/assistant/providers";
 import {
@@ -7,9 +7,56 @@ import {
   updateGoalStatusAction,
   rescheduleGoalAction,
   moveGoalToBacklogAction,
+  removeGoalAction,
 } from "@/lib/assistant/serverActions";
 
 type GoalContext = { id: string; title: string; status: string };
+type ToolCall = { name: string; input: Record<string, any> };
+
+/** Actually applies a tool call and returns its human-readable result. Shared by the normal (LLM-decided) path and the confirmed-delete path, since remove_goal never executes straight off a model decision — see the confirmation flow below. */
+async function executeAction(supabase: SupabaseClient, userId: string, todayISO: string, toolUse: ToolCall): Promise<string> {
+  if (toolUse.name === "add_goal") {
+    const result = await addGoalAction(supabase, userId, {
+      title: toolUse.input.title,
+      details: toolUse.input.details,
+      priority: toolUse.input.priority,
+      dateISO: toolUse.input.date_iso ?? null,
+    });
+    return result.kind === "backlog"
+      ? `Added "${result.goal.title}" to your Backlog.`
+      : `Added "${result.goal.title}" to ${result.dateISO}.`;
+  }
+  if (toolUse.name === "update_goal_status") {
+    const result = await updateGoalStatusAction(
+      supabase,
+      userId,
+      toolUse.input.goal_id,
+      toolUse.input.status,
+      toolUse.input.blocked_reason
+    );
+    return `Marked "${result.title}" as ${result.status.replace("_", " ")}.`;
+  }
+  if (toolUse.name === "reschedule_goal") {
+    const result = await rescheduleGoalAction(
+      supabase,
+      userId,
+      toolUse.input.goal_id,
+      toolUse.input.to_date_iso,
+      todayISO,
+      toolUse.input.reason
+    );
+    return `Rescheduled "${result.title}" to ${result.toDateISO}.`;
+  }
+  if (toolUse.name === "move_goal_to_backlog") {
+    const result = await moveGoalToBacklogAction(supabase, userId, toolUse.input.goal_id);
+    return `Moved "${result.title}" to your Backlog.`;
+  }
+  if (toolUse.name === "remove_goal") {
+    const result = await removeGoalAction(supabase, userId, toolUse.input.goal_id);
+    return `Deleted "${result.title}".`;
+  }
+  throw new Error("Unknown action.");
+}
 
 export async function POST(req: NextRequest) {
   // ASSISTANT_PROVIDER=gemini (default, free tier, current) or "anthropic"
@@ -52,18 +99,27 @@ export async function POST(req: NextRequest) {
   }
   const userId = userData.user.id;
 
-  let body: { message?: string; todayISO?: string; tomorrowISO?: string };
+  let body: {
+    message?: string;
+    todayISO?: string;
+    tomorrowISO?: string;
+    confirmedAction?: ToolCall;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ message: "Invalid request." }, { status: 400 });
   }
 
-  const userMessage = (body.message ?? "").trim();
   const todayISO = body.todayISO;
   const tomorrowISO = body.tomorrowISO;
-  if (!userMessage || !todayISO || !tomorrowISO) {
-    return NextResponse.json({ message: "Missing message or date context." }, { status: 400 });
+  if (!todayISO || !tomorrowISO) {
+    return NextResponse.json({ message: "Missing date context." }, { status: 400 });
+  }
+
+  const userMessage = (body.message ?? "").trim();
+  if (!body.confirmedAction && !userMessage) {
+    return NextResponse.json({ message: "Missing message." }, { status: 400 });
   }
 
   // --- Usage cap: checked and (if needed) reset before any paid API call ---
@@ -94,6 +150,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // --- A previously-confirmed delete: skip the model entirely, just apply it ---
+  if (body.confirmedAction) {
+    try {
+      const resultMessage = await executeAction(supabase, userId, todayISO, body.confirmedAction);
+      const newUses = usage.uses + 1;
+      await supabase.from("profiles").update({ assistant_uses_this_period: newUses }).eq("id", userId);
+      return NextResponse.json({
+        message: resultMessage,
+        actionTaken: body.confirmedAction.name,
+        remaining: remainingUses(newUses),
+      });
+    } catch (e: any) {
+      return NextResponse.json(
+        { message: e?.message ?? "Something went wrong applying that.", remaining: remainingUses(usage.uses) },
+        { status: 500 }
+      );
+    }
+  }
+
   // --- Context the model needs to resolve "my workout" etc. to a real goal id ---
   const { data: todayPlan } = await supabase.from("daily_plans").select("id").eq("user_id", userId).eq("plan_date", todayISO).maybeSingle();
   const { data: tomorrowPlan } = await supabase.from("daily_plans").select("id").eq("user_id", userId).eq("plan_date", tomorrowISO).maybeSingle();
@@ -117,6 +192,7 @@ export async function POST(req: NextRequest) {
     `You help the user quickly add goals or act on existing ones by calling exactly one tool per request.`,
     `If the user's request to update/reschedule/move a goal doesn't clearly match exactly one goal from the lists above, don't guess — reply with plain text asking which goal they mean, and don't call a tool.`,
     `If marking a goal "blocked" and the user hasn't given a reason, ask for one in plain text instead of calling the tool.`,
+    `Use remove_goal only when the user explicitly asks to remove/delete/get rid of a goal entirely. Use move_goal_to_backlog when they say they're not sure they'll get to it, want to postpone deciding, or want to unschedule it without deleting it.`,
     `Keep any plain-text reply short — one or two sentences.`,
   ].join("\n");
 
@@ -139,52 +215,32 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // --- remove_goal is permanently destructive and the only one of the 5
+  // tools that can't be undone (add/status/reschedule/backlog can all be
+  // reversed by another request) — so it never executes straight off a
+  // model decision. Ask the client to confirm first; nothing happens, and
+  // no usage is counted, until the user explicitly confirms and the client
+  // resends this exact tool call as body.confirmedAction above. ---
+  if (toolUse.name === "remove_goal") {
+    const { data: goal } = await supabase.from("goals").select("title").eq("id", toolUse.input.goal_id).maybeSingle();
+    return NextResponse.json({
+      message: `Delete "${goal?.title ?? "this goal"}"? This can't be undone.`,
+      requiresConfirmation: true,
+      confirmAction: toolUse,
+      remaining: remainingUses(usage.uses),
+    });
+  }
+
   // --- Execute the chosen action, then count it against the cap ---
   try {
-    let resultMessage = "";
-
-    if (toolUse.name === "add_goal") {
-      const result = await addGoalAction(supabase, userId, {
-        title: toolUse.input.title,
-        details: toolUse.input.details,
-        priority: toolUse.input.priority,
-        dateISO: toolUse.input.date_iso ?? null,
-      });
-      resultMessage =
-        result.kind === "backlog"
-          ? `Added "${result.goal.title}" to your Backlog.`
-          : `Added "${result.goal.title}" to ${result.dateISO}.`;
-    } else if (toolUse.name === "update_goal_status") {
-      const result = await updateGoalStatusAction(
-        supabase,
-        userId,
-        toolUse.input.goal_id,
-        toolUse.input.status,
-        toolUse.input.blocked_reason
-      );
-      resultMessage = `Marked "${result.title}" as ${result.status.replace("_", " ")}.`;
-    } else if (toolUse.name === "reschedule_goal") {
-      const result = await rescheduleGoalAction(
-        supabase,
-        userId,
-        toolUse.input.goal_id,
-        toolUse.input.to_date_iso,
-        todayISO,
-        toolUse.input.reason
-      );
-      resultMessage = `Rescheduled "${result.title}" to ${result.toDateISO}.`;
-    } else if (toolUse.name === "move_goal_to_backlog") {
-      const result = await moveGoalToBacklogAction(supabase, userId, toolUse.input.goal_id);
-      resultMessage = `Moved "${result.title}" to your Backlog.`;
-    } else {
-      return NextResponse.json({ message: "Unknown action." }, { status: 400 });
-    }
-
+    const resultMessage = await executeAction(supabase, userId, todayISO, toolUse);
     const newUses = usage.uses + 1;
     await supabase.from("profiles").update({ assistant_uses_this_period: newUses }).eq("id", userId);
-
     return NextResponse.json({ message: resultMessage, actionTaken: toolUse.name, remaining: remainingUses(newUses) });
   } catch (e: any) {
-    return NextResponse.json({ message: e?.message ?? "Something went wrong applying that.", remaining: remainingUses(usage.uses) }, { status: 500 });
+    return NextResponse.json(
+      { message: e?.message ?? "Something went wrong applying that.", remaining: remainingUses(usage.uses) },
+      { status: 500 }
+    );
   }
 }

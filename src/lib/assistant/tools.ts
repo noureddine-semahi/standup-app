@@ -62,4 +62,16 @@ export const ASSISTANT_TOOLS = [
       required: ["goal_id"],
     },
   },
+  {
+    name: "remove_goal",
+    description:
+      "Permanently delete a goal — use this when the user asks to remove, delete, or get rid of a goal entirely (not reschedule it, not move it to Backlog). This cannot be undone, and any notes, checklist items, or attached files on the goal are permanently deleted with it.",
+    input_schema: {
+      type: "object",
+      properties: {
+        goal_id: { type: "string", description: "The id of the goal to delete, from the provided goal list." },
+      },
+      required: ["goal_id"],
+    },
+  },
 ] as const;

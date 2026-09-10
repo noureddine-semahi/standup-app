@@ -5,10 +5,14 @@ import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabase/client";
 import { toISODate, addDays } from "@/lib/supabase/db";
 
+type ToolCall = { name: string; input: Record<string, any> };
+
 type AssistantResponse = {
   message: string;
   actionTaken?: string;
   remaining?: number;
+  requiresConfirmation?: boolean;
+  confirmAction?: ToolCall;
 };
 
 type AssistantPanelProps = {
@@ -74,6 +78,27 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
     recognition.start();
   }
 
+  async function postToAssistant(payload: Record<string, any>) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) throw new Error("Not signed in.");
+
+    const todayISO = toISODate(new Date());
+    const tomorrowISO = toISODate(addDays(new Date(), 1));
+
+    const res = await fetch("/api/assistant", {
+      method: "POST",
+      headers: { "content-type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ todayISO, tomorrowISO, ...payload }),
+    });
+
+    const data: AssistantResponse = await res.json();
+    if (!res.ok) throw new Error(data.message ?? "Something went wrong.");
+    return data;
+  }
+
   async function handleSend() {
     const message = input.trim();
     if (!message || sending) return;
@@ -83,28 +108,7 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
     setLastResponse(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-      if (!accessToken) throw new Error("Not signed in.");
-
-      const todayISO = toISODate(new Date());
-      const tomorrowISO = toISODate(addDays(new Date(), 1));
-
-      const res = await fetch("/api/assistant", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ message, todayISO, tomorrowISO }),
-      });
-
-      const data: AssistantResponse = await res.json();
-
-      if (!res.ok) {
-        setError(data.message ?? "Something went wrong.");
-        return;
-      }
-
+      const data = await postToAssistant({ message });
       setLastResponse(data);
       setInput("");
       if (data.actionTaken) onActionTaken();
@@ -113,6 +117,31 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
     } finally {
       setSending(false);
     }
+  }
+
+  // remove_goal is the only irreversible one of the 5 tools, so the server
+  // never executes it straight off a model decision — it comes back here as
+  // requiresConfirmation instead, and only a deliberate tap on this button
+  // resends the exact same tool call with confirmedAction to actually apply it.
+  async function handleConfirmDelete() {
+    if (!lastResponse?.confirmAction || sending) return;
+
+    setSending(true);
+    setError(null);
+
+    try {
+      const data = await postToAssistant({ confirmedAction: lastResponse.confirmAction });
+      setLastResponse(data);
+      if (data.actionTaken) onActionTaken();
+    } catch (e: any) {
+      setError(e?.message ?? "Something went wrong.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleCancelDelete() {
+    setLastResponse(null);
   }
 
   const modalContent = (
@@ -215,7 +244,26 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
           </div>
         )}
 
-        {lastResponse && !error && (
+        {lastResponse && !error && lastResponse.requiresConfirmation && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+            <div className="text-sm text-red-200">{lastResponse.message}</div>
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={handleConfirmDelete}
+                disabled={sending}
+                className="btn flex-1"
+                style={{ borderColor: "rgba(239, 68, 68, 0.6)", color: "#fca5a5" }}
+              >
+                {sending ? "Deleting…" : "Yes, delete it"}
+              </button>
+              <button onClick={handleCancelDelete} disabled={sending} className="btn btn-ghost">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {lastResponse && !error && !lastResponse.requiresConfirmation && (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90">
             {lastResponse.actionTaken && <span className="text-emerald-400 mr-1">✓</span>}
             {lastResponse.message}

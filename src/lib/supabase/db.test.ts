@@ -6,6 +6,7 @@ import {
   computeClosurePoints,
   computeLongestStreak,
   formatDateDisplay,
+  formatTimeOfDay,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -49,6 +50,27 @@ describe("formatDateDisplay", () => {
   it("returns the input unchanged if it isn't a well-formed ISO date", () => {
     expect(formatDateDisplay("")).toBe("");
     expect(formatDateDisplay("2026-08")).toBe("2026-08");
+  });
+});
+
+describe("formatTimeOfDay", () => {
+  it("converts a 24h HH:MM to 12h with AM/PM", () => {
+    expect(formatTimeOfDay("07:30")).toBe("7:30 AM");
+    expect(formatTimeOfDay("15:05")).toBe("3:05 PM");
+  });
+
+  it("handles midnight and noon", () => {
+    expect(formatTimeOfDay("00:00")).toBe("12:00 AM");
+    expect(formatTimeOfDay("12:00")).toBe("12:00 PM");
+  });
+
+  it("ignores seconds if present (Postgres' time type comes back as HH:MM:SS)", () => {
+    expect(formatTimeOfDay("09:15:00")).toBe("9:15 AM");
+  });
+
+  it("returns the input unchanged if it isn't well-formed", () => {
+    expect(formatTimeOfDay("")).toBe("");
+    expect(formatTimeOfDay("not-a-time")).toBe("not-a-time");
   });
 });
 

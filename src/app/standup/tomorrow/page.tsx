@@ -644,6 +644,30 @@ export default function TomorrowGoalsPage() {
                         placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                         className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                       />
+                      <input
+                        type="time"
+                        value={g.time_of_day?.slice(0, 5) ?? ""}
+                        disabled={locked || submitting}
+                        onBlur={() => {
+                          if (skipNextBlurAutosaveRef.current) {
+                            skipNextBlurAutosaveRef.current = false;
+                            return;
+                          }
+                          if (priorityChangeInProgressRef.current) {
+                            return;
+                          }
+                          scheduleAutoSave();
+                        }}
+                        onChange={(e) =>
+                          setGoals((prev) =>
+                            prev.map((x, i) =>
+                              i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                            )
+                          )
+                        }
+                        className="mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                        title="Optional time"
+                      />
                       {g.rescheduled_from_date && (
                         <div className="mt-2 flex items-start gap-2">
                           <span className="text-yellow-400 text-xs mt-0.5">↷</span>

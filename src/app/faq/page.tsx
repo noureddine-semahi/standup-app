@@ -60,7 +60,7 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "What does the Dashboard Assistant do?",
     answer:
-      "Click 🤖 Assistant on the Dashboard and type a plain request — \"add a goal to call the dentist tomorrow\" or \"mark my workout done\" — and it adds or updates the matching goal for you. It's free, capped at 20 actions per rolling 30-day period per account; asking a question it can't confidently match to one goal doesn't use up an action, it'll just ask you to clarify.",
+      "Click 🤖 Assistant on the Dashboard and type (or tap the mic and speak) a plain request — \"add a goal to call the dentist tomorrow,\" \"mark my workout done,\" \"reschedule X to Friday,\" \"move X to Backlog,\" or \"delete X.\" Deleting a goal always asks you to confirm first, since it's the one action that can't be undone. It's free, capped at 20 actions per rolling 30-day period per account; asking something it can't confidently match to one goal doesn't use up an action, it'll just ask you to clarify.",
   },
   {
     question: "What's the Backlog for?",

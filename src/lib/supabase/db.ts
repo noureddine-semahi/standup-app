@@ -825,6 +825,24 @@ export async function deleteBacklogGoal(backlogId: string) {
 }
 
 /**
+ * The reverse of promoteBacklogGoal — for a scheduled goal you're no longer
+ * sure you'll get to on any particular day. Insert-then-delete, same
+ * safer-failure-mode order: if the delete fails, the goal exists in both
+ * places rather than vanishing. Notes, checklist items, and file
+ * attachments are NOT carried over — goal_backlog has no equivalent
+ * sub-tables, and they cascade-delete with the goal itself.
+ */
+export async function moveGoalToBacklog(goal: Goal): Promise<BacklogGoal> {
+  const created = await addBacklogGoal(
+    goal.title,
+    goal.details ?? null,
+    typeof goal.priority === "number" ? goal.priority : 3
+  );
+  await deleteGoal(goal.id);
+  return created;
+}
+
+/**
  * Pushes a backlog item onto an actual day's plan: creates a real Goal on
  * planDateISO (appended after that day's existing goals) and removes the
  * backlog row. Two separate calls rather than one transaction — there's no

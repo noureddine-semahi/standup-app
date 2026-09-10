@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { toISODate, addDays, rescheduleGoalToDate, type Goal } from "@/lib/supabase/db";
+import { toISODate, addDays, rescheduleGoalToDate, moveGoalToBacklog, type Goal } from "@/lib/supabase/db";
 
 type RescheduleModalProps = {
   goals: Goal[];
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (kind: "rescheduled" | "backlog") => void;
 };
 
 export default function RescheduleModal({ goals, onClose, onSuccess }: RescheduleModalProps) {
@@ -15,6 +15,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [reason, setReason] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [movingToBacklog, setMovingToBacklog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -66,11 +67,27 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
         });
       }
 
-      onSuccess();
+      onSuccess("rescheduled");
       onClose();
     } catch (e: any) {
       setError(e?.message ?? "Failed to reschedule");
       setSaving(false);
+    }
+  }
+
+  async function handleMoveToBacklog() {
+    if (isBulk || saving || movingToBacklog) return;
+
+    setMovingToBacklog(true);
+    setError(null);
+
+    try {
+      await moveGoalToBacklog(goals[0]);
+      onSuccess("backlog");
+      onClose();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to move to Backlog");
+      setMovingToBacklog(false);
     }
   }
 
@@ -148,6 +165,27 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
         </div>
 
         <div className="space-y-4">
+          {!isBulk && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+              <div>
+                <div className="text-sm text-white/80">Not sure when you'll get to this?</div>
+                <div className="mt-0.5 text-xs text-white/50">
+                  Move it to your Backlog instead — no date needed. Notes, checklist items, and
+                  attached files won't carry over.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleMoveToBacklog}
+                disabled={saving || movingToBacklog}
+                className="btn flex-shrink-0"
+                style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
+              >
+                {movingToBacklog ? "Moving…" : "🗒️ Move to Backlog"}
+              </button>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-white/80 mb-2">
               Reschedule to:

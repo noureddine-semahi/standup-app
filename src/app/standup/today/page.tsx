@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import RescheduleModal from "@/components/RescheduleModal";
+import BlockedReasonModal from "@/components/BlockedReasonModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
@@ -124,6 +125,12 @@ export default function TodayPage() {
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
+  // Blocked requires a reason before it's applied — see confirmBlocked().
+  // The prompt intercepts selectQuickAction before anything else happens,
+  // so canceling it leaves the goal completely untouched.
+  const [blockingGoal, setBlockingGoal] = useState<Goal | null>(null);
+  const [blockingSaving, setBlockingSaving] = useState(false);
+  const [blockingError, setBlockingError] = useState<string | null>(null);
   const [reopening, setReopening] = useState(false);
   
   // Notes + the derived history facts render as one merged timeline below
@@ -367,6 +374,16 @@ export default function TodayPage() {
   async function selectQuickAction(goal: Goal, action: GoalStatus | "reschedule") {
     if (locked || busyGoalIds.has(goal.id) || dayClosed) return;
 
+    // Blocked needs a reason first — hand off to confirmBlocked() instead of
+    // applying anything here. Nothing about the goal changes until the
+    // prompt is actually confirmed.
+    if (action === "blocked") {
+      setShowActions((prev) => ({ ...prev, [goal.id]: false }));
+      setBlockingError(null);
+      setBlockingGoal(goal);
+      return;
+    }
+
     markGoalBusy(goal.id);
     setMsg(null);
     setShowActions((prev) => ({ ...prev, [goal.id]: false }));
@@ -430,6 +447,69 @@ export default function TodayPage() {
     } finally {
       clearGoalBusy(goal.id);
     }
+  }
+
+  // Mirrors the non-reschedule branch of selectQuickAction above (mark
+  // reviewed + award awareness if needed, then apply the status), plus
+  // saving the required reason as a real note so a blocked goal always
+  // explains itself later in its timeline.
+  async function confirmBlocked(reason: string) {
+    const goal = blockingGoal;
+    const trimmed = reason.trim();
+    if (!goal || !trimmed || blockingSaving) return;
+
+    setBlockingSaving(true);
+    setBlockingError(null);
+    markGoalBusy(goal.id);
+
+    try {
+      const wasReviewed = !!goal.reviewed_at;
+
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goal.id
+            ? { ...g, reviewed_at: g.reviewed_at ?? new Date().toISOString(), status: "blocked" }
+            : g
+        )
+      );
+
+      if (!wasReviewed) {
+        await markGoalReviewed(goal.id);
+
+        if (plan?.id && !plan.reviewed_at && !plan.awareness_awarded && !awarenessInFlightRef.current) {
+          awarenessInFlightRef.current = true;
+          try {
+            const result = await awardAwarenessPoints(plan.id, 5);
+            if (result?.success) notifyPointsUpdated();
+          } catch {
+            // Non-fatal — retried automatically on the next review action.
+          } finally {
+            awarenessInFlightRef.current = false;
+          }
+        }
+      }
+
+      await updateGoalStatus(goal.id, "blocked");
+      await addGoalNote(goal.id, trimmed);
+
+      setMsg(`Marked "${statusLabel("blocked")}" ✓`);
+      window.setTimeout(() => setMsg((cur) => (cur?.startsWith("Marked") ? null : cur)), 1500);
+
+      setBlockingGoal(null);
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setBlockingError(e?.message ?? "Failed to mark blocked");
+      await refresh({ silent: true });
+    } finally {
+      setBlockingSaving(false);
+      clearGoalBusy(goal.id);
+    }
+  }
+
+  function cancelBlocked() {
+    if (blockingSaving) return;
+    setBlockingGoal(null);
+    setBlockingError(null);
   }
 
   async function closeOutDay() {
@@ -849,13 +929,25 @@ export default function TodayPage() {
             // then rescheduled) shows the reschedule banner — where it's
             // going next matters more than why it stalled.
             const isRescheduled = !!g.rescheduled_to;
-            const isDone = g.status === "completed" || g.status === "canceled" || g.status === "blocked" || isRescheduled;
-            const isCollapsed = isDone && !expandedDoneIds.has(g.id);
+            const isCollapsible =
+              g.status === "completed" ||
+              g.status === "canceled" ||
+              g.status === "blocked" ||
+              g.status === "in_progress" ||
+              isRescheduled;
+            const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
             const doneColors = isRescheduled
               ? { color: "#d8b4fe", border: "rgba(168, 85, 247, 0.7)", bg: "rgba(168, 85, 247, 0.12)" }
               : statusChipColors(g.status);
+            // Kept short deliberately — a rescheduled goal's target date
+            // used to be embedded right here ("Rescheduled to 09/12/2026"),
+            // which overflowed this pill on narrow screens. The full date
+            // and reason are one tap away in the expanded card's timeline
+            // (buildGoalTimeline logs a real "Rescheduled to ... — reason"
+            // entry), so the collapsed banner only needs the icon + label,
+            // same as every other status.
             const bannerText = isRescheduled
-              ? `📅 Rescheduled to ${formatDateDisplay(g.rescheduled_to!)}`
+              ? "📅 Rescheduled"
               : `${statusIcon(g.status)} ${statusLabel(g.status)}`;
 
             if (isCollapsed) {
@@ -905,7 +997,7 @@ export default function TodayPage() {
                 style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >
                 {isCelebrating && <div className="goal-complete-badge">✓</div>}
-                {isDone && (
+                {isCollapsible && (
                   <button
                     type="button"
                     onClick={() => toggleExpandedDone(g.id)}
@@ -1174,10 +1266,20 @@ export default function TodayPage() {
         <RescheduleModal
           goals={[rescheduleGoal]}
           onClose={() => setRescheduleGoal(null)}
-          onSuccess={() => {
-            setMsg("Goal rescheduled successfully ✓");
+          onSuccess={(kind) => {
+            setMsg(kind === "backlog" ? "Moved to Backlog ✓" : "Goal rescheduled successfully ✓");
             refresh({ silent: true });
           }}
+        />
+      )}
+
+      {blockingGoal && (
+        <BlockedReasonModal
+          goalTitle={blockingGoal.title}
+          saving={blockingSaving}
+          error={blockingError}
+          onCancel={cancelBlocked}
+          onConfirm={confirmBlocked}
         />
       )}
     </>

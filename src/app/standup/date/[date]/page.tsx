@@ -676,7 +676,8 @@ export default function DynamicDatePage() {
               setRescheduleGoal(null);
               setReschedulingWholeDay(false);
             }}
-            onSuccess={() => {
+            onSuccess={(kind) => {
+              setMsg(kind === "backlog" ? "Moved to Backlog ✓" : "Goal rescheduled ✓");
               setRescheduleGoal(null);
               setReschedulingWholeDay(false);
               refresh({ silent: true });

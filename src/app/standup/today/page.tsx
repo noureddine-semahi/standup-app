@@ -921,34 +921,25 @@ export default function TodayPage() {
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
             const isCelebrating = celebratingGoalIds.has(g.id);
-            // Rescheduled isn't a GoalStatus value — the goal keeps its
-            // original status and rescheduled_to just gets set alongside it
-            // (see selectQuickAction) — so it needs its own condition and
-            // its own banner color/text rather than statusChipColors, which
-            // has no "rescheduled" case. A goal that's both (e.g. blocked,
-            // then rescheduled) shows the reschedule banner — where it's
-            // going next matters more than why it stalled.
-            const isRescheduled = !!g.rescheduled_to;
+            // "postponed" always means rescheduled — rescheduleGoalToDate()
+            // is the only path that ever sets it, and it unconditionally
+            // overwrites whatever status was there before (so a goal that
+            // was blocked, then rescheduled, shows up as "postponed" here,
+            // not "blocked" — where it's going next matters more than why
+            // it stalled). statusLabel/statusIcon/statusChipColors already
+            // render "postponed" as "📅 Rescheduled", so g.status alone is
+            // enough — no separate rescheduled_to check needed for display.
+            // The full target date and reason are one tap away in the
+            // expanded card's timeline either way.
             const isCollapsible =
               g.status === "completed" ||
               g.status === "canceled" ||
               g.status === "blocked" ||
               g.status === "in_progress" ||
-              isRescheduled;
+              g.status === "postponed";
             const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
-            const doneColors = isRescheduled
-              ? { color: "#d8b4fe", border: "rgba(168, 85, 247, 0.7)", bg: "rgba(168, 85, 247, 0.12)" }
-              : statusChipColors(g.status);
-            // Kept short deliberately — a rescheduled goal's target date
-            // used to be embedded right here ("Rescheduled to 09/12/2026"),
-            // which overflowed this pill on narrow screens. The full date
-            // and reason are one tap away in the expanded card's timeline
-            // (buildGoalTimeline logs a real "Rescheduled to ... — reason"
-            // entry), so the collapsed banner only needs the icon + label,
-            // same as every other status.
-            const bannerText = isRescheduled
-              ? "📅 Rescheduled"
-              : `${statusIcon(g.status)} ${statusLabel(g.status)}`;
+            const doneColors = statusChipColors(g.status);
+            const bannerText = `${statusIcon(g.status)} ${statusLabel(g.status)}`;
 
             if (isCollapsed) {
               return (

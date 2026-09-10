@@ -1126,7 +1126,7 @@ const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   in_progress: "In progress",
   completed: "Completed",
   attempted: "Attempted",
-  postponed: "Postponed",
+  postponed: "Rescheduled",
   blocked: "Blocked",
   canceled: "Canceled",
 };
@@ -1898,8 +1898,15 @@ export async function rescheduleGoalToDate(params: {
 }) {
   const userId = await getCurrentUserId();
 
-  // 1) mark old goal postponed
-  await updateGoalStatus(params.goal.id, "postponed");
+  // 1) mark old goal postponed — a raw update, not updateGoalStatus(), since
+  // that would also log its own "Status changed to Rescheduled" timeline
+  // entry, duplicating the more detailed "Rescheduled to <date> — <reason>"
+  // entry logged via logGoalEvent below for the exact same action.
+  const { error: statusErr } = await supabase
+    .from("goals")
+    .update({ status: "postponed" })
+    .eq("id", params.goal.id);
+  if (statusErr) throw statusErr;
 
   // 2) store intent + snapshot
   const { error: logErr } = await supabase.from("goal_reschedules").insert({

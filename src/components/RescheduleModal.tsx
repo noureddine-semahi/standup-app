@@ -245,8 +245,8 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
 
         <div className="mt-4 text-xs text-white/50">
           {isBulk
-            ? `All ${goals.length} goals will be marked as "postponed" and will appear automatically on the selected date.`
-            : 'The goal will be marked as "postponed" and will appear automatically on the selected date.'}
+            ? `All ${goals.length} goals will be marked as rescheduled and will appear automatically on the selected date.`
+            : "The goal will be marked as rescheduled and will appear automatically on the selected date."}
         </div>
       </div>
     </div>

@@ -210,7 +210,7 @@ export default function AboutPage() {
                 </h3>
                 <p className="text-sm text-white/60">
                   StandUp separates <b>review</b> from <b>completion</b>. A goal
-                  can be marked attempted, blocked, or postponed — without guilt.
+                  can be marked attempted, blocked, or rescheduled — without guilt.
                 </p>
               </div>
 

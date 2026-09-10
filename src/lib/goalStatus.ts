@@ -1,12 +1,16 @@
 import type { GoalStatus } from "@/lib/supabase/db";
 
+// "postponed" is never set anywhere except rescheduleGoalToDate() — there is
+// no other action in the app that produces it — so it's really the same
+// event as being rescheduled, not a distinct outcome. Every display below
+// treats it that way rather than as its own separate "Postponed" state.
 export function statusLabel(status: GoalStatus) {
   switch (status) {
     case "not_started": return "Not started";
     case "in_progress": return "In progress";
     case "completed": return "Completed";
     case "attempted": return "Attempted";
-    case "postponed": return "Postponed";
+    case "postponed": return "Rescheduled";
     case "blocked": return "Blocked";
     case "canceled": return "Canceled";
     default: return status;
@@ -18,7 +22,7 @@ export function statusPillClass(status: GoalStatus) {
     case "completed": return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
     case "in_progress": return "bg-sky-500/15 text-sky-300 border-sky-500/30";
     case "blocked": return "bg-rose-500/15 text-rose-300 border-rose-500/30";
-    case "postponed": return "bg-amber-500/15 text-amber-300 border-amber-500/30";
+    case "postponed": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
     case "attempted": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
     case "canceled": return "bg-slate-500/15 text-slate-300 border-slate-500/30";
     case "not_started":
@@ -31,7 +35,7 @@ export function statusIcon(status: GoalStatus) {
     case "completed": return "✅";
     case "in_progress": return "⚙️";
     case "blocked": return "🚫";
-    case "postponed": return "⏸️";
+    case "postponed": return "📅";
     case "attempted": return "🔸";
     case "canceled": return "❌";
     case "not_started":
@@ -51,7 +55,7 @@ export function statusChipColors(status: GoalStatus): StatusChipColors {
     case "blocked":
       return { bg: "rgba(239, 68, 68, 0.12)", border: "rgba(239, 68, 68, 0.45)", color: "#fca5a5" };
     case "postponed":
-      return { bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.45)", color: "#fcd34d" };
+      return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "#d8b4fe" };
     case "attempted":
       return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "#d8b4fe" };
     case "canceled":

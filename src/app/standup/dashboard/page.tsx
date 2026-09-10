@@ -231,7 +231,7 @@ export default function DashboardPage() {
   const todayAttemptedPct = todayTotal > 0 ? Math.round((todayReviewed / todayTotal) * 100) : 0;
   const todayCompletedPct = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
   const todayOtherOutcomes = [
-    todayPostponed > 0 ? `${todayPostponed} postponed` : null,
+    todayPostponed > 0 ? `${todayPostponed} rescheduled` : null,
     todayBlocked > 0 ? `${todayBlocked} blocked` : null,
     todayAttemptedStatus > 0 ? `${todayAttemptedStatus} attempted` : null,
     todayInProgress > 0 ? `${todayInProgress} in progress` : null,

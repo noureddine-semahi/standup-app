@@ -4,10 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { logLandingPageVisit } from "@/lib/supabase/db";
+import { logLandingPageVisit, LANDING_VISIT_DNT_KEY } from "@/lib/supabase/db";
 import { SevenSegmentDigit, SevenSegmentReadout } from "@/components/SevenSegmentDigit";
 
 const VISITED_KEY = "standup-landing-visited";
+// Real visitor traffic only ever reaches the production alias. Dev servers
+// (localhost) and Vercel preview-deployment URLs get their own hostnames,
+// so excluding everything except this list stops build/design verification
+// traffic from ever being logged as a visit in the first place.
+const PRODUCTION_HOSTNAMES = ["standup-app-two.vercel.app"];
 
 const READOUTS = [
   { label: "Points", value: "247", color: "var(--led-amber)" },
@@ -91,18 +96,23 @@ export default function LandingPage() {
         router.push("/standup/dashboard");
       } else {
         setLoading(false);
+
+        const isProductionHost = PRODUCTION_HOSTNAMES.includes(window.location.hostname);
+
         // Only for actual visitors landing here signed out — logged-in
         // users get redirected above before ever seeing this page. A local
         // flag (not a cookie, never sent anywhere) keeps a repeat visit from
         // the same browser from being logged again, so the count reflects
-        // unique visitors rather than every page load/refresh.
+        // unique visitors rather than every page load/refresh. Dev/preview
+        // hosts and any browser explicitly opted out never log at all.
         try {
-          if (!window.localStorage.getItem(VISITED_KEY)) {
+          const optedOut = window.localStorage.getItem(LANDING_VISIT_DNT_KEY) === "1";
+          if (isProductionHost && !optedOut && !window.localStorage.getItem(VISITED_KEY)) {
             window.localStorage.setItem(VISITED_KEY, "1");
             logLandingPageVisit();
           }
         } catch {
-          logLandingPageVisit();
+          if (isProductionHost) logLandingPageVisit();
         }
       }
     }

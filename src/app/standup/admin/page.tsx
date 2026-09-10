@@ -14,6 +14,7 @@ import {
   getAdminAuditLog,
   getAdminLandingVisitStats,
   formatDateTimeDisplay,
+  LANDING_VISIT_DNT_KEY,
   type AdminMember,
   type AdminAuditEntry,
   type AdminRole,
@@ -86,6 +87,30 @@ export default function AdminPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [pointsDrafts, setPointsDrafts] = useState<Record<string, string>>({});
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  // Per-browser opt-out from landing-page visit tracking, read from
+  // localStorage — not tied to this account, since the flag has to persist
+  // on this device even after signing out (which is exactly when the
+  // landing page gets hit and would otherwise log a visit).
+  const [deviceOptedOut, setDeviceOptedOut] = useState(false);
+
+  useEffect(() => {
+    try {
+      setDeviceOptedOut(window.localStorage.getItem(LANDING_VISIT_DNT_KEY) === "1");
+    } catch {
+      // localStorage unavailable — leave the default (not opted out)
+    }
+  }, []);
+
+  function toggleDeviceOptOut() {
+    const next = !deviceOptedOut;
+    try {
+      if (next) window.localStorage.setItem(LANDING_VISIT_DNT_KEY, "1");
+      else window.localStorage.removeItem(LANDING_VISIT_DNT_KEY);
+      setDeviceOptedOut(next);
+    } catch {
+      setMsg("Couldn't save that — this browser may be blocking local storage.");
+    }
+  }
 
   useEffect(() => {
     async function init() {
@@ -489,10 +514,28 @@ export default function AdminPage() {
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-1">Landing Page Visits</h2>
-        <p className="text-sm text-white/50 mb-4">
-          Signed-out visitors who landed on the homepage, whether or not they signed up.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Landing Page Visits</h2>
+            <p className="text-sm text-white/50">
+              Signed-out visitors who landed on the homepage, whether or not they signed up. Only
+              counted on the production URL — a dev server or preview deployment never logs.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleDeviceOptOut}
+            className="btn text-xs px-3 py-1.5 whitespace-nowrap"
+            style={
+              deviceOptedOut
+                ? { borderColor: "rgba(16, 185, 129, 0.4)", color: "#6ee7b7" }
+                : undefined
+            }
+            title="For a browser you'll deliberately use to re-visit the signed-out landing page while testing"
+          >
+            {deviceOptedOut ? "✓ This device excluded" : "Exclude this device"}
+          </button>
+        </div>
 
         {visitStats === null ? (
           <p className="text-sm text-white/50">Loading…</p>

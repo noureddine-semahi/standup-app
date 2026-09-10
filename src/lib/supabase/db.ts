@@ -408,6 +408,9 @@ export async function logLandingPageVisit() {
   }
 }
 
+/** Shared between the landing page (checks it) and the Admin panel (sets/clears it) — a browser with this localStorage flag set never logs a visit, for testers/admins who know they'll deliberately re-visit the signed-out landing page. */
+export const LANDING_VISIT_DNT_KEY = "standup-landing-dnt";
+
 export type LandingVisitStats = {
   total: number;
   byDay: { date: string; count: number }[];

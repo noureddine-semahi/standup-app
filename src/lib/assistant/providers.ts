@@ -81,27 +81,45 @@ export async function callAnthropic(apiKey: string, systemPrompt: string, userMe
 // new projects, not a hard requirement — not worth migrating to yet.
 const GEMINI_MODEL = "gemini-3.6-flash";
 
+// Free-tier Gemini models get deprioritized under load and return a
+// transient 503 ("currently experiencing high demand") fairly often — not
+// an error in our request, just Google's infra shedding load. Worth a
+// couple of quick automatic retries before surfacing it as a failure,
+// since the free tier is the whole point of running this provider.
+const RETRYABLE_STATUSES = new Set([503, 429]);
+const RETRY_DELAYS_MS = [500, 1500];
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function callGemini(apiKey: string, systemPrompt: string, userMessage: string): Promise<ProviderResult> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: userMessage }] }],
-        tools: [
-          {
-            function_declarations: ASSISTANT_TOOLS.map((tool) => ({
-              name: tool.name,
-              description: tool.description,
-              parameters: toGeminiSchema(tool.input_schema),
-            })),
-          },
-        ],
-      }),
-    }
-  );
+  const requestBody = JSON.stringify({
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: userMessage }] }],
+    tools: [
+      {
+        function_declarations: ASSISTANT_TOOLS.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: toGeminiSchema(tool.input_schema),
+        })),
+      },
+    ],
+  });
+
+  let res: Response;
+  let attempt = 0;
+  while (true) {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      { method: "POST", headers: { "content-type": "application/json" }, body: requestBody }
+    );
+
+    if (res.ok || !RETRYABLE_STATUSES.has(res.status) || attempt >= RETRY_DELAYS_MS.length) break;
+    await sleep(RETRY_DELAYS_MS[attempt]);
+    attempt++;
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => "");

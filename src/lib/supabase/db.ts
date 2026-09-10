@@ -415,9 +415,15 @@ export type LandingVisitStats = {
 
 /** Admin-only: landing page visit counts, total and per-day for the last `days` days. */
 export async function getAdminLandingVisitStats(days = 30): Promise<LandingVisitStats> {
+  // Bucketed by the viewing admin's own local calendar day, same as every
+  // other date boundary in the app (toISODate() always uses local Date
+  // getters, never UTC) — without this, a visit in the evening lands under
+  // "tomorrow" for anyone west of UTC.
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   const [{ data: totalData, error: totalError }, { data: byDayData, error: byDayError }] = await Promise.all([
     supabase.rpc("admin_get_landing_visits_total"),
-    supabase.rpc("admin_get_landing_visits", { p_days: days }),
+    supabase.rpc("admin_get_landing_visits", { p_days: days, p_tz: timezone }),
   ]);
 
   if (totalError) throw totalError;

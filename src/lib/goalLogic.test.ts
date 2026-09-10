@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyPriorityChange, compactForSave, MAX_GOALS, type DraftGoal } from "./goalLogic";
+import { applyPriorityChange, compactForSave, sortGoalsForDisplay, MAX_GOALS, type DraftGoal } from "./goalLogic";
 
 function goal(title: string, priority: number, sort_order: number): DraftGoal {
   return { title, priority, sort_order };
@@ -72,5 +72,41 @@ describe("compactForSave", () => {
     const input = Array.from({ length: MAX_GOALS + 5 }, (_, i) => goal(`Goal ${i}`, 3, i));
     const result = compactForSave(input);
     expect(result.length).toBe(MAX_GOALS);
+  });
+});
+
+describe("sortGoalsForDisplay", () => {
+  it("puts P1 first regardless of array position", () => {
+    const input = [goal("A", 3, 0), goal("B", 5, 1), goal("C", 1, 2)];
+    const result = sortGoalsForDisplay(input);
+    expect(result.map((r) => r.g.title)).toEqual(["C", "A", "B"]);
+  });
+
+  it("keeps tied priorities in their original relative order", () => {
+    const input = [goal("A", 2, 0), goal("B", 1, 1), goal("C", 2, 2)];
+    const result = sortGoalsForDisplay(input);
+    expect(result.map((r) => r.g.title)).toEqual(["B", "A", "C"]);
+  });
+
+  it("reports the true original index for every goal, not its sorted position", () => {
+    const input = [goal("A", 3, 0), goal("B", 1, 1)];
+    const result = sortGoalsForDisplay(input);
+    // B (originally index 1) now sorts first, but a caller driving a
+    // handler off this result must still target the real array position.
+    expect(result[0]).toMatchObject({ originalIdx: 1 });
+    expect(result[1]).toMatchObject({ originalIdx: 0 });
+  });
+
+  it("treats a missing/invalid priority as the default (3)", () => {
+    const input = [{ title: "No priority", sort_order: 0 }, goal("P1", 1, 1)];
+    const result = sortGoalsForDisplay(input);
+    expect(result.map((r) => r.g.title)).toEqual(["P1", "No priority"]);
+  });
+
+  it("never mutates the input array", () => {
+    const input = [goal("A", 3, 0), goal("B", 1, 1)];
+    const copy = [...input];
+    sortGoalsForDisplay(input);
+    expect(input).toEqual(copy);
   });
 });

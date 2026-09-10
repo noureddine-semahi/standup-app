@@ -27,6 +27,7 @@ import {
   compactForSave,
   compactForUI,
   normalizeGoals,
+  sortGoalsForDisplay,
   DEFAULT_PRIORITY,
   MAX_GOALS,
   type DraftGoal,
@@ -127,6 +128,10 @@ export default function TomorrowGoalsPage() {
         typeof g.priority === "number" && Number.isFinite(g.priority)
           ? g.priority
           : DEFAULT_PRIORITY,
+      // Left out of this comparison, a time-only edit produced the exact
+      // same hash as before it — autosave and the manual Save button both
+      // saw "no changes" and silently skipped saving it entirely.
+      time_of_day: g.time_of_day || null,
     }));
     return JSON.stringify(normalized);
   }
@@ -509,7 +514,16 @@ export default function TomorrowGoalsPage() {
   const submitted = planStatus === "submitted";
 
   const normalized = normalizeGoals(goals);
-  
+
+  // Display order only — P1 always sorts to the top, then P2, etc. The
+  // underlying `goals` array (and its actual positions 0/1/2, which
+  // compactForSave/removeGoal treat as structurally required) is never
+  // reordered by this; every handler below still receives originalIdx, a
+  // true index into `goals`, so dragging, priority changes, and removal all
+  // keep working exactly as before — only where each row visually renders
+  // changes. See goalLogic.test.ts for the sort behavior itself.
+  const sortedForDisplay = sortGoalsForDisplay(goals);
+
   // Count goals with priority 1-3 that have content
   const priorityGoalsFilled = normalized
     .filter((g) => {
@@ -558,7 +572,8 @@ export default function TomorrowGoalsPage() {
         </div>
 
         <div className="space-y-4">
-          {goals.map((g, idx) => {
+          {sortedForDisplay.map(({ g, originalIdx }, displayIdx) => {
+            const idx = originalIdx;
             const p =
               typeof g.priority === "number" && Number.isFinite(g.priority)
                 ? g.priority
@@ -567,7 +582,7 @@ export default function TomorrowGoalsPage() {
 
             return (
               <div key={g.id ?? `row-${idx}`}>
-                {idx === 3 && (
+                {displayIdx === 3 && (
                   <div className="my-6 flex items-center gap-4">
                     <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
                     <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
@@ -611,7 +626,7 @@ export default function TomorrowGoalsPage() {
                         border: "1px solid rgba(255, 255, 255, 0.14)",
                       }}
                     >
-                      {idx + 1}
+                      {displayIdx + 1}
                     </div>
 
                     {/* Goal — static, ~45% */}

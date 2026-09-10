@@ -150,6 +150,10 @@ export default function DynamicDatePage() {
         typeof g.priority === "number" && Number.isFinite(g.priority)
           ? g.priority
           : DEFAULT_PRIORITY,
+      // Left out of this comparison, a time-only edit produced the exact
+      // same hash as before it — autosave and the manual Save button both
+      // saw "no changes" and silently skipped saving it entirely.
+      time_of_day: g.time_of_day || null,
     }));
     return JSON.stringify(normalized);
   }

@@ -117,6 +117,27 @@ export function compactForSave(current: DraftGoal[]) {
   return combined;
 }
 
+/**
+ * Display order only, never persisted — P1 sorts to the top, then P2, etc.,
+ * with tied priorities keeping their relative array order. Returns each
+ * goal paired with its real index in the input array (`originalIdx`) so a
+ * caller can still drive drag/priority/remove handlers against the true
+ * underlying array position — those treat positions 0-2 as structurally
+ * required (see compactForSave), which this function never reorders.
+ */
+export function sortGoalsForDisplay<T extends { priority?: number }>(goals: T[]): { g: T; originalIdx: number }[] {
+  return goals
+    .map((g, originalIdx) => ({ g, originalIdx }))
+    .sort((a, b) => {
+      const ap =
+        typeof a.g.priority === "number" && Number.isFinite(a.g.priority) ? a.g.priority : DEFAULT_PRIORITY;
+      const bp =
+        typeof b.g.priority === "number" && Number.isFinite(b.g.priority) ? b.g.priority : DEFAULT_PRIORITY;
+      if (ap !== bp) return ap - bp;
+      return a.originalIdx - b.originalIdx;
+    });
+}
+
 export function applyPriorityChange(prev: DraftGoal[], idx: number, newP: number) {
   const next = prev.map((g) => ({ ...g }));
   next[idx].priority = newP;

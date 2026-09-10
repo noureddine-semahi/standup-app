@@ -888,6 +888,7 @@ export default function TomorrowGoalsPage() {
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← Calendar</Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog">🗒️ Backlog</Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">Dashboard →</Link>
         </div>
 

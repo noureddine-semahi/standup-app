@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   addBacklogGoal,
+  addDays,
   deleteBacklogGoal,
   getBacklogGoals,
   promoteBacklogGoal,
@@ -26,6 +27,7 @@ export default function BacklogPage() {
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
   const todayISO = toISODate(new Date());
+  const tomorrowISO = toISODate(addDays(new Date(), 1));
 
   useEffect(() => {
     refresh();
@@ -84,8 +86,8 @@ export default function BacklogPage() {
     }
   }
 
-  async function handlePush(item: BacklogGoal) {
-    const date = pushDate[item.id];
+  async function handlePush(item: BacklogGoal, explicitDate?: string) {
+    const date = explicitDate ?? pushDate[item.id];
     if (!date || busyIds.has(item.id)) return;
     setBusy(item.id, true);
     setMsg(null);
@@ -196,6 +198,16 @@ export default function BacklogPage() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handlePush(item, tomorrowISO)}
+                      disabled={busy}
+                      className="btn"
+                      style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
+                      title={`Push straight to tomorrow (${tomorrowISO})`}
+                    >
+                      → Tomorrow
+                    </button>
                     <input
                       type="date"
                       value={pushDate[item.id] ?? ""}

@@ -59,16 +59,6 @@ create table if not exists public.goal_notes (
   -- Append-only from the client: never updated or deleted anywhere in src/.
 );
 
-create table if not exists public.goal_checklist_items (
-  id uuid primary key default gen_random_uuid(),
-  goal_id uuid not null references public.goals (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  text text not null,
-  is_checked boolean not null default false,
-  position integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists public.goal_reschedules (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,

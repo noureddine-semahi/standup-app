@@ -72,9 +72,13 @@ real reason to, not just because the list exists.
   version is the recommended path if this gets revisited — true freeform
   shape recognition fights the browser's native scroll gesture on the same
   list.
-- **Shared goals / connections** — friends, visibility permissions, and task
-  sharing. Scope small (a single shareable read-only link) before building
-  any connections graph.
+- **Shared goals / connections** — three distinct facets, not equal in cost:
+  sharing one specific goal (smallest slice), a broader status/progress view
+  for another person (needs a real "what's visible" decision), and active
+  monitoring by an accountability partner (heaviest — depends on
+  notifications existing first, since it implies notifying *them*, not just
+  giving read access). Build in that order if revisited; don't start with
+  a full connections/permissions graph.
 - **Notifications & email** — no delivery infrastructure exists today; every
   reminder is currently an in-app banner. Email is the lower-effort first
   step if this gets pursued.

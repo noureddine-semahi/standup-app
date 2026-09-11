@@ -221,10 +221,18 @@ export default function TodayPage() {
   const pendingGoals = useMemo(() => sortedGoals.filter((g) => !g.reviewed_at), [sortedGoals]);
   const allReviewed = totalCount === 0 || (totalCount > 0 && reviewedCount === totalCount);
 
+  // "In Progress" is a real, logged action (reviewed_at gets set same as
+  // any other quick action), but it isn't a settled outcome the way
+  // Completed/Blocked/Canceled/Rescheduled are — it means "still working on
+  // this," which conflicts with closing the day out. Reviewed alone isn't
+  // enough to close; nothing can still be actively in progress either.
+  const inProgressGoals = useMemo(() => sortedGoals.filter((g) => g.status === "in_progress"), [sortedGoals]);
+  const canCloseDay = allReviewed && inProgressGoals.length === 0;
+
   // No push/email in this app — the only "reminder" is this banner, shown
   // while the user has the page open, once 6 or fewer hours remain today.
   const hoursLeftToday = hoursUntilMidnight();
-  const showEndOfDayReminder = !dayClosed && totalCount > 0 && !allReviewed && hoursLeftToday <= 6;
+  const showEndOfDayReminder = !dayClosed && totalCount > 0 && !canCloseDay && hoursLeftToday <= 6;
 
   // silent: true for refetches after an action (reviewing a goal, closing
   // the day, etc.) — the page already has content on screen, so re-showing
@@ -515,8 +523,12 @@ export default function TodayPage() {
   async function closeOutDay() {
     if (!plan?.id || locked || closing || dayClosed) return;
 
-    if (totalCount > 0 && !allReviewed) {
-      setMsg("Review all goals first to close the day.");
+    if (totalCount > 0 && !canCloseDay) {
+      setMsg(
+        pendingGoals.length > 0
+          ? "Review all goals first to close the day."
+          : "Finish or update any goal still marked In Progress before closing the day."
+      );
       return;
     }
 
@@ -725,14 +737,20 @@ export default function TodayPage() {
                 <button
                   type="button"
                   onClick={closeOutDay}
-                  disabled={!allReviewed || closing}
-                  title={!allReviewed ? "Review all goals first" : "Close out the day"}
+                  disabled={!canCloseDay || closing}
+                  title={
+                    !canCloseDay
+                      ? pendingGoals.length > 0
+                        ? "Review all goals first"
+                        : "Finish or update any goal still marked In Progress"
+                      : "Close out the day"
+                  }
                   className="btn bottom-nav-btn"
                   style={{
                     background: "rgba(245, 158, 11, 0.2)",
                     border: "2px solid rgba(245, 158, 11, 0.4)",
-                    opacity: !allReviewed || closing ? 0.5 : 1,
-                    cursor: !allReviewed || closing ? "not-allowed" : "pointer",
+                    opacity: !canCloseDay || closing ? 0.5 : 1,
+                    cursor: !canCloseDay || closing ? "not-allowed" : "pointer",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -897,12 +915,18 @@ export default function TodayPage() {
                   <div className="h-4 w-px bg-white/10" />
                   <div className="text-sm text-white/70">Review goals to unlock close out.</div>
                 </>
+              ) : inProgressGoals.length > 0 ? (
+                <>
+                  <div className="text-sm text-white/70">In progress: <b>{inProgressGoals.length}</b></div>
+                  <div className="h-4 w-px bg-white/10" />
+                  <div className="text-sm text-white/70">Finish or update them before closing out.</div>
+                </>
               ) : (
                 <div className="text-sm text-white/70">All reviewed — ready to close out!</div>
               )}
             </div>
 
-            {allReviewed && (
+            {canCloseDay && (
               <div className="mt-3 text-sm text-white/60">
                 Close out to unlock Tomorrow planning.
               </div>

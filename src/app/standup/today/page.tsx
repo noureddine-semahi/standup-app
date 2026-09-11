@@ -813,33 +813,39 @@ export default function TodayPage() {
           {showQuickAdd && !dayClosed && (
               <div className="space-y-3 mt-4">
                 {quickAddGoals.map((g, idx) => (
-                  <div key={idx} className="flex items-center gap-4">
-                    <select
-                      value={g.priority}
-                      onChange={(e) => {
-                        const newGoals = [...quickAddGoals];
-                        newGoals[idx].priority = Number(e.target.value);
-                        setQuickAddGoals(newGoals);
-                      }}
-                      className="appearance-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white/30"
-                    >
-                      {PRIORITY_OPTIONS.map((opt) => (
-                        <option key={opt.v} value={opt.v}>
-                          {opt.icon} P{opt.v}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={g.title}
-                      onChange={(e) => {
-                        const newGoals = [...quickAddGoals];
-                        newGoals[idx].title = e.target.value;
-                        setQuickAddGoals(newGoals);
-                      }}
-                      placeholder={`Goal ${idx + 1}...`}
-                      className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
-                    />
+                  <div key={idx} className="space-y-2">
+                    <div className="flex items-center gap-4">
+                      <select
+                        value={g.priority}
+                        onChange={(e) => {
+                          const newGoals = [...quickAddGoals];
+                          newGoals[idx].priority = Number(e.target.value);
+                          setQuickAddGoals(newGoals);
+                        }}
+                        className="appearance-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white/30"
+                      >
+                        {PRIORITY_OPTIONS.map((opt) => (
+                          <option key={opt.v} value={opt.v}>
+                            {opt.icon} P{opt.v}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={g.title}
+                        onChange={(e) => {
+                          const newGoals = [...quickAddGoals];
+                          newGoals[idx].title = e.target.value;
+                          setQuickAddGoals(newGoals);
+                        }}
+                        placeholder={`Goal ${idx + 1}...`}
+                        className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
+                      />
+                    </div>
+                    {/* Stacked below rather than sharing the row above — a
+                        native time input has a minimum width it won't
+                        shrink past, which left the title almost no room on
+                        narrow phones when all three shared one flex row. */}
                     <input
                       type="time"
                       value={g.time_of_day}
@@ -848,7 +854,7 @@ export default function TodayPage() {
                         newGoals[idx].time_of_day = e.target.value;
                         setQuickAddGoals(newGoals);
                       }}
-                      className="flex-shrink-0 rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-white text-sm outline-none focus:border-white/40"
+                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
                       title="Optional time"
                     />
                   </div>

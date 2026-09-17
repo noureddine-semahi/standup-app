@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { getOrCreateProfile, updateThemePreference, consumePendingReferral, type Profile } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import { getStoredTheme, setTheme } from "@/lib/theme";
+import ThemeToggle from "@/components/ThemeToggle";
 
 // A profile's theme defaults to "dark" (DB column default), so this can't
 // tell "explicitly chosen dark" apart from "never chosen" — but it doesn't
@@ -328,6 +329,7 @@ export default function Header() {
             <span className="hamburger-line" />
             <span className="hamburger-line" />
           </button>
+          {!loading && user && <ThemeToggle size="sm" />}
         </div>
       </div>
 

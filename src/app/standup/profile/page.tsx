@@ -16,6 +16,7 @@ import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS } from "@/lib/achievements";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -154,6 +155,9 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex-1 grid grid-cols-1 gap-3 w-full" style={{ boxSizing: "border-box" }}>
+          <div className="flex justify-end">
+            <ThemeToggle />
+          </div>
           <Link
             href="/standup/settings"
             className="btn text-center"

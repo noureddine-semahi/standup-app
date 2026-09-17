@@ -155,15 +155,13 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex-1 grid grid-cols-1 gap-3 w-full" style={{ boxSizing: "border-box" }}>
-          <div className="flex justify-end">
-            <ThemeToggle />
-          </div>
           <Link
             href="/standup/settings"
-            className="btn text-center"
+            className="btn flex items-center justify-between"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
-            Profile &amp; Settings
+            <span className="flex-1 text-left">Profile &amp; Settings</span>
+            <ThemeToggle size="sm" />
           </Link>
           <Link
             href="/standup/history"

@@ -233,18 +233,26 @@ export default function Header() {
           <Link
             href="/standup/profile"
             className={pathname === "/standup/profile" ? "nav-link font-semibold flex items-center gap-2" : "nav-link flex items-center gap-2"}
+            style={expanded ? { justifyContent: "space-between" } : undefined}
           >
-            <span className="avatar-circle" style={{ width: 22, height: 22 }}>
-              {profile?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white">
-                  {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
+            <span className="flex items-center gap-2">
+              <span className="avatar-circle" style={{ width: 22, height: 22 }}>
+                {profile?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white">
+                    {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </span>
+              {profile?.display_name || user.email?.split("@")[0] || "User"}
             </span>
-            {profile?.display_name || user.email?.split("@")[0] || "User"}
+            {/* Only in the mobile dropdown (expanded) — the desktop nav's
+                Profile chip and the always-visible mobile header stay clean;
+                this is the one place it lives, tucked inside the button
+                itself rather than as a separate always-on control. */}
+            {expanded && <ThemeToggle size="sm" />}
           </Link>
         </>
       );
@@ -329,7 +337,6 @@ export default function Header() {
             <span className="hamburger-line" />
             <span className="hamburger-line" />
           </button>
-          {!loading && user && <ThemeToggle size="sm" />}
         </div>
       </div>
 

@@ -623,20 +623,13 @@ export default function TomorrowGoalsPage() {
                     </div>
                   )}
 
-                  <div className="goal-row-cols">
-                    {/* Number badge */}
-                    <div
-                      className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        background: "rgba(255, 255, 255, 0.06)",
-                        border: "1px solid rgba(255, 255, 255, 0.14)",
-                      }}
-                    >
-                      {displayIdx + 1}
-                    </div>
+                  {/* Number badge — a small corner tag flush with the card's
+                      own top-left border/radius, instead of a free-floating
+                      circle competing with the goal title for horizontal space. */}
+                  <div className="goal-number-badge">{displayIdx + 1}</div>
 
+                  <div className="goal-row-body">
+                  <div className="goal-row-cols">
                     {/* Goal — static, ~45% */}
                     <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
                       <input
@@ -667,61 +660,9 @@ export default function TomorrowGoalsPage() {
                         placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                         className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                       />
-                      <div className="mt-1 flex items-center gap-2">
-                        {!(g as any).is_all_day && (
-                          <input
-                            type="time"
-                            value={g.time_of_day?.slice(0, 5) ?? ""}
-                            disabled={locked || submitting}
-                            onBlur={() => {
-                              if (skipNextBlurAutosaveRef.current) {
-                                skipNextBlurAutosaveRef.current = false;
-                                return;
-                              }
-                              if (priorityChangeInProgressRef.current) {
-                                return;
-                              }
-                              scheduleAutoSave();
-                            }}
-                            onChange={(e) =>
-                              setGoals((prev) =>
-                                prev.map((x, i) =>
-                                  i === idx ? { ...x, time_of_day: e.target.value || null } : x
-                                )
-                              )
-                            }
-                            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
-                            title="Optional time"
-                          />
-                        )}
-                        <button
-                          type="button"
-                          disabled={locked || submitting}
-                          onClick={() => {
-                            setGoals((prev) =>
-                              prev.map((x, i) =>
-                                i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
-                              )
-                            );
-                            scheduleAutoSave();
-                          }}
-                          className="btn"
-                          style={{
-                            padding: "0.2rem 0.55rem",
-                            fontSize: "0.7rem",
-                            background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
-                            borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
-                          }}
-                          title="Mark this goal as an all-day task instead of a specific time"
-                        >
-                          {(g as any).is_all_day ? "☀️ All day" : "All day"}
-                        </button>
-                      </div>
 
                       {/* Compact quick-add row — checklist, files, and an
-                          optional link all share one line under the time
-                          picker, rather than the checklist/files toggles
-                          living in the notes column further over. */}
+                          optional link, right under the goal title. */}
                       <div
                         className="mt-2 flex items-center gap-1"
                         style={{ flexWrap: "nowrap", overflowX: "auto" }}
@@ -780,6 +721,57 @@ export default function TomorrowGoalsPage() {
                           className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                         />
                       )}
+
+                      <div className="mt-2 flex items-center gap-2">
+                        {!(g as any).is_all_day && (
+                          <input
+                            type="time"
+                            value={g.time_of_day?.slice(0, 5) ?? ""}
+                            disabled={locked || submitting}
+                            onBlur={() => {
+                              if (skipNextBlurAutosaveRef.current) {
+                                skipNextBlurAutosaveRef.current = false;
+                                return;
+                              }
+                              if (priorityChangeInProgressRef.current) {
+                                return;
+                              }
+                              scheduleAutoSave();
+                            }}
+                            onChange={(e) =>
+                              setGoals((prev) =>
+                                prev.map((x, i) =>
+                                  i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                                )
+                              )
+                            }
+                            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                            title="Optional time"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          disabled={locked || submitting}
+                          onClick={() => {
+                            setGoals((prev) =>
+                              prev.map((x, i) =>
+                                i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
+                              )
+                            );
+                            scheduleAutoSave();
+                          }}
+                          className="btn"
+                          style={{
+                            padding: "0.2rem 0.55rem",
+                            fontSize: "0.7rem",
+                            background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
+                            borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
+                          }}
+                          title="Mark this goal as an all-day task instead of a specific time"
+                        >
+                          {(g as any).is_all_day ? "☀️ All day" : "All day"}
+                        </button>
+                      </div>
 
                       {g.rescheduled_from_date && (
                         <div className="mt-2 flex items-start gap-2">
@@ -894,6 +886,7 @@ export default function TomorrowGoalsPage() {
                         </button>
                       )}
                     </div>
+                  </div>
                   </div>
                 </div>
               </div>

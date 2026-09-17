@@ -230,6 +230,7 @@ export default function HistoryPage() {
                     className="goal-row"
                     style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
                   >
+                    <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                     <div className="text-xs text-white/50 mb-1">
                       {g.plan_date ? formatDateDisplay(g.plan_date) : "Unknown date"}
                     </div>
@@ -251,6 +252,7 @@ export default function HistoryPage() {
                         <span>{statusIcon(status)}</span>
                         <span>{statusLabel(status)}</span>
                       </div>
+                    </div>
                     </div>
                   </div>
                 );

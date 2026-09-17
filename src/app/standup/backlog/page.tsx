@@ -191,6 +191,7 @@ export default function BacklogPage() {
                 className="goal-row"
                 style={{ "--p-color": meta.color } as React.CSSProperties}
               >
+                <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                 <div className="flex items-start flex-wrap gap-4">
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="text-white text-lg font-medium mb-1">{item.title}</div>
@@ -244,6 +245,7 @@ export default function BacklogPage() {
                       ✕
                     </button>
                   </div>
+                </div>
                 </div>
               </div>
             );

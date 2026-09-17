@@ -606,6 +606,10 @@ export default function DynamicDatePage() {
                   className="goal-row"
                   style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
                 >
+                  {/* No number badge on past (view-only) days, so this
+                      doesn't need the top clearance .goal-row-body normally
+                      reserves for it. */}
+                  <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                   <div className="flex items-start flex-wrap gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="text-lg font-semibold text-white">
@@ -618,14 +622,8 @@ export default function DynamicDatePage() {
                       </div>
                       {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
 
-                      {g.rescheduled_from_date && (
-                        <div className="mt-2 text-xs text-white/50">
-                          ↩ Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
-                          {g.reschedule_reason && <span className="italic"> — "{g.reschedule_reason}"</span>}
-                        </div>
-                      )}
-
-                      <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
+                      {/* Compact quick-add row — checklist, files, and an
+                          optional link, right under the goal title. */}
                       <div
                         className="mt-2 flex items-center gap-1"
                         style={{ flexWrap: "nowrap", overflowX: "auto" }}
@@ -660,6 +658,15 @@ export default function DynamicDatePage() {
                           </button>
                         )}
                       </div>
+
+                      {g.rescheduled_from_date && (
+                        <div className="mt-2 text-xs text-white/50">
+                          ↩ Rescheduled from {formatDateDisplay(g.rescheduled_from_date)}
+                          {g.reschedule_reason && <span className="italic"> — "{g.reschedule_reason}"</span>}
+                        </div>
+                      )}
+
+                      <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
                     </div>
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -684,6 +691,7 @@ export default function DynamicDatePage() {
                         🔁 Re-attempt
                       </button>
                     </div>
+                  </div>
                   </div>
                 </div>
               );
@@ -810,20 +818,12 @@ export default function DynamicDatePage() {
                   </div>
                 )}
 
-                <div className="goal-row-cols">
-                  {/* Number badge */}
-                  <div
-                    className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      background: "rgba(255, 255, 255, 0.06)",
-                      border: "1px solid rgba(255, 255, 255, 0.14)",
-                    }}
-                  >
-                    {idx + 1}
-                  </div>
+                {/* Number badge — a small corner tag flush with the card's
+                    own top-left border/radius. */}
+                <div className="goal-number-badge">{idx + 1}</div>
 
+                <div className="goal-row-body">
+                <div className="goal-row-cols">
                   {/* Goal input - takes up most space */}
                   <input
                     ref={(el) => {
@@ -854,6 +854,69 @@ export default function DynamicDatePage() {
                     style={{ padding: "0 1.5rem" }}
                     className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                   />
+
+                  {/* Compact quick-add row — checklist, files, and an
+                      optional link, right under the goal title. */}
+                  <div
+                    className="flex items-center gap-1"
+                    style={{ flexBasis: "100%", padding: "0 1.5rem", flexWrap: "nowrap", overflowX: "auto" }}
+                  >
+                    {g.id && (
+                      <>
+                        <GoalChecklist
+                          compact
+                          goalId={g.id}
+                          items={checklistItems[g.id] ?? []}
+                          onItemsChange={(items) =>
+                            setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                          }
+                          readOnly={locked}
+                        />
+                        <GoalAttachments
+                          compact
+                          goalId={g.id}
+                          items={attachments[g.id] ?? []}
+                          onItemsChange={(items) =>
+                            setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
+                          }
+                          readOnly={locked}
+                        />
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                      className="btn"
+                      style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                      title={(g as any).link_url ? (g as any).link_url : "Attach a link"}
+                    >
+                      {(g as any).link_url ? "🔗 Link" : "+ Link"}
+                    </button>
+                  </div>
+
+                  {showLinkInput[idx] && (
+                    <div style={{ padding: "0 1.5rem", flexBasis: "100%" }}>
+                      <input
+                        type="url"
+                        value={(g as any).link_url ?? ""}
+                        disabled={locked || submitting}
+                        onChange={(e) =>
+                          setGoals((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
+                          )
+                        }
+                        onBlur={() => {
+                          if (skipNextBlurAutosaveRef.current) {
+                            skipNextBlurAutosaveRef.current = false;
+                            return;
+                          }
+                          scheduleAutoSave();
+                        }}
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex-shrink-0 flex items-center gap-2">
                     {!(g as any).is_all_day && (
@@ -944,67 +1007,6 @@ export default function DynamicDatePage() {
                     </div>
                   )}
 
-                  <div
-                    className="mt-2 mb-3 flex items-center gap-1"
-                    style={{ padding: "0 1.5rem", flexBasis: "100%", flexWrap: "nowrap", overflowX: "auto" }}
-                  >
-                    {g.id && (
-                      <>
-                        <GoalChecklist
-                          compact
-                          goalId={g.id}
-                          items={checklistItems[g.id] ?? []}
-                          onItemsChange={(items) =>
-                            setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
-                          }
-                          readOnly={locked}
-                        />
-                        <GoalAttachments
-                          compact
-                          goalId={g.id}
-                          items={attachments[g.id] ?? []}
-                          onItemsChange={(items) =>
-                            setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
-                          }
-                          readOnly={locked}
-                        />
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
-                      className="btn"
-                      style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
-                      title={(g as any).link_url ? (g as any).link_url : "Attach a link"}
-                    >
-                      {(g as any).link_url ? "🔗 Link" : "+ Link"}
-                    </button>
-                  </div>
-
-                  {showLinkInput[idx] && (
-                    <div style={{ padding: "0 1.5rem", flexBasis: "100%" }} className="mb-3">
-                      <input
-                        type="url"
-                        value={(g as any).link_url ?? ""}
-                        disabled={locked || submitting}
-                        onChange={(e) =>
-                          setGoals((prev) =>
-                            prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
-                          )
-                        }
-                        onBlur={() => {
-                          if (skipNextBlurAutosaveRef.current) {
-                            skipNextBlurAutosaveRef.current = false;
-                            return;
-                          }
-                          scheduleAutoSave();
-                        }}
-                        placeholder="https://..."
-                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                      />
-                    </div>
-                  )}
-
                   {/* Priority + Remove — grouped together, same fashion, always visible
                       regardless of priority value (P4/P5 must stay changeable/visible). */}
                   <div className="flex items-center gap-3 flex-shrink-0">
@@ -1049,6 +1051,7 @@ export default function DynamicDatePage() {
                       </button>
                     )}
                   </div>
+                </div>
                 </div>
               </div>
             </div>

@@ -401,8 +401,8 @@ h1, h2, h3, h4, h5, h6 {
   .status-chip-sm {
     width: 100px;
   }
-  .goal-row {
-    padding: 0.85rem 0.85rem 0.85rem 1.1rem;
+  .goal-row-body {
+    padding: 1.75rem 0.85rem 0.85rem 0.85rem;
   }
   .stat-tile {
     padding: 8px !important;
@@ -699,19 +699,28 @@ select:focus {
   pointer-events: auto;
 }
 
-/* ✨ Goal rows — a quiet accent bar instead of a fully bordered/tinted box */
+/* ✨ Goal rows — a quiet accent bar instead of a fully bordered/tinted box.
+   No padding of its own — the number badge and (on Today) the collapse
+   button are positioned flush against this element's own edges/corners/
+   radius, and .goal-row-body carries the padding for everything else. */
 .goal-row {
   position: relative;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 1.25rem 1.5rem 1.25rem 1.75rem;
+  padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
 
-/* The Number/Goal/Notes/Priority columns inside a .goal-row. A plain class
-   (not an inline style) so the mobile media query above can shrink the gap
-   once these wrap onto stacked lines instead of sitting side by side. */
+/* Padded content area for everything except the number badge/collapse
+   button — top padding leaves room to clear the corner badge. */
+.goal-row-body {
+  padding: 2rem 1.5rem 1.25rem 1.25rem;
+}
+
+/* The Goal/Notes/Priority columns inside .goal-row-body. A plain class (not
+   an inline style) so the mobile media query above can shrink the gap once
+   these wrap onto stacked lines instead of sitting side by side. */
 .goal-row-cols {
   display: flex;
   align-items: flex-start;
@@ -719,11 +728,35 @@ select:focus {
   gap: 1.5rem;
 }
 
+/* Corner number tag — merged into the card's own top-left corner/border
+   instead of a free-floating circle, so it doesn't compete with the goal
+   title for horizontal space. */
+.goal-number-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-left-radius: 16px;
+  border-bottom-right-radius: 8px;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .goal-row::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.85rem;
+  top: 1.75rem;
   bottom: 0.85rem;
   width: 3px;
   border-radius: 3px;
@@ -779,16 +812,22 @@ select:focus {
   pointer-events: none;
 }
 
+/* Flush with the card's own top-right corner/border, mirroring the number
+   badge's top-left corner tag — its top and right edges are the card's own
+   border rather than a second border floating just inside it. */
 .goal-done-collapse-btn {
   position: absolute;
-  top: 0.75rem;
-  right: 0.9rem;
-  font-size: 0.75rem;
+  top: 0;
+  right: 0;
+  font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 0.2rem 0.6rem;
+  border-top: none;
+  border-right: none;
+  border-top-right-radius: 16px;
+  border-bottom-left-radius: 8px;
+  padding: 0.3rem 0.9rem 0.25rem 0.75rem;
   z-index: 3;
 }
 

@@ -1031,20 +1031,12 @@ export default function TodayPage() {
                     ▾ Collapse
                   </button>
                 )}
-                <div className="goal-row-cols">
-                  {/* Number badge */}
-                  <div
-                    className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      background: "rgba(255, 255, 255, 0.06)",
-                      border: "1px solid rgba(255, 255, 255, 0.14)",
-                    }}
-                  >
-                    {idx + 1}
-                  </div>
+                {/* Number badge — a small corner tag flush with the card's
+                    own top-left border/radius. */}
+                <div className="goal-number-badge">{idx + 1}</div>
 
+                <div className="goal-row-body">
+                <div className="goal-row-cols">
                   {/* Goal content */}
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -1061,8 +1053,8 @@ export default function TodayPage() {
                     </div>
                     {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
 
-                    <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />
-
+                    {/* Compact quick-add row — checklist, files, and an
+                        optional link, right under the goal title. */}
                     <div
                       className="mt-2 flex items-center gap-1"
                       style={{ flexWrap: "nowrap", overflowX: "auto" }}
@@ -1122,6 +1114,8 @@ export default function TodayPage() {
                         className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
                       />
                     )}
+
+                    <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />
 
                     {showNoteInput[g.id] && (
                       <div className="mt-3 flex gap-2">
@@ -1313,6 +1307,7 @@ export default function TodayPage() {
                       </div>
                     )}
                   </div>
+                </div>
                 </div>
               </div>
             );

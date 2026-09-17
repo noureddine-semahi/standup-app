@@ -1,18 +1,23 @@
 import type { GoalStatus } from "@/lib/supabase/db";
+import type { TranslationKey } from "@/lib/i18n/en";
 
 // "postponed" is never set anywhere except rescheduleGoalToDate() — there is
 // no other action in the app that produces it — so it's really the same
 // event as being rescheduled, not a distinct outcome. Every display below
 // treats it that way rather than as its own separate "Postponed" state.
-export function statusLabel(status: GoalStatus) {
+//
+// Takes `t` (the useLanguage() hook's translate function) rather than
+// returning a literal string, since this is a plain function outside React
+// — it has no way to know the current language on its own.
+export function statusLabel(status: GoalStatus, t: (key: TranslationKey) => string) {
   switch (status) {
-    case "not_started": return "Not started";
-    case "in_progress": return "In progress";
-    case "completed": return "Completed";
-    case "attempted": return "Attempted";
-    case "postponed": return "Rescheduled";
-    case "blocked": return "Blocked";
-    case "canceled": return "Canceled";
+    case "not_started": return t("status.notStarted");
+    case "in_progress": return t("status.inProgress");
+    case "completed": return t("status.completed");
+    case "attempted": return t("status.attempted");
+    case "postponed": return t("status.rescheduled");
+    case "blocked": return t("status.blocked");
+    case "canceled": return t("status.canceled");
     default: return status;
   }
 }

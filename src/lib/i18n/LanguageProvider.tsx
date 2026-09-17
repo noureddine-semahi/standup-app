@@ -36,7 +36,13 @@ export function onLanguageChange(handler: (language: Language) => void) {
 type LanguageContextValue = {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey) => string;
+  // vars fills {placeholder} tokens in the translated string — e.g.
+  // t("today.pending", { count: 3 }) against "{count} goals pending" /
+  // "{count} objetivos pendientes". Kept to simple string substitution
+  // (no plural-rule engine) since every plural in this app is already
+  // handled ad hoc at the call site (`count === 1 ? "" : "s"`); this just
+  // fills in the number itself.
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -58,7 +64,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: TranslationKey) => DICTIONARIES[language][key] ?? DICTIONARIES.en[key] ?? key,
+    (key: TranslationKey, vars?: Record<string, string | number>) => {
+      const raw = DICTIONARIES[language][key] ?? DICTIONARIES.en[key] ?? key;
+      if (!vars) return raw;
+      return raw.replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
+    },
     [language]
   );
 

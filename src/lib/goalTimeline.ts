@@ -1,5 +1,8 @@
 import { formatDateDisplay, type GoalStatus } from "@/lib/supabase/db";
 import { statusLabel } from "@/lib/goalStatus";
+import type { TranslationKey } from "@/lib/i18n/en";
+
+type T = (key: TranslationKey, vars?: Record<string, string | number>) => string;
 
 export type TimelineEntry = {
   key: string;
@@ -37,11 +40,18 @@ export type TimelineGoal = {
  * available — only when no real logged event of that kind exists yet, so
  * it never duplicates once an action gets logged live.
  */
-export function buildGoalTimeline(goal: TimelineGoal, notes: TimelineNote[]): TimelineEntry[] {
+// Real logged events (the `notes` array — actual goal_notes rows written by
+// logGoalEvent() in db.ts at the moment something happened) are stored as
+// plain text in whatever language was active when they were created, and
+// stay that way forever — there's no way to retranslate history that's
+// already in the database. Only the fallback entries synthesized below
+// (for goals actioned before that logging existed) are computed live and
+// can be genuinely theme-aware.
+export function buildGoalTimeline(goal: TimelineGoal, notes: TimelineNote[], t: T): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
 
   if (goal.created_at) {
-    entries.push({ key: "created", kind: "history", label: "Goal created", timestamp: goal.created_at });
+    entries.push({ key: "created", kind: "history", label: t("timeline.goalCreated"), timestamp: goal.created_at });
   }
 
   notes.forEach((note, i) => {
@@ -60,7 +70,7 @@ export function buildGoalTimeline(goal: TimelineGoal, notes: TimelineNote[]): Ti
     entries.push({
       key: "reviewed-fallback",
       kind: "history",
-      label: "Marked as reviewed",
+      label: t("timeline.markedReviewed"),
       timestamp: goal.reviewed_at,
     });
   }
@@ -69,7 +79,7 @@ export function buildGoalTimeline(goal: TimelineGoal, notes: TimelineNote[]): Ti
     entries.push({
       key: "status-fallback",
       kind: "history",
-      label: `Status: ${statusLabel(goal.status)}`,
+      label: t("timeline.status", { status: statusLabel(goal.status, t) }),
       timestamp: fallbackTimestamp,
     });
   }
@@ -78,9 +88,9 @@ export function buildGoalTimeline(goal: TimelineGoal, notes: TimelineNote[]): Ti
     entries.push({
       key: "rescheduled-fallback",
       kind: "history",
-      label: `Rescheduled to ${formatDateDisplay(goal.rescheduled_to)}${
-        goal.reschedule_reason ? ` — "${goal.reschedule_reason}"` : ""
-      }`,
+      label: goal.reschedule_reason
+        ? t("timeline.rescheduledToWithReason", { date: formatDateDisplay(goal.rescheduled_to), reason: goal.reschedule_reason })
+        : t("timeline.rescheduledTo", { date: formatDateDisplay(goal.rescheduled_to) }),
       timestamp: fallbackTimestamp,
     });
   }

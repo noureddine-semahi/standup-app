@@ -9,6 +9,8 @@ import { onPointsUpdated } from "@/lib/pointsBus";
 import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
 
 // A profile's theme defaults to "dark" (DB column default), so this can't
 // tell "explicitly chosen dark" apart from "never chosen" — but it doesn't
@@ -28,24 +30,25 @@ function applyAccountTheme(p: Profile) {
 // One nav slot cycles through these three instead of showing all of them at
 // once: on each page, the button shows the NEXT one in the loop and links
 // there. Off all three (Dashboard, Today, etc.), it defaults to "About".
-const INFO_ROTATION: Record<string, { label: string; href: string }> = {
-  "/about": { label: "FAQ", href: "/faq" },
-  "/faq": { label: "Contact", href: "/contact" },
-  "/contact": { label: "About", href: "/about" },
+const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
+  "/about": { labelKey: "nav.faq", href: "/faq" },
+  "/faq": { labelKey: "nav.contact", href: "/contact" },
+  "/contact": { labelKey: "nav.about", href: "/about" },
 };
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 // Same space-saving trick as the About/FAQ/Contact rotation above, applied
 // to Calendar/Backlog — a two-page loop, so each just links straight to
 // the other.
-const CALENDAR_ROTATION: Record<string, { label: string; href: string }> = {
-  "/standup/calendar": { label: "Backlog", href: "/standup/backlog" },
-  "/standup/backlog": { label: "Calendar", href: "/standup/calendar" },
+const CALENDAR_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
+  "/standup/calendar": { labelKey: "nav.backlog", href: "/standup/backlog" },
+  "/standup/backlog": { labelKey: "nav.calendar", href: "/standup/calendar" },
 };
 const CALENDAR_PAGES = Object.keys(CALENDAR_ROTATION);
 
 export default function Header() {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -155,7 +158,7 @@ export default function Header() {
           href={INFO_ROTATION[pathname]?.href ?? "/about"}
           className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
         >
-          {INFO_ROTATION[pathname]?.label ?? "About"}
+          {t(INFO_ROTATION[pathname]?.labelKey ?? "nav.about")}
         </Link>
       );
     }
@@ -163,13 +166,13 @@ export default function Header() {
     return (
       <>
         <Link href="/about" className={pathname === "/about" ? "nav-link font-semibold" : "nav-link"}>
-          About
+          {t("nav.about")}
         </Link>
         <Link href="/faq" className={pathname === "/faq" ? "nav-link font-semibold" : "nav-link"}>
-          FAQ
+          {t("nav.faq")}
         </Link>
         <Link href="/contact" className={pathname === "/contact" ? "nav-link font-semibold" : "nav-link"}>
-          Contact
+          {t("nav.contact")}
         </Link>
       </>
     );
@@ -182,7 +185,7 @@ export default function Header() {
           href={CALENDAR_ROTATION[pathname]?.href ?? "/standup/calendar"}
           className={CALENDAR_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
         >
-          {CALENDAR_ROTATION[pathname]?.label ?? "Calendar"}
+          {t(CALENDAR_ROTATION[pathname]?.labelKey ?? "nav.calendar")}
         </Link>
       );
     }
@@ -193,13 +196,13 @@ export default function Header() {
           href="/standup/calendar"
           className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
         >
-          Calendar
+          {t("nav.calendar")}
         </Link>
         <Link
           href="/standup/backlog"
           className={pathname === "/standup/backlog" ? "nav-link font-semibold" : "nav-link"}
         >
-          Backlog
+          {t("nav.backlog")}
         </Link>
       </>
     );
@@ -215,19 +218,19 @@ export default function Header() {
             href="/standup/dashboard"
             className={pathname === "/standup/dashboard" ? "nav-link font-semibold" : "nav-link"}
           >
-            Dashboard
+            {t("nav.dashboard")}
           </Link>
           <Link
             href="/standup/today"
             className={pathname === "/standup/today" ? "nav-link font-semibold" : "nav-link"}
           >
-            Review Today
+            {t("nav.reviewToday")}
           </Link>
           <Link
             href="/standup/tomorrow"
             className={pathname === "/standup/tomorrow" ? "nav-link font-semibold" : "nav-link"}
           >
-            Plan Tomorrow
+            {t("nav.planTomorrow")}
           </Link>
           {calendarLinks(expanded)}
           {infoLinks(expanded)}
@@ -247,7 +250,7 @@ export default function Header() {
                   </div>
                 )}
               </span>
-              {profile?.display_name || user.email?.split("@")[0] || "User"}
+              {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
             </span>
             {/* Only in the mobile dropdown (expanded) — the desktop nav's
                 Profile chip and the always-visible mobile header stay clean;
@@ -271,10 +274,10 @@ export default function Header() {
         {!isAuthPage && (
           <>
             <Link href="/login" className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}>
-              Sign In
+              {t("nav.signIn")}
             </Link>
             <Link href="/signup" className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}>
-              Sign Up
+              {t("nav.signUp")}
             </Link>
           </>
         )}
@@ -285,7 +288,7 @@ export default function Header() {
   function avatar() {
     if (!user) return null;
     return (
-      <Link href="/standup/profile" aria-label="Profile" className="avatar-circle">
+      <Link href="/standup/profile" aria-label={t("nav.profileAriaLabel")} className="avatar-circle">
         {profile?.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -335,7 +338,7 @@ export default function Header() {
           <button
             type="button"
             className="hamburger-btn"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
           >
@@ -356,7 +359,7 @@ export default function Header() {
               disabled={loggingOut}
               className="nav-link nav-link-logout"
             >
-              {loggingOut ? "Logging out…" : "Logout"}
+              {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
             </button>
           )}
         </div>

@@ -1,6 +1,11 @@
+import type { TranslationKey } from "@/lib/i18n/en";
+
 export type LevelInfo = {
   level: number;
-  name: string;
+  // A translation key, not the literal name — this is a plain function
+  // outside React with no way to know the current language on its own, so
+  // every consumer calls t(levelInfo.nameKey) itself.
+  nameKey: TranslationKey;
   minPoints: number;
   nextLevelPoints: number | null; // null = max level reached
   pointsIntoLevel: number;
@@ -13,21 +18,21 @@ export type LevelInfo = {
 // new users motivated) and later ones take sustained effort. Runs all the
 // way to 10,000 points as a long-horizon ceiling for extreme/power users —
 // at a typical 5-15 pts/day that's roughly 2-5+ years of daily use.
-const LEVELS: { name: string; minPoints: number }[] = [
-  { name: "Starter", minPoints: 0 },
-  { name: "Committed", minPoints: 50 },
-  { name: "Consistent", minPoints: 150 },
-  { name: "Disciplined", minPoints: 300 },
-  { name: "Relentless", minPoints: 500 },
-  { name: "Unstoppable", minPoints: 800 },
-  { name: "Elite", minPoints: 1200 },
-  { name: "Legendary", minPoints: 1800 },
-  { name: "Mythic", minPoints: 2600 },
-  { name: "Immortal", minPoints: 3600 },
-  { name: "Transcendent", minPoints: 5000 },
-  { name: "Ascended", minPoints: 6500 },
-  { name: "Eternal", minPoints: 8200 },
-  { name: "Infinite", minPoints: 10000 },
+const LEVELS: { nameKey: TranslationKey; minPoints: number }[] = [
+  { nameKey: "level.starter", minPoints: 0 },
+  { nameKey: "level.committed", minPoints: 50 },
+  { nameKey: "level.consistent", minPoints: 150 },
+  { nameKey: "level.disciplined", minPoints: 300 },
+  { nameKey: "level.relentless", minPoints: 500 },
+  { nameKey: "level.unstoppable", minPoints: 800 },
+  { nameKey: "level.elite", minPoints: 1200 },
+  { nameKey: "level.legendary", minPoints: 1800 },
+  { nameKey: "level.mythic", minPoints: 2600 },
+  { nameKey: "level.immortal", minPoints: 3600 },
+  { nameKey: "level.transcendent", minPoints: 5000 },
+  { nameKey: "level.ascended", minPoints: 6500 },
+  { nameKey: "level.eternal", minPoints: 8200 },
+  { nameKey: "level.infinite", minPoints: 10000 },
 ];
 
 export function getLevelInfo(points: number): LevelInfo {
@@ -45,7 +50,7 @@ export function getLevelInfo(points: number): LevelInfo {
 
   return {
     level: idx + 1,
-    name: current.name,
+    nameKey: current.nameKey,
     minPoints: current.minPoints,
     nextLevelPoints: next?.minPoints ?? null,
     pointsIntoLevel,

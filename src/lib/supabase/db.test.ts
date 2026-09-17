@@ -151,14 +151,14 @@ describe("getLevelInfo", () => {
   it("starts at level 1 (Starter) with 0 points", () => {
     const info = getLevelInfo(0);
     expect(info.level).toBe(1);
-    expect(info.name).toBe("Starter");
+    expect(info.nameKey).toBe("level.starter");
     expect(info.progressPct).toBe(0);
   });
 
   it("advances to the next level exactly at its point threshold", () => {
     const info = getLevelInfo(50);
     expect(info.level).toBe(2);
-    expect(info.name).toBe("Committed");
+    expect(info.nameKey).toBe("level.committed");
   });
 
   it("computes points-to-next and progress within the current level", () => {

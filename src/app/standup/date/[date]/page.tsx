@@ -44,8 +44,10 @@ import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function DynamicDatePage() {
+  const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
   const dateISO = params.date as string; // e.g., "2026-02-15"
@@ -666,7 +668,7 @@ export default function DynamicDatePage() {
                         </div>
                       )}
 
-                      <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
+                      <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [], t)} />
                     </div>
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -679,7 +681,7 @@ export default function DynamicDatePage() {
                         } as React.CSSProperties}
                       >
                         <span>{statusIcon(status)}</span>
-                        <span>{statusLabel(status)}</span>
+                        <span>{statusLabel(status, t)}</span>
                       </div>
 
                       <button

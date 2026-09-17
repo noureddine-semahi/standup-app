@@ -18,8 +18,10 @@ import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function ProfilePage() {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -212,7 +214,7 @@ export default function ProfilePage() {
           <div className="mt-5 max-w-xs mx-auto">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-amber-300">
-                Level {levelInfo.level} · {levelInfo.name}
+                Level {levelInfo.level} · {t(levelInfo.nameKey)}
               </span>
               <span className="text-white/50">
                 {levelInfo.pointsToNext !== null ? `${levelInfo.pointsToNext} to next` : "Max level"}

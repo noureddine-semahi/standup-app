@@ -40,6 +40,7 @@ import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Priority options matching Tomorrow page
 const PRIORITY_OPTIONS = [
@@ -106,6 +107,7 @@ const STATUS_OPTIONS: { value: GoalStatus; label: string }[] = [
 ];
 
 export default function TodayPage() {
+  const { t } = useLanguage();
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
 
@@ -435,7 +437,7 @@ export default function TodayPage() {
         setRescheduleGoal(goal);
       } else {
         await updateGoalStatus(goal.id, action);
-        setMsg(`Marked "${statusLabel(action)}" ✓`);
+        setMsg(`Marked "${statusLabel(action, t)}" ✓`);
         window.setTimeout(() => setMsg((cur) => (cur?.startsWith("Marked") ? null : cur)), 1500);
 
         if (action === "completed") {
@@ -503,7 +505,7 @@ export default function TodayPage() {
       await updateGoalStatus(goal.id, "blocked");
       await addGoalNote(goal.id, trimmed);
 
-      setMsg(`Marked "${statusLabel("blocked")}" ✓`);
+      setMsg(`Marked "${statusLabel("blocked", t)}" ✓`);
       window.setTimeout(() => setMsg((cur) => (cur?.startsWith("Marked") ? null : cur)), 1500);
 
       setBlockingGoal(null);
@@ -972,7 +974,7 @@ export default function TodayPage() {
               g.status === "postponed";
             const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
             const doneColors = statusChipColors(g.status);
-            const bannerText = `${statusIcon(g.status)} ${statusLabel(g.status)}`;
+            const bannerText = `${statusIcon(g.status)} ${statusLabel(g.status, t)}`;
 
             if (isCollapsed) {
               return (
@@ -1115,7 +1117,7 @@ export default function TodayPage() {
                       />
                     )}
 
-                    <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />
+                    <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
 
                     {showNoteInput[g.id] && (
                       <div className="mt-3 flex gap-2">
@@ -1191,7 +1193,7 @@ export default function TodayPage() {
                         } as React.CSSProperties}
                       >
                         <span>{statusIcon(g.status)}</span>
-                        <span>{statusLabel(g.status)}</span>
+                        <span>{statusLabel(g.status, t)}</span>
                       </div>
 
                       {/* Actions checkbox — unchecked until the goal has

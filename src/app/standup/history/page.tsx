@@ -23,11 +23,13 @@ import GoalTimeline from "@/components/GoalTimeline";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type ActivityPeriod = "week" | "month";
 type GoalListFilter = "completed" | "submitted";
 
 export default function HistoryPage() {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [entries, setEntries] = useState<PointsHistoryEntry[]>([]);
@@ -237,7 +239,7 @@ export default function HistoryPage() {
                     <div className="text-lg font-semibold text-white">{g.title}</div>
                     {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
                     <GoalTimeline
-                      entries={buildGoalTimeline(g, goalNotesMap[g.id] ?? [])}
+                      entries={buildGoalTimeline(g, goalNotesMap[g.id] ?? [], t)}
                       defaultExpanded={false}
                     />
                     <div className="mt-3">
@@ -250,7 +252,7 @@ export default function HistoryPage() {
                         } as React.CSSProperties}
                       >
                         <span>{statusIcon(status)}</span>
-                        <span>{statusLabel(status)}</span>
+                        <span>{statusLabel(status, t)}</span>
                       </div>
                     </div>
                     </div>

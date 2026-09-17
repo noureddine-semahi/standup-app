@@ -27,6 +27,8 @@ import AssistantPanel from "@/components/AssistantPanel";
 import AchievementUnlockedModal from "@/components/AchievementUnlockedModal";
 import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS, type AchievementDef, type AchievementStats } from "@/lib/achievements";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
 
 const ACHIEVEMENTS_SEEN_KEY_PREFIX = "standup-achievements-seen-";
 
@@ -57,25 +59,12 @@ function saveSeenAchievementIds(userId: string, ids: Iterable<string>) {
  * - glass panels
  */
 
-const MOTIVATIONAL_MESSAGES: Array<(name: string) => string> = [
-  (name) => `Welcome back, ${name}! Let's keep working on your goals and achieve your dreams.`,
-  (name) => `${name}, today is a fresh chance to move closer to what you're building.`,
-  (name) => `Small steps, ${name} — consistency beats intensity every time.`,
-  (name) => `You've got this, ${name}. One goal at a time.`,
-  (name) => `Keep showing up, ${name} — that's how dreams become plans, and plans become reality.`,
-  (name) => `${name}, discipline today is freedom tomorrow. Let's go.`,
-  (name) => `Every day you show up is a step toward the life you're building, ${name}.`,
-  (name) => `Progress, not perfection, ${name}. Keep pushing forward.`,
-  (name) => `The greatest reward is your success, ${name} — everything else follows from it.`,
-  (name) => `${name}, motivation gets you started. Habit is what keeps you going.`,
-  (name) => `You don't have to be great to start, ${name}, but you have to start to be great.`,
-  (name) => `Consistency is the quiet force behind every big win, ${name}.`,
-  (name) => `${name}, the work you do today is the person you become tomorrow.`,
-  (name) => `Discomfort today, ${name}. Freedom tomorrow.`,
-  (name) => `${name}, a little progress each day adds up to big results.`,
-  (name) => `Don't count the days, ${name} — make the days count.`,
-  (name) => `${name}, the streak isn't the goal. Who you become while building it is.`,
-  (name) => `Show up for yourself today, ${name}. That's the whole game.`,
+const MOTIVATIONAL_MESSAGE_KEYS: TranslationKey[] = [
+  "motivation.msg1", "motivation.msg2", "motivation.msg3", "motivation.msg4",
+  "motivation.msg5", "motivation.msg6", "motivation.msg7", "motivation.msg8",
+  "motivation.msg9", "motivation.msg10", "motivation.msg11", "motivation.msg12",
+  "motivation.msg13", "motivation.msg14", "motivation.msg15", "motivation.msg16",
+  "motivation.msg17", "motivation.msg18",
 ];
 
 const WIDGETS = [
@@ -102,6 +91,7 @@ const WIDGETS = [
 ] as const;
 
 export default function DashboardPage() {
+  const { t } = useLanguage();
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
 
@@ -122,16 +112,15 @@ export default function DashboardPage() {
   // below, which reschedules itself off motivationIndex the same way the
   // Total Points / Points Earned Today card auto-swaps.
   const [motivationIndex, setMotivationIndex] = useState(() =>
-    Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)
+    Math.floor(Math.random() * MOTIVATIONAL_MESSAGE_KEYS.length)
   );
-  const motivationalMessage = MOTIVATIONAL_MESSAGES[motivationIndex];
 
   useEffect(() => {
     const id = window.setTimeout(() => {
       setMotivationIndex((prev) => {
-        if (MOTIVATIONAL_MESSAGES.length <= 1) return prev;
-        let next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-        while (next === prev) next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
+        if (MOTIVATIONAL_MESSAGE_KEYS.length <= 1) return prev;
+        let next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGE_KEYS.length);
+        while (next === prev) next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGE_KEYS.length);
         return next;
       });
     }, 10000);
@@ -287,7 +276,7 @@ export default function DashboardPage() {
   }, [pointsView]);
 
   if (loading) {
-    return <div className="card">Loading dashboard...</div>;
+    return <div className="card">{t("dashboard.loading")}</div>;
   }
 
   // Today stats
@@ -307,10 +296,10 @@ export default function DashboardPage() {
   const todayAttemptedPct = todayTotal > 0 ? Math.round((todayReviewed / todayTotal) * 100) : 0;
   const todayCompletedPct = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
   const todayOtherOutcomes = [
-    todayPostponed > 0 ? `${todayPostponed} rescheduled` : null,
-    todayBlocked > 0 ? `${todayBlocked} blocked` : null,
-    todayAttemptedStatus > 0 ? `${todayAttemptedStatus} attempted` : null,
-    todayInProgress > 0 ? `${todayInProgress} in progress` : null,
+    todayPostponed > 0 ? t("dashboard.outcomeRescheduled", { count: todayPostponed }) : null,
+    todayBlocked > 0 ? t("dashboard.outcomeBlocked", { count: todayBlocked }) : null,
+    todayAttemptedStatus > 0 ? t("dashboard.outcomeAttempted", { count: todayAttemptedStatus }) : null,
+    todayInProgress > 0 ? t("dashboard.outcomeInProgress", { count: todayInProgress }) : null,
   ].filter(Boolean) as string[];
   const todayClosed = !!todayPlan?.reviewed_at;
   const todayPointsEarned = (todayPlan?.awareness_points ?? 0) + (todayPlan?.closure_points ?? 0);
@@ -355,8 +344,8 @@ export default function DashboardPage() {
         >
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
             <div>
-              <h1 className="text-3xl font-bold">Dashboard</h1>
-              <p className="mt-2 text-white/70">Your daily execution overview</p>
+              <h1 className="text-3xl font-bold">{t("nav.dashboard")}</h1>
+              <p className="mt-2 text-white/70">{t("dashboard.subtitle")}</p>
 
               {/* Level badge — points-based, see src/lib/levels.ts. Links to
                   Profile, where the fuller level + achievements view lives. */}
@@ -365,7 +354,7 @@ export default function DashboardPage() {
                 className="mt-4 inline-flex items-center gap-3 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 hover:bg-amber-500/15 transition"
               >
                 <span className="text-xs font-bold text-amber-300">
-                  Lv {levelInfo.level} · {levelInfo.name}
+                  Lv {levelInfo.level} · {t(levelInfo.nameKey)}
                 </span>
                 <span className="relative h-1.5 w-20 rounded-full overflow-hidden bg-white/10">
                   <span
@@ -377,20 +366,20 @@ export default function DashboardPage() {
                   />
                 </span>
                 <span className="text-[11px] text-white/50">
-                  {levelInfo.pointsToNext !== null ? `${levelInfo.pointsToNext} pts to next` : "Max level"}
+                  {levelInfo.pointsToNext !== null ? t("dashboard.pointsToNext", { points: levelInfo.pointsToNext }) : t("dashboard.maxLevel")}
                 </span>
               </Link>
             </div>
 
             <div className="flex gap-2 flex-wrap">
               <button type="button" onClick={() => setShowAssistant(true)} className="btn">
-                🤖 Assistant
+                🤖 {t("dashboard.assistant")}
               </button>
               <Link href="/standup/today" className="btn">
-                Review Today
+                {t("nav.reviewToday")}
               </Link>
               <Link href="/standup/tomorrow" className="btn">
-                Plan Tomorrow
+                {t("nav.planTomorrow")}
               </Link>
             </div>
           </div>
@@ -406,17 +395,16 @@ export default function DashboardPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-base font-bold text-white">👋 Welcome to StandUp!</div>
+                  <div className="text-base font-bold text-white">👋 {t("dashboard.welcomeTitle")}</div>
                   <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                    Here's the loop: <b>Plan Tomorrow</b> — set at least 3 goals — then the next day,{" "}
-                    <b>Review Today</b> to mark them reviewed and close out the day. Do that daily and you'll
-                    build a streak and earn points along the way.
+                    {t("dashboard.welcomePart1")}<b>{t("nav.planTomorrow")}</b>{t("dashboard.welcomePart2")}
+                    <b>{t("nav.reviewToday")}</b>{t("dashboard.welcomePart3")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={dismissWelcome}
-                  aria-label="Dismiss welcome message"
+                  aria-label={t("dashboard.dismissWelcome")}
                   className="flex-shrink-0 text-white/50 hover:text-white/80 transition text-lg leading-none"
                 >
                   ×
@@ -427,7 +415,7 @@ export default function DashboardPage() {
                 className="btn btn-primary mt-4 inline-block"
                 onClick={dismissWelcome}
               >
-                Plan Tomorrow →
+                {t("dashboard.planTomorrowArrow")}
               </Link>
             </div>
           )}
@@ -443,11 +431,10 @@ export default function DashboardPage() {
               style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)" }}
             >
               <div className="text-base font-bold text-emerald-300">
-                🎉 Today's closed and tomorrow's planned — you're all caught up!
+                🎉 {t("dashboard.allCaughtUpTitle")}
               </div>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                Both halves of the loop are done for now. Come back tomorrow to review today's new
-                plan and keep the streak going.
+                {t("dashboard.allCaughtUpBody")}
               </p>
             </div>
           )}
@@ -463,14 +450,13 @@ export default function DashboardPage() {
               style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
             >
               <div className="text-base font-bold text-amber-300">
-                ⚠️ {overdue.count} past day{overdue.count === 1 ? "" : "s"} left unreviewed
+                ⚠️ {t(overdue.count === 1 ? "dashboard.overdueTitle.one" : "dashboard.overdueTitle.other", { count: overdue.count })}
               </div>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                Once a day passes it can't be reviewed retroactively, but you can still re-attempt
-                any goals still worth pursuing by rescheduling them forward from Calendar.
+                {t("dashboard.overdueBody")}
               </p>
               <Link href="/standup/calendar?unreviewed=1" className="btn mt-4 inline-block">
-                View unreviewed days →
+                {t("dashboard.viewUnreviewed")}
               </Link>
             </div>
           )}
@@ -484,15 +470,13 @@ export default function DashboardPage() {
               style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
             >
               <div className="text-base font-bold text-amber-300">
-                ⏰ {hoursLeftToday < 1 ? "Less than an hour" : `${Math.round(hoursLeftToday)} hours`} left
-                today
+                ⏰ {hoursLeftToday < 1 ? t("dashboard.hoursLeftLessThanHour") : t("dashboard.hoursLeft", { hours: Math.round(hoursLeftToday) })}
               </div>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                {todayPending} goal{todayPending === 1 ? "" : "s"} still need review. Close out today
-                before midnight — after that it can't be reviewed retroactively.
+                {t(todayPending === 1 ? "dashboard.pendingReviewBanner.one" : "dashboard.pendingReviewBanner.other", { count: todayPending })}
               </p>
               <Link href="/standup/today" className="btn mt-4 inline-block">
-                Review Today →
+                {t("nav.reviewToday")} →
               </Link>
             </div>
           )}
@@ -512,9 +496,11 @@ export default function DashboardPage() {
                 </div>
               )}
               <div key={motivationIndex} className="card-swap-fade">
-                <div className="text-sm text-white/70">✨ Motivation</div>
+                <div className="text-sm text-white/70">✨ {t("dashboard.motivationLabel")}</div>
                 <div className="mt-2 text-base font-semibold text-white leading-snug">
-                  {motivationalMessage(profile?.display_name || user?.email?.split("@")[0] || "there")}
+                  {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                    name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+                  })}
                 </div>
               </div>
             </div>
@@ -535,12 +521,12 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-1.5 sm:mt-0 min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Attempted</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("dashboard.stat.attempted")}</div>
                   <div className="mt-1 sm:mt-1.5 text-xs font-normal text-white/50">
                     {todayTotal > 0
-                      ? `${todayReviewed}/${todayTotal} goals attempted`
-                      : "No goals"}
-                    {todayPending > 0 && ` • ${todayPending} pending`}
+                      ? t("dashboard.goalsAttempted", { reviewed: todayReviewed, total: todayTotal })
+                      : t("dashboard.noGoals")}
+                    {todayPending > 0 && ` • ${t("dashboard.pendingCount", { count: todayPending })}`}
                   </div>
                 </div>
               </div>
@@ -560,11 +546,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-1.5 sm:mt-0 min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Completed</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("status.completed")}</div>
                   <div className="mt-1 sm:mt-1.5 text-xs font-normal text-white/50">
                     {todayTotal > 0
-                      ? `${todayCompleted}/${todayTotal} completed`
-                      : "No goals"}
+                      ? t("dashboard.goalsCompleted", { completed: todayCompleted, total: todayTotal })
+                      : t("dashboard.noGoals")}
                     {todayOtherOutcomes.length > 0 && ` • ${todayOtherOutcomes.join(" • ")}`}
                   </div>
                 </div>
@@ -576,12 +562,12 @@ export default function DashboardPage() {
               className="card card-highlight stat-tile"
             >
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Streak</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("dashboard.stat.streak")}</div>
                 <div className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold text-white">
                   {streak} {streak > 0 && "🔥"}
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
-                  {streak > 0 ? "Keep it going" : "Close today to start a streak"}
+                  {streak > 0 ? t("dashboard.keepGoing") : t("dashboard.startStreak")}
                 </div>
               </div>
             </div>
@@ -603,7 +589,7 @@ export default function DashboardPage() {
               <div key={pointsView} className="card-swap-fade">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
-                    {pointsView === "total" ? "Total Points" : "Points Earned Today"}
+                    {pointsView === "total" ? t("dashboard.stat.totalPoints") : t("dashboard.stat.pointsToday")}
                   </div>
                   <div className="text-[10px] text-white/40 flex-shrink-0">⇄</div>
                 </div>
@@ -612,10 +598,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
                   {pointsView === "total"
-                    ? "Tap to see today's points"
+                    ? t("dashboard.tapToday")
                     : todayPointsEarned > 0
-                    ? "Tap to see total points"
-                    : "Review or close today to earn points"}
+                    ? t("dashboard.tapTotal")
+                    : t("dashboard.reviewToEarn")}
                 </div>
               </div>
             </div>
@@ -625,16 +611,16 @@ export default function DashboardPage() {
               className="card card-highlight stat-tile"
             >
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Day Status</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("dashboard.stat.dayStatus")}</div>
                 <div className="mt-2 sm:mt-3 text-lg sm:text-xl font-bold">
                   {todayClosed ? (
-                    <span className="text-emerald-300">Closed ✓</span>
+                    <span className="text-emerald-300">{t("dashboard.closed")}</span>
                   ) : (
-                    <span className="text-amber-300">Active</span>
+                    <span className="text-amber-300">{t("dashboard.active")}</span>
                   )}
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
-                  {todayClosed ? "Tomorrow unlocked" : "Close to unlock Tomorrow"}
+                  {todayClosed ? t("dashboard.tomorrowUnlocked") : t("dashboard.closeToUnlock")}
                 </div>
               </div>
             </div>
@@ -644,22 +630,22 @@ export default function DashboardPage() {
               className="card card-highlight stat-tile"
             >
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Tomorrow's Plan</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("dashboard.stat.tomorrowPlan")}</div>
                 <div className="mt-2 sm:mt-3 text-lg sm:text-xl font-bold">
                   {tomorrowTotal === 0 ? (
-                    <span className="text-white/50">Not started</span>
+                    <span className="text-white/50">{t("status.notStarted")}</span>
                   ) : tomorrowSubmitted ? (
-                    <span className="text-emerald-300">Submitted ✓</span>
+                    <span className="text-emerald-300">{t("dashboard.submitted")}</span>
                   ) : (
-                    <span className="text-amber-300">Pending</span>
+                    <span className="text-amber-300">{t("dashboard.pending")}</span>
                   )}
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
                   {tomorrowTotal === 0
-                    ? "No goals drafted yet"
+                    ? t("dashboard.noGoalsDrafted")
                     : tomorrowSubmitted
-                    ? `${tomorrowTotal} goals set`
-                    : `${tomorrowTotal} goals drafted`}
+                    ? t("dashboard.goalsSet", { count: tomorrowTotal })
+                    : t("dashboard.goalsDrafted", { count: tomorrowTotal })}
                 </div>
               </div>
             </div>
@@ -676,13 +662,13 @@ export default function DashboardPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-red-300">
-                      P1 - Highest Priority
+                      {t("dashboard.p1Badge")}
                     </span>
                     {!todayP1.reviewed_at && (
-                      <span className="text-xs font-normal text-white/50">Pending review</span>
+                      <span className="text-xs font-normal text-white/50">{t("dashboard.pendingReviewShort")}</span>
                     )}
                     {todayP1.reviewed_at && (
-                      <span className="text-xs font-normal text-white/50">Reviewed ✓</span>
+                      <span className="text-xs font-normal text-white/50">{t("dashboard.reviewedCheck")}</span>
                     )}
                   </div>
 
@@ -698,12 +684,10 @@ export default function DashboardPage() {
                   )}
 
                   <div className="mt-5 text-xs font-normal uppercase tracking-wide text-white/50">
-                    Status
+                    {t("dashboard.statusLabel")}
                   </div>
                   <div className="mt-1 text-base font-semibold text-white">
-                    {todayP1.status
-                      .replace("_", " ")
-                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {statusLabel(todayP1.status, t)}
                   </div>
                 </div>
 
@@ -725,15 +709,15 @@ export default function DashboardPage() {
               className="card card-highlight transition cursor-pointer h-full min-w-0"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">Today's Goals</h2>
+                <h2 className="text-lg font-semibold text-white">{t("dashboard.todaysGoals")}</h2>
                 <span className="text-xs text-white/50">{formatDateDisplay(todayISO)}</span>
               </div>
 
               {sortedTodayGoals.length === 0 ? (
                 <div className="text-white/60 text-sm py-8 text-center">
-                  No goals for today
+                  {t("dashboard.noGoalsToday")}
                   <div className="mt-2 text-xs text-white/50">
-                    Set yesterday's plan to see goals here
+                    {t("dashboard.setYesterday")}
                   </div>
                 </div>
               ) : (
@@ -783,16 +767,16 @@ export default function DashboardPage() {
                               "--chip-border": reviewed ? statusChipColors(g.status).border : "rgba(245, 158, 11, 0.3)",
                               "--chip-color": reviewed ? statusChipColors(g.status).color : "#fcd34d",
                             } as React.CSSProperties}
-                            title={reviewed ? `Reviewed — ${statusLabel(g.status)}` : "Pending review"}
+                            title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(g.status, t) }) : t("dashboard.pendingReviewShort")}
                           >
                             {reviewed ? (
                               <>
-                                <span>{statusLabel(g.status)}</span>
+                                <span>{statusLabel(g.status, t)}</span>
                                 <span>{statusIcon(g.status)}</span>
                               </>
                             ) : (
                               <>
-                                <span>Pending</span>
+                                <span>{t("dashboard.pending")}</span>
                                 <span>⏳</span>
                               </>
                             )}
@@ -802,7 +786,7 @@ export default function DashboardPage() {
                         {noteCounts[g.id] > 0 && (
                           <div
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
-                            title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
+                            title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
                           >
                             💬 {latestNotes[g.id]}
                           </div>
@@ -816,7 +800,7 @@ export default function DashboardPage() {
 
               <div className="mt-4 flex items-center justify-between text-xs text-white/60">
                 <span>
-                  {todayReviewed} reviewed • {todayCompleted} completed
+                  {t("dashboard.reviewedCompletedSummary", { reviewed: todayReviewed, completed: todayCompleted })}
                 </span>
                 <span className="text-white/50">→</span>
               </div>
@@ -829,15 +813,15 @@ export default function DashboardPage() {
               className="card card-highlight transition cursor-pointer h-full min-w-0"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">Tomorrow's Plan</h2>
+                <h2 className="text-lg font-semibold text-white">{t("dashboard.stat.tomorrowPlan")}</h2>
                 <span className="text-xs text-white/50">{formatDateDisplay(tomorrowISO)}</span>
               </div>
 
               {sortedTomorrowGoals.length === 0 ? (
                 <div className="text-white/60 text-sm py-8 text-center">
-                  No plan for tomorrow yet
+                  {t("dashboard.noPlanYet")}
                   <div className="mt-2 text-xs text-white/50">
-                    Set at least 3 goals to get started
+                    {t("dashboard.setAtLeast3")}
                   </div>
                 </div>
               ) : (
@@ -875,7 +859,7 @@ export default function DashboardPage() {
                         {noteCounts[g.id] > 0 && (
                           <div
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
-                            title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
+                            title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
                           >
                             💬 {latestNotes[g.id]}
                           </div>
@@ -887,7 +871,7 @@ export default function DashboardPage() {
 
                   {sortedTomorrowGoals.length > 5 && (
                     <div className="text-xs text-white/50 text-center py-1">
-                      +{sortedTomorrowGoals.length - 5} more goals
+                      {t("dashboard.moreGoals", { count: sortedTomorrowGoals.length - 5 })}
                     </div>
                   )}
                 </div>
@@ -895,7 +879,7 @@ export default function DashboardPage() {
 
               <div className="mt-4 flex items-center justify-between text-xs text-white/60">
                 <span>
-                  {tomorrowTotal} goals{tomorrowSubmitted ? " • Submitted ✓" : " • Draft"}
+                  {t("dashboard.goalsCount", { count: tomorrowTotal })}{tomorrowSubmitted ? t("dashboard.suffixSubmitted") : t("dashboard.suffixDraft")}
                 </span>
                 <span className="text-white/50">→</span>
               </div>
@@ -907,28 +891,28 @@ export default function DashboardPage() {
         <div
           className="card card-highlight"
         >
-          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+          <h2 className="text-lg font-semibold mb-4">{t("dashboard.quickActions")}</h2>
           <div className="flex flex-wrap gap-3">
             {todayPending > 0 && (
               <Link href="/standup/today" className="btn btn-primary">
-                ⚡ Review {todayPending} Pending Goal{todayPending > 1 ? "s" : ""}
+                ⚡ {t(todayPending > 1 ? "dashboard.reviewPending.other" : "dashboard.reviewPending.one", { count: todayPending })}
               </Link>
             )}
             {!todayClosed && todayTotal > 0 && todayPending === 0 && (
               <Link href="/standup/today" className="btn btn-primary">
-                ✅ Close Out Day
+                ✅ {t("dashboard.closeOutDay")}
               </Link>
             )}
             {tomorrowTotal === 0 && (
               <Link href="/standup/tomorrow" className="btn btn-primary">
-                🎯 Plan Tomorrow
+                🎯 {t("nav.planTomorrow")}
               </Link>
             )}
             <Link href="/standup/today" className="btn">
-              📋 Today's Goals
+              📋 {t("dashboard.todaysGoals")}
             </Link>
             <Link href="/standup/tomorrow" className="btn">
-              📝 Tomorrow's Plan
+              📝 {t("dashboard.stat.tomorrowPlan")}
             </Link>
           </div>
         </div>

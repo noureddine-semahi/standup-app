@@ -37,9 +37,10 @@ import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
-
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function TomorrowGoalsPage() {
+  const { t } = useLanguage();
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const [loading, setLoading] = useState(true);
@@ -798,7 +799,7 @@ export default function TomorrowGoalsPage() {
                         <div className="text-xs text-white/30 italic">Save this goal to add notes</div>
                       ) : (
                         <>
-                          <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
+                          <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [], t)} />
                           {showNoteInput[g.id] && (
                             <div className="mt-3 flex gap-2">
                               <input

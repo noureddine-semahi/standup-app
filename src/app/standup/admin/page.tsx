@@ -21,6 +21,7 @@ import {
   type LandingVisitStats,
 } from "@/lib/supabase/db";
 import { getLevelInfo } from "@/lib/levels";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
 // Error instances — `err instanceof Error` would silently swallow these.
@@ -75,6 +76,7 @@ function computeSignupGrowth(members: AdminMember[]) {
 }
 
 export default function AdminPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
@@ -339,7 +341,7 @@ export default function AdminPage() {
               <div className="mt-3 flex items-center justify-between text-sm">
                 <div>
                   <div className="text-white/90">Lv {level.level}</div>
-                  <div className="text-xs text-white/50">{level.name}</div>
+                  <div className="text-xs text-white/50">{t(level.nameKey)}</div>
                 </div>
                 <div className="text-right text-xs text-white/60">
                   {m.totalDaysClosed} days closed
@@ -432,7 +434,7 @@ export default function AdminPage() {
                   </td>
                   <td className="py-3 pr-4 whitespace-nowrap">
                     <div>Lv {level.level}</div>
-                    <div className="text-xs text-white/50">{level.name}</div>
+                    <div className="text-xs text-white/50">{t(level.nameKey)}</div>
                   </td>
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">

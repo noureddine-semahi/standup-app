@@ -1028,7 +1028,7 @@ export default function TodayPage() {
                     ▾ Collapse
                   </button>
                 )}
-                <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
+                <div className="goal-row-cols">
                   {/* Number badge */}
                   <div
                     className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"

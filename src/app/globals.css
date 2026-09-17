@@ -407,6 +407,14 @@ h1, h2, h3, h4, h5, h6 {
   .stat-tile {
     padding: 8px !important;
   }
+  /* The goal-row's number/Goal/Notes/Priority columns wrap onto separate
+     lines well before 480px — the 1.5rem gap meant for side-by-side columns
+     becomes vertical space between stacked ones there too, which reads as
+     a lot of dead padding, more so now that the Goal column (time/all-day/
+     checklist/files/link controls) is taller. */
+  .goal-row-cols {
+    gap: 0.6rem;
+  }
 }
 
 /* Dashboard's 6 stat tiles stay 2-per-row all the way up to the lg: grid
@@ -699,6 +707,16 @@ select:focus {
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 1.25rem 1.5rem 1.25rem 1.75rem;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* The Number/Goal/Notes/Priority columns inside a .goal-row. A plain class
+   (not an inline style) so the mobile media query above can shrink the gap
+   once these wrap onto stacked lines instead of sitting side by side. */
+.goal-row-cols {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1.5rem;
 }
 
 .goal-row::before {

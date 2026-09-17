@@ -623,7 +623,7 @@ export default function TomorrowGoalsPage() {
                     </div>
                   )}
 
-                  <div className="flex items-start flex-wrap" style={{ gap: "1.5rem" }}>
+                  <div className="goal-row-cols">
                     {/* Number badge */}
                     <div
                       className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
@@ -722,7 +722,10 @@ export default function TomorrowGoalsPage() {
                           optional link all share one line under the time
                           picker, rather than the checklist/files toggles
                           living in the notes column further over. */}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div
+                        className="mt-2 flex items-center gap-1"
+                        style={{ flexWrap: "nowrap", overflowX: "auto" }}
+                      >
                         {g.id && (
                           <>
                             <GoalChecklist
@@ -749,7 +752,7 @@ export default function TomorrowGoalsPage() {
                           type="button"
                           onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
                           className="btn"
-                          style={{ padding: "0.2rem 0.55rem", fontSize: "0.7rem" }}
+                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
                           title={(g as any).link_url ? (g as any).link_url : "Attach a link"}
                         >
                           {(g as any).link_url ? "🔗 Link" : "+ Link"}

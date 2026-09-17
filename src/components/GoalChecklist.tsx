@@ -99,7 +99,7 @@ export default function GoalChecklist({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           className="btn"
-          style={{ padding: "0.2rem 0.55rem", fontSize: "0.7rem" }}
+          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
         >
           + Checklist{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
         </button>

@@ -751,19 +751,18 @@ export default function DashboardPage() {
                           "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
                         } as React.CSSProperties}
                       >
-                        {/* Number + title only on this row — nothing else
-                            competing for space, so it can never overflow no
-                            matter how narrow the screen or long the title. */}
-                        <div className="flex items-center gap-3">
-                          <div className="goal-number-sm">{idx + 1}</div>
-                          <div className="flex-1 min-w-0 truncate text-base font-medium text-white/90">{g.title}</div>
-                        </div>
+                        {/* Corner number tag — nothing else competing for
+                            space next to it, so the title can never overflow
+                            no matter how narrow the screen or long the title. */}
+                        <div className="goal-number-sm">{idx + 1}</div>
+                        <div className="goal-row-compact-body">
+                        <div className="truncate text-base font-medium text-white/90">{g.title}</div>
 
                         {/* Chips and note preview live on their own rows
-                            below, indented to sit under the title, instead
-                            of all fighting for space in one row — that's
-                            what was forcing horizontal overflow. */}
-                        <div className="mt-1.5 flex items-center gap-2" style={{ paddingLeft: "32px" }}>
+                            below the title, instead of all fighting for
+                            space in one row — that's what was forcing
+                            horizontal overflow. */}
+                        <div className="mt-1.5 flex items-center gap-2">
                           {typeof priority === "number" && (
                             <div
                               className="priority-chip-sm"
@@ -803,12 +802,12 @@ export default function DashboardPage() {
                         {noteCounts[g.id] > 0 && (
                           <div
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
-                            style={{ paddingLeft: "32px" }}
                             title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
                           >
                             💬 {latestNotes[g.id]}
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   })}
@@ -854,13 +853,12 @@ export default function DashboardPage() {
                           "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
                         } as React.CSSProperties}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="goal-number-sm">{idx + 1}</div>
-                          <div className="flex-1 min-w-0 truncate text-base font-medium text-white/90">{g.title}</div>
-                        </div>
+                        <div className="goal-number-sm">{idx + 1}</div>
+                        <div className="goal-row-compact-body">
+                        <div className="truncate text-base font-medium text-white/90">{g.title}</div>
 
                         {typeof priority === "number" && (
-                          <div className="mt-1.5" style={{ paddingLeft: "32px" }}>
+                          <div className="mt-1.5">
                             <div
                               className="priority-chip-sm"
                               style={{
@@ -877,12 +875,12 @@ export default function DashboardPage() {
                         {noteCounts[g.id] > 0 && (
                           <div
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
-                            style={{ paddingLeft: "32px" }}
                             title={`${noteCounts[g.id]} note${noteCounts[g.id] > 1 ? "s" : ""}: ${latestNotes[g.id] ?? ""}`}
                           >
                             💬 {latestNotes[g.id]}
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   })}

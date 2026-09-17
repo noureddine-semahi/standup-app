@@ -944,21 +944,28 @@ select:focus {
   color: var(--chip-color, rgba(255, 255, 255, 0.7));
 }
 
-/* ✨ Small numbered circle for dense dashboard preview rows — same idea as
-   the 32px number badge on the Today page, just scaled down. */
+/* ✨ Corner number tag for dense dashboard preview rows — same idea as the
+   .goal-number-badge corner tag on the full goal card, scaled down and
+   matching .goal-row-compact's own radius. */
 .goal-number-sm {
-  display: inline-flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-left-radius: 10px;
+  border-bottom-right-radius: 6px;
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* ✨ Compact variants of the priority/status chips for dense dashboard preview rows */
@@ -1063,25 +1070,20 @@ select:focus {
   transform: none;
 }
 
-/* ✨ Compact goal row — same accent-bar idea as .goal-row, for dense list previews */
+/* ✨ Compact goal row — same corner-tag/full-border-color treatment as the
+   full .goal-row card, for dense dashboard preview lists. No padding of its
+   own; .goal-row-compact-body carries it, with clearance for the corner tag. */
 .goal-row-compact {
   position: relative;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  padding: 0.75rem 1rem 0.75rem 1.25rem;
+  border: 1px solid var(--p-color, rgba(255, 255, 255, 0.07));
+  padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
 
-.goal-row-compact::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.4rem;
-  bottom: 0.4rem;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--p-color, rgba(255, 255, 255, 0.2));
+.goal-row-compact-body {
+  padding: 1.4rem 0.85rem 0.7rem 0.85rem;
 }
 
 .goal-row-compact[data-pending="true"] {

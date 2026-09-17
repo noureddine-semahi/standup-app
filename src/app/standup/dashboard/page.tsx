@@ -10,6 +10,7 @@ import {
   getOrCreateProfile,
   getStreak,
   getOverdueSummary,
+  getLifetimeStats,
   hoursUntilMidnight,
   type Goal,
   type Profile,
@@ -23,7 +24,30 @@ import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import ProgressCircle from "@/components/ProgressCircle";
 import AssistantPanel from "@/components/AssistantPanel";
+import AchievementUnlockedModal from "@/components/AchievementUnlockedModal";
 import { getLevelInfo } from "@/lib/levels";
+import { ACHIEVEMENTS, type AchievementDef, type AchievementStats } from "@/lib/achievements";
+
+const ACHIEVEMENTS_SEEN_KEY_PREFIX = "standup-achievements-seen-";
+
+function getSeenAchievementIds(userId: string): Set<string> | null {
+  try {
+    const raw = window.localStorage.getItem(ACHIEVEMENTS_SEEN_KEY_PREFIX + userId);
+    if (raw === null) return null; // distinguishes "never run before" from "seen nothing yet"
+    return new Set(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function saveSeenAchievementIds(userId: string, ids: Iterable<string>) {
+  try {
+    window.localStorage.setItem(ACHIEVEMENTS_SEEN_KEY_PREFIX + userId, JSON.stringify([...ids]));
+  } catch {
+    // Private browsing / storage disabled — worst case, this account sees
+    // its already-earned achievements celebrated again on the next load.
+  }
+}
 
 /**
  * ✅ Reuse the "Tomorrow page" visual language:
@@ -83,6 +107,7 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [pendingAchievements, setPendingAchievements] = useState<AchievementDef[]>([]);
   const [showAssistant, setShowAssistant] = useState(false);
   // Bumped by the assistant after it actually takes an action, so the main
   // data-loading effect below re-runs and picks up whatever it just
@@ -142,6 +167,15 @@ export default function DashboardPage() {
     }
   }
 
+  function dismissAchievement(achievement: AchievementDef) {
+    if (user) {
+      const seen = getSeenAchievementIds(user.id) ?? new Set<string>();
+      seen.add(achievement.id);
+      saveSeenAchievementIds(user.id, seen);
+    }
+    setPendingAchievements((prev) => prev.filter((a) => a.id !== achievement.id));
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -156,6 +190,41 @@ export default function DashboardPage() {
 
         const s = await getStreak();
         setStreak(s);
+
+        // Achievement "just unlocked" popup — compares the current unlocked
+        // set against what this device has already been shown. First run
+        // ever for this account+device seeds silently (getSeenAchievementIds
+        // returns null) rather than congratulating for everything already
+        // earned before this feature existed; only genuinely new unlocks on
+        // later loads actually queue a popup.
+        if (u) {
+          try {
+            const lifetimeStats = await getLifetimeStats();
+            const achievementStats: AchievementStats = {
+              longestStreak: lifetimeStats.longestStreak,
+              totalDaysClosed: lifetimeStats.totalDaysClosed,
+              totalGoalsCompleted: lifetimeStats.totalGoalsCompleted,
+              totalPoints: p.points,
+              maxGoalsCompletedInDay: lifetimeStats.maxGoalsCompletedInDay,
+              totalReferrals: lifetimeStats.totalReferrals,
+              hasShared: !!p.shared_at,
+              reschedulesCompleted: lifetimeStats.reschedulesCompleted,
+              trackedGoalsCompleted: lifetimeStats.trackedGoalsCompleted,
+            };
+
+            const unlocked = ACHIEVEMENTS.filter((a) => a.isUnlocked(achievementStats));
+            const seen = getSeenAchievementIds(u.id);
+
+            if (seen === null) {
+              saveSeenAchievementIds(u.id, unlocked.map((a) => a.id));
+            } else {
+              const newlyUnlocked = unlocked.filter((a) => !seen.has(a.id));
+              if (newlyUnlocked.length > 0) setPendingAchievements(newlyUnlocked);
+            }
+          } catch {
+            // Non-fatal — a missed celebration isn't worth failing the dashboard over.
+          }
+        }
 
         getOverdueSummary(todayISO)
           .then(setOverdue)
@@ -360,6 +429,26 @@ export default function DashboardPage() {
               >
                 Plan Tomorrow →
               </Link>
+            </div>
+          )}
+
+          {/* Encouragement banner — both halves of the daily loop are done:
+              today reviewed and closed, tomorrow's plan submitted. Not
+              dismissible, same as the "Day closed" indicator on Today's own
+              page — it's a status reflection, not a nag, so it just shows
+              for as long as it's accurately true. */}
+          {todayClosed && tomorrowSubmitted && (
+            <div
+              className="mt-6 rounded-2xl p-5"
+              style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)" }}
+            >
+              <div className="text-base font-bold text-emerald-300">
+                🎉 Today's closed and tomorrow's planned — you're all caught up!
+              </div>
+              <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                Both halves of the loop are done for now. Come back tomorrow to review today's new
+                plan and keep the streak going.
+              </p>
             </div>
           )}
 
@@ -850,6 +939,13 @@ export default function DashboardPage() {
           <AssistantPanel
             onClose={() => setShowAssistant(false)}
             onActionTaken={() => setRefreshKey((k) => k + 1)}
+          />
+        )}
+
+        {pendingAchievements[0] && (
+          <AchievementUnlockedModal
+            achievement={pendingAchievements[0]}
+            onDismiss={() => dismissAchievement(pendingAchievements[0])}
           />
         )}
       </div>

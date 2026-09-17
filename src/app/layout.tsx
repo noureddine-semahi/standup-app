@@ -3,6 +3,7 @@ import { Space_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import RegisterSW from "@/components/RegisterSW";
+import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 // One monospace/LCD-adjacent voice app-wide — the seven-segment-display
 // world's typography (see .impeccable/surfaces/src-app-page-tsx.md), not a
@@ -49,17 +50,21 @@ export default function RootLayout({
             __html: `try {
               var t = localStorage.getItem("standup-theme");
               if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+              var l = localStorage.getItem("standup-language");
+              if (l === "es") document.documentElement.setAttribute("lang", "es");
             } catch (e) {}`,
           }}
         />
       </head>
       <body>
         <RegisterSW />
-        <div className="app-shell">
-          <div className="app-bg" />
-          <Header />
-          <main className="app-main">{children}</main>
-        </div>
+        <LanguageProvider>
+          <div className="app-shell">
+            <div className="app-bg" />
+            <Header />
+            <main className="app-main">{children}</main>
+          </div>
+        </LanguageProvider>
       </body>
     </html>
   );

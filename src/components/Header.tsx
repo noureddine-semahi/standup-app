@@ -8,6 +8,7 @@ import { getOrCreateProfile, updateThemePreference, consumePendingReferral, type
 import { onPointsUpdated } from "@/lib/pointsBus";
 import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 
 // A profile's theme defaults to "dark" (DB column default), so this can't
 // tell "explicitly chosen dark" apart from "never chosen" — but it doesn't
@@ -252,7 +253,12 @@ export default function Header() {
                 Profile chip and the always-visible mobile header stay clean;
                 this is the one place it lives, tucked inside the button
                 itself rather than as a separate always-on control. */}
-            {expanded && <ThemeToggle size="sm" />}
+            {expanded && (
+              <span className="flex items-center gap-2">
+                <ThemeToggle size="sm" />
+                <LanguageToggle size="sm" />
+              </span>
+            )}
           </Link>
         </>
       );

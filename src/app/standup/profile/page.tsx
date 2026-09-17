@@ -17,6 +17,7 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -161,7 +162,10 @@ export default function ProfilePage() {
             style={{ boxSizing: "border-box", width: "100%" }}
           >
             <span className="flex-1 text-left">Profile &amp; Settings</span>
-            <ThemeToggle size="sm" />
+            <span className="flex items-center gap-2">
+              <ThemeToggle size="sm" />
+              <LanguageToggle size="sm" />
+            </span>
           </Link>
           <Link
             href="/standup/history"

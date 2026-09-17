@@ -70,7 +70,12 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "Can I break a goal into smaller steps or attach a file to it?",
     answer:
-      "Yes — every goal has an optional checklist for sub-items (like a grocery list under \"Go to HEB\") and a place to attach files (receipts, documents — images or PDF, up to 5MB). Both show up below the goal on Plan Tomorrow, Review Today, and past days, and carry forward automatically if you reschedule the goal.",
+      "Yes — every goal has an optional checklist for sub-items (like a grocery list under \"Go to HEB\"), a place to attach files (receipts, documents — images or PDF, up to 5MB), and a single Link field for one reference URL (a doc, a meeting link, a job posting). All three show as small buttons right under the goal's title on Plan Tomorrow, Review Today, and past days, and carry forward automatically if you reschedule the goal.",
+  },
+  {
+    question: "Can I mark a goal as an all-day task instead of picking a time?",
+    answer:
+      "Yes — next to the time picker on Plan Tomorrow (or any date's plan), toggle \"All day\" and the specific time is dropped in favor of just showing the goal as spanning the whole day. It's purely a display choice — there are no reminders or notifications tied to either a specific time or All day.",
   },
   {
     question: "Can I go back and look at past days?",
@@ -80,7 +85,7 @@ const FAQS: { question: string; answer: ReactNode }[] = [
   {
     question: "Can I use dark or light mode?",
     answer:
-      "Yes — there's a theme switch in Settings under Appearance. It's saved to your account, so it follows you across devices and logins, not just this browser.",
+      "Yes — there's a theme switch in Settings under Appearance, plus a quicker toggle right on the \"Profile & Settings\" button on your Profile page and in the mobile menu's Profile row. All three control the same setting, saved to your account, so it follows you across devices and logins, not just this browser.",
   },
   {
     question: "Is my personal info required?",

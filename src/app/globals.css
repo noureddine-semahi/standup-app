@@ -38,6 +38,25 @@ a {
   --chrome-alpha: 0.7;
   --chrome-alpha-hover: 0.85;
 
+  /* Priority (P1-P5) and goal-status colors — bright, saturated pastels
+     that pop on the dark canvas. goalStatus.ts / priorityStyles.ts return
+     var(--priority-N) / var(--status-X) instead of a literal hex for their
+     `color` field specifically (the bg/border tints stay literal rgba —
+     low-opacity overlays don't have the same contrast problem text does),
+     so every consumer (status chips, priority chips, the goal card's whole
+     border) re-tints for the theme without any of them needing to know
+     about theme at all. */
+  --priority-1: #f87171;
+  --priority-2: #fb923c;
+  --priority-3: #facc15;
+  --priority-4: #94a3b8;
+  --priority-5: #64748b;
+  --status-completed: #6ee7b7;
+  --status-in-progress: #93c5fd;
+  --status-blocked: #fca5a5;
+  --status-postponed: #d8b4fe;
+  --status-canceled: #cbd5e1;
+
   --page-bg: #05060a;
   --page-text: rgba(var(--tint-rgb), 0.92);
   --app-bg-wash-1: rgba(245, 158, 11, 0.08);
@@ -53,6 +72,19 @@ a {
   --panel-alpha-hover: 0.85;
   --chrome-alpha: 0.82;
   --chrome-alpha-hover: 0.9;
+
+  /* Same hues, dialed several shades darker/more saturated for contrast
+     against a light canvas instead of a near-black one. */
+  --priority-1: #b91c1c;
+  --priority-2: #c2410c;
+  --priority-3: #a16207;
+  --priority-4: #475569;
+  --priority-5: #334155;
+  --status-completed: #047857;
+  --status-in-progress: #1d4ed8;
+  --status-blocked: #b91c1c;
+  --status-postponed: #7e22ce;
+  --status-canceled: #475569;
 
   --page-bg: #d7dae2;
   --page-text: rgba(var(--tint-rgb), 0.92);
@@ -123,6 +155,33 @@ a {
 .placeholder\:text-white\/40::placeholder { color: rgba(var(--tint-rgb), 0.4); }
 .placeholder\:text-white\/60::placeholder { color: rgba(var(--tint-rgb), 0.6); }
 .focus\:placeholder\:text-white\/60:focus::placeholder { color: rgba(var(--tint-rgb), 0.6); }
+
+/* Tailwind's pastel accent text colors (amber-300, emerald-300, cyan-300,
+   etc.) are calibrated to pop on a dark canvas — the same light, low-
+   saturation shade reads as near-invisible low-contrast text on a light
+   background. Only overridden here under [data-theme="light"]; dark mode
+   keeps every one of these exactly as before. Each maps to a noticeably
+   darker shade of the same hue, preserving the relative order between
+   e.g. amber-200/300/400 (darkest override for the lightest original). */
+[data-theme="light"] .text-amber-300 { color: #b45309; }
+[data-theme="light"] .text-amber-300\/70 { color: rgba(180, 83, 9, 0.7); }
+[data-theme="light"] .hover\:text-amber-200:hover { color: #92400e; }
+[data-theme="light"] .text-amber-400 { color: #d97706; }
+
+[data-theme="light"] .text-red-200 { color: #991b1b; }
+[data-theme="light"] .text-red-300 { color: #b91c1c; }
+[data-theme="light"] .text-red-400 { color: #dc2626; }
+
+[data-theme="light"] .text-emerald-300 { color: #047857; }
+[data-theme="light"] .text-emerald-300\/80 { color: rgba(4, 120, 87, 0.8); }
+[data-theme="light"] .hover\:text-emerald-300:hover { color: #047857; }
+[data-theme="light"] .text-emerald-400 { color: #059669; }
+
+[data-theme="light"] .text-sky-300 { color: #0369a1; }
+[data-theme="light"] .text-cyan-300\/80 { color: rgba(14, 116, 144, 0.8); }
+
+[data-theme="light"] .text-yellow-300\/90 { color: rgba(161, 98, 7, 0.9); }
+[data-theme="light"] .text-yellow-400 { color: #a16207; }
 
 html, body {
   height: 100%;

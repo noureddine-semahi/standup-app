@@ -45,21 +45,24 @@ export function statusIcon(status: GoalStatus) {
 
 export type StatusChipColors = { bg: string; border: string; color: string };
 
-// Distinct color per status, used for the compact status chip (styled like .priority-select).
+// Distinct color per status, used for the compact status chip (styled like
+// .priority-select). `color` references a --status-X CSS variable
+// (globals.css) rather than a literal hex, so it re-tints darker for light
+// mode automatically — see the comment on --priority-1 there for why.
 export function statusChipColors(status: GoalStatus): StatusChipColors {
   switch (status) {
     case "completed":
-      return { bg: "rgba(16, 185, 129, 0.12)", border: "rgba(16, 185, 129, 0.45)", color: "#6ee7b7" };
+      return { bg: "rgba(16, 185, 129, 0.12)", border: "rgba(16, 185, 129, 0.45)", color: "var(--status-completed)" };
     case "in_progress":
-      return { bg: "rgba(59, 130, 246, 0.12)", border: "rgba(59, 130, 246, 0.45)", color: "#93c5fd" };
+      return { bg: "rgba(59, 130, 246, 0.12)", border: "rgba(59, 130, 246, 0.45)", color: "var(--status-in-progress)" };
     case "blocked":
-      return { bg: "rgba(239, 68, 68, 0.12)", border: "rgba(239, 68, 68, 0.45)", color: "#fca5a5" };
+      return { bg: "rgba(239, 68, 68, 0.12)", border: "rgba(239, 68, 68, 0.45)", color: "var(--status-blocked)" };
     case "postponed":
-      return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "#d8b4fe" };
+      return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "var(--status-postponed)" };
     case "attempted":
-      return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "#d8b4fe" };
+      return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "var(--status-postponed)" };
     case "canceled":
-      return { bg: "rgba(100, 116, 139, 0.15)", border: "rgba(100, 116, 139, 0.5)", color: "#cbd5e1" };
+      return { bg: "rgba(100, 116, 139, 0.15)", border: "rgba(100, 116, 139, 0.5)", color: "var(--status-canceled)" };
     case "not_started":
     default:
       return { bg: "rgba(var(--tint-rgb), 0.06)", border: "rgba(var(--tint-rgb), 0.18)", color: "rgba(var(--tint-rgb), 0.7)" };

@@ -26,11 +26,16 @@ export default function GoalAttachments({
   items,
   onItemsChange,
   readOnly = false,
+  compact = false,
 }: {
   goalId: string;
   items: GoalAttachment[];
   onItemsChange: (items: GoalAttachment[]) => void;
   readOnly?: boolean;
+  // Small "+ Files" pill instead of the plain text toggle, and no outer
+  // top margin — for callers placing this inline alongside other compact
+  // controls rather than stacked in its own block.
+  compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(items.length > 0);
   const [uploading, setUploading] = useState(false);
@@ -98,14 +103,25 @@ export default function GoalAttachments({
   }
 
   return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="text-xs text-white/50 hover:text-white/80 transition"
-      >
-        {expanded ? "▾" : "▸"} Files{items.length > 0 ? ` (${items.length})` : ""}
-      </button>
+    <div className={compact ? "" : "mt-3"}>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="btn"
+          style={{ padding: "0.2rem 0.55rem", fontSize: "0.7rem" }}
+        >
+          + Files{items.length > 0 ? ` (${items.length})` : ""}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs text-white/50 hover:text-white/80 transition"
+        >
+          {expanded ? "▾" : "▸"} Files{items.length > 0 ? ` (${items.length})` : ""}
+        </button>
+      )}
 
       {expanded && (
         <div className="mt-2 space-y-1.5">

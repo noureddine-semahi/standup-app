@@ -69,6 +69,10 @@ export default function TomorrowGoalsPage() {
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
   // Per-goal "Add Note" input, toggled from next to the priority/remove controls.
   const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
+  // Keyed by array index (not goal id) since a link can be set before the
+  // goal has been saved at all, unlike checklist/attachments which require
+  // a real id.
+  const [showLinkInput, setShowLinkInput] = useState<Record<number, boolean>>({});
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -130,8 +134,12 @@ export default function TomorrowGoalsPage() {
           : DEFAULT_PRIORITY,
       // Left out of this comparison, a time-only edit produced the exact
       // same hash as before it — autosave and the manual Save button both
-      // saw "no changes" and silently skipped saving it entirely.
+      // saw "no changes" and silently skipped saving it entirely. is_all_day
+      // and link_url are new fields with the exact same failure mode, so
+      // both go in here too from the start rather than after hitting it again.
       time_of_day: g.time_of_day || null,
+      is_all_day: !!(g as any).is_all_day,
+      link_url: (g as any).link_url || null,
     }));
     return JSON.stringify(normalized);
   }
@@ -659,30 +667,117 @@ export default function TomorrowGoalsPage() {
                         placeholder={(p >= 1 && p <= 3) ? `Priority ${p} goal...` : "Optional goal..."}
                         className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                       />
-                      <input
-                        type="time"
-                        value={g.time_of_day?.slice(0, 5) ?? ""}
-                        disabled={locked || submitting}
-                        onBlur={() => {
-                          if (skipNextBlurAutosaveRef.current) {
-                            skipNextBlurAutosaveRef.current = false;
-                            return;
-                          }
-                          if (priorityChangeInProgressRef.current) {
-                            return;
-                          }
-                          scheduleAutoSave();
-                        }}
-                        onChange={(e) =>
-                          setGoals((prev) =>
-                            prev.map((x, i) =>
-                              i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                      <div className="mt-1 flex items-center gap-2">
+                        {!(g as any).is_all_day && (
+                          <input
+                            type="time"
+                            value={g.time_of_day?.slice(0, 5) ?? ""}
+                            disabled={locked || submitting}
+                            onBlur={() => {
+                              if (skipNextBlurAutosaveRef.current) {
+                                skipNextBlurAutosaveRef.current = false;
+                                return;
+                              }
+                              if (priorityChangeInProgressRef.current) {
+                                return;
+                              }
+                              scheduleAutoSave();
+                            }}
+                            onChange={(e) =>
+                              setGoals((prev) =>
+                                prev.map((x, i) =>
+                                  i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                                )
+                              )
+                            }
+                            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                            title="Optional time"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          disabled={locked || submitting}
+                          onClick={() => {
+                            setGoals((prev) =>
+                              prev.map((x, i) =>
+                                i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
+                              )
+                            );
+                            scheduleAutoSave();
+                          }}
+                          className="btn"
+                          style={{
+                            padding: "0.2rem 0.55rem",
+                            fontSize: "0.7rem",
+                            background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
+                            borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
+                          }}
+                          title="Mark this goal as an all-day task instead of a specific time"
+                        >
+                          {(g as any).is_all_day ? "☀️ All day" : "All day"}
+                        </button>
+                      </div>
+
+                      {/* Compact quick-add row — checklist, files, and an
+                          optional link all share one line under the time
+                          picker, rather than the checklist/files toggles
+                          living in the notes column further over. */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {g.id && (
+                          <>
+                            <GoalChecklist
+                              compact
+                              goalId={g.id}
+                              items={checklistItems[g.id] ?? []}
+                              onItemsChange={(items) =>
+                                setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                              }
+                              readOnly={locked}
+                            />
+                            <GoalAttachments
+                              compact
+                              goalId={g.id}
+                              items={attachments[g.id] ?? []}
+                              onItemsChange={(items) =>
+                                setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
+                              }
+                              readOnly={locked}
+                            />
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                          className="btn"
+                          style={{ padding: "0.2rem 0.55rem", fontSize: "0.7rem" }}
+                          title={(g as any).link_url ? (g as any).link_url : "Attach a link"}
+                        >
+                          {(g as any).link_url ? "🔗 Link" : "+ Link"}
+                        </button>
+                      </div>
+
+                      {showLinkInput[idx] && (
+                        <input
+                          type="url"
+                          value={(g as any).link_url ?? ""}
+                          disabled={locked || submitting}
+                          onChange={(e) =>
+                            setGoals((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
                             )
-                          )
-                        }
-                        className="mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
-                        title="Optional time"
-                      />
+                          }
+                          onBlur={() => {
+                            if (skipNextBlurAutosaveRef.current) {
+                              skipNextBlurAutosaveRef.current = false;
+                              return;
+                            }
+                            scheduleAutoSave();
+                          }}
+                          placeholder="https://..."
+                          className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                        />
+                      )}
+
                       {g.rescheduled_from_date && (
                         <div className="mt-2 flex items-start gap-2">
                           <span className="text-yellow-400 text-xs mt-0.5">↷</span>
@@ -709,22 +804,6 @@ export default function TomorrowGoalsPage() {
                       ) : (
                         <>
                           <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
-                          <GoalChecklist
-                            goalId={g.id}
-                            items={checklistItems[g.id] ?? []}
-                            onItemsChange={(items) =>
-                              setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
-                            }
-                            readOnly={locked}
-                          />
-                          <GoalAttachments
-                            goalId={g.id}
-                            items={attachments[g.id] ?? []}
-                            onItemsChange={(items) =>
-                              setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
-                            }
-                            readOnly={locked}
-                          />
                           {showNoteInput[g.id] && (
                             <div className="mt-3 flex gap-2">
                               <input

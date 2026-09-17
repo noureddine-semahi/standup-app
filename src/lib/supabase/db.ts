@@ -96,6 +96,13 @@ export type Goal = {
   // Optional "HH:MM" (or "HH:MM:SS", as Postgres' `time` type comes back)
   // time-of-day — display-only, no reminders/notifications attached.
   time_of_day?: string | null;
+  // When true, time_of_day is ignored for display — the goal spans the
+  // whole day rather than a specific time.
+  is_all_day?: boolean;
+  // Optional single URL attached to the goal — a lighter-weight companion
+  // to the checklist/attachments, for when a reference link is all a goal
+  // needs (a doc, a meeting link, a job posting).
+  link_url?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;
@@ -756,6 +763,8 @@ export async function upsertGoals(
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
         time_of_day: g.time_of_day || null,
+        is_all_day: !!(g as any).is_all_day,
+        link_url: (g as any).link_url || null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;
@@ -779,6 +788,8 @@ export async function upsertGoals(
         status: g.status ?? "not_started",
         sort_order: Number.isFinite(g.sort_order) ? g.sort_order : 0,
         time_of_day: g.time_of_day || null,
+        is_all_day: !!(g as any).is_all_day,
+        link_url: (g as any).link_url || null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;

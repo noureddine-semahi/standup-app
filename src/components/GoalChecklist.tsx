@@ -14,11 +14,17 @@ export default function GoalChecklist({
   items,
   onItemsChange,
   readOnly = false,
+  compact = false,
 }: {
   goalId: string;
   items: ChecklistItem[];
   onItemsChange: (items: ChecklistItem[]) => void;
   readOnly?: boolean;
+  // Small "+ Checklist" pill instead of the plain text toggle, and no
+  // outer top margin — for callers placing this inline alongside other
+  // compact controls (e.g. Plan Tomorrow's row under the time picker)
+  // rather than stacked in its own block.
+  compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(items.length > 0);
   const [draft, setDraft] = useState("");
@@ -87,14 +93,25 @@ export default function GoalChecklist({
   }
 
   return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="text-xs text-white/50 hover:text-white/80 transition"
-      >
-        {expanded ? "▾" : "▸"} Checklist{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
-      </button>
+    <div className={compact ? "" : "mt-3"}>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="btn"
+          style={{ padding: "0.2rem 0.55rem", fontSize: "0.7rem" }}
+        >
+          + Checklist{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs text-white/50 hover:text-white/80 transition"
+        >
+          {expanded ? "▾" : "▸"} Checklist{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+        </button>
+      )}
 
       {expanded && (
         <div className="mt-2 space-y-1.5">

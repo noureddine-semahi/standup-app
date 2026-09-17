@@ -303,7 +303,7 @@ export default function AdminPage() {
             <div
               key={m.id}
               className="rounded-xl p-3"
-              style={{ border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(255, 255, 255, 0.02)" }}
+              style={{ border: "1px solid rgba(var(--tint-rgb), 0.08)", background: "rgba(var(--tint-rgb), 0.02)" }}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -401,7 +401,7 @@ export default function AdminPage() {
               const level = getLevelInfo(m.points);
               const busy = busyIds.has(m.id);
               return (
-                <tr key={m.id} style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                <tr key={m.id} style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.08)" }}>
                   <td className="py-3 pr-4">
                     <div className="font-semibold text-white">{m.displayName || m.email}</div>
                     <div className="text-xs text-white/50">{m.email}</div>
@@ -497,7 +497,7 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {auditLog.map((entry) => (
-                  <tr key={entry.id} style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                  <tr key={entry.id} style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.08)" }}>
                     <td className="py-3 pr-4 whitespace-nowrap text-white/70">
                       {formatDateTimeDisplay(entry.createdAt)}
                     </td>
@@ -555,7 +555,7 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {visitStats.byDay.map((row) => (
-                      <tr key={row.date} style={{ borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                      <tr key={row.date} style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.08)" }}>
                         <td className="py-3 pr-4 whitespace-nowrap text-white/70">{row.date}</td>
                         <td className="py-3 pr-4">{row.count}</td>
                       </tr>

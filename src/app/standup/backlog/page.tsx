@@ -237,8 +237,8 @@ export default function BacklogPage() {
                         width: "32px",
                         height: "32px",
                         borderRadius: "8px",
-                        background: "rgba(255, 255, 255, 0.06)",
-                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        background: "rgba(var(--tint-rgb), 0.06)",
+                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
                       }}
                       title="Remove from backlog"
                     >

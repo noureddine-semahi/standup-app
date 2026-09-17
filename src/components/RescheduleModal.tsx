@@ -136,7 +136,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
             disabled={saving}
             className="text-white/50 hover:text-white/80 text-2xl leading-none"
             style={{
-              background: "rgba(255,255,255,0.1)",
+              background: "rgba(var(--tint-rgb),0.1)",
               width: "32px",
               height: "32px",
               borderRadius: "50%",

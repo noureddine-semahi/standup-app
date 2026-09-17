@@ -36,8 +36,8 @@ export default function GoalTimeline({
                   style={{
                     fontSize: "9px",
                     padding: "2px 5px",
-                    background: e.kind === "note" ? "rgba(34, 211, 238, 0.12)" : "rgba(255, 255, 255, 0.06)",
-                    color: e.kind === "note" ? "#67e8f9" : "rgba(255, 255, 255, 0.5)",
+                    background: e.kind === "note" ? "rgba(34, 211, 238, 0.12)" : "rgba(var(--tint-rgb), 0.06)",
+                    color: e.kind === "note" ? "#67e8f9" : "rgba(var(--tint-rgb), 0.5)",
                   }}
                 >
                   {e.kind === "note" ? "Note" : "Action"}

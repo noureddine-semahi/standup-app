@@ -906,7 +906,7 @@ export default function TodayPage() {
           <div
             className="mb-6 rounded-2xl bg-white/5 p-4"
             style={{
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid rgba(var(--tint-rgb),0.08)",
               borderLeftWidth: "3px",
               borderLeftColor: "rgba(245, 158, 11, 0.5)",
             }}
@@ -998,8 +998,8 @@ export default function TodayPage() {
                       style={{
                         width: "32px",
                         height: "32px",
-                        background: "rgba(255, 255, 255, 0.06)",
-                        border: "1px solid rgba(255, 255, 255, 0.14)",
+                        background: "rgba(var(--tint-rgb), 0.06)",
+                        border: "1px solid rgba(var(--tint-rgb), 0.14)",
                       }}
                     >
                       {idx + 1}

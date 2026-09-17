@@ -296,8 +296,8 @@ export default function SettingsPage() {
             style={{
               width: "52px",
               height: "28px",
-              background: theme === "light" ? "var(--accent-purple)" : "rgba(255,255,255,0.15)",
-              border: "1px solid rgba(255,255,255,0.18)",
+              background: theme === "light" ? "var(--accent-purple)" : "rgba(var(--tint-rgb),0.15)",
+              border: "1px solid rgba(var(--tint-rgb),0.18)",
             }}
           >
             <span

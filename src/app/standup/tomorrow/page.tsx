@@ -592,11 +592,11 @@ export default function TomorrowGoalsPage() {
               <div key={g.id ?? `row-${idx}`}>
                 {displayIdx === 3 && (
                   <div className="my-6 flex items-center gap-4">
-                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
+                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
                     <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
                       Optional Goals
                     </div>
-                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)" }} />
+                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
                   </div>
                 )}
 
@@ -608,7 +608,7 @@ export default function TomorrowGoalsPage() {
                   onDragEnd={handleDragEnd}
                   className="goal-row"
                   style={{
-                    "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(255,255,255,0.2)",
+                    "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
                     cursor: editMode ? "move" : "default",
                     opacity: draggedIdx === idx ? 0.5 : 1,
                   } as React.CSSProperties}
@@ -617,7 +617,7 @@ export default function TomorrowGoalsPage() {
                   {editMode && (
                     <div
                       className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
-                      style={{ color: "rgba(255,255,255,0.3)" }}
+                      style={{ color: "rgba(var(--tint-rgb),0.3)" }}
                     >
                       ⋮⋮
                     </div>
@@ -864,8 +864,8 @@ export default function TomorrowGoalsPage() {
                             width: "44px",
                             height: "32px",
                             borderRadius: "8px",
-                            background: "rgba(255, 255, 255, 0.06)",
-                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                            background: "rgba(var(--tint-rgb), 0.06)",
+                            border: "1px solid rgba(var(--tint-rgb), 0.15)",
                           }}
                           className="flex-shrink-0 flex items-center justify-center hover:bg-black/40 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-105"
                           title={(p >= 1 && p <= 3) ? "Clear priority goal" : "Remove goal"}
@@ -968,7 +968,7 @@ export default function TomorrowGoalsPage() {
         </div>
 
         {msg && (
-          <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.2)" }}>
+          <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(var(--tint-rgb),0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(var(--tint-rgb),0.2)" }}>
             {msg}
           </div>
         )}

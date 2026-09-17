@@ -390,7 +390,7 @@ export default function HistoryPage() {
                     ? { top: "#34d399", bottom: "#059669" }
                     : day.hasPlan
                     ? { top: "#fbbf24", bottom: "#d97706" }
-                    : { top: "rgba(255,255,255,0.22)", bottom: "rgba(255,255,255,0.08)" };
+                    : { top: "rgba(var(--tint-rgb),0.22)", bottom: "rgba(var(--tint-rgb),0.08)" };
                   const mark = day.checkedIn ? "✓" : day.hasPlan ? "•" : "✕";
 
                   return (
@@ -406,7 +406,7 @@ export default function HistoryPage() {
                         <div
                           className="text-[10px] leading-none mb-1"
                           style={{
-                            color: state === "checkedIn" ? "#34d399" : state === "notClosed" ? "#fbbf24" : "rgba(255,255,255,0.4)",
+                            color: state === "checkedIn" ? "#34d399" : state === "notClosed" ? "#fbbf24" : "rgba(var(--tint-rgb),0.4)",
                           }}
                         >
                           {mark}
@@ -454,11 +454,11 @@ export default function HistoryPage() {
                 </div>
                 <div
                   className="flex items-center gap-2 rounded-full px-3 py-1.5"
-                  style={{ background: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(0,0,0,0.55)" }}
+                  style={{ background: "rgba(var(--tint-rgb), 0.05)", border: "1px solid rgba(0,0,0,0.55)" }}
                 >
                   <span
                     className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[10px] font-bold text-white/70"
-                    style={{ background: "rgba(255, 255, 255, 0.15)", border: "1px solid rgba(0,0,0,0.55)" }}
+                    style={{ background: "rgba(var(--tint-rgb), 0.15)", border: "1px solid rgba(0,0,0,0.55)" }}
                   >
                     ✕
                   </span>

@@ -64,8 +64,8 @@ function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue
     case "neutral":
     default:
       return {
-        bg: "rgba(255, 255, 255, 0.03)",
-        border: "rgba(255, 255, 255, 0.10)",
+        bg: "rgba(var(--tint-rgb), 0.03)",
+        border: "rgba(var(--tint-rgb), 0.10)",
         glow: "none",
       };
   }

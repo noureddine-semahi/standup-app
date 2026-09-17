@@ -10,10 +10,13 @@ a {
 }
 
 /* ✨ Color Variables
-   Light mode (see [data-theme="light"] below) only repaints the page canvas
-   — header, cards, and buttons intentionally keep their dark glass styling
-   in both modes (like a dark title bar over a light editor), so none of the
-   white-on-dark text baked into individual pages needs to change. */
+   Real theme tokens, not just a page-canvas swap: --tint-rgb is the base
+   RGB triplet behind every translucent "white" overlay in the app (text,
+   borders, subtle surface fills — see the rgba(var(--tint-rgb), X) call
+   sites throughout this file and inline styles across the app), and
+   --panel-rgb/--panel-alpha* are the glass-panel color behind .card and
+   the header. Flipping these two here re-tints literally everything at
+   once instead of leaving cards/buttons permanently dark-on-light. */
 :root {
   color-scheme: dark;
   /* Repointed to the seven-segment-display world's palette (amber/emerald)
@@ -28,8 +31,15 @@ a {
   --accent-red: #ef4444;
   --accent-rose: #f43f5e;
 
+  --tint-rgb: 255, 255, 255;
+  --panel-rgb: 10, 14, 26;
+  --panel-alpha: 0.6;
+  --panel-alpha-hover: 0.8;
+  --chrome-alpha: 0.7;
+  --chrome-alpha-hover: 0.85;
+
   --page-bg: #05060a;
-  --page-text: rgba(255, 255, 255, 0.92);
+  --page-text: rgba(var(--tint-rgb), 0.92);
   --app-bg-wash-1: rgba(245, 158, 11, 0.08);
   --app-bg-wash-2: rgba(16, 185, 129, 0.06);
   --app-bg-gradient: linear-gradient(180deg, #05060a 0%, #0a0e1a 45%, #05060a 100%);
@@ -37,8 +47,15 @@ a {
 
 [data-theme="light"] {
   color-scheme: light;
+  --tint-rgb: 20, 22, 30;
+  --panel-rgb: 255, 255, 255;
+  --panel-alpha: 0.72;
+  --panel-alpha-hover: 0.85;
+  --chrome-alpha: 0.82;
+  --chrome-alpha-hover: 0.9;
+
   --page-bg: #d7dae2;
-  --page-text: rgba(20, 22, 30, 0.92);
+  --page-text: rgba(var(--tint-rgb), 0.92);
   /* The soft radial glow washes read as a moody accent on the dark canvas,
      but the same blooms on a light canvas look like a hazy, overexposed
      blur — dropped entirely here, leaving just the flat gradient below. */
@@ -52,6 +69,60 @@ a {
 [data-theme="light"] .hero-blob {
   display: none;
 }
+
+/* ============================================================
+   Tailwind utility overrides — theme-aware "white" utilities
+   ============================================================
+   Tailwind's text-white/bg-white/border-white/etc. utilities compile to a
+   literal white, regardless of theme — that's most of why light mode still
+   read as dark mode with a light backdrop. Tailwind v4 generates its own
+   utilities inside CSS cascade layers, and by spec any unlayered rule (like
+   these, and everything else in this file) wins over a layered one
+   regardless of source order — so redefining these specific classes here,
+   once, re-tints every existing text-white/70-style call site across the
+   whole app for both themes, without editing the hundreds of places that
+   use them. Only the exact classes actually used in the app are listed. */
+.text-white { color: rgba(var(--tint-rgb), 1); }
+.text-white\/30 { color: rgba(var(--tint-rgb), 0.3); }
+.text-white\/35 { color: rgba(var(--tint-rgb), 0.35); }
+.text-white\/40 { color: rgba(var(--tint-rgb), 0.4); }
+.text-white\/50 { color: rgba(var(--tint-rgb), 0.5); }
+.text-white\/60 { color: rgba(var(--tint-rgb), 0.6); }
+.text-white\/70 { color: rgba(var(--tint-rgb), 0.7); }
+.text-white\/80 { color: rgba(var(--tint-rgb), 0.8); }
+.text-white\/85 { color: rgba(var(--tint-rgb), 0.85); }
+.text-white\/90 { color: rgba(var(--tint-rgb), 0.9); }
+.hover\:text-white:hover { color: rgba(var(--tint-rgb), 1); }
+.hover\:text-white\/60:hover { color: rgba(var(--tint-rgb), 0.6); }
+.hover\:text-white\/70:hover { color: rgba(var(--tint-rgb), 0.7); }
+.hover\:text-white\/80:hover { color: rgba(var(--tint-rgb), 0.8); }
+.hover\:text-white\/90:hover { color: rgba(var(--tint-rgb), 0.9); }
+
+.bg-white\/5 { background-color: rgba(var(--tint-rgb), 0.05); }
+.bg-white\/10 { background-color: rgba(var(--tint-rgb), 0.1); }
+.hover\:bg-white\/5:hover { background-color: rgba(var(--tint-rgb), 0.05); }
+.hover\:bg-white\/10:hover { background-color: rgba(var(--tint-rgb), 0.1); }
+
+.border-white\/10 { border-color: rgba(var(--tint-rgb), 0.1); }
+.border-white\/20 { border-color: rgba(var(--tint-rgb), 0.2); }
+.border-white\/25 { border-color: rgba(var(--tint-rgb), 0.25); }
+.border-white\/40 { border-color: rgba(var(--tint-rgb), 0.4); }
+.hover\:border-white\/40:hover { border-color: rgba(var(--tint-rgb), 0.4); }
+.focus\:border-white\/25:focus { border-color: rgba(var(--tint-rgb), 0.25); }
+.focus\:border-white\/40:focus { border-color: rgba(var(--tint-rgb), 0.4); }
+
+.divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(var(--tint-rgb), 0.1); }
+
+.decoration-white\/20 { text-decoration-color: rgba(var(--tint-rgb), 0.2); }
+
+.ring-white\/30 { --tw-ring-color: rgba(var(--tint-rgb), 0.3); }
+.ring-white\/40 { --tw-ring-color: rgba(var(--tint-rgb), 0.4); }
+.focus\:ring-white\/30:focus { --tw-ring-color: rgba(var(--tint-rgb), 0.3); }
+.focus\:ring-white\/40:focus { --tw-ring-color: rgba(var(--tint-rgb), 0.4); }
+
+.placeholder\:text-white\/40::placeholder { color: rgba(var(--tint-rgb), 0.4); }
+.placeholder\:text-white\/60::placeholder { color: rgba(var(--tint-rgb), 0.6); }
+.focus\:placeholder\:text-white\/60:focus::placeholder { color: rgba(var(--tint-rgb), 0.6); }
 
 html, body {
   height: 100%;
@@ -67,8 +138,11 @@ html, body {
    styling fine, but many browsers render the OPEN options list using their
    own OS-level colors regardless of the select's CSS or `color-scheme` —
    forcing it here so it never renders as an unreadable white-on-white (or
-   white-on-dark) list, on any theme or device. Matches .card/.btn already
-   staying dark regardless of light/dark mode. */
+   white-on-dark) list, on any theme or device. Deliberately NOT tokenized
+   (literal white on literal dark, in both themes) — this pairs a background
+   that's intentionally hardcoded dark regardless of theme, so the text next
+   to it must stay hardcoded white too, or light mode would flip to
+   unreadable dark-on-dark. */
 select option {
   background-color: #0a0e1a;
   color: rgba(255, 255, 255, 0.92);
@@ -109,11 +183,10 @@ body {
   font-weight: 500;
 }
 
-/* .btn's white text/border is fine inside a card (always dark, regardless
-   of theme) but a ghost/ transparent-background button sitting directly on
-   the page canvas (e.g. the landing page's "Learn More") goes invisible on
-   the light canvas. Opt into this instead of changing .btn globally, since
-   most buttons DO live inside cards and shouldn't flip with the theme. */
+/* Largely superseded now that .btn's own border/text are tokenized via
+   --tint-rgb (see .btn below) and flip correctly on the page canvas too —
+   kept for SocialShareButtons' one "onPage" call site rather than ripping
+   out the prop for a single, now-harmless usage. */
 .btn-on-page {
   color: var(--page-text);
   border-color: rgba(128, 128, 128, 0.35);
@@ -146,32 +219,22 @@ h1, h2, h3, h4, h5, h6 {
   transition: background 0.3s ease;
 }
 
-/* ✨ Header */
+/* ✨ Header — a glass panel like .card, using --panel-rgb/--chrome-alpha*
+   so it turns into a light glass bar in light mode instead of staying a
+   permanently dark title bar. */
 .app-header {
   position: sticky;
   top: 0;
   z-index: 50;
   backdrop-filter: blur(12px) saturate(180%);
-  background: rgba(5, 6, 10, 0.7);
+  background: rgba(var(--panel-rgb), var(--chrome-alpha));
   border-bottom: 1px solid rgba(245, 158, 11, 0.2);
   transition: all 0.3s ease;
 }
 
-/* Light mode: cards/header are meant to stay dark regardless of theme (see
-   the design note at the top of this file), but at their dark-mode opacity
-   the light canvas underneath bleeds through the blur and washes them out
-   into a hazy gray instead of reading as solid dark glass. Bumped near-opaque
-   here so the blur has almost nothing light to pick up. */
-[data-theme="light"] .app-header {
-  background: rgba(5, 6, 10, 0.94);
-}
-[data-theme="light"] .app-header:hover {
-  background: rgba(5, 6, 10, 0.97);
-}
-
 .app-header:hover {
   border-bottom-color: rgba(245, 158, 11, 0.4);
-  background: rgba(5, 6, 10, 0.8);
+  background: rgba(var(--panel-rgb), var(--chrome-alpha-hover));
 }
 
 .app-header-inner {
@@ -210,7 +273,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .nav-link {
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(var(--tint-rgb), 0.85);
   /* Always visibly a "chip" (not plain text) — hover and active shift to
      their own distinct shades below instead of going from transparent to
      colored, so every state reads as a deliberately different button color. */
@@ -254,7 +317,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nav-link:hover {
-  color: rgba(255, 255, 255, 0.98);
+  color: rgba(var(--tint-rgb), 0.98);
   background: rgba(16, 185, 129, 0.16);
   border-color: rgba(16, 185, 129, 0.4);
 }
@@ -270,7 +333,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nav-link.font-semibold {
-  color: rgba(255, 255, 255, 0.98);
+  color: rgba(var(--tint-rgb), 0.98);
   background: rgba(245, 158, 11, 0.22);
   border-color: rgba(245, 158, 11, 0.45);
 }
@@ -333,7 +396,7 @@ h1, h2, h3, h4, h5, h6 {
   height: 34px;
   padding: 0;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(var(--tint-rgb), 0.15);
   border-radius: 8px;
   cursor: pointer;
   flex-shrink: 0;
@@ -343,7 +406,7 @@ h1, h2, h3, h4, h5, h6 {
   display: block;
   height: 2px;
   width: 18px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(var(--tint-rgb), 0.85);
   border-radius: 2px;
 }
 
@@ -368,7 +431,7 @@ h1, h2, h3, h4, h5, h6 {
     gap: 4px;
     padding: 10px 18px 16px;
     border-top: 1px solid rgba(245, 158, 11, 0.15);
-    background: rgba(5, 6, 10, 0.96);
+    background: rgba(var(--panel-rgb), var(--chrome-alpha-hover));
   }
 
   .mobile-menu-panel .nav-link {
@@ -447,9 +510,9 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ✨ Buttons with Ripple Effect */
 .btn {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(var(--tint-rgb), 0.18);
+  background: rgba(var(--tint-rgb), 0.06);
+  color: rgba(var(--tint-rgb), 0.92);
   padding: 9px 14px;
   border-radius: 6px;
   cursor: pointer;
@@ -468,7 +531,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(var(--tint-rgb), 0.2);
   transform: translate(-50%, -50%) scale(0);
   transition: transform 0.6s ease;
 }
@@ -478,8 +541,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(var(--tint-rgb), 0.12);
+  border-color: rgba(var(--tint-rgb), 0.3);
   transform: translateY(-1px);
   box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.4);
 }
@@ -493,7 +556,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--tint-rgb), 0.08);
 }
 
 /* Flat lit-amber cell, not a gradient fill — the primary action reads as a
@@ -517,16 +580,13 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
-/* ✨ Cards with Glow Effect */
+/* ✨ Cards with Glow Effect — a glass panel using --panel-rgb/--panel-alpha*,
+   so it becomes a genuine light glass surface (with dark text, via
+   --tint-rgb) in light mode instead of staying permanently dark-glass. */
 .card {
-  /* Cards always stay dark-glass regardless of light/dark theme (by design
-     — see the light-mode note at the top of this file), but text color
-     isn't part of that: without this, any text lacking its own explicit
-     color class inherits `body`'s color, which DOES flip between themes —
-     landing as unreadable dark-on-dark text inside a card in light mode. */
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(var(--tint-rgb), 0.92);
   border: 1px solid rgba(245, 158, 11, 0.15);
-  background: rgba(10, 14, 26, 0.6);
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
   backdrop-filter: blur(10px) saturate(150%);
   border-radius: 10px;
   padding: 24px;
@@ -550,22 +610,13 @@ h1, h2, h3, h4, h5, h6 {
 
 .card:hover {
   border-color: rgba(245, 158, 11, 0.25);
-  background: rgba(10, 14, 26, 0.8);
+  background: rgba(var(--panel-rgb), var(--panel-alpha-hover));
   transform: translateY(-2px);
   box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
 }
 
 .card:hover::before {
   opacity: 1;
-}
-
-/* Same reasoning as the light-mode .app-header override above — near-opaque
-   so the light canvas doesn't bleed through the blur as a hazy wash. */
-[data-theme="light"] .card {
-  background: rgba(10, 14, 26, 0.94);
-}
-[data-theme="light"] .card:hover {
-  background: rgba(10, 14, 26, 0.97);
 }
 
 /* A quieter emphasis modifier — replaces the old per-page inline
@@ -626,7 +677,7 @@ select:focus {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--tint-rgb), 0.05);
   border-radius: 10px;
 }
 
@@ -707,8 +758,8 @@ select:focus {
 .goal-row {
   position: relative;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--p-color, rgba(255, 255, 255, 0.08));
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px solid var(--p-color, rgba(var(--tint-rgb), 0.08));
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
@@ -743,10 +794,10 @@ select:focus {
   justify-content: center;
   font-size: 0.68rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.07);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(var(--tint-rgb), 0.75);
+  background: rgba(var(--tint-rgb), 0.07);
+  border-right: 1px solid rgba(var(--tint-rgb), 0.12);
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.12);
   border-top-left-radius: 16px;
   border-bottom-right-radius: 8px;
   z-index: 2;
@@ -754,7 +805,7 @@ select:focus {
 }
 
 .goal-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--tint-rgb), 0.05);
 }
 
 .goal-row[data-pending="true"] {
@@ -778,8 +829,8 @@ select:focus {
 }
 
 .goal-row-done-collapsed:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(var(--tint-rgb), 0.05);
+  border-color: rgba(var(--tint-rgb), 0.14);
 }
 
 .goal-done-banner {
@@ -809,9 +860,9 @@ select:focus {
   top: 0;
   right: 0;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(var(--tint-rgb), 0.5);
+  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid rgba(var(--tint-rgb), 0.15);
   border-top: none;
   border-right: none;
   border-top-right-radius: 16px;
@@ -821,8 +872,8 @@ select:focus {
 }
 
 .goal-done-collapse-btn:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.12);
+  color: rgba(var(--tint-rgb), 0.9);
+  background: rgba(var(--tint-rgb), 0.12);
 }
 
 /* ✨ Goal-completion celebration — a brief emerald pulse on the row plus a
@@ -893,13 +944,15 @@ select:focus {
   /* Muted on purpose — the colored background/border is enough of a
      priority cue; full-saturation text made this the loudest thing on the
      row, competing with the actual goal content. */
-  border: 1px solid var(--p-border, rgba(255, 255, 255, 0.15));
-  background: var(--p-bg, rgba(255, 255, 255, 0.06));
-  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--p-border, rgba(var(--tint-rgb), 0.15));
+  background: var(--p-bg, rgba(var(--tint-rgb), 0.06));
+  color: rgba(var(--tint-rgb), 0.75);
   opacity: 0.55;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
+/* Same intentional exception as `select option` above — hardcoded dark
+   background paired with hardcoded white text, in both themes. */
 .priority-select option {
   background: #0a0e1a;
   color: rgba(255, 255, 255, 0.9);
@@ -907,7 +960,7 @@ select:focus {
 
 .priority-select:hover {
   transform: scale(1.06);
-  border-color: var(--p-color, rgba(255, 255, 255, 0.4));
+  border-color: var(--p-color, rgba(var(--tint-rgb), 0.4));
   opacity: 1;
 }
 
@@ -939,9 +992,9 @@ select:focus {
   font-weight: 700;
   font-size: 0.72rem;
   white-space: nowrap;
-  border: 1px solid var(--chip-border, rgba(255, 255, 255, 0.18));
-  background: var(--chip-bg, rgba(255, 255, 255, 0.06));
-  color: var(--chip-color, rgba(255, 255, 255, 0.7));
+  border: 1px solid var(--chip-border, rgba(var(--tint-rgb), 0.18));
+  background: var(--chip-bg, rgba(var(--tint-rgb), 0.06));
+  color: var(--chip-color, rgba(var(--tint-rgb), 0.7));
 }
 
 /* ✨ Corner number tag for dense dashboard preview rows — same idea as the
@@ -958,10 +1011,10 @@ select:focus {
   justify-content: center;
   font-size: 0.6rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.07);
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(var(--tint-rgb), 0.75);
+  background: rgba(var(--tint-rgb), 0.07);
+  border-right: 1px solid rgba(var(--tint-rgb), 0.12);
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.12);
   border-top-left-radius: 10px;
   border-bottom-right-radius: 6px;
   z-index: 2;
@@ -979,9 +1032,9 @@ select:focus {
   font-weight: 700;
   font-size: 0.65rem;
   flex-shrink: 0;
-  border: 1px solid var(--p-border, rgba(255, 255, 255, 0.15));
-  background: var(--p-bg, rgba(255, 255, 255, 0.06));
-  color: var(--p-color, rgba(255, 255, 255, 0.85));
+  border: 1px solid var(--p-border, rgba(var(--tint-rgb), 0.15));
+  background: var(--p-bg, rgba(var(--tint-rgb), 0.06));
+  color: var(--p-color, rgba(var(--tint-rgb), 0.85));
 }
 
 .status-chip-sm {
@@ -998,9 +1051,9 @@ select:focus {
   font-size: 0.62rem;
   white-space: nowrap;
   flex-shrink: 0;
-  border: 1px solid var(--chip-border, rgba(255, 255, 255, 0.18));
-  background: var(--chip-bg, rgba(255, 255, 255, 0.06));
-  color: var(--chip-color, rgba(255, 255, 255, 0.7));
+  border: 1px solid var(--chip-border, rgba(var(--tint-rgb), 0.18));
+  background: var(--chip-bg, rgba(var(--tint-rgb), 0.06));
+  color: var(--chip-color, rgba(var(--tint-rgb), 0.7));
 }
 
 /* ✨ Actions gear toggle — same footprint/type scale as .priority-select, so the
@@ -1017,15 +1070,15 @@ select:focus {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(var(--tint-rgb), 0.15);
+  background: rgba(var(--tint-rgb), 0.06);
+  color: rgba(var(--tint-rgb), 0.85);
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .actions-toggle:hover {
   transform: scale(1.06);
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(var(--tint-rgb), 0.4);
 }
 
 .actions-toggle[data-open="true"] {
@@ -1053,15 +1106,15 @@ select:focus {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  border: 1px solid var(--btn-border, rgba(255, 255, 255, 0.12));
-  background: var(--btn-bg, rgba(255, 255, 255, 0.04));
-  color: var(--btn-color, rgba(255, 255, 255, 0.85));
+  border: 1px solid var(--btn-border, rgba(var(--tint-rgb), 0.12));
+  background: var(--btn-bg, rgba(var(--tint-rgb), 0.04));
+  color: var(--btn-color, rgba(var(--tint-rgb), 0.85));
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .action-btn:hover {
   transform: translateX(2px);
-  border-color: var(--btn-color, rgba(255, 255, 255, 0.4));
+  border-color: var(--btn-color, rgba(var(--tint-rgb), 0.4));
 }
 
 .action-btn:disabled {
@@ -1076,8 +1129,8 @@ select:focus {
 .goal-row-compact {
   position: relative;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--p-color, rgba(255, 255, 255, 0.07));
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px solid var(--p-color, rgba(var(--tint-rgb), 0.07));
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
@@ -1096,7 +1149,7 @@ select:focus {
 .card.card-static:hover {
   transform: none;
   border-color: rgba(245, 158, 11, 0.15);
-  background: rgba(10, 14, 26, 0.6);
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
   box-shadow: none;
 }
 
@@ -1109,13 +1162,13 @@ select:focus {
 
 .led-world {
   --led-bg: #030304;
-  --led-cell: rgba(255, 255, 255, 0.03);
-  --led-border: rgba(255, 255, 255, 0.09);
+  --led-cell: rgba(var(--tint-rgb), 0.03);
+  --led-border: rgba(var(--tint-rgb), 0.09);
   --led-red: #ef4444;
   --led-amber: #f59e0b;
   --led-green: #10b981;
-  --led-text: rgba(255, 255, 255, 0.88);
-  --led-text-dim: rgba(255, 255, 255, 0.55);
+  --led-text: rgba(var(--tint-rgb), 0.88);
+  --led-text-dim: rgba(var(--tint-rgb), 0.55);
   background: var(--led-bg);
   color: var(--led-text);
 }
@@ -1185,8 +1238,8 @@ select:focus {
 }
 
 .led-cell:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(var(--tint-rgb), 0.18);
+  background: rgba(var(--tint-rgb), 0.045);
 }
 
 .card.card-static:hover::before {

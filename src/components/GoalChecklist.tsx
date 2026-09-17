@@ -127,7 +127,7 @@ export default function GoalChecklist({
               <span
                 className="flex-1 min-w-0 text-sm"
                 style={{
-                  color: item.is_checked ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)",
+                  color: item.is_checked ? "rgba(var(--tint-rgb),0.4)" : "rgba(var(--tint-rgb),0.85)",
                   textDecoration: item.is_checked ? "line-through" : "none",
                 }}
               >

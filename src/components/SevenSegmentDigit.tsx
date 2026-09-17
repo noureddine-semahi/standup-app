@@ -62,7 +62,7 @@ export function SevenSegmentDigit({
           <polygon
             key={key}
             points={points}
-            fill={isLit ? color : "rgba(255, 255, 255, 0.05)"}
+            fill={isLit ? color : "rgba(var(--tint-rgb), 0.05)"}
             style={{
               transition: "fill 0.4s ease, filter 0.4s ease",
               filter: isLit ? `drop-shadow(0 0 6px ${color})` : "none",

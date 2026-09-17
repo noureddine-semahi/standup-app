@@ -36,7 +36,7 @@ export default function ContactPage() {
               StandUp.
             </p>
 
-            <div className="mt-6 pt-6" style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            <div className="mt-6 pt-6" style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.1)" }}>
               <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-3">
                 Spread the word
               </div>

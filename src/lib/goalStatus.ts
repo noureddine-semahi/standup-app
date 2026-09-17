@@ -62,6 +62,6 @@ export function statusChipColors(status: GoalStatus): StatusChipColors {
       return { bg: "rgba(100, 116, 139, 0.15)", border: "rgba(100, 116, 139, 0.5)", color: "#cbd5e1" };
     case "not_started":
     default:
-      return { bg: "rgba(255, 255, 255, 0.06)", border: "rgba(255, 255, 255, 0.18)", color: "rgba(255, 255, 255, 0.7)" };
+      return { bg: "rgba(var(--tint-rgb), 0.06)", border: "rgba(var(--tint-rgb), 0.18)", color: "rgba(var(--tint-rgb), 0.7)" };
   }
 }

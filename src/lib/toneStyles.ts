@@ -41,8 +41,8 @@ export function toneStyles(tone: Tone): ToneStyle {
     case "neutral":
     default:
       return {
-        bg: "rgba(255, 255, 255, 0.03)",
-        border: "rgba(255, 255, 255, 0.08)",
+        bg: "rgba(var(--tint-rgb), 0.03)",
+        border: "rgba(var(--tint-rgb), 0.08)",
         glow: "0 4px 14px rgba(0, 0, 0, 0.18)",
       };
   }

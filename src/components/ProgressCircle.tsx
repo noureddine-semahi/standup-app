@@ -3,7 +3,7 @@
 export default function ProgressCircle({
   percent,
   color = "var(--accent-blue)",
-  trackColor = "rgba(255, 255, 255, 0.12)",
+  trackColor = "rgba(var(--tint-rgb), 0.12)",
   size = 60,
   strokeWidth = 6,
 }: {

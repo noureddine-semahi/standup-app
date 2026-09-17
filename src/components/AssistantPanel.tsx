@@ -175,7 +175,7 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
             onClick={onClose}
             className="text-white/50 hover:text-white/80 text-2xl leading-none"
             style={{
-              background: "rgba(255,255,255,0.1)",
+              background: "rgba(var(--tint-rgb),0.1)",
               width: "32px",
               height: "32px",
               borderRadius: "50%",
@@ -219,9 +219,9 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
                 width: "32px",
                 height: "32px",
                 borderRadius: "9999px",
-                background: listening ? "rgba(239, 68, 68, 0.25)" : "rgba(255,255,255,0.08)",
-                border: listening ? "1px solid rgba(239, 68, 68, 0.6)" : "1px solid rgba(255,255,255,0.15)",
-                color: listening ? "#fca5a5" : "rgba(255,255,255,0.8)",
+                background: listening ? "rgba(239, 68, 68, 0.25)" : "rgba(var(--tint-rgb),0.08)",
+                border: listening ? "1px solid rgba(239, 68, 68, 0.6)" : "1px solid rgba(var(--tint-rgb),0.15)",
+                color: listening ? "#fca5a5" : "rgba(var(--tint-rgb),0.8)",
               }}
             >
               {listening ? "⏹️" : "🎤"}

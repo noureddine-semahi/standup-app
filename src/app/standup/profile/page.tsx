@@ -225,7 +225,7 @@ export default function ProfilePage() {
 
           <div
             className="mt-6 grid grid-cols-3 gap-3 pt-5"
-            style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}
+            style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.1)" }}
           >
             <div>
               <div className="text-lg font-bold text-white">{daysSinceJoined}</div>
@@ -258,8 +258,8 @@ export default function ProfilePage() {
                 key={a.id}
                 className="rounded-xl p-3 text-center transition"
                 style={{
-                  background: unlocked ? "rgba(16, 185, 129, 0.08)" : "rgba(255, 255, 255, 0.03)",
-                  border: unlocked ? "1px solid rgba(16, 185, 129, 0.25)" : "1px solid rgba(255, 255, 255, 0.08)",
+                  background: unlocked ? "rgba(16, 185, 129, 0.08)" : "rgba(var(--tint-rgb), 0.03)",
+                  border: unlocked ? "1px solid rgba(16, 185, 129, 0.25)" : "1px solid rgba(var(--tint-rgb), 0.08)",
                   opacity: unlocked ? 1 : 0.5,
                 }}
                 title={a.description}
@@ -282,7 +282,7 @@ export default function ProfilePage() {
           are the same button. */}
       <div
         className="mt-8 rounded-2xl p-5"
-        style={{ background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)" }}
+        style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
       >
         <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
           Invite &amp; Share

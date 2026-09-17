@@ -215,7 +215,7 @@ export default function ProductLogPage() {
         </p>
         <div className="space-y-4">
           {PARKED.map((item) => (
-            <div key={item.title} className="rounded-xl p-3" style={{ border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(255, 255, 255, 0.02)" }}>
+            <div key={item.title} className="rounded-xl p-3" style={{ border: "1px solid rgba(var(--tint-rgb), 0.08)", background: "rgba(var(--tint-rgb), 0.02)" }}>
               <div className="text-sm font-semibold text-white">{item.title}</div>
               <p className="mt-1 text-sm text-white/60 leading-relaxed">{item.detail}</p>
             </div>

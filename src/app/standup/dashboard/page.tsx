@@ -748,7 +748,7 @@ export default function DashboardPage() {
                         className="goal-row-compact text-sm transition-all duration-300"
                         data-pending={!reviewed}
                         style={{
-                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
+                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
                         } as React.CSSProperties}
                       >
                         {/* Corner number tag — nothing else competing for
@@ -850,7 +850,7 @@ export default function DashboardPage() {
                         key={g.id}
                         className="goal-row-compact text-sm transition-all duration-300"
                         style={{
-                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(255,255,255,0.2)",
+                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
                         } as React.CSSProperties}
                       >
                         <div className="goal-number-sm">{idx + 1}</div>

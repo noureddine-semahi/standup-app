@@ -699,15 +699,16 @@ select:focus {
   pointer-events: auto;
 }
 
-/* ✨ Goal rows — a quiet accent bar instead of a fully bordered/tinted box.
-   No padding of its own — the number badge and (on Today) the collapse
-   button are positioned flush against this element's own edges/corners/
-   radius, and .goal-row-body carries the padding for everything else. */
+/* ✨ Goal rows — the priority color runs all the way around the card's own
+   border (was a short accent bar next to the number). No padding of its
+   own — the number badge and (on Today) the collapse button are positioned
+   flush against this element's own edges/corners/radius, and .goal-row-body
+   carries the padding for everything else. */
 .goal-row {
   position: relative;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--p-color, rgba(255, 255, 255, 0.08));
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
@@ -752,20 +753,8 @@ select:focus {
   pointer-events: none;
 }
 
-.goal-row::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 1.75rem;
-  bottom: 0.85rem;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--p-color, rgba(255, 255, 255, 0.2));
-}
-
 .goal-row:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .goal-row[data-pending="true"] {

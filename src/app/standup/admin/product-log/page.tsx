@@ -68,6 +68,11 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
     summary:
       "Move-to-Backlog added to the Reschedule modal; Blocked now requires a reason, saved as a real note; \"postponed\" and \"rescheduled\" unified into one concept everywhere; a mobile truncation fix for the collapsed \"Rescheduled\" banner. Also: a 🤖 Assistant button on the Dashboard for plain-language goal actions -- running on Gemini's free tier for now (not Anthropic, which has no permanent free tier) to keep this at zero ongoing cost. Still ships with a hard cap (20 actions per rolling 30-day period per account) regardless of provider, since it's the app's first feature with a real per-use cost once it does move to a paid provider.",
   },
+  {
+    period: "Assistant Voice & Cleanup, Goal Details, Card Redesign, Real Light Theme — September 12-16",
+    summary:
+      "The Dashboard assistant gained voice input (tap the mic and speak) and a remove_goal tool that always asks for confirmation first, since deletion can't be undone. Goals gained an \"All day\" toggle and a single-URL Link field -- alongside checklist/files, all shown as a compact one-line row of small buttons right under the goal's title on Plan Tomorrow, Review Today, and the Calendar's date view. Every goal card was redesigned: the priority color now outlines the whole card instead of a short side strip, the number badge is a small corner tag flush with the card's own border/radius, and cards carry no wasted outer padding -- applied across Today, Tomorrow, Calendar, Backlog, History, and the Dashboard's compact preview lists. The Dashboard also gained a one-time \"just unlocked\" achievement popup and a \"day closed, tomorrow planned\" encouragement banner, and closing the day now blocks while any goal is still unreviewed or in progress. Biggest change: light mode previously only repainted the page background behind otherwise-unchanged dark cards/buttons/text -- it's now a full token-based conversion (cards, the header, and every translucent white overlay across the app genuinely flip to a light surface), plus a quick theme toggle inside the Profile page's \"Profile & Settings\" button and the mobile menu's Profile row.",
+  },
 ];
 
 const UP_NEXT: { phase: string; detail: string }[] = [

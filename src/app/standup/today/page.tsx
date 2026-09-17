@@ -24,6 +24,7 @@ import {
   markPlanReviewed,
   updateGoalPriority,
   updateGoalStatus,
+  updateGoalLink,
   toISODate,
   formatDateDisplay,
   formatTimeOfDay,
@@ -147,6 +148,8 @@ export default function TodayPage() {
   const [showActions, setShowActions] = useState<Record<string, boolean>>({});
   // Per-goal "Add Note" input, toggled from next to the action controls.
   const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
+  // Per-goal "Attach a link" input, toggled from the compact Checklist/Files/Link row.
+  const [showLinkInput, setShowLinkInput] = useState<Record<string, boolean>>({});
   
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -1060,23 +1063,65 @@ export default function TodayPage() {
 
                     <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [])} />
 
-                    <GoalChecklist
-                      goalId={g.id}
-                      items={checklistItems[g.id] ?? []}
-                      onItemsChange={(items) =>
-                        setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
-                      }
-                      readOnly={dayClosed}
-                    />
+                    <div
+                      className="mt-2 flex items-center gap-1"
+                      style={{ flexWrap: "nowrap", overflowX: "auto" }}
+                    >
+                      <GoalChecklist
+                        compact
+                        goalId={g.id}
+                        items={checklistItems[g.id] ?? []}
+                        onItemsChange={(items) =>
+                          setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
+                        }
+                        readOnly={dayClosed}
+                      />
+                      <GoalAttachments
+                        compact
+                        goalId={g.id}
+                        items={attachments[g.id] ?? []}
+                        onItemsChange={(items) =>
+                          setAttachments((prev) => ({ ...prev, [g.id]: items }))
+                        }
+                        readOnly={dayClosed}
+                      />
+                      {(g.link_url || !dayClosed) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (dayClosed) {
+                              if (g.link_url) window.open(g.link_url, "_blank", "noopener,noreferrer");
+                              return;
+                            }
+                            setShowLinkInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }));
+                          }}
+                          className="btn"
+                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                          title={g.link_url || "Attach a link"}
+                        >
+                          {g.link_url ? "🔗 Link" : "+ Link"}
+                        </button>
+                      )}
+                    </div>
 
-                    <GoalAttachments
-                      goalId={g.id}
-                      items={attachments[g.id] ?? []}
-                      onItemsChange={(items) =>
-                        setAttachments((prev) => ({ ...prev, [g.id]: items }))
-                      }
-                      readOnly={dayClosed}
-                    />
+                    {!dayClosed && showLinkInput[g.id] && (
+                      <input
+                        type="url"
+                        value={g.link_url ?? ""}
+                        onChange={(e) =>
+                          setGoals((prev) =>
+                            prev.map((x) => (x.id === g.id ? { ...x, link_url: e.target.value || null } : x))
+                          )
+                        }
+                        onBlur={() => {
+                          updateGoalLink(g.id, g.link_url || null).catch((err) =>
+                            setMsg(err?.message ?? "Failed to save link")
+                          );
+                        }}
+                        placeholder="https://..."
+                        className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+                      />
+                    )}
 
                     {showNoteInput[g.id] && (
                       <div className="mt-3 flex gap-2">

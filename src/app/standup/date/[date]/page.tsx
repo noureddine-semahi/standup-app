@@ -84,6 +84,7 @@ export default function DynamicDatePage() {
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
   const [attachments, setAttachments] = useState<Record<string, GoalAttachment[]>>({});
+  const [showLinkInput, setShowLinkInput] = useState<Record<number, boolean>>({});
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -152,8 +153,11 @@ export default function DynamicDatePage() {
           : DEFAULT_PRIORITY,
       // Left out of this comparison, a time-only edit produced the exact
       // same hash as before it — autosave and the manual Save button both
-      // saw "no changes" and silently skipped saving it entirely.
+      // saw "no changes" and silently skipped saving it entirely. is_all_day
+      // and link_url are new fields with the exact same failure mode.
       time_of_day: g.time_of_day || null,
+      is_all_day: !!(g as any).is_all_day,
+      link_url: (g as any).link_url || null,
     }));
     return JSON.stringify(normalized);
   }
@@ -622,22 +626,40 @@ export default function DynamicDatePage() {
                       )}
 
                       <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [])} />
-                      {g.id && (
-                        <GoalChecklist
-                          goalId={g.id}
-                          items={checklistItems[g.id] ?? []}
-                          onItemsChange={() => {}}
-                          readOnly
-                        />
-                      )}
-                      {g.id && (
-                        <GoalAttachments
-                          goalId={g.id}
-                          items={attachments[g.id] ?? []}
-                          onItemsChange={() => {}}
-                          readOnly
-                        />
-                      )}
+                      <div
+                        className="mt-2 flex items-center gap-1"
+                        style={{ flexWrap: "nowrap", overflowX: "auto" }}
+                      >
+                        {g.id && (
+                          <>
+                            <GoalChecklist
+                              compact
+                              goalId={g.id}
+                              items={checklistItems[g.id] ?? []}
+                              onItemsChange={() => {}}
+                              readOnly
+                            />
+                            <GoalAttachments
+                              compact
+                              goalId={g.id}
+                              items={attachments[g.id] ?? []}
+                              onItemsChange={() => {}}
+                              readOnly
+                            />
+                          </>
+                        )}
+                        {g.link_url && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(g.link_url as string, "_blank", "noopener,noreferrer")}
+                            className="btn"
+                            style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                            title={g.link_url}
+                          >
+                            🔗 Link
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -833,30 +855,56 @@ export default function DynamicDatePage() {
                     className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
                   />
 
-                  <input
-                    type="time"
-                    value={g.time_of_day?.slice(0, 5) ?? ""}
-                    disabled={locked || submitting}
-                    onBlur={() => {
-                      if (skipNextBlurAutosaveRef.current) {
-                        skipNextBlurAutosaveRef.current = false;
-                        return;
-                      }
-                      if (priorityChangeInProgressRef.current) {
-                        return;
-                      }
-                      scheduleAutoSave();
-                    }}
-                    onChange={(e) =>
-                      setGoals((prev) =>
-                        prev.map((x, i) =>
-                          i === idx ? { ...x, time_of_day: e.target.value || null } : x
-                        )
-                      )
-                    }
-                    className="flex-shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
-                    title="Optional time"
-                  />
+                  <div className="flex-shrink-0 flex items-center gap-2">
+                    {!(g as any).is_all_day && (
+                      <input
+                        type="time"
+                        value={g.time_of_day?.slice(0, 5) ?? ""}
+                        disabled={locked || submitting}
+                        onBlur={() => {
+                          if (skipNextBlurAutosaveRef.current) {
+                            skipNextBlurAutosaveRef.current = false;
+                            return;
+                          }
+                          if (priorityChangeInProgressRef.current) {
+                            return;
+                          }
+                          scheduleAutoSave();
+                        }}
+                        onChange={(e) =>
+                          setGoals((prev) =>
+                            prev.map((x, i) =>
+                              i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                            )
+                          )
+                        }
+                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                        title="Optional time"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      disabled={locked || submitting}
+                      onClick={() => {
+                        setGoals((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
+                          )
+                        );
+                        scheduleAutoSave();
+                      }}
+                      className="btn"
+                      style={{
+                        padding: "0.2rem 0.55rem",
+                        fontSize: "0.7rem",
+                        background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
+                        borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
+                      }}
+                      title="Mark this goal as an all-day task instead of a specific time"
+                    >
+                      {(g as any).is_all_day ? "☀️ All day" : "All day"}
+                    </button>
+                  </div>
 
                   {/* Show if this goal was rescheduled FROM another date */}
                   {g.id && g.rescheduled_from_date && (
@@ -896,23 +944,63 @@ export default function DynamicDatePage() {
                     </div>
                   )}
 
-                  {g.id && (
-                    <div className="mt-2 mb-3" style={{ padding: "0 1.5rem", flexBasis: "100%" }}>
-                      <GoalChecklist
-                        goalId={g.id}
-                        items={checklistItems[g.id] ?? []}
-                        onItemsChange={(items) =>
-                          setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                  <div
+                    className="mt-2 mb-3 flex items-center gap-1"
+                    style={{ padding: "0 1.5rem", flexBasis: "100%", flexWrap: "nowrap", overflowX: "auto" }}
+                  >
+                    {g.id && (
+                      <>
+                        <GoalChecklist
+                          compact
+                          goalId={g.id}
+                          items={checklistItems[g.id] ?? []}
+                          onItemsChange={(items) =>
+                            setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                          }
+                          readOnly={locked}
+                        />
+                        <GoalAttachments
+                          compact
+                          goalId={g.id}
+                          items={attachments[g.id] ?? []}
+                          onItemsChange={(items) =>
+                            setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
+                          }
+                          readOnly={locked}
+                        />
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                      className="btn"
+                      style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                      title={(g as any).link_url ? (g as any).link_url : "Attach a link"}
+                    >
+                      {(g as any).link_url ? "🔗 Link" : "+ Link"}
+                    </button>
+                  </div>
+
+                  {showLinkInput[idx] && (
+                    <div style={{ padding: "0 1.5rem", flexBasis: "100%" }} className="mb-3">
+                      <input
+                        type="url"
+                        value={(g as any).link_url ?? ""}
+                        disabled={locked || submitting}
+                        onChange={(e) =>
+                          setGoals((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
+                          )
                         }
-                        readOnly={locked}
-                      />
-                      <GoalAttachments
-                        goalId={g.id}
-                        items={attachments[g.id] ?? []}
-                        onItemsChange={(items) =>
-                          setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
-                        }
-                        readOnly={locked}
+                        onBlur={() => {
+                          if (skipNextBlurAutosaveRef.current) {
+                            skipNextBlurAutosaveRef.current = false;
+                            return;
+                          }
+                          scheduleAutoSave();
+                        }}
+                        placeholder="https://..."
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                       />
                     </div>
                   )}

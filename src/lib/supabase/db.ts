@@ -1184,6 +1184,14 @@ export async function enforceSingleP1(planId: string, keepGoalId: string) {
   if (error) throw error;
 }
 
+/** Sets or clears a goal's attached link — used on Today, where fields are
+ * updated one at a time rather than through the draft-array upsert flow
+ * Plan Tomorrow and the date detail page use. */
+export async function updateGoalLink(goalId: string, linkUrl: string | null) {
+  const { error } = await supabase.from("goals").update({ link_url: linkUrl }).eq("id", goalId);
+  if (error) throw error;
+}
+
 export async function markGoalReviewed(goalId: string) {
   const { error } = await supabase
     .from("goals")

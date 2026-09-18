@@ -13,6 +13,7 @@ import {
   getLifetimeStats,
   hoursUntilMidnight,
   listConnections,
+  connectionDisplayName,
   type Goal,
   type Profile,
   type DailyPlan,
@@ -931,7 +932,7 @@ export default function DashboardPage() {
                   <GlimpseCard
                     key={c.id}
                     ownerId={c.otherUserId}
-                    displayName={c.otherDisplayName}
+                    displayName={connectionDisplayName(c)}
                     planDateISO={todayISO}
                     onVisibleChange={handleGlimpseVisibleChange}
                   />

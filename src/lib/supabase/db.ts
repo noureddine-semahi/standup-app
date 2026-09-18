@@ -72,7 +72,22 @@ export type Connection = {
   direction: "incoming" | "outgoing";
   otherUserId: string;
   otherDisplayName: string | null;
+  // Captured at request time (requester's own session email; the exact
+  // text the recipient was found by) — a fallback for display_name, which
+  // is optional at signup and often null.
+  otherEmail: string | null;
 };
+
+/**
+ * display_name is optional at signup and often null — falls back to the
+ * local part of the captured email, then a short id fragment, so a
+ * connection never renders as a raw full UUID.
+ */
+export function connectionDisplayName(c: Pick<Connection, "otherDisplayName" | "otherEmail" | "otherUserId">): string {
+  if (c.otherDisplayName) return c.otherDisplayName;
+  if (c.otherEmail) return c.otherEmail.split("@")[0];
+  return c.otherUserId.slice(0, 8);
+}
 
 export type GlimpseReaction = "like" | "support" | "fire" | "clap";
 
@@ -1698,9 +1713,20 @@ export async function sendConnectionRequest(email: string): Promise<void> {
   if (!match) throw new Error("No StandUp account found with that email.");
   if (match.id === userId) throw new Error("You can't connect with yourself.");
 
-  const { error } = await supabase
-    .from("connections")
-    .insert({ requester_id: userId, recipient_id: match.id });
+  // display_name is optional at signup, so both emails are captured here —
+  // the requester's own (known from their session) and the recipient's
+  // (the exact text they were found by) — as a fallback the UI can show
+  // instead of a raw user id when display_name is null.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const { error } = await supabase.from("connections").insert({
+    requester_id: userId,
+    recipient_id: match.id,
+    requester_email: session?.user?.email ?? null,
+    recipient_email: email.trim(),
+  });
 
   if (error) {
     if (error.code === "23505") {
@@ -1722,7 +1748,7 @@ export async function listConnections(): Promise<Connection[]> {
 
   const { data: rows, error } = await supabase
     .from("connections")
-    .select("id, requester_id, recipient_id, status, created_at, responded_at")
+    .select("id, requester_id, recipient_id, status, created_at, responded_at, requester_email, recipient_email")
     .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -1748,6 +1774,7 @@ export async function listConnections(): Promise<Connection[]> {
       direction: isRequester ? "outgoing" : "incoming",
       otherUserId,
       otherDisplayName: nameById.get(otherUserId) ?? null,
+      otherEmail: isRequester ? r.recipient_email : r.requester_email,
     };
   });
 }

@@ -6,6 +6,7 @@ import {
   sendConnectionRequest,
   respondToConnectionRequest,
   removeConnection,
+  connectionDisplayName,
   type Connection,
 } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -148,7 +149,7 @@ export default function SocialPage() {
               <div className="space-y-1.5">
                 {incoming.map((c) => (
                   <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                    <span className="text-sm text-white/85 truncate">{c.otherDisplayName ?? c.otherUserId}</span>
+                    <span className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</span>
                     <div className="flex gap-1.5 flex-shrink-0">
                       <button
                         type="button"
@@ -183,7 +184,7 @@ export default function SocialPage() {
               <div className="space-y-1.5">
                 {outgoing.map((c) => (
                   <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                    <span className="text-sm text-white/85 truncate">{c.otherDisplayName ?? c.otherUserId}</span>
+                    <span className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveConnection(c.id)}
@@ -209,7 +210,7 @@ export default function SocialPage() {
               <div className="space-y-1.5">
                 {accepted.map((c) => (
                   <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                    <span className="text-sm text-white/85 truncate">{c.otherDisplayName ?? c.otherUserId}</span>
+                    <span className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveConnection(c.id)}

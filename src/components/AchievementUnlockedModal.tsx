@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { AchievementDef } from "@/lib/achievements";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /** Full-screen "just unlocked" celebration for a single achievement — the Dashboard queues these one at a time when getLifetimeStats() crosses a threshold it hasn't shown before. See markAchievementSeen/getSeenAchievementIds in the Dashboard page for why an achievement only ever shows here once. */
 export default function AchievementUnlockedModal({
@@ -12,6 +13,7 @@ export default function AchievementUnlockedModal({
   achievement: AchievementDef;
   onDismiss: () => void;
 }) {
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -54,13 +56,13 @@ export default function AchievementUnlockedModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-xs uppercase tracking-wider text-amber-300 font-semibold mb-3">
-          Achievement Unlocked
+          {t("achievementModal.unlocked")}
         </div>
         <div className="text-6xl mb-4">{achievement.icon}</div>
-        <h2 className="text-2xl font-bold mb-2">{achievement.title}</h2>
-        <p className="text-sm text-white/70 mb-6">{achievement.description}</p>
+        <h2 className="text-2xl font-bold mb-2">{t(achievement.titleKey)}</h2>
+        <p className="text-sm text-white/70 mb-6">{t(achievement.descriptionKey)}</p>
         <button onClick={onDismiss} className="btn btn-primary w-full">
-          Nice! 🎉
+          {t("achievementModal.nice")}
         </button>
       </div>
     </div>

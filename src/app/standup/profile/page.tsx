@@ -60,7 +60,7 @@ export default function ProfilePage() {
 
   async function handleShare() {
     const link = user ? getReferralLink(user.id) : "";
-    const text = "I'm building daily execution habits with StandUp — join me!";
+    const text = t("profile.shareText");
 
     const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -69,7 +69,7 @@ export default function ProfilePage() {
         await navigator.share({ title: "StandUp", text, url: link });
       } else {
         await navigator.clipboard.writeText(`${text} ${link}`);
-        setShareMsg("Link copied to clipboard!");
+        setShareMsg(t("profile.linkCopied"));
         setTimeout(() => setShareMsg(null), 2000);
       }
       await markShared();
@@ -84,7 +84,7 @@ export default function ProfilePage() {
     const link = user ? getReferralLink(user.id) : "";
     try {
       await navigator.clipboard.writeText(link);
-      setShareMsg("Link copied to clipboard!");
+      setShareMsg(t("profile.linkCopied"));
       setTimeout(() => setShareMsg(null), 2000);
     } catch {
       // ignore
@@ -111,7 +111,7 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return <div className="card">Loading profile…</div>;
+    return <div className="card">{t("profile.loading")}</div>;
   }
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
@@ -152,7 +152,7 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="mt-4 text-2xl font-bold text-white">
-            {profile?.display_name || user?.email?.split("@")[0] || "User"}
+            {profile?.display_name || user?.email?.split("@")[0] || t("common.user")}
           </div>
           <div className="mt-1 text-sm text-white/50">{user?.email}</div>
         </div>
@@ -174,7 +174,7 @@ export default function ProfilePage() {
             className="btn text-center"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
-            Data &amp; Metrics
+            {t("profile.dataMetrics")}
           </Link>
           {profile?.is_admin && (
             <Link
@@ -182,7 +182,7 @@ export default function ProfilePage() {
               className="btn text-center"
               style={{ boxSizing: "border-box", width: "100%" }}
             >
-              Admin Panel
+              {t("profile.adminPanel")}
             </Link>
           )}
           <button
@@ -191,7 +191,7 @@ export default function ProfilePage() {
             className="btn"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
-            {loggingOut ? "Logging out..." : "Logout"}
+            {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
           </button>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function ProfilePage() {
           }}
         >
           <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-            Total Points
+            {t("dashboard.stat.totalPoints")}
           </div>
           <div className="mt-2 text-4xl font-bold text-white">
             <AnimatedNumber value={profile.points} />
@@ -217,7 +217,7 @@ export default function ProfilePage() {
                 Level {levelInfo.level} · {t(levelInfo.nameKey)}
               </span>
               <span className="text-white/50">
-                {levelInfo.pointsToNext !== null ? `${levelInfo.pointsToNext} to next` : "Max level"}
+                {levelInfo.pointsToNext !== null ? t("profile.toNext", { points: levelInfo.pointsToNext }) : t("dashboard.maxLevel")}
               </span>
             </div>
             <div className="mt-2 h-2 w-full rounded-full overflow-hidden bg-white/10">
@@ -237,15 +237,15 @@ export default function ProfilePage() {
           >
             <div>
               <div className="text-lg font-bold text-white">{daysSinceJoined}</div>
-              <div className="mt-1 text-[10px] uppercase tracking-wide text-white/50">Days Joined</div>
+              <div className="mt-1 text-[10px] uppercase tracking-wide text-white/50">{t("profile.daysJoined")}</div>
             </div>
             <div>
               <div className="text-lg font-bold text-white">{lifetimeStats?.totalGoalsCompleted ?? 0}</div>
-              <div className="mt-1 text-[10px] uppercase tracking-wide text-white/50">Goals Completed</div>
+              <div className="mt-1 text-[10px] uppercase tracking-wide text-white/50">{t("profile.goalsCompletedStat")}</div>
             </div>
             <div>
               <div className="text-lg font-bold text-white">{lifetimeStats?.totalGoalsSubmitted ?? 0}</div>
-              <div className="mt-1 text-[10px] uppercase tracking-wide text-white/50">Goals Submitted</div>
+              <div className="mt-1 text-[10px] uppercase tracking-wide text-white/50">{t("profile.goalsSubmittedStat")}</div>
             </div>
           </div>
         </div>
@@ -256,7 +256,7 @@ export default function ProfilePage() {
           stay visible but dimmed, as a preview of what's next. */}
       <div className="mt-8">
         <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-3">
-          Achievements
+          {t("profile.achievementsTitle")}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {ACHIEVEMENTS.map((a) => {
@@ -270,15 +270,15 @@ export default function ProfilePage() {
                   border: unlocked ? "1px solid rgba(16, 185, 129, 0.25)" : "1px solid rgba(var(--tint-rgb), 0.08)",
                   opacity: unlocked ? 1 : 0.5,
                 }}
-                title={a.description}
+                title={t(a.descriptionKey)}
               >
                 <div className="text-2xl" style={{ filter: unlocked ? "none" : "grayscale(1)" }}>
                   {a.icon}
                 </div>
                 <div className="mt-1.5 text-[11px] font-semibold text-white leading-tight">
-                  {a.title}
+                  {t(a.titleKey)}
                 </div>
-                <div className="mt-1 text-[10px] text-white/50 leading-snug">{a.description}</div>
+                <div className="mt-1 text-[10px] text-white/50 leading-snug">{t(a.descriptionKey)}</div>
               </div>
             );
           })}
@@ -293,10 +293,10 @@ export default function ProfilePage() {
         style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
       >
         <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
-          Invite &amp; Share
+          {t("profile.inviteShareTitle")}
         </div>
         <p className="text-xs text-white/60 mb-3">
-          Share your progress — friends who join and complete their first day earn you 25 bonus points.
+          {t("profile.inviteShareBody")}
         </p>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
@@ -306,10 +306,10 @@ export default function ProfilePage() {
             className="flex-1 min-w-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70"
           />
           <button onClick={handleCopyLink} className="btn text-sm px-4 py-2 whitespace-nowrap">
-            Copy Link
+            {t("profile.copyLink")}
           </button>
           <button onClick={handleShare} className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap">
-            Share
+            {t("profile.share")}
           </button>
         </div>
         {shareMsg && <p className="mt-2 text-xs text-emerald-300">{shareMsg}</p>}

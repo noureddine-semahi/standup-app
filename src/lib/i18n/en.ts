@@ -669,6 +669,25 @@ export const en = {
   "share.shareOnFacebook": "Share on Facebook",
   "share.shareOnX": "Share on X",
   "share.linkCopied": "Link copied to clipboard!",
+
+  // Privacy Policy
+  "privacy.title": "Privacy Policy",
+  "privacy.lastUpdated": "Last updated September 2026",
+  "privacy.whatWeCollectTitle": "What we collect",
+  "privacy.whatWeCollectBody": "An email and password for your account (handled by our authentication provider, Supabase). Everything you enter to use StandUp itself — goals, priorities, statuses, notes, checklists, reschedules, Backlog goals you haven't scheduled yet, and your points/streak history. Any files you choose to attach to a goal (receipts, documents — images or PDF, up to 5MB). And, only if you choose to fill them in under Settings, optional personal info: first/last name, date of birth, address, phone number, and a profile photo.",
+  "privacy.whyWeCollectTitle": "Why we collect it",
+  "privacy.whyWeCollectBody": "Your goals, notes, and history power the app's core features — tracking, streaks, points, and levels. The optional personal info fields exist for possible future personalization, like more relevant goal suggestions — they're never required, and nothing is sold or shared with third-party advertisers. We don't run any third-party analytics or tracking scripts.",
+  "privacy.homepageVisitsTitle": "Homepage visits",
+  "privacy.homepageVisitsBody": "The first time you land on our homepage without being signed in, we log a timestamp so we can see how many people find the app — nothing that identifies you, no cookies, and no tracking across other sites. Your browser remembers locally that you've visited before (not sent to us) so repeat visits and refreshes aren't double-counted, and this stops entirely the moment you're signed in.",
+  "privacy.referralsTitle": "Referrals & sharing",
+  "privacy.referralsBody": "If you invite someone with your referral link, we record who referred whom so we can credit the bonus once they complete their first day — nothing more. If you use the Share button, we only record that you shared once (to unlock the related achievement); we don't see or store what you actually posted.",
+  "privacy.whereStoredTitle": "Where it's stored",
+  "privacy.whereStoredBody": "In a Postgres database via Supabase, protected by row-level security — access is restricted so your data is only readable by your own account. Files you attach to a goal are kept in Supabase Storage under the same restriction, and are only ever viewed through a short-lived link generated for you at the moment you open one — never a public, permanently-guessable URL. A small amount of on-device storage (your browser's local storage) remembers preferences like your theme choice, entirely on your device.",
+  "privacy.yourControlTitle": "Your control over it",
+  "privacy.yourControlBody": "Every optional field can be left blank or cleared at any time in Settings. You can permanently delete your account and wipe all associated data from Settings under Danger Zone.",
+  "privacy.questionsTitle": "Questions",
+  "privacy.questionsPart1": "Reach out any time via the ",
+  "privacy.questionsPart2": " page.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

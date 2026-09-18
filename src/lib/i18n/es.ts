@@ -667,4 +667,23 @@ export const es: Record<keyof typeof en, string> = {
   "share.shareOnFacebook": "Compartir en Facebook",
   "share.shareOnX": "Compartir en X",
   "share.linkCopied": "¡Enlace copiado al portapapeles!",
+
+  // Privacy Policy
+  "privacy.title": "Política de Privacidad",
+  "privacy.lastUpdated": "Última actualización: septiembre de 2026",
+  "privacy.whatWeCollectTitle": "Qué recopilamos",
+  "privacy.whatWeCollectBody": "Un correo electrónico y contraseña para tu cuenta (gestionados por nuestro proveedor de autenticación, Supabase). Todo lo que ingreses para usar StandUp — objetivos, prioridades, estados, notas, listas de verificación, reprogramaciones, objetivos de Pendientes aún no programados, y tu historial de puntos/racha. Cualquier archivo que elijas adjuntar a un objetivo (recibos, documentos — imágenes o PDF, hasta 5MB). Y, solo si eliges completarla en Configuración, información personal opcional: nombre/apellido, fecha de nacimiento, dirección, número de teléfono, y una foto de perfil.",
+  "privacy.whyWeCollectTitle": "Por qué la recopilamos",
+  "privacy.whyWeCollectBody": "Tus objetivos, notas, e historial impulsan las funciones principales de la app — seguimiento, rachas, puntos, y niveles. Los campos de información personal opcionales existen para una posible personalización futura, como sugerencias de objetivos más relevantes — nunca son obligatorios, y nada se vende ni se comparte con anunciantes externos. No usamos ningún script de análisis o rastreo de terceros.",
+  "privacy.homepageVisitsTitle": "Visitas a la página principal",
+  "privacy.homepageVisitsBody": "La primera vez que llegas a nuestra página principal sin haber iniciado sesión, registramos una marca de tiempo para saber cuántas personas encuentran la app — nada que te identifique, sin cookies, y sin rastreo en otros sitios. Tu navegador recuerda localmente que ya has visitado antes (no se nos envía) para que las visitas repetidas y actualizaciones no se cuenten dos veces, y esto se detiene por completo en cuanto inicias sesión.",
+  "privacy.referralsTitle": "Referidos y compartir",
+  "privacy.referralsBody": "Si invitas a alguien con tu enlace de referido, registramos quién refirió a quién para poder acreditar el bono una vez que complete su primer día — nada más. Si usas el botón Compartir, solo registramos que compartiste una vez (para desbloquear el logro relacionado); no vemos ni almacenamos lo que realmente publicaste.",
+  "privacy.whereStoredTitle": "Dónde se almacena",
+  "privacy.whereStoredBody": "En una base de datos Postgres a través de Supabase, protegida por seguridad a nivel de fila — el acceso está restringido para que tus datos solo sean legibles por tu propia cuenta. Los archivos que adjuntas a un objetivo se guardan en Supabase Storage bajo la misma restricción, y solo se ven a través de un enlace de corta duración generado para ti en el momento en que abres uno — nunca una URL pública y adivinable permanentemente. Una pequeña cantidad de almacenamiento en el dispositivo (el almacenamiento local de tu navegador) recuerda preferencias como tu elección de tema, completamente en tu dispositivo.",
+  "privacy.yourControlTitle": "Tu control sobre ella",
+  "privacy.yourControlBody": "Cada campo opcional puede dejarse en blanco o borrarse en cualquier momento en Configuración. Puedes eliminar permanentemente tu cuenta y borrar todos los datos asociados desde Configuración en Zona de Peligro.",
+  "privacy.questionsTitle": "Preguntas",
+  "privacy.questionsPart1": "Contáctanos en cualquier momento a través de la página de ",
+  "privacy.questionsPart2": ".",
 };

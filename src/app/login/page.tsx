@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +22,7 @@ export default function LoginPage() {
     setMessage(null);
 
     if (!email.trim() || !password.trim()) {
-      setError("Please enter both email and password.");
+      setError(t("login.enterBoth"));
       setLoading(false);
       return;
     }
@@ -38,11 +40,11 @@ export default function LoginPage() {
       }
 
       if (data?.user) {
-        setMessage("Login successful! Redirecting...");
+        setMessage(t("login.successRedirecting"));
         router.push("/standup/today");
       }
     } catch (err: any) {
-      setError(err?.message ?? "Login failed. Please try again.");
+      setError(err?.message ?? t("login.failed"));
       setLoading(false);
     }
   }
@@ -54,7 +56,7 @@ export default function LoginPage() {
     setMessage(null);
 
     if (!email.trim()) {
-      setError("Please enter your email address.");
+      setError(t("login.enterEmail"));
       setLoading(false);
       return;
     }
@@ -73,10 +75,10 @@ export default function LoginPage() {
         return;
       }
 
-      setMessage("Magic link sent! Check your email to sign in.");
+      setMessage(t("login.magicLinkSent"));
       setLoading(false);
     } catch (err: any) {
-      setError(err?.message ?? "Failed to send magic link.");
+      setError(err?.message ?? t("login.magicLinkFailed"));
       setLoading(false);
     }
   }
@@ -87,13 +89,13 @@ export default function LoginPage() {
         <div className="card">
           <div className="text-center">
             <h1 className="text-4xl font-bold">StandUp</h1>
-            <p className="mt-2 text-white/70">Daily execution & accountability</p>
+            <p className="mt-2 text-white/70">{t("login.tagline")}</p>
           </div>
 
           <form onSubmit={handleLogin} className="mt-8 space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-white/80">
-                Email
+                {t("login.email")}
               </label>
               <input
                 id="email"
@@ -109,7 +111,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-white/80">
-                Password
+                {t("login.password")}
               </label>
               <input
                 id="password"
@@ -123,7 +125,7 @@ export default function LoginPage() {
               />
               <div className="mt-1.5 text-right">
                 <Link href="/forgot-password" className="text-xs text-white/50 hover:text-white/70 transition">
-                  Forgot password?
+                  {t("login.forgotPassword")}
                 </Link>
               </div>
             </div>
@@ -145,7 +147,7 @@ export default function LoginPage() {
               disabled={loading}
               className="btn btn-primary w-full"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? t("login.signingIn") : t("login.signIn")}
             </button>
           </form>
 
@@ -156,14 +158,14 @@ export default function LoginPage() {
               disabled={loading}
               className="btn btn-ghost w-full"
             >
-              {loading ? "Sending..." : "Send magic link"}
+              {loading ? t("login.sending") : t("login.sendMagicLink")}
             </button>
           </div>
 
           <div className="mt-6 text-center text-sm text-white/60">
-            Don't have an account?{" "}
+            {t("login.noAccount")}{" "}
             <Link href="/signup" className="font-medium text-white hover:text-white/80 transition">
-              Sign up
+              {t("login.signUp")}
             </Link>
           </div>
 
@@ -172,16 +174,16 @@ export default function LoginPage() {
               href="/standup/today"
               className="text-xs text-white/50 hover:text-white/70 transition"
             >
-              ← Back to app
+              {t("login.backToApp")}
             </Link>
           </div>
         </div>
 
         <div className="mt-6 text-center text-xs text-white/40">
-          StandUp © 2026 • Intentional work, daily consistency
+          {t("login.footer")}
           <br />
           <Link href="/privacy" className="hover:text-white/60 transition">
-            Privacy Policy
+            {t("login.privacyPolicy")}
           </Link>
         </div>
       </div>

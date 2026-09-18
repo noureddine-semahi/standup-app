@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { storePendingReferral } from "@/lib/supabase/db";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function SignupPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,19 +35,19 @@ export default function SignupPage() {
 
     // Validation
     if (!email.trim() || !password.trim()) {
-      setError("Please enter both email and password.");
+      setError(t("login.enterBoth"));
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError(t("signup.passwordTooShort"));
       setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("signup.passwordsDontMatch"));
       setLoading(false);
       return;
     }
@@ -71,27 +73,25 @@ export default function SignupPage() {
       if (data?.user) {
         // Check if email confirmation is required
         if (data.user.identities && data.user.identities.length === 0) {
-          setError("This email is already registered. Please sign in instead.");
+          setError(t("signup.alreadyRegistered"));
           setLoading(false);
           return;
         }
 
         // If email confirmation is disabled, redirect immediately
         if (data.session) {
-          setMessage("Account created! Redirecting...");
+          setMessage(t("signup.accountCreatedRedirecting"));
           setTimeout(() => {
             router.push("/standup/today");
           }, 1000);
         } else {
           // Email confirmation required
-          setMessage(
-            "Account created! Please check your email to confirm your account before signing in."
-          );
+          setMessage(t("signup.accountCreatedConfirmEmail"));
           setLoading(false);
         }
       }
     } catch (err: any) {
-      setError(err?.message ?? "Signup failed. Please try again.");
+      setError(err?.message ?? t("signup.failed"));
       setLoading(false);
     }
   }
@@ -101,14 +101,14 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="card">
           <div className="text-center">
-            <h1 className="text-4xl font-bold">Create Account</h1>
-            <p className="mt-2 text-white/70">Start your daily execution journey</p>
+            <h1 className="text-4xl font-bold">{t("signup.title")}</h1>
+            <p className="mt-2 text-white/70">{t("signup.tagline")}</p>
           </div>
 
           <form onSubmit={handleSignup} className="mt-8 space-y-4">
             <div>
               <label htmlFor="displayName" className="block text-sm font-medium text-white/80">
-                Display Name <span className="text-white/50">(optional)</span>
+                {t("signup.displayNameOptional")} <span className="text-white/50">{t("signup.optional")}</span>
               </label>
               <input
                 id="displayName"
@@ -116,7 +116,7 @@ export default function SignupPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 disabled={loading}
-                placeholder="Your name"
+                placeholder={t("settings.yourName")}
                 className="mt-1.5 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                 autoComplete="name"
               />
@@ -124,7 +124,7 @@ export default function SignupPage() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-white/80">
-                Email
+                {t("login.email")}
               </label>
               <input
                 id="email"
@@ -141,7 +141,7 @@ export default function SignupPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-white/80">
-                Password
+                {t("login.password")}
               </label>
               <input
                 id="password"
@@ -154,12 +154,12 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 required
               />
-              <p className="mt-1 text-xs text-white/50">Minimum 6 characters</p>
+              <p className="mt-1 text-xs text-white/50">{t("settings.minChars")}</p>
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/80">
-                Confirm Password
+                {t("signup.confirmPassword")}
               </label>
               <input
                 id="confirmPassword"
@@ -191,14 +191,14 @@ export default function SignupPage() {
               disabled={loading}
               className="btn btn-primary w-full"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? t("signup.creatingAccount") : t("signup.createAccount")}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-white/60">
-            Already have an account?{" "}
+            {t("signup.alreadyHaveAccount")}{" "}
             <Link href="/login" className="font-medium text-white hover:text-white/80 transition">
-              Sign in
+              {t("signup.signIn")}
             </Link>
           </div>
 
@@ -207,16 +207,16 @@ export default function SignupPage() {
               href="/standup/today"
               className="text-xs text-white/50 hover:text-white/70 transition"
             >
-              ← Back to app
+              {t("login.backToApp")}
             </Link>
           </div>
         </div>
 
         <div className="mt-6 text-center text-xs text-white/40">
-          StandUp © 2026 • Intentional work, daily consistency
+          {t("login.footer")}
           <br />
           <Link href="/privacy" className="hover:text-white/60 transition">
-            Privacy Policy
+            {t("login.privacyPolicy")}
           </Link>
         </div>
       </div>

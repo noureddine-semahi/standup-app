@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function ForgotPasswordPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export default function ForgotPasswordPage() {
     setMessage(null);
 
     if (!email.trim()) {
-      setError("Please enter your email address.");
+      setError(t("login.enterEmail"));
       setLoading(false);
       return;
     }
@@ -36,10 +38,10 @@ export default function ForgotPasswordPage() {
 
       // Always show the same message, whether or not the email exists,
       // so this page can't be used to enumerate registered accounts.
-      setMessage("If an account exists for that email, a reset link has been sent.");
+      setMessage(t("forgot.linkSent"));
       setLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send reset link. Please try again.");
+      setError(err instanceof Error ? err.message : t("forgot.failed"));
       setLoading(false);
     }
   }
@@ -49,14 +51,14 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <div className="card">
           <div className="text-center">
-            <h1 className="text-4xl font-bold">Reset Password</h1>
-            <p className="mt-2 text-white/70">We&apos;ll email you a link to reset it</p>
+            <h1 className="text-4xl font-bold">{t("forgot.title")}</h1>
+            <p className="mt-2 text-white/70">{t("forgot.tagline")}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-white/80">
-                Email
+                {t("login.email")}
               </label>
               <input
                 id="email"
@@ -83,23 +85,23 @@ export default function ForgotPasswordPage() {
             )}
 
             <button type="submit" disabled={loading} className="btn btn-primary w-full">
-              {loading ? "Sending..." : "Send reset link"}
+              {loading ? t("forgot.sending") : t("forgot.sendResetLink")}
             </button>
           </form>
 
           <div className="mt-6 text-center text-sm text-white/60">
-            Remembered your password?{" "}
+            {t("forgot.rememberedPassword")}{" "}
             <Link href="/login" className="font-medium text-white hover:text-white/80 transition">
-              Sign in
+              {t("forgot.signIn")}
             </Link>
           </div>
         </div>
 
         <div className="mt-6 text-center text-xs text-white/40">
-          StandUp © 2026 • Intentional work, daily consistency
+          {t("login.footer")}
           <br />
           <Link href="/privacy" className="hover:text-white/60 transition">
-            Privacy Policy
+            {t("login.privacyPolicy")}
           </Link>
         </div>
       </div>

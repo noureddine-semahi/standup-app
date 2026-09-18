@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type Status = "verifying" | "ready" | "invalid";
 
 export default function ResetPasswordPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("verifying");
   const [password, setPassword] = useState("");
@@ -53,11 +55,11 @@ export default function ResetPasswordPage() {
     setMessage(null);
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError(t("signup.passwordTooShort"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("signup.passwordsDontMatch"));
       return;
     }
 
@@ -70,10 +72,10 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      setMessage("Password updated! Redirecting...");
+      setMessage(t("reset.updatedRedirecting"));
       setTimeout(() => router.push("/standup/dashboard"), 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update password. Please try again.");
+      setError(err instanceof Error ? err.message : t("reset.failed"));
       setLoading(false);
     }
   }
@@ -83,21 +85,21 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="card">
           <div className="text-center">
-            <h1 className="text-4xl font-bold">Set New Password</h1>
+            <h1 className="text-4xl font-bold">{t("reset.title")}</h1>
           </div>
 
           {status === "verifying" && (
-            <p className="mt-8 text-center text-white/70">Verifying link…</p>
+            <p className="mt-8 text-center text-white/70">{t("reset.verifyingLink")}</p>
           )}
 
           {status === "invalid" && (
             <div className="mt-8">
               <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                This link is invalid or has expired.
+                {t("reset.invalidLink")}
               </div>
               <div className="mt-6 text-center text-sm text-white/60">
                 <Link href="/forgot-password" className="font-medium text-white hover:text-white/80 transition">
-                  Request a new link
+                  {t("reset.requestNewLink")}
                 </Link>
               </div>
             </div>
@@ -107,7 +109,7 @@ export default function ResetPasswordPage() {
             <form onSubmit={handleSubmit} className="mt-8 space-y-4">
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-white/80">
-                  New Password
+                  {t("reset.newPassword")}
                 </label>
                 <input
                   id="password"
@@ -119,12 +121,12 @@ export default function ResetPasswordPage() {
                   className="mt-1.5 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                   autoComplete="new-password"
                 />
-                <p className="mt-1 text-xs text-white/50">Minimum 6 characters</p>
+                <p className="mt-1 text-xs text-white/50">{t("settings.minChars")}</p>
               </div>
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/80">
-                  Confirm Password
+                  {t("signup.confirmPassword")}
                 </label>
                 <input
                   id="confirmPassword"
@@ -151,17 +153,17 @@ export default function ResetPasswordPage() {
               )}
 
               <button type="submit" disabled={loading} className="btn btn-primary w-full">
-                {loading ? "Updating..." : "Update password"}
+                {loading ? t("settings.updating") : t("settings.updatePassword")}
               </button>
             </form>
           )}
         </div>
 
         <div className="mt-6 text-center text-xs text-white/40">
-          StandUp © 2026 • Intentional work, daily consistency
+          {t("login.footer")}
           <br />
           <Link href="/privacy" className="hover:text-white/60 transition">
-            Privacy Policy
+            {t("login.privacyPolicy")}
           </Link>
         </div>
       </div>

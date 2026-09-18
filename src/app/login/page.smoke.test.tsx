@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createSupabaseMock } from "../../../test/mocks/supabase";
+import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 vi.mock("@/lib/supabase/client", () => ({
   supabase: createSupabaseMock(),
@@ -14,7 +15,11 @@ import LoginPage from "./page";
 
 describe("LoginPage", () => {
   it("renders without throwing and shows the sign-in form", () => {
-    render(<LoginPage />);
+    render(
+      <LanguageProvider>
+        <LoginPage />
+      </LanguageProvider>
+    );
 
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();

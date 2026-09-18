@@ -548,6 +548,63 @@ export const en = {
   "settings.failedDeleteAccount": "Failed to delete account.",
   "settings.deleting": "Deleting...",
   "settings.deleteAccount": "Delete Account",
+
+  // Login
+  "login.enterBoth": "Please enter both email and password.",
+  "login.successRedirecting": "Login successful! Redirecting...",
+  "login.failed": "Login failed. Please try again.",
+  "login.enterEmail": "Please enter your email address.",
+  "login.magicLinkSent": "Magic link sent! Check your email to sign in.",
+  "login.magicLinkFailed": "Failed to send magic link.",
+  "login.tagline": "Daily execution & accountability",
+  "login.email": "Email",
+  "login.password": "Password",
+  "login.forgotPassword": "Forgot password?",
+  "login.signingIn": "Signing in...",
+  "login.signIn": "Sign in",
+  "login.sending": "Sending...",
+  "login.sendMagicLink": "Send magic link",
+  "login.noAccount": "Don't have an account?",
+  "login.signUp": "Sign up",
+  "login.backToApp": "← Back to app",
+  "login.footer": "StandUp © 2026 • Intentional work, daily consistency",
+  "login.privacyPolicy": "Privacy Policy",
+
+  // Signup
+  "signup.passwordTooShort": "Password must be at least 6 characters.",
+  "signup.passwordsDontMatch": "Passwords do not match.",
+  "signup.alreadyRegistered": "This email is already registered. Please sign in instead.",
+  "signup.accountCreatedRedirecting": "Account created! Redirecting...",
+  "signup.accountCreatedConfirmEmail": "Account created! Please check your email to confirm your account before signing in.",
+  "signup.failed": "Signup failed. Please try again.",
+  "signup.title": "Create Account",
+  "signup.tagline": "Start your daily execution journey",
+  "signup.displayNameOptional": "Display Name",
+  "signup.optional": "(optional)",
+  "signup.confirmPassword": "Confirm Password",
+  "signup.creatingAccount": "Creating account...",
+  "signup.createAccount": "Create account",
+  "signup.alreadyHaveAccount": "Already have an account?",
+  "signup.signIn": "Sign in",
+
+  // Forgot password
+  "forgot.title": "Reset Password",
+  "forgot.tagline": "We'll email you a link to reset it",
+  "forgot.linkSent": "If an account exists for that email, a reset link has been sent.",
+  "forgot.failed": "Failed to send reset link. Please try again.",
+  "forgot.sending": "Sending...",
+  "forgot.sendResetLink": "Send reset link",
+  "forgot.rememberedPassword": "Remembered your password?",
+  "forgot.signIn": "Sign in",
+
+  // Reset password
+  "reset.title": "Set New Password",
+  "reset.verifyingLink": "Verifying link…",
+  "reset.invalidLink": "This link is invalid or has expired.",
+  "reset.requestNewLink": "Request a new link",
+  "reset.updatedRedirecting": "Password updated! Redirecting...",
+  "reset.failed": "Failed to update password. Please try again.",
+  "reset.newPassword": "New Password",
 } as const;
 
 export type TranslationKey = keyof typeof en;

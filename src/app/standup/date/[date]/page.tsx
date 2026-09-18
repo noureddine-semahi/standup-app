@@ -201,28 +201,50 @@ export default function DynamicDatePage() {
     // separate and stricter: only true the day before this date, and only
     // once today's plan is actually reviewed — never satisfiable in advance
     // for dates further out, so those just stay draft-only indefinitely
-    // until their eve arrives.
-    const eligible = dateISO === tomorrowISO ? await isPrevDayReviewedForPlan(dateISO) : false;
+    // until their eve arrives. Independent of the plan fetch, so they run
+    // together.
+    const [eligible, { plan, goals: dbGoals }] = await Promise.all([
+      dateISO === tomorrowISO ? isPrevDayReviewedForPlan(dateISO) : Promise.resolve(false),
+      getPlanWithGoals(dateISO),
+    ]);
     setSubmitEligible(eligible);
-
-    const { plan, goals: dbGoals } = await getPlanWithGoals(dateISO);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
     setPlanReviewedAt(plan.reviewed_at);
     setPlanClearedAt(plan.cleared_at ?? null);
 
-    // Fetch reschedule origin data for goals on this date
+    // Fetch reschedule origin data, previous actions/comments, checklist
+    // items, and attachments for all goals together — none of these four
+    // depend on each other, only on goalIds. Checklist/attachments keep
+    // their own error isolation (a missing/misconfigured table there
+    // shouldn't take down the whole goals list).
     const goalIds = dbGoals.map((g) => g.id).filter(Boolean) as string[];
     let rescheduleOrigins: Record<string, { from_date: string; reason: string | null }> = {};
+    let notesMap: Record<string, any[]> = {};
 
     if (goalIds.length > 0) {
-      const { data: reschedules } = await supabase
-        .from("goal_reschedules")
-        .select("materialized_goal_id, from_date, reason")
-        .in("materialized_goal_id", goalIds)
-        .eq("materialized", true);
+      const [reschedulesResult, notesResult, checklistResult, attachmentsResult] = await Promise.all([
+        supabase
+          .from("goal_reschedules")
+          .select("materialized_goal_id, from_date, reason")
+          .in("materialized_goal_id", goalIds)
+          .eq("materialized", true),
+        supabase
+          .from("goal_notes")
+          .select("goal_id, note, created_at, kind")
+          .in("goal_id", goalIds)
+          .order("created_at", { ascending: false }),
+        getChecklistItemsForGoals(goalIds).catch((e) => {
+          console.error("Failed to load checklist items", e);
+          return {} as Record<string, ChecklistItem[]>;
+        }),
+        getAttachmentsForGoals(goalIds).catch((e) => {
+          console.error("Failed to load attachments", e);
+          return {} as Record<string, GoalAttachment[]>;
+        }),
+      ]);
 
-      reschedules?.forEach((item) => {
+      reschedulesResult.data?.forEach((item) => {
         if (item.materialized_goal_id) {
           rescheduleOrigins[item.materialized_goal_id] = {
             from_date: item.from_date,
@@ -230,6 +252,14 @@ export default function DynamicDatePage() {
           };
         }
       });
+
+      notesResult.data?.forEach((note) => {
+        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
+        notesMap[note.goal_id].push(note);
+      });
+      setGoalComments(notesMap);
+      setChecklistItems(checklistResult);
+      setAttachments(attachmentsResult);
     }
 
     const goalsWithOrigin = dbGoals.map((g) => ({
@@ -237,34 +267,6 @@ export default function DynamicDatePage() {
       rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
       reschedule_reason: rescheduleOrigins[g.id]?.reason || null,
     }));
-
-    // Fetch previous actions/comments for all goals
-    let notesMap: Record<string, any[]> = {};
-    if (goalIds.length > 0) {
-      const { data: notes } = await supabase
-        .from("goal_notes")
-        .select("goal_id, note, created_at, kind")
-        .in("goal_id", goalIds)
-        .order("created_at", { ascending: false });
-
-      notes?.forEach((note) => {
-        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
-        notesMap[note.goal_id].push(note);
-      });
-      setGoalComments(notesMap);
-      // Isolated from the goals fetch below: a missing/misconfigured
-      // table here shouldn't take down the whole goals list.
-      try {
-        setChecklistItems(await getChecklistItemsForGoals(goalIds));
-      } catch (e) {
-        console.error("Failed to load checklist items", e);
-      }
-      try {
-        setAttachments(await getAttachmentsForGoals(goalIds));
-      } catch (e) {
-        console.error("Failed to load attachments", e);
-      }
-    }
 
     const goalsWithData = goalsWithOrigin.map((g) => ({
       ...g,

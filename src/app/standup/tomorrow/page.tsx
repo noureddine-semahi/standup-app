@@ -178,24 +178,47 @@ export default function TomorrowGoalsPage() {
     if (!silent) setLoading(true);
     if (!silent) setMsg(null);
 
-    setSubmitEligible(await isYesterdayReviewed());
-
-    const { plan, goals: dbGoals } = await getPlanWithGoals(tomorrowISO);
+    // Independent of each other, so they run together.
+    const [eligible, { plan, goals: dbGoals }] = await Promise.all([
+      isYesterdayReviewed(),
+      getPlanWithGoals(tomorrowISO),
+    ]);
+    setSubmitEligible(eligible);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
-    
-    // Fetch reschedule origin data for goals on this date
+
+    // Fetch reschedule origin data, previous actions/comments, checklist
+    // items, and attachments for all goals together — none of these four
+    // depend on each other, only on goalIds. Checklist/attachments keep
+    // their own error isolation (a missing/misconfigured table there
+    // shouldn't take down the whole goals list).
     const goalIds = dbGoals.map(g => g.id).filter(Boolean) as string[];
     let rescheduleOrigins: Record<string, { from_date: string; reason: string | null }> = {};
-    
-    if (goalIds.length > 0) {
-      const { data: reschedules } = await supabase
-        .from("goal_reschedules")
-        .select("materialized_goal_id, from_date, reason")
-        .in("materialized_goal_id", goalIds)
-        .eq("materialized", true);
+    let notesMap: Record<string, any[]> = {};
 
-      reschedules?.forEach((item) => {
+    if (goalIds.length > 0) {
+      const [reschedulesResult, notesResult, checklistResult, attachmentsResult] = await Promise.all([
+        supabase
+          .from("goal_reschedules")
+          .select("materialized_goal_id, from_date, reason")
+          .in("materialized_goal_id", goalIds)
+          .eq("materialized", true),
+        supabase
+          .from("goal_notes")
+          .select("goal_id, note, created_at, kind")
+          .in("goal_id", goalIds)
+          .order("created_at", { ascending: false }),
+        getChecklistItemsForGoals(goalIds).catch((e) => {
+          console.error("Failed to load checklist items", e);
+          return {} as Record<string, ChecklistItem[]>;
+        }),
+        getAttachmentsForGoals(goalIds).catch((e) => {
+          console.error("Failed to load attachments", e);
+          return {} as Record<string, GoalAttachment[]>;
+        }),
+      ]);
+
+      reschedulesResult.data?.forEach((item) => {
         if (item.materialized_goal_id) {
           rescheduleOrigins[item.materialized_goal_id] = {
             from_date: item.from_date,
@@ -203,42 +226,22 @@ export default function TomorrowGoalsPage() {
           };
         }
       });
+
+      notesResult.data?.forEach(note => {
+        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
+        notesMap[note.goal_id].push(note);
+      });
+      setGoalComments(notesMap);
+      setChecklistItems(checklistResult);
+      setAttachments(attachmentsResult);
     }
-    
+
     // Attach reschedule origin to goals
     const goalsWithOrigin = dbGoals.map(g => ({
       ...g,
       rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
       reschedule_reason: rescheduleOrigins[g.id]?.reason || null,
     }));
-    
-    // Fetch previous actions/comments for all goals
-    let notesMap: Record<string, any[]> = {};
-    if (goalIds.length > 0) {
-      const { data: notes } = await supabase
-        .from("goal_notes")
-        .select("goal_id, note, created_at, kind")
-        .in("goal_id", goalIds)
-        .order("created_at", { ascending: false });
-      
-      notes?.forEach(note => {
-        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
-        notesMap[note.goal_id].push(note);
-      });
-      setGoalComments(notesMap);
-      // Isolated from the goals fetch below: a missing/misconfigured
-      // table here shouldn't take down the whole goals list.
-      try {
-        setChecklistItems(await getChecklistItemsForGoals(goalIds));
-      } catch (e) {
-        console.error("Failed to load checklist items", e);
-      }
-      try {
-        setAttachments(await getAttachmentsForGoals(goalIds));
-      } catch (e) {
-        console.error("Failed to load attachments", e);
-      }
-    }
 
     // Attach comments to goals using notesMap (not state which is stale)
     const goalsWithData = goalsWithOrigin.map(g => ({

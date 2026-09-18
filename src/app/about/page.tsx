@@ -11,8 +11,8 @@ export default function AboutPage() {
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setSignedIn(!!user);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSignedIn(!!session?.user);
     });
   }, []);
 

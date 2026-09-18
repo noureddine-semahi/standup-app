@@ -177,11 +177,16 @@ export function formatDateTimeDisplay(input: string | Date): string {
   });
 }
 
+// getSession() reads the locally persisted session (no network round-trip);
+// AuthGate already guarantees a valid session exists before any page-level
+// data call runs, so re-validating the JWT against the Auth server here
+// (what getUser() does) would just be a redundant network hop on every one
+// of the ~25 call sites below.
 export async function getCurrentUserId() {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  if (!data.user) throw new Error("Not authenticated");
-  return data.user.id;
+  if (!data.session?.user) throw new Error("Not authenticated");
+  return data.session.user.id;
 }
 
 /** Free-tier assistant usage for the current user — see src/lib/assistant/usage.ts for the cap/reset logic this feeds. Read-only; the actual increment/reset happens server-side in src/app/api/assistant/route.ts. */
@@ -1413,95 +1418,87 @@ export type LifetimeStats = {
 export async function getLifetimeStats(): Promise<LifetimeStats> {
   const userId = await getCurrentUserId();
 
-  const { count: totalReferrals, error: referralsError } = await supabase
-    .from("referrals")
-    .select("id", { count: "exact", head: true })
-    .eq("referrer_id", userId)
-    .eq("awarded", true);
+  // The six queries below don't depend on each other's results, so they run
+  // as one batch instead of six sequential round-trips.
+  const [
+    { count: totalReferrals, error: referralsError },
+    { data: plans, error: plansError },
+    { count, error: goalsError },
+    { data: reschedRows, error: reschedError },
+    { data: notedRows, error: notesError },
+    { count: totalGoalsSubmitted, error: submittedError },
+  ] = await Promise.all([
+    supabase
+      .from("referrals")
+      .select("id", { count: "exact", head: true })
+      .eq("referrer_id", userId)
+      .eq("awarded", true),
+    supabase.from("daily_plans").select("id, plan_date, reviewed_at").eq("user_id", userId),
+    supabase
+      .from("goals")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "completed"),
+    // Goals that started as a reschedule of an older goal, and ended up
+    // completed anyway — following through after pushing something back.
+    supabase
+      .from("goal_reschedules")
+      .select("materialized_goal_id")
+      .eq("user_id", userId)
+      .not("materialized_goal_id", "is", null),
+    // Goals that were actively tracked with at least one note, and ended up
+    // completed — closing the loop on something you were following up on.
+    supabase.from("goal_notes").select("goal_id").eq("user_id", userId),
+    supabase.from("goals").select("id", { count: "exact", head: true }).eq("user_id", userId),
+  ]);
   if (referralsError) throw referralsError;
-
-  const { data: plans, error: plansError } = await supabase
-    .from("daily_plans")
-    .select("id, plan_date, reviewed_at")
-    .eq("user_id", userId);
   if (plansError) throw plansError;
+  if (goalsError) throw goalsError;
+  if (reschedError) throw reschedError;
+  if (notesError) throw notesError;
+  if (submittedError) throw submittedError;
 
   const reviewedDates = (plans ?? [])
     .filter((p) => !!p.reviewed_at)
     .map((p) => p.plan_date as string);
-
-  const { count, error: goalsError } = await supabase
-    .from("goals")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("status", "completed");
-  if (goalsError) throw goalsError;
-
   const planIds = (plans ?? []).map((p) => p.id);
-  let maxGoalsCompletedInDay = 0;
-  if (planIds.length > 0) {
-    const { data: goalsByPlan, error: byPlanError } = await supabase
-      .from("goals")
-      .select("plan_id, status")
-      .in("plan_id", planIds)
-      .eq("status", "completed");
-    if (byPlanError) throw byPlanError;
-
-    const perPlanCount: Record<string, number> = {};
-    (goalsByPlan ?? []).forEach((g) => {
-      perPlanCount[g.plan_id] = (perPlanCount[g.plan_id] ?? 0) + 1;
-    });
-    maxGoalsCompletedInDay = Math.max(0, ...Object.values(perPlanCount));
-  }
-
-  // Goals that started as a reschedule of an older goal, and ended up
-  // completed anyway — following through after pushing something back.
-  const { data: reschedRows, error: reschedError } = await supabase
-    .from("goal_reschedules")
-    .select("materialized_goal_id")
-    .eq("user_id", userId)
-    .not("materialized_goal_id", "is", null);
-  if (reschedError) throw reschedError;
-
   const materializedGoalIds = [
     ...new Set((reschedRows ?? []).map((r) => r.materialized_goal_id).filter(Boolean)),
   ];
-  let reschedulesCompleted = 0;
-  if (materializedGoalIds.length > 0) {
-    const { count: reschedCompletedCount, error: reschedCountError } = await supabase
-      .from("goals")
-      .select("id", { count: "exact", head: true })
-      .in("id", materializedGoalIds)
-      .eq("status", "completed");
-    if (reschedCountError) throw reschedCountError;
-    reschedulesCompleted = reschedCompletedCount ?? 0;
-  }
-
-  // Goals that were actively tracked with at least one note, and ended up
-  // completed — closing the loop on something you were following up on.
-  const { data: notedRows, error: notesError } = await supabase
-    .from("goal_notes")
-    .select("goal_id")
-    .eq("user_id", userId);
-  if (notesError) throw notesError;
-
   const notedGoalIds = [...new Set((notedRows ?? []).map((n) => n.goal_id))];
-  let trackedGoalsCompleted = 0;
-  if (notedGoalIds.length > 0) {
-    const { count: trackedCount, error: trackedError } = await supabase
+
+  async function maxCompletedInAnyPlan(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const { data, error } = await supabase
       .from("goals")
-      .select("id", { count: "exact", head: true })
-      .in("id", notedGoalIds)
+      .select("plan_id, status")
+      .in("plan_id", ids)
       .eq("status", "completed");
-    if (trackedError) throw trackedError;
-    trackedGoalsCompleted = trackedCount ?? 0;
+    if (error) throw error;
+    const perPlanCount: Record<string, number> = {};
+    (data ?? []).forEach((g) => {
+      perPlanCount[g.plan_id] = (perPlanCount[g.plan_id] ?? 0) + 1;
+    });
+    return Math.max(0, ...Object.values(perPlanCount));
   }
 
-  const { count: totalGoalsSubmitted, error: submittedError } = await supabase
-    .from("goals")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-  if (submittedError) throw submittedError;
+  async function completedCountAmong(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const { count: n, error } = await supabase
+      .from("goals")
+      .select("id", { count: "exact", head: true })
+      .in("id", ids)
+      .eq("status", "completed");
+    if (error) throw error;
+    return n ?? 0;
+  }
+
+  // These three depend on ids resolved above, but not on each other.
+  const [maxGoalsCompletedInDay, reschedulesCompleted, trackedGoalsCompleted] = await Promise.all([
+    maxCompletedInAnyPlan(planIds),
+    completedCountAmong(materializedGoalIds),
+    completedCountAmong(notedGoalIds),
+  ]);
 
   return {
     longestStreak: computeLongestStreak(reviewedDates),

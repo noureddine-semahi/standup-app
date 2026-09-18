@@ -260,19 +260,41 @@ export default function TodayPage() {
 
       setPlan(p);
 
-      // Fetch reschedule info for all goals
+      // Fetch reschedule info, notes, checklist items, and attachments for
+      // all goals together — none of these four depend on each other, only
+      // on goalIds, so they run as one batch instead of four sequential
+      // round-trips. Checklist/attachments keep their own error isolation
+      // (a missing/misconfigured table there shouldn't take down the rest).
       const goalIds = gs.map(g => g.id);
       let rescheduleMap: Record<string, { to_date: string; reason: string | null }> = {};
 
       if (goalIds.length > 0) {
-        const { data: reschedules } = await supabase
-          .from("goal_reschedules")
-          .select("from_goal_id, to_date, reason")
-          .in("from_goal_id", goalIds)
-          .eq("materialized", false)
-          .order("created_at", { ascending: false });
+        const [reschedulesResult, notesResult, checklistResult, attachmentsResult] = await Promise.all([
+          supabase
+            .from("goal_reschedules")
+            .select("from_goal_id, to_date, reason")
+            .in("from_goal_id", goalIds)
+            .eq("materialized", false)
+            .order("created_at", { ascending: false }),
+          // Preload notes for every goal up front — the Notes tab defaults
+          // to showing them, so without this a goal with real note history
+          // would still read "No notes yet" until the tab was clicked once.
+          supabase
+            .from("goal_notes")
+            .select("*")
+            .in("goal_id", goalIds)
+            .order("created_at", { ascending: false }),
+          getChecklistItemsForGoals(goalIds).catch((e) => {
+            console.error("Failed to load checklist items", e);
+            return {} as Record<string, ChecklistItem[]>;
+          }),
+          getAttachmentsForGoals(goalIds).catch((e) => {
+            console.error("Failed to load attachments", e);
+            return {} as Record<string, GoalAttachment[]>;
+          }),
+        ]);
 
-        reschedules?.forEach((item) => {
+        reschedulesResult.data?.forEach((item) => {
           if (!rescheduleMap[item.from_goal_id]) {
             rescheduleMap[item.from_goal_id] = {
               to_date: item.to_date,
@@ -280,20 +302,9 @@ export default function TodayPage() {
             };
           }
         });
-      }
-
-      // Preload notes for every goal up front — the Notes tab defaults to
-      // showing them, so without this a goal with real note history would
-      // still read "No notes yet" until the tab was clicked once.
-      if (goalIds.length > 0) {
-        const { data: allNotes } = await supabase
-          .from("goal_notes")
-          .select("*")
-          .in("goal_id", goalIds)
-          .order("created_at", { ascending: false });
 
         const notesByGoal: Record<string, any[]> = {};
-        (allNotes ?? []).forEach((n) => {
+        (notesResult.data ?? []).forEach((n) => {
           (notesByGoal[n.goal_id] ??= []).push(n);
         });
 
@@ -305,19 +316,8 @@ export default function TodayPage() {
           goalIds.forEach((id) => (next[id] = true));
           return next;
         });
-
-        // Isolated from the goals fetch above: a missing/misconfigured
-        // table here shouldn't take down the whole goals list.
-        try {
-          setChecklistItems(await getChecklistItemsForGoals(goalIds));
-        } catch (e) {
-          console.error("Failed to load checklist items", e);
-        }
-        try {
-          setAttachments(await getAttachmentsForGoals(goalIds));
-        } catch (e) {
-          console.error("Failed to load attachments", e);
-        }
+        setChecklistItems(checklistResult);
+        setAttachments(attachmentsResult);
       }
 
       if (mySeq !== refreshSeqRef.current) return;

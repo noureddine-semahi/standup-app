@@ -94,9 +94,9 @@ export default function SettingsPage() {
       setLoading(true);
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setEmail(user?.email ?? "");
+          data: { session },
+        } = await supabase.auth.getSession();
+        setEmail(session?.user?.email ?? "");
 
         const profile = await getOrCreateProfile();
         // Source of truth is the profile, not this browser's localStorage —

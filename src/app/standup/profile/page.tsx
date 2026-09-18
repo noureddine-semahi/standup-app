@@ -34,8 +34,9 @@ export default function ProfilePage() {
       setLoading(true);
       try {
         const {
-          data: { user: u },
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
+        const u = session?.user ?? null;
         setUser(u);
 
         const p = await getOrCreateProfile();

@@ -170,15 +170,33 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         const {
-          data: { user: u },
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
+        const u = session?.user ?? null;
         setUser(u);
 
-        const p = await getOrCreateProfile();
+        // These five don't depend on each other, so they run as one batch
+        // instead of a serial chain of awaits. lifetimeStats is swallowed
+        // into a null on failure so one bad query can't sink the whole
+        // dashboard load via Promise.all's fail-fast behavior — the
+        // achievement popup just gets skipped for this load, same as before.
+        const [p, s, todayResult, tomorrowResult, lifetimeStats] = await Promise.all([
+          getOrCreateProfile(),
+          getStreak(),
+          getPlanWithGoals(todayISO),
+          getPlanWithGoals(tomorrowISO),
+          u ? getLifetimeStats().catch(() => null) : Promise.resolve(null),
+        ]);
         setProfile(p);
-
-        const s = await getStreak();
         setStreak(s);
+        setTodayPlan(todayResult.plan);
+        setTodayGoals(todayResult.goals);
+        setTomorrowPlan(tomorrowResult.plan);
+        setTomorrowGoals(tomorrowResult.goals);
+
+        getOverdueSummary(todayISO)
+          .then(setOverdue)
+          .catch(() => {});
 
         // Achievement "just unlocked" popup — compares the current unlocked
         // set against what this device has already been shown. First run
@@ -186,48 +204,31 @@ export default function DashboardPage() {
         // returns null) rather than congratulating for everything already
         // earned before this feature existed; only genuinely new unlocks on
         // later loads actually queue a popup.
-        if (u) {
-          try {
-            const lifetimeStats = await getLifetimeStats();
-            const achievementStats: AchievementStats = {
-              longestStreak: lifetimeStats.longestStreak,
-              totalDaysClosed: lifetimeStats.totalDaysClosed,
-              totalGoalsCompleted: lifetimeStats.totalGoalsCompleted,
-              totalPoints: p.points,
-              maxGoalsCompletedInDay: lifetimeStats.maxGoalsCompletedInDay,
-              totalReferrals: lifetimeStats.totalReferrals,
-              hasShared: !!p.shared_at,
-              reschedulesCompleted: lifetimeStats.reschedulesCompleted,
-              trackedGoalsCompleted: lifetimeStats.trackedGoalsCompleted,
-            };
+        if (u && lifetimeStats) {
+          const achievementStats: AchievementStats = {
+            longestStreak: lifetimeStats.longestStreak,
+            totalDaysClosed: lifetimeStats.totalDaysClosed,
+            totalGoalsCompleted: lifetimeStats.totalGoalsCompleted,
+            totalPoints: p.points,
+            maxGoalsCompletedInDay: lifetimeStats.maxGoalsCompletedInDay,
+            totalReferrals: lifetimeStats.totalReferrals,
+            hasShared: !!p.shared_at,
+            reschedulesCompleted: lifetimeStats.reschedulesCompleted,
+            trackedGoalsCompleted: lifetimeStats.trackedGoalsCompleted,
+          };
 
-            const unlocked = ACHIEVEMENTS.filter((a) => a.isUnlocked(achievementStats));
-            const seen = getSeenAchievementIds(u.id);
+          const unlocked = ACHIEVEMENTS.filter((a) => a.isUnlocked(achievementStats));
+          const seen = getSeenAchievementIds(u.id);
 
-            if (seen === null) {
-              saveSeenAchievementIds(u.id, unlocked.map((a) => a.id));
-            } else {
-              const newlyUnlocked = unlocked.filter((a) => !seen.has(a.id));
-              if (newlyUnlocked.length > 0) setPendingAchievements(newlyUnlocked);
-            }
-          } catch {
-            // Non-fatal — a missed celebration isn't worth failing the dashboard over.
+          if (seen === null) {
+            saveSeenAchievementIds(u.id, unlocked.map((a) => a.id));
+          } else {
+            const newlyUnlocked = unlocked.filter((a) => !seen.has(a.id));
+            if (newlyUnlocked.length > 0) setPendingAchievements(newlyUnlocked);
           }
         }
 
-        getOverdueSummary(todayISO)
-          .then(setOverdue)
-          .catch(() => {});
-
-        const { plan: todayP, goals: todayG } = await getPlanWithGoals(todayISO);
-        setTodayPlan(todayP);
-        setTodayGoals(todayG);
-
-        const { plan: tomorrowP, goals: tomorrowG } = await getPlanWithGoals(tomorrowISO);
-        setTomorrowPlan(tomorrowP);
-        setTomorrowGoals(tomorrowG);
-
-        const allGoalIds = [...todayG, ...tomorrowG].map((g) => g.id).filter(Boolean);
+        const allGoalIds = [...todayResult.goals, ...tomorrowResult.goals].map((g) => g.id).filter(Boolean);
         if (allGoalIds.length > 0) {
           const { data: notesData } = await supabase
             .from("goal_notes")

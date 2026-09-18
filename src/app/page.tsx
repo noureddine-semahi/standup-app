@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { logLandingPageVisit, LANDING_VISIT_DNT_KEY } from "@/lib/supabase/db";
 import { SevenSegmentDigit, SevenSegmentReadout } from "@/components/SevenSegmentDigit";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
 
 const VISITED_KEY = "standup-landing-visited";
 // Real visitor traffic only ever reaches the production alias. Dev servers
@@ -14,67 +16,68 @@ const VISITED_KEY = "standup-landing-visited";
 // traffic from ever being logged as a visit in the first place.
 const PRODUCTION_HOSTNAMES = ["standup-app-two.vercel.app"];
 
-const READOUTS = [
-  { label: "Points", value: "247", color: "var(--led-amber)" },
-  { label: "Streak", value: "12", color: "var(--led-red)" },
-  { label: "Complete", value: "85", color: "var(--led-green)" },
+const READOUTS: { labelKey: TranslationKey; value: string; color: string }[] = [
+  { labelKey: "landing.readoutPoints", value: "247", color: "var(--led-amber)" },
+  { labelKey: "landing.readoutStreak", value: "12", color: "var(--led-red)" },
+  { labelKey: "landing.readoutComplete", value: "85", color: "var(--led-green)" },
 ];
 
-const FEATURES = [
+const FEATURES: { color: string; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
   {
     color: "var(--led-amber)",
-    title: "Awareness First",
-    body: "Review before acting. Every goal gets conscious attention before execution.",
+    titleKey: "landing.feature1Title",
+    bodyKey: "landing.feature1Body",
   },
   {
     color: "var(--led-green)",
-    title: "Daily Reflection",
-    body: "Learn from yesterday. Plan tomorrow only after reviewing today.",
+    titleKey: "landing.feature2Title",
+    bodyKey: "landing.feature2Body",
   },
   {
     color: "var(--led-red)",
-    title: "Progress Tracking",
-    body: "Earn points, build streaks, and watch your consistency compound.",
+    titleKey: "landing.feature3Title",
+    bodyKey: "landing.feature3Body",
   },
   {
     color: "var(--led-amber)",
-    title: "Priority Focus",
-    body: "One P1 goal per day keeps you focused on what truly matters.",
+    titleKey: "landing.feature4Title",
+    bodyKey: "landing.feature4Body",
   },
   {
     color: "var(--led-green)",
-    title: "Smart Scheduling",
-    body: "Reschedule goals seamlessly. They appear automatically on the right day.",
+    titleKey: "landing.feature5Title",
+    bodyKey: "landing.feature5Body",
   },
   {
     color: "var(--led-red)",
-    title: "Daily Habits",
-    body: "Small wins compound. Build lasting habits through daily engagement.",
+    titleKey: "landing.feature6Title",
+    bodyKey: "landing.feature6Body",
   },
 ];
 
-const STEPS = [
+const STEPS: { n: string; color: string; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
   {
     n: "1",
     color: "var(--led-amber)",
-    title: "Plan Tomorrow",
-    body: "Every evening, set at least 3 goals. Assign priorities (only one P1). Submit your plan.",
+    titleKey: "nav.planTomorrow",
+    bodyKey: "landing.step1Body",
   },
   {
     n: "2",
     color: "var(--led-green)",
-    title: "Review Today",
-    body: "Each morning, review yesterday's goals. Update status, add notes, close out the day.",
+    titleKey: "nav.reviewToday",
+    bodyKey: "landing.step2Body",
   },
   {
     n: "3",
     color: "var(--led-red)",
-    title: "Build Momentum",
-    body: "Earn points, track streaks, and watch your daily execution habit strengthen over time.",
+    titleKey: "landing.step3Title",
+    bodyKey: "landing.step3Body",
   },
 ];
 
 export default function LandingPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   // Digits light in from ghost cells on mount rather than appearing lit —
@@ -135,32 +138,32 @@ export default function LandingPage() {
       <div className="max-w-5xl mx-auto px-4 py-20 sm:py-28 text-center">
         <div className="flex items-end justify-center gap-6 sm:gap-10 mb-10 flex-wrap">
           {READOUTS.map((r) => (
-            <div key={r.label} className="flex flex-col items-center gap-3">
+            <div key={r.labelKey} className="flex flex-col items-center gap-3">
               <SevenSegmentReadout value={lit ? r.value : "0".repeat(r.value.length)} color={r.color} size={36} />
               <div
                 className="led-mono text-[11px] tracking-widest uppercase"
                 style={{ color: "var(--led-text-dim)" }}
               >
-                {r.label}
+                {t(r.labelKey)}
               </div>
             </div>
           ))}
         </div>
 
         <h1 className="led-headline text-3xl sm:text-5xl font-bold mb-5 leading-tight">
-          Build Consistency. Execute Daily.
+          {t("landing.headline")}
         </h1>
 
         <p className="led-mono text-sm sm:text-base mb-10 max-w-2xl mx-auto" style={{ color: "var(--led-text-dim)" }}>
-          Transform your goals into daily habits with awareness-driven planning and reflection.
+          {t("landing.tagline")}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/signup" className="led-switch led-switch-primary">
-            Get Started →
+            {t("landing.getStarted")}
           </Link>
           <Link href="/about" className="led-switch">
-            Learn More
+            {t("landing.learnMore")}
           </Link>
         </div>
       </div>
@@ -168,9 +171,9 @@ export default function LandingPage() {
       {/* Features */}
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
-          <h2 className="led-headline text-3xl font-bold mb-3">Why StandUp?</h2>
+          <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.whyStandup")}</h2>
           <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
-            Built on proven principles of execution
+            {t("landing.builtOnPrinciples")}
           </p>
         </div>
 
@@ -179,16 +182,16 @@ export default function LandingPage() {
             Dashboard earlier this session; cheap insurance against a repeat. */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
           {FEATURES.map((f) => (
-            <div key={f.title} className="led-cell p-6">
+            <div key={f.titleKey} className="led-cell p-6">
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className="led-dot"
                   style={{ background: f.color, boxShadow: `0 0 8px ${f.color}` }}
                 />
-                <h3 className="led-mono text-sm font-bold uppercase tracking-wide">{f.title}</h3>
+                <h3 className="led-mono text-sm font-bold uppercase tracking-wide">{t(f.titleKey)}</h3>
               </div>
               <p className="text-sm" style={{ color: "var(--led-text-dim)" }}>
-                {f.body}
+                {t(f.bodyKey)}
               </p>
             </div>
           ))}
@@ -198,9 +201,9 @@ export default function LandingPage() {
       {/* How It Works */}
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
-          <h2 className="led-headline text-3xl font-bold mb-3">How It Works</h2>
+          <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.howItWorks")}</h2>
           <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
-            Three steps to daily execution
+            {t("landing.threeSteps")}
           </p>
         </div>
 
@@ -210,9 +213,9 @@ export default function LandingPage() {
               <div className="mb-4">
                 <SevenSegmentDigit char={s.n} color={s.color} size={28} />
               </div>
-              <h3 className="led-mono text-sm font-bold uppercase tracking-wide mb-2">{s.title}</h3>
+              <h3 className="led-mono text-sm font-bold uppercase tracking-wide mb-2">{t(s.titleKey)}</h3>
               <p className="text-sm" style={{ color: "var(--led-text-dim)" }}>
-                {s.body}
+                {t(s.bodyKey)}
               </p>
             </div>
           ))}
@@ -222,15 +225,15 @@ export default function LandingPage() {
       {/* CTA */}
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <div className="led-cell p-10" style={{ borderColor: "rgba(245, 158, 11, 0.35)" }}>
-          <h2 className="led-headline text-3xl font-bold mb-3">Ready to Build Your Habit?</h2>
+          <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.readyToBuild")}</h2>
           <p className="led-mono text-sm mb-8" style={{ color: "var(--led-text-dim)" }}>
-            Join StandUp today and start your daily execution journey.
+            {t("landing.joinToday")}
           </p>
           <Link href="/signup" className="led-switch led-switch-primary">
-            Get Started →
+            {t("landing.getStarted")}
           </Link>
           <p className="led-mono text-xs mt-4" style={{ color: "var(--led-text-dim)" }}>
-            No credit card required
+            {t("landing.noCreditCard")}
           </p>
         </div>
       </div>

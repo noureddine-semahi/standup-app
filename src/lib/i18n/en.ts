@@ -320,6 +320,32 @@ export const en = {
   "datePage.planSubmittedBtn": "✅ Plan submitted",
   "datePage.submitPlanBtn": "Submit plan",
   "datePage.lockedSubmitMsgFuture": "🔒 Submitting opens the evening before this date ({date}). You can still save this as a draft any time before then.",
+
+  // Calendar (month grid)
+  "calendar.loading": "Loading calendar...",
+  "calendar.prev": "← Prev",
+  "calendar.today": "Today",
+  "calendar.next": "Next →",
+  "calendar.unreviewedCount": "⚠️ {count} unreviewed",
+  "calendar.missedDaysTitle": "Missed days — never reviewed or fully re-attempted",
+  "calendar.goalCount.one": "{count} goal →",
+  "calendar.goalCount.other": "{count} goals →",
+  "calendar.dayClosed": "Closed",
+  "calendar.dayMissed": "Missed",
+  "calendar.dayCleared": "Cleared",
+  "calendar.legendDayClosed": "Day Closed",
+  "calendar.legendHasGoals": "Has Goals",
+  "calendar.legendMissed": "Missed (unreviewed)",
+  "calendar.legendCleared": "Cleared (rescheduled)",
+  "calendar.legendNoPlan": "No Plan",
+  "calendar.storeInBacklog": "Store in Backlog",
+  "calendar.daySun": "Sun",
+  "calendar.dayMon": "Mon",
+  "calendar.dayTue": "Tue",
+  "calendar.dayWed": "Wed",
+  "calendar.dayThu": "Thu",
+  "calendar.dayFri": "Fri",
+  "calendar.daySat": "Sat",
 } as const;
 
 export type TranslationKey = keyof typeof en;

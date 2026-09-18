@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { toISODate, formatDateDisplay, getCurrentUserId, getOverdueDays, type OverdueDay } from "@/lib/supabase/db";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type DayData = {
   date: string;
@@ -72,6 +73,7 @@ function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue
 }
 
 export default function CalendarPage() {
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [dayData, setDayData] = useState<Record<string, DayData>>({});
@@ -95,7 +97,7 @@ export default function CalendarPage() {
     return new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
   }, [currentDate]);
 
-  const monthName = currentDate.toLocaleDateString("en-US", {
+  const monthName = currentDate.toLocaleDateString(language === "es" ? "es-ES" : "en-US", {
     month: "long",
     year: "numeric",
   });
@@ -188,22 +190,22 @@ export default function CalendarPage() {
   }, [monthStart, monthEnd, currentDate]);
 
   if (loading) {
-    return <div className="card">Loading calendar...</div>;
+    return <div className="card">{t("calendar.loading")}</div>;
   }
 
   return (
     <div className="card">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-          <h1 className="text-3xl font-bold">Calendar</h1>
+          <h1 className="text-3xl font-bold">{t("nav.calendar")}</h1>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={previousMonth} className="btn btn-ghost">
-              ← Prev
+              {t("calendar.prev")}
             </button>
             <button onClick={goToToday} className="btn">
-              Today
+              {t("calendar.today")}
             </button>
             <button onClick={nextMonth} className="btn btn-ghost">
-              Next →
+              {t("calendar.next")}
             </button>
             {overdueDays.length > 0 && (
               <button
@@ -211,7 +213,7 @@ export default function CalendarPage() {
                 className="btn"
                 style={{ background: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.4)" }}
               >
-                ⚠️ {overdueDays.length} unreviewed {showOverdueList ? "▴" : "▾"}
+                {t("calendar.unreviewedCount", { count: overdueDays.length })} {showOverdueList ? "▴" : "▾"}
               </button>
             )}
           </div>
@@ -223,7 +225,7 @@ export default function CalendarPage() {
             style={{ background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.3)" }}
           >
             <div className="text-sm font-semibold text-red-300 mb-3">
-              Missed days — never reviewed or fully re-attempted
+              {t("calendar.missedDaysTitle")}
             </div>
             <div className="flex flex-col gap-2">
               {overdueDays.map((day) => (
@@ -235,7 +237,7 @@ export default function CalendarPage() {
                 >
                   <span className="font-medium text-white/90">{formatDateDisplay(day.date)}</span>
                   <span className="text-white/60">
-                    {day.goalCount} goal{day.goalCount === 1 ? "" : "s"} →
+                    {t(day.goalCount === 1 ? "calendar.goalCount.one" : "calendar.goalCount.other", { count: day.goalCount })}
                   </span>
                 </Link>
               ))}
@@ -247,12 +249,12 @@ export default function CalendarPage() {
 
         <div className="grid grid-cols-7 gap-1 sm:gap-3">
           {/* Day headers */}
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          {(["calendar.daySun", "calendar.dayMon", "calendar.dayTue", "calendar.dayWed", "calendar.dayThu", "calendar.dayFri", "calendar.daySat"] as const).map((dayKey) => (
             <div
-              key={day}
+              key={dayKey}
               className="text-center text-sm font-semibold text-white/60 py-2"
             >
-              {day}
+              {t(dayKey)}
             </div>
           ))}
 
@@ -279,17 +281,17 @@ export default function CalendarPage() {
               ? "hasGoals"
               : "neutral";
 
-            const t = toneStyles(tone);
+            const toneStyle = toneStyles(tone);
 
             // one compact label line
             const label = isToday
-              ? "Today"
+              ? t("calendar.today")
               : data?.reviewed
-              ? "Closed"
+              ? t("calendar.dayClosed")
               : isOverdue
-              ? "Missed"
+              ? t("calendar.dayMissed")
               : isCleared
-              ? "Cleared"
+              ? t("calendar.dayCleared")
               : data?.hasGoals
               ? `${data.completedCount}/${data.goalCount}`
               : "";
@@ -305,8 +307,8 @@ export default function CalendarPage() {
                   "focus:outline-none focus:ring-2 focus:ring-white/40",
                 ].join(" ")}
                 style={{
-                  background: t.bg,
-                  borderColor: t.border,
+                  background: toneStyle.bg,
+                  borderColor: toneStyle.border,
                 }}
                 title={formatDateDisplay(dateISO)}
               >
@@ -334,7 +336,7 @@ export default function CalendarPage() {
                 borderColor: toneStyles("today").border,
               }}
             />
-            <span>Today</span>
+            <span>{t("calendar.today")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div
@@ -344,7 +346,7 @@ export default function CalendarPage() {
                 borderColor: toneStyles("closed").border,
               }}
             />
-            <span>Day Closed</span>
+            <span>{t("calendar.legendDayClosed")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div
@@ -354,7 +356,7 @@ export default function CalendarPage() {
                 borderColor: toneStyles("hasGoals").border,
               }}
             />
-            <span>Has Goals</span>
+            <span>{t("calendar.legendHasGoals")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div
@@ -364,7 +366,7 @@ export default function CalendarPage() {
                 borderColor: toneStyles("overdue").border,
               }}
             />
-            <span>Missed (unreviewed)</span>
+            <span>{t("calendar.legendMissed")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div
@@ -374,7 +376,7 @@ export default function CalendarPage() {
                 borderColor: toneStyles("cleared").border,
               }}
             />
-            <span>Cleared (rescheduled)</span>
+            <span>{t("calendar.legendCleared")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div
@@ -384,19 +386,19 @@ export default function CalendarPage() {
                 borderColor: toneStyles("neutral").border,
               }}
             />
-            <span>No Plan</span>
+            <span>{t("calendar.legendNoPlan")}</span>
           </div>
         </div>
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3 flex-wrap">
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/today">
-            Review Today
+            {t("nav.reviewToday")}
           </Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
-            Plan Tomorrow
+            {t("nav.planTomorrow")}
           </Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog">
-            Store in Backlog
+            {t("calendar.storeInBacklog")}
           </Link>
         </div>
       </div>

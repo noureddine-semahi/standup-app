@@ -651,6 +651,8 @@ export const es: Record<keyof typeof en, string> = {
   "faq.q18.answerPart2": " para saber cómo se usa esa información.",
   "faq.q19.question": "¿Puedo eliminar mi cuenta?",
   "faq.q19.answer": "Sí, desde Configuración en Zona de Peligro — esto borra tus objetivos, planes, notas, listas de verificación, archivos adjuntos, elementos de Pendientes, e historial de reprogramaciones, y restablece tus puntos a cero.",
+  "faq.q20.question": "¿Puedo usar la app en otro idioma?",
+  "faq.q20.answer": "Sí — hay un interruptor de idioma justo al lado del interruptor de tema, en los mismos dos lugares: el botón \"Perfil y Configuración\" de tu página de Perfil, y la fila de Perfil del menú móvil. Inglés y español están disponibles hoy, con más idiomas planeados para el futuro. A diferencia de tu tema, esta elección se recuerda solo en este navegador, no se sincroniza con tu cuenta.",
 
   // Contact
   "contact.title": "Contáctanos",

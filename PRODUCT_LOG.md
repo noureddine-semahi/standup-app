@@ -1,6 +1,6 @@
 # StandUp — Product Log
 
-_Last updated: 2026-09-16. Also viewable in-app: Admin → Product Log._
+_Last updated: 2026-09-17. Also viewable in-app: Admin → Product Log._
 
 This is the running record of what StandUp is built on, what's shipped, and
 what's been deliberately set aside for later. Not wired into CI or any build
@@ -104,6 +104,28 @@ header, and every translucent white overlay across the app genuinely flip
 to a light surface), plus a quick theme toggle inside the Profile page's
 "Profile & Settings" button and the mobile menu's Profile row.
 
+### Spanish Translation — September 17
+A full language system, built from scratch rather than a library
+(`next-intl` wasn't pulled in — a plain React Context mirroring the
+existing theme pattern: `localStorage` plus a same-tab event, so any
+component reacts to a change immediately). The English dictionary
+(`src/lib/i18n/en.ts`) is the source of truth; the Spanish dictionary is
+typed against it so the build fails if a new string is ever added without
+a translation, which is what makes this safe to extend later. Every page
+and shared component outside the Admin panel — which stays English-only
+by design, since it's an internal tool — is now translated: Dashboard,
+Today, Tomorrow, Calendar, Backlog, History, Profile, Settings, the
+landing page, all auth pages, FAQ, Contact, Privacy, About, and every
+shared modal/component (checklists, attachments, the goal timeline,
+reschedule and blocked-reason modals, the Dashboard assistant panel). The
+toggle sits right next to the theme toggle, in the same two spots. Two
+things stay untranslated on purpose: historical notes already logged to a
+goal's timeline (translating recorded history after the fact isn't
+possible), and the Dashboard assistant's own reply text, which comes back
+from the LLM itself rather than from the dictionary. Unlike the theme
+preference, the language choice is stored per-browser only — not synced
+to the account yet.
+
 ## Up Next
 
 Scoped and ready to build, not started yet.
@@ -147,9 +169,11 @@ thinking exists), Phase 3 stays parked.
 Not scheduled, but deliberately kept — revisit any of these when there's a
 real reason to, not just because the list exists.
 
-- **Multi-language support** — the framework side is straightforward
-  (`next-intl` with locale routing); the real cost is extracting hardcoded UI
-  strings across an app that's grown large.
+- **Additional languages (French, Arabic, Chinese)** — English and Spanish
+  shipped September 17 (see Release Notes above); the extraction work that
+  was the real cost of the first two languages is already done, so adding
+  another is now mostly writing a new dictionary file. Arabic will also
+  need RTL layout consideration, which the CSS wasn't built with in mind.
 - **Enterprise/team version** — concluded this is a separate product, not an
   extension of StandUp's single-user design.
 - **Growth monitor** — tracking sign-ins and account deletions over time

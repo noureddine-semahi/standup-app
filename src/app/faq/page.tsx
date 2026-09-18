@@ -25,6 +25,7 @@ const FAQ_KEYS: { questionKey: TranslationKey; answerKey: TranslationKey }[] = [
   // q18 (personal info) has an embedded Privacy Policy link, so it's
   // rendered separately below rather than through this generic loop.
   { questionKey: "faq.q19.question", answerKey: "faq.q19.answer" },
+  { questionKey: "faq.q20.question", answerKey: "faq.q20.answer" },
 ];
 
 export default function FAQPage() {

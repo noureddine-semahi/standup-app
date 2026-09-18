@@ -653,6 +653,8 @@ export const en = {
   "faq.q18.answerPart2": " for how that info is used.",
   "faq.q19.question": "Can I delete my account?",
   "faq.q19.answer": "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, checklists, attached files, Backlog items, and reschedule history, and resets your points to zero.",
+  "faq.q20.question": "Can I use the app in another language?",
+  "faq.q20.answer": "Yes — there's a language toggle right next to the theme toggle, in the same two spots: your Profile page's \"Profile & Settings\" button, and the mobile menu's Profile row. English and Spanish are supported today, with more languages planned for the future. Unlike your theme, this choice is remembered only in this browser, not synced to your account.",
 
   // Contact
   "contact.title": "Contact Us",

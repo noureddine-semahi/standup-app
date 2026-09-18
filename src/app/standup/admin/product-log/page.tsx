@@ -73,6 +73,11 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
     summary:
       "The Dashboard assistant gained voice input (tap the mic and speak) and a remove_goal tool that always asks for confirmation first, since deletion can't be undone. Goals gained an \"All day\" toggle and a single-URL Link field -- alongside checklist/files, all shown as a compact one-line row of small buttons right under the goal's title on Plan Tomorrow, Review Today, and the Calendar's date view. Every goal card was redesigned: the priority color now outlines the whole card instead of a short side strip, the number badge is a small corner tag flush with the card's own border/radius, and cards carry no wasted outer padding -- applied across Today, Tomorrow, Calendar, Backlog, History, and the Dashboard's compact preview lists. The Dashboard also gained a one-time \"just unlocked\" achievement popup and a \"day closed, tomorrow planned\" encouragement banner, and closing the day now blocks while any goal is still unreviewed or in progress. Biggest change: light mode previously only repainted the page background behind otherwise-unchanged dark cards/buttons/text -- it's now a full token-based conversion (cards, the header, and every translucent white overlay across the app genuinely flip to a light surface), plus a quick theme toggle inside the Profile page's \"Profile & Settings\" button and the mobile menu's Profile row.",
   },
+  {
+    period: "Spanish Translation — September 17",
+    summary:
+      "A full language system built from scratch rather than a library -- a plain React Context mirroring the existing theme pattern (localStorage plus a same-tab event). The English dictionary is the source of truth; Spanish is typed against it so the build fails if a new string is ever added without a translation. Every page and shared component outside the Admin panel (which stays English-only by design) is now translated -- Dashboard, Today, Tomorrow, Calendar, Backlog, History, Profile, Settings, the landing page, all auth pages, FAQ, Contact, Privacy, About, and every shared modal/component. The toggle sits right next to the theme toggle, in the same two spots. Two things stay untranslated on purpose: historical notes already logged to a goal's timeline, and the Dashboard assistant's own reply text, which comes from the LLM rather than the dictionary. Unlike theme, the language choice is stored per-browser only, not synced to the account yet.",
+  },
 ];
 
 const UP_NEXT: { phase: string; detail: string }[] = [
@@ -95,9 +100,9 @@ const UP_NEXT: { phase: string; detail: string }[] = [
 
 const PARKED: { title: string; detail: string }[] = [
   {
-    title: "Multi-language support",
+    title: "Additional languages (French, Arabic, Chinese)",
     detail:
-      "The framework side is straightforward (next-intl with locale routing); the real cost is extracting hardcoded UI strings across an app that's grown large.",
+      "English and Spanish shipped September 17 (see Release Notes above); the extraction work that was the real cost of the first two languages is already done, so adding another is now mostly writing a new dictionary file. Arabic will also need RTL layout consideration, which the CSS wasn't built with in mind.",
   },
   {
     title: "Enterprise/team version",

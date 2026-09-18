@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   listConnections,
   sendConnectionRequest,
   respondToConnectionRequest,
   removeConnection,
   connectionDisplayName,
+  getPublicFeed,
+  getMyReactionsForOwners,
+  toISODate,
   type Connection,
+  type PublicFeedEntry,
+  type GlimpseReaction,
 } from "@/lib/supabase/db";
+import PublicFeedCard from "@/components/PublicFeedCard";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function SocialPage() {
   const { t } = useLanguage();
+  const todayISO = useMemo(() => toISODate(new Date()), []);
   const [loading, setLoading] = useState(true);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connError, setConnError] = useState<string | null>(null);
@@ -23,15 +30,35 @@ export default function SocialPage() {
   // block interaction with the others while its request is in flight.
   const [busyConnectionIds, setBusyConnectionIds] = useState<Set<string>>(new Set());
 
+  const [feed, setFeed] = useState<PublicFeedEntry[]>([]);
+  const [feedReactions, setFeedReactions] = useState<Record<string, GlimpseReaction>>({});
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [feedLoading, setFeedLoading] = useState(true);
+
   function refreshConnections() {
     return listConnections()
       .then(setConnections)
       .catch((e: any) => setConnError(e?.message ?? t("social.failedLoadConnections")));
   }
 
+  function refreshFeed() {
+    setFeedLoading(true);
+    return getPublicFeed(todayISO)
+      .then(async (entries) => {
+        setFeed(entries);
+        const ownerIds = entries.map((e) => e.ownerId);
+        const reactions = await getMyReactionsForOwners(ownerIds, todayISO);
+        setFeedReactions(reactions);
+      })
+      .catch((e: any) => setFeedError(e?.message ?? t("social.failedLoadFeed")))
+      .finally(() => setFeedLoading(false));
+  }
+
   useEffect(() => {
     setLoading(true);
     refreshConnections().finally(() => setLoading(false));
+    refreshFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function setConnectionBusy(id: string, busy: boolean) {
@@ -226,6 +253,32 @@ export default function SocialPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Public Feed — every "Everyone"-visibility post today, from any
+          user, not just accepted connections. */}
+      <div className="mt-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">{t("social.publicFeedTitle")}</h2>
+          <p className="mt-1 text-sm text-white/60">{t("social.publicFeedSubtitle")}</p>
+        </div>
+        {feedError && <p className="mb-3 text-xs text-red-300">{feedError}</p>}
+        {!feedLoading && feed.length === 0 ? (
+          <p className="text-sm text-white/50">{t("social.noPublicPostsToday")}</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {feed.map((entry) => (
+              <PublicFeedCard
+                key={entry.ownerId}
+                ownerId={entry.ownerId}
+                displayName={entry.displayName ?? t("social.anonymousUser")}
+                goals={entry.goals}
+                planDateISO={todayISO}
+                initialReaction={feedReactions[entry.ownerId] ?? null}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

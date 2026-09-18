@@ -35,10 +35,13 @@ export type DailyPlan = {
   planning_awarded?: boolean;
   planning_points?: number;
 
-  // Set when the owner taps "Publish Today" — makes this specific day's
-  // goal list (title/priority/status only) visible to accepted connections
-  // via get_published_glimpse(). Null/unset means not shared at all.
+  // Set when the owner publishes today's plan — makes this specific day's
+  // goal list (title/priority/status only) visible either to accepted
+  // connections or to any signed-in user, per published_visibility. Null
+  // on both columns means not shared at all (a DB constraint keeps them in
+  // sync — never one set without the other).
   published_at?: string | null;
+  published_visibility?: "connections" | "everyone" | null;
 };
 
 export type Profile = {
@@ -1793,18 +1796,25 @@ export async function removeConnection(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function publishTodayPlan(planDateISO: string): Promise<void> {
+export async function publishTodayPlan(
+  planDateISO: string,
+  visibility: "connections" | "everyone"
+): Promise<void> {
   const plan = await getOrCreatePlan(planDateISO);
   const { error } = await supabase
     .from("daily_plans")
-    .update({ published_at: new Date().toISOString() })
+    .update({ published_at: new Date().toISOString(), published_visibility: visibility })
     .eq("id", plan.id);
   if (error) throw error;
 }
 
+/** Clears both columns together -- a DB constraint requires them to be null/non-null in lockstep. */
 export async function unpublishTodayPlan(planDateISO: string): Promise<void> {
   const plan = await getOrCreatePlan(planDateISO);
-  const { error } = await supabase.from("daily_plans").update({ published_at: null }).eq("id", plan.id);
+  const { error } = await supabase
+    .from("daily_plans")
+    .update({ published_at: null, published_visibility: null })
+    .eq("id", plan.id);
   if (error) throw error;
 }
 
@@ -1816,6 +1826,76 @@ export async function getPublishedGlimpse(ownerId: string, planDateISO: string):
   });
   if (error) throw error;
   return (data ?? []) as GlimpseGoal[];
+}
+
+export type PublicFeedEntry = {
+  ownerId: string;
+  displayName: string | null;
+  goals: GlimpseGoal[];
+};
+
+/**
+ * Every "Everyone"-visibility post for a date, grouped by owner. Capped at
+ * 100 owners server-side (get_public_feed's default) -- an uncapped public
+ * read with no per-caller connection gate is the kind of query worth
+ * bounding up front, not after it becomes a problem.
+ */
+export async function getPublicFeed(planDateISO: string): Promise<PublicFeedEntry[]> {
+  const { data, error } = await supabase.rpc("get_public_feed", { p_plan_date: planDateISO });
+  if (error) throw error;
+
+  const byOwner = new Map<string, PublicFeedEntry>();
+  for (const row of (data ?? []) as Array<{
+    owner_id: string;
+    display_name: string | null;
+    goal_id: string;
+    title: string;
+    priority: number | null;
+    status: GoalStatus;
+    is_all_day: boolean | null;
+    time_of_day: string | null;
+  }>) {
+    let entry = byOwner.get(row.owner_id);
+    if (!entry) {
+      entry = { ownerId: row.owner_id, displayName: row.display_name, goals: [] };
+      byOwner.set(row.owner_id, entry);
+    }
+    entry.goals.push({
+      goal_id: row.goal_id,
+      title: row.title,
+      priority: row.priority,
+      status: row.status,
+      is_all_day: row.is_all_day,
+      time_of_day: row.time_of_day,
+    });
+  }
+  return [...byOwner.values()];
+}
+
+/**
+ * One bulk lookup instead of N per-owner calls -- the public feed can have
+ * up to 100 owners, and a round-trip per card is exactly the kind of
+ * waterfall this app's perf pass just eliminated elsewhere.
+ */
+export async function getMyReactionsForOwners(
+  ownerIds: string[],
+  planDateISO: string
+): Promise<Record<string, GlimpseReaction>> {
+  if (ownerIds.length === 0) return {};
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("glimpse_reactions")
+    .select("owner_id, reaction")
+    .eq("viewer_id", userId)
+    .eq("plan_date", planDateISO)
+    .in("owner_id", ownerIds);
+  if (error) throw error;
+
+  const byOwner: Record<string, GlimpseReaction> = {};
+  (data ?? []).forEach((r) => {
+    byOwner[r.owner_id] = r.reaction as GlimpseReaction;
+  });
+  return byOwner;
 }
 
 /** Pass reaction: null to remove the viewer's current reaction. */

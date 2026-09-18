@@ -224,19 +224,29 @@ export default function TodayPage() {
       .catch(() => {});
   }, [published, todayISO]);
 
-  async function togglePublish() {
+  async function handlePublish(visibility: "connections" | "everyone") {
     if (publishing) return;
     setPublishing(true);
     setMsg(null);
     try {
-      if (published) {
-        await unpublishTodayPlan(todayISO);
-      } else {
-        await publishTodayPlan(todayISO);
-      }
+      await publishTodayPlan(todayISO, visibility);
       await refresh({ silent: true });
     } catch (e: any) {
-      setMsg(e?.message ?? (published ? t("today.failedUnpublish") : t("today.failedPublish")));
+      setMsg(e?.message ?? t("today.failedPublish"));
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function handleUnpublish() {
+    if (publishing) return;
+    setPublishing(true);
+    setMsg(null);
+    try {
+      await unpublishTodayPlan(todayISO);
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setMsg(e?.message ?? t("today.failedUnpublish"));
     } finally {
       setPublishing(false);
     }
@@ -751,22 +761,50 @@ export default function TodayPage() {
             </div>
             {totalCount > 0 && (
               <div className="flex flex-col items-start sm:items-end gap-1.5">
-                <button
-                  type="button"
-                  onClick={togglePublish}
-                  disabled={publishing}
-                  title={published ? t("today.publishedHint") : t("today.publishHint")}
-                  className="btn"
-                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
-                >
-                  {publishing
-                    ? published
-                      ? t("today.unpublishing")
-                      : t("today.publishing")
-                    : published
-                      ? `${t("today.published")} — ${t("today.unpublish")}`
-                      : t("today.publishToday")}
-                </button>
+                <span className="text-xs text-white/50">{t("today.publishLabel")}</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePublish("connections")}
+                    disabled={publishing}
+                    className="btn"
+                    style={{
+                      padding: "0.4rem 0.7rem",
+                      fontSize: "0.8rem",
+                      whiteSpace: "nowrap",
+                      background: plan?.published_visibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: plan?.published_visibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                    }}
+                  >
+                    {t("today.publishConnectionsBtn")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePublish("everyone")}
+                    disabled={publishing}
+                    className="btn"
+                    style={{
+                      padding: "0.4rem 0.7rem",
+                      fontSize: "0.8rem",
+                      whiteSpace: "nowrap",
+                      background: plan?.published_visibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: plan?.published_visibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                    }}
+                  >
+                    {t("today.publishEveryoneBtn")}
+                  </button>
+                  {published && (
+                    <button
+                      type="button"
+                      onClick={handleUnpublish}
+                      disabled={publishing}
+                      className="btn"
+                      style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                    >
+                      {publishing ? t("today.unpublishing") : t("today.unpublish")}
+                    </button>
+                  )}
+                </div>
                 {published && (
                   <div className="text-xs text-white/50">
                     {reactionsReceived.length === 0

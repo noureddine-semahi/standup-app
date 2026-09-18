@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import {
   getPublishedGlimpse,
   getMyReactionForOwner,
-  setGlimpseReaction,
   type GlimpseGoal,
   type GlimpseReaction,
 } from "@/lib/supabase/db";
 import { statusIcon, statusLabel } from "@/lib/goalStatus";
-import { GLIMPSE_REACTIONS } from "@/lib/glimpseReactions";
+import { useGlimpseReaction } from "@/lib/glimpseReactions";
+import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /**
@@ -37,8 +37,8 @@ export default function GlimpseCard({
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<GlimpseGoal[]>([]);
-  const [myReaction, setMyReaction] = useState<GlimpseReaction | null>(null);
-  const [reacting, setReacting] = useState(false);
+  const [initialReaction, setInitialReaction] = useState<GlimpseReaction | null>(null);
+  const { myReaction, reacting, pickReaction } = useGlimpseReaction(ownerId, planDateISO, initialReaction);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +50,7 @@ export default function GlimpseCard({
         ]);
         if (cancelled) return;
         setGoals(glimpseGoals);
-        setMyReaction(reaction);
+        setInitialReaction(reaction);
         onVisibleChange?.(ownerId, glimpseGoals.length > 0);
       } catch {
         // Non-fatal — the card just renders nothing for this connection.
@@ -65,21 +65,6 @@ export default function GlimpseCard({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId, planDateISO]);
-
-  async function pickReaction(reaction: GlimpseReaction) {
-    if (reacting) return;
-    const next = myReaction === reaction ? null : reaction;
-    const prev = myReaction;
-    setReacting(true);
-    setMyReaction(next);
-    try {
-      await setGlimpseReaction(ownerId, planDateISO, next);
-    } catch {
-      setMyReaction(prev);
-    } finally {
-      setReacting(false);
-    }
-  }
 
   if (loading || goals.length === 0) return null;
 
@@ -104,26 +89,7 @@ export default function GlimpseCard({
           ))}
         </div>
 
-        <div className="flex gap-1.5">
-          {GLIMPSE_REACTIONS.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              onClick={() => pickReaction(r.value)}
-              disabled={reacting}
-              title={t(r.labelKey)}
-              className="btn"
-              style={{
-                padding: "0.25rem 0.5rem",
-                fontSize: "0.85rem",
-                background: myReaction === r.value ? "rgba(245, 158, 11, 0.25)" : undefined,
-                borderColor: myReaction === r.value ? "rgba(245, 158, 11, 0.6)" : undefined,
-              }}
-            >
-              {r.emoji}
-            </button>
-          ))}
-        </div>
+        <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} />
       </div>
     </div>
   );

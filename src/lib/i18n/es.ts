@@ -899,13 +899,12 @@ export const es: Record<keyof typeof en, string> = {
   "glimpse.reactionClap": "Aplausos",
 
   // Glimpse sharing — Today's Publish toggle + received reactions
-  "today.publishToday": "📢 Publicar Hoy",
-  "today.published": "✓ Publicado",
+  "today.publishLabel": "Publicar hoy para:",
+  "today.publishConnectionsBtn": "👥 Conexiones",
+  "today.publishEveryoneBtn": "🌐 Todos",
   "today.unpublish": "Anular publicación",
   "today.publishing": "Publicando…",
   "today.unpublishing": "Anulando publicación…",
-  "today.publishHint": "Deja que tus conexiones vean los objetivos y el progreso de hoy.",
-  "today.publishedHint": "Tus conexiones pueden ver los objetivos y el progreso de hoy.",
   "today.reactionsReceivedTitle": "Reacciones",
   "today.noReactionsYet": "Aún no hay reacciones.",
   "today.failedPublish": "Error al publicar",
@@ -939,4 +938,11 @@ export const es: Record<keyof typeof en, string> = {
   "dashboard.noGlimpsesToday": "Ninguna conexión ha compartido hoy todavía.",
   "dashboard.glimpseProgress": "{completed}/{total} completados",
   "dashboard.failedLoadGlimpses": "Error al cargar los vistazos",
+
+  // Glimpse sharing — Social page's Public Feed section (Everyone tier)
+  "social.publicFeedTitle": "Muro Público",
+  "social.publicFeedSubtitle": "Mira lo que todos están compartiendo públicamente hoy.",
+  "social.noPublicPostsToday": "Nadie ha compartido públicamente hoy todavía.",
+  "social.anonymousUser": "Un usuario de StandUp",
+  "social.failedLoadFeed": "Error al cargar el muro público",
 };

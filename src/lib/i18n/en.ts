@@ -902,13 +902,12 @@ export const en = {
   "glimpse.reactionClap": "Clap",
 
   // Glimpse sharing — Today's Publish toggle + received reactions
-  "today.publishToday": "📢 Publish Today",
-  "today.published": "✓ Published",
+  "today.publishLabel": "Publish today to:",
+  "today.publishConnectionsBtn": "👥 Connections",
+  "today.publishEveryoneBtn": "🌐 Everyone",
   "today.unpublish": "Unpublish",
   "today.publishing": "Publishing…",
   "today.unpublishing": "Unpublishing…",
-  "today.publishHint": "Let your connections see today's goals and progress.",
-  "today.publishedHint": "Your connections can see today's goals and progress.",
   "today.reactionsReceivedTitle": "Reactions",
   "today.noReactionsYet": "No reactions yet.",
   "today.failedPublish": "Failed to publish",
@@ -942,6 +941,13 @@ export const en = {
   "dashboard.noGlimpsesToday": "No connections have shared today yet.",
   "dashboard.glimpseProgress": "{completed}/{total} done",
   "dashboard.failedLoadGlimpses": "Failed to load glimpses",
+
+  // Glimpse sharing — Social page's Public Feed section (Everyone tier)
+  "social.publicFeedTitle": "Public Feed",
+  "social.publicFeedSubtitle": "See what everyone's sharing publicly today.",
+  "social.noPublicPostsToday": "No one has shared publicly today yet.",
+  "social.anonymousUser": "A StandUp user",
+  "social.failedLoadFeed": "Failed to load the public feed",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -11,8 +11,17 @@ alter table public.daily_plans
   add column if not exists published_visibility text
   check (published_visibility in ('connections','everyone'));
 
+-- Backfill: any row already published before this tier existed only had
+-- published_at set (the only tier at the time was implicitly "connections")
+-- -- must happen before the pair constraint below or it'll reject on them.
+update public.daily_plans
+  set published_visibility = 'connections'
+  where published_at is not null and published_visibility is null;
+
 -- Keeps the two columns from ever desyncing -- publish always sets both,
 -- unpublish always clears both.
+alter table public.daily_plans
+  drop constraint if exists daily_plans_publish_pair_check;
 alter table public.daily_plans
   add constraint daily_plans_publish_pair_check
   check ((published_at is null) = (published_visibility is null));
@@ -40,7 +49,7 @@ $$;
 revoke all on function public.plan_glimpse_visible_to(uuid, date) from public;
 grant execute on function public.plan_glimpse_visible_to(uuid, date) to authenticated;
 
-drop policy "glimpse_reactions_insert_viewer" on public.glimpse_reactions;
+drop policy if exists "glimpse_reactions_insert_viewer" on public.glimpse_reactions;
 create policy "glimpse_reactions_insert_viewer" on public.glimpse_reactions
   for insert with check (
     viewer_id = auth.uid()

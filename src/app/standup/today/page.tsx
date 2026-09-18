@@ -1240,7 +1240,7 @@ export default function TodayPage() {
                           style={{
                             "--btn-bg": g.status === "completed" ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.08)",
                             "--btn-border": g.status === "completed" ? "rgba(16, 185, 129, 0.7)" : "rgba(16, 185, 129, 0.25)",
-                            "--btn-color": "#6ee7b7",
+                            "--btn-color": "var(--status-completed)",
                           } as React.CSSProperties}
                         >
                           <span>✅</span>
@@ -1255,7 +1255,7 @@ export default function TodayPage() {
                           style={{
                             "--btn-bg": g.status === "in_progress" ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.08)",
                             "--btn-border": g.status === "in_progress" ? "rgba(59, 130, 246, 0.7)" : "rgba(59, 130, 246, 0.25)",
-                            "--btn-color": "#93c5fd",
+                            "--btn-color": "var(--status-in-progress)",
                           } as React.CSSProperties}
                         >
                           <span>⚙️</span>
@@ -1270,7 +1270,7 @@ export default function TodayPage() {
                           style={{
                             "--btn-bg": g.status === "blocked" ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
                             "--btn-border": g.status === "blocked" ? "rgba(239, 68, 68, 0.7)" : "rgba(239, 68, 68, 0.25)",
-                            "--btn-color": "#fca5a5",
+                            "--btn-color": "var(--status-blocked)",
                           } as React.CSSProperties}
                         >
                           <span>🚫</span>
@@ -1285,7 +1285,7 @@ export default function TodayPage() {
                           style={{
                             "--btn-bg": g.status === "canceled" ? "rgba(100, 116, 139, 0.25)" : "rgba(100, 116, 139, 0.1)",
                             "--btn-border": g.status === "canceled" ? "rgba(100, 116, 139, 0.7)" : "rgba(100, 116, 139, 0.3)",
-                            "--btn-color": "#cbd5e1",
+                            "--btn-color": "var(--status-canceled)",
                           } as React.CSSProperties}
                         >
                           <span>❌</span>
@@ -1300,7 +1300,7 @@ export default function TodayPage() {
                           style={{
                             "--btn-bg": g.rescheduled_to ? "rgba(168, 85, 247, 0.2)" : "rgba(168, 85, 247, 0.08)",
                             "--btn-border": g.rescheduled_to ? "rgba(168, 85, 247, 0.7)" : "rgba(168, 85, 247, 0.25)",
-                            "--btn-color": "#d8b4fe",
+                            "--btn-color": "var(--status-postponed)",
                           } as React.CSSProperties}
                         >
                           <span>📅</span>

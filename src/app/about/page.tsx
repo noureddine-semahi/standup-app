@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
 import { supabase } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function AboutPage() {
+  const { t } = useLanguage();
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
@@ -19,14 +21,12 @@ export default function AboutPage() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Hero Section */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-4">About StandUp</h1>
+          <h1 className="text-5xl font-bold mb-4">{t("about.title")}</h1>
           <p className="text-xl text-page-secondary max-w-2xl mx-auto">
-            StandUp is a daily execution and reflection system built to help you
-            work with intention — not pressure.
+            {t("about.heroP1")}
           </p>
           <p className="mt-4 text-sm text-page-tertiary max-w-2xl mx-auto">
-            It’s not about doing more. It’s about doing what matters, on purpose —
-            and building consistency one day at a time.
+            {t("about.heroP2")}
           </p>
         </div>
 
@@ -38,19 +38,20 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`text-2xl text-amber-300 mb-4`}>Our Philosophy</h2>
+            <h2 className={`text-2xl text-amber-300 mb-4`}>{t("about.philosophyTitle")}</h2>
 
             <div className="mb-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
-                Most productivity tools focus on checking boxes. StandUp focuses on{" "}
-                <b>awareness</b>, <b>review</b>, and <b>follow-through</b>. Completion
-                matters — but reflection is what compounds.
+                {t("about.philosophyIntroPart1")}
+                <b>{t("about.wordAwareness")}</b>{t("about.philosophyIntroPart2")}
+                <b>{t("about.wordReview")}</b>{t("about.philosophyIntroPart3")}
+                <b>{t("about.wordFollowThrough")}</b>{t("about.philosophyIntroPart4")}
               </p>
               <p className="mt-3 text-sm text-white/70">
-                One simple rule keeps the system honest:
+                {t("about.oneRule")}
               </p>
               <p className="mt-2 text-sm font-semibold text-white">
-                You can’t plan tomorrow until you’ve reviewed today.
+                {t("about.ruleText")}
               </p>
             </div>
 
@@ -58,34 +59,30 @@ export default function AboutPage() {
               <div>
                 <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
                   <span className="text-xl">🧠</span>
-                  Awareness Before Action
+                  {t("about.awarenessBeforeAction")}
                 </h3>
                 <p className="text-sm text-white/70">
-                  You must review your goals before acting on them. Conscious
-                  engagement leads to better decisions and stronger execution.
+                  {t("about.awarenessBeforeActionBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
                   <span className="text-xl">🔄</span>
-                  Reflection Before Planning
+                  {t("about.reflectionBeforePlanning")}
                 </h3>
                 <p className="text-sm text-white/70">
-                  You can always draft tomorrow's goals, but finalizing them stays
-                  locked until today is reviewed. This prevents committing to a new
-                  day on top of an unprocessed one and keeps your system real.
+                  {t("about.reflectionBeforePlanningBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
                   <span className="text-xl">📈</span>
-                  Consistency Over Intensity
+                  {t("about.consistencyOverIntensity")}
                 </h3>
                 <p className="text-sm text-white/70">
-                  StandUp rewards daily engagement more than perfect completion.
-                  Progress beats perfection, and consistency compounds.
+                  {t("about.consistencyOverIntensityBody")}
                 </p>
               </div>
             </div>
@@ -97,30 +94,26 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`text-2xl text-amber-300 mb-4`}>Our Vision</h2>
+            <h2 className={`text-2xl text-amber-300 mb-4`}>{t("about.visionTitle")}</h2>
             <p className="text-white/80 mb-4">
-              StandUp is more than a todo list. It’s a daily operating system for
-              intentional work. We believe:
+              {t("about.visionIntro")}
             </p>
             <ul className="space-y-2 text-white/70 text-sm list-disc list-inside">
-              <li>Awareness precedes effective action</li>
-              <li>Reflection enables continuous improvement</li>
-              <li>Consistency compounds into mastery</li>
-              <li>Small daily wins build lasting habits</li>
-              <li>Intentionality beats reactivity</li>
+              <li>{t("about.visionBullet1")}</li>
+              <li>{t("about.visionBullet2")}</li>
+              <li>{t("about.visionBullet3")}</li>
+              <li>{t("about.visionBullet4")}</li>
+              <li>{t("about.visionBullet5")}</li>
             </ul>
 
             <p className="text-white/80 mt-4">
-              StandUp is also the foundation for a broader follow-up operating
-              system — a place to track real-world commitments like job search
-              activity, recruiter conversations, and time-sensitive follow-ups,
-              with AI assistance where it genuinely helps.
+              {t("about.visionExpansion")}
             </p>
 
             <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
-                <span className="font-semibold text-white">North Star:</span>{" "}
-                Awareness before action. Progress begins with review.
+                <span className="font-semibold text-white">{t("about.northStarLabel")}</span>{" "}
+                {t("about.northStarText")}
               </p>
             </div>
           </div>
@@ -131,98 +124,85 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`text-2xl text-amber-300 mb-6`}>The Bigger Picture</h2>
+            <h2 className={`text-2xl text-amber-300 mb-6`}>{t("about.biggerPictureTitle")}</h2>
             <div className="space-y-5">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">📋</span>
-                  Daily Review
+                  {t("about.dailyReview")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Review each goal with intention — even if it didn’t go perfectly.
-                  Update status, add notes, and reschedule when needed.
+                  {t("about.dailyReviewBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">🎯</span>
-                  Intentional Planning
+                  {t("about.intentionalPlanning")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Set at least 3 goals for tomorrow and assign priority. Only one
-                  P1 is allowed so you stay focused on what truly matters.
+                  {t("about.intentionalPlanningBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">🔥</span>
-                  Points &amp; Streaks
+                  {t("about.pointsStreaks")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Earn points for showing up and for closing the loop. Build
-                  streaks through daily consistency — not unrealistic perfection.
+                  {t("about.pointsStreaksBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">📅</span>
-                  Smart Rescheduling
+                  {t("about.smartRescheduling")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Reschedule goals to a future date. They automatically appear
-                  when that date arrives — no manual copying.
+                  {t("about.smartReschedulingBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">🚫</span>
-                  Review Gating
+                  {t("about.reviewGating")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Draft any date's goals whenever you like — even weeks out via the
-                  Calendar. Submitting a plan, though, only unlocks the evening
-                  before it arrives, once the day before has been reviewed — no
-                  drifting into endless planning without learning from today.
+                  {t("about.reviewGatingBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">🗓️</span>
-                  Full Calendar History
+                  {t("about.fullCalendarHistory")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Every day you've planned lives on the Calendar, complete with each
-                  goal's full chronological history and notes. Past days open
-                  read-only, but you can "re-attempt" a goal by rescheduling it
-                  forward, or mark a never-reviewed day "Cleared."
+                  {t("about.fullCalendarHistoryBody")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">🧾</span>
-                  Honest Outcomes
+                  {t("about.honestOutcomes")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  StandUp separates <b>review</b> from <b>completion</b>. A goal
-                  can be marked attempted, blocked, or rescheduled — without guilt.
+                  {t("about.honestOutcomesPart1")}<b>{t("about.wordReview")}</b>{t("about.honestOutcomesPart2")}<b>{t("about.wordCompletion")}</b>{t("about.honestOutcomesPart3")}
                 </p>
               </div>
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
                   <span className="text-lg">🛒</span>
-                  Sub-Tasks &amp; Files
+                  {t("about.subTasksFiles")}
                 </h3>
                 <p className="text-sm text-white/60">
-                  Break a goal into a checklist of smaller steps, or attach a
-                  receipt or document to it. Both carry forward automatically
-                  if you reschedule the goal.
+                  {t("about.subTasksFilesBody")}
                 </p>
               </div>
             </div>
@@ -234,25 +214,17 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`text-2xl text-amber-300 mb-4`}>The Story</h2>
+            <h2 className={`text-2xl text-amber-300 mb-4`}>{t("about.storyTitle")}</h2>
             <p className="text-white/80 mb-4">
-              StandUp started with a familiar office ritual: the daily standup meeting. Every
-              morning, the team would gather for a few minutes and each person answered the
-              same three things — what got done yesterday, what's the plan for today, and
-              what's blocking you.
+              {t("about.storyP1")}
             </p>
             <p className="text-sm text-white/70">
-              It sounds small, but that daily rhythm of reporting progress, committing to
-              today's goals out loud, and naming blockers before they turned into excuses
-              created real accountability. Nobody could quietly slip for a week — the next
-              day's standup would surface it.
+              {t("about.storyP2")}
             </p>
 
             <div className="mt-6 pl-4" style={{ borderLeft: "2px solid rgba(245, 158, 11, 0.3)" }}>
               <p className="text-sm text-white/70">
-                <span className="font-semibold text-white">The idea:</span> bring that same
-                daily discipline to your own goals — report on yesterday, commit to today,
-                name what's blocking you. No team required.
+                <span className="font-semibold text-white">{t("about.storyIdeaLabel")}</span> {t("about.storyIdeaText")}
               </p>
             </div>
           </div>
@@ -263,30 +235,26 @@ export default function AboutPage() {
             className="card card-highlight"
           >
           <div className="p-0 sm:p-6">
-            <h2 className={`text-2xl text-amber-300 mb-6`}>How It Works</h2>
+            <h2 className={`text-2xl text-amber-300 mb-6`}>{t("about.howItWorksTitle")}</h2>
             <div className="space-y-8">
               <div>
-                <h3 className="font-semibold text-white mb-1">Plan Tomorrow</h3>
+                <h3 className="font-semibold text-white mb-1">{t("nav.planTomorrow")}</h3>
                 <p className="text-sm text-white/70">
-                  Set at least 3 goals for tomorrow. Assign priorities
-                  (P1 = highest; only one P1). Save your draft or submit your plan.
+                  {t("about.planTomorrowStepBody")}
                 </p>
               </div>
 
               <div>
-                <h3 className="font-semibold text-white mb-1">Review Today</h3>
+                <h3 className="font-semibold text-white mb-1">{t("nav.reviewToday")}</h3>
                 <p className="text-sm text-white/70">
-                  Start the day by reviewing goals. Pending goals stay visually
-                  distinct until reviewed. Once reviewed, update status and add
-                  follow-up notes if needed.
+                  {t("about.reviewTodayStepBody")}
                 </p>
               </div>
 
               <div>
-                <h3 className="font-semibold text-white mb-1">Close the Loop</h3>
+                <h3 className="font-semibold text-white mb-1">{t("about.closeTheLoop")}</h3>
                 <p className="text-sm text-white/70">
-                  When all goals are reviewed, you earn closure. That closure
-                  unlocks tomorrow’s planning and helps you build a streak.
+                  {t("about.closeTheLoopBody")}
                 </p>
               </div>
             </div>
@@ -299,27 +267,27 @@ export default function AboutPage() {
           {!signedIn && (
             <>
               <Link href="/signup" className="btn btn-primary text-lg px-8 py-4">
-                Get Started with StandUp
+                {t("about.getStarted")}
               </Link>
               <p className="mt-4 text-sm text-page-tertiary">
-                Join and start building your daily execution habit today.
+                {t("about.joinToday")}
               </p>
             </>
           )}
           <p className="mt-6 text-sm text-page-tertiary">
-            Have questions? Check the{" "}
+            {t("about.haveQuestionsPart1")}
             <Link href="/faq" className="text-amber-300 hover:text-amber-200 underline">
-              FAQ
-            </Link>{" "}
-            or{" "}
+              {t("nav.faq")}
+            </Link>
+            {t("about.haveQuestionsPart2")}
             <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">
-              contact us
+              {t("about.contactUsLower")}
             </Link>
-            . See our{" "}
+            {t("about.haveQuestionsPart3")}
             <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
-              Privacy Policy
+              {t("settings.privacyPolicy")}
             </Link>
-            .
+            {t("about.haveQuestionsPart4")}
           </p>
 
           <SocialShareButtons className="mt-8" onPage />

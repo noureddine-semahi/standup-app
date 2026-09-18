@@ -891,4 +891,49 @@ export const es: Record<keyof typeof en, string> = {
 
   // Profile photo alt text (Dashboard, Profile, Settings)
   "common.profilePhotoAlt": "Foto de perfil",
+
+  // Glimpse sharing — reaction labels
+  "glimpse.reactionLike": "Me gusta",
+  "glimpse.reactionSupport": "Apoyo",
+  "glimpse.reactionFire": "Fuego",
+  "glimpse.reactionClap": "Aplausos",
+
+  // Glimpse sharing — Today's Publish toggle + received reactions
+  "today.publishToday": "📢 Publicar Hoy",
+  "today.published": "✓ Publicado",
+  "today.unpublish": "Anular publicación",
+  "today.publishing": "Publicando…",
+  "today.unpublishing": "Anulando publicación…",
+  "today.publishHint": "Deja que tus conexiones vean los objetivos y el progreso de hoy.",
+  "today.publishedHint": "Tus conexiones pueden ver los objetivos y el progreso de hoy.",
+  "today.reactionsReceivedTitle": "Reacciones",
+  "today.noReactionsYet": "Aún no hay reacciones.",
+  "today.failedPublish": "Error al publicar",
+  "today.failedUnpublish": "Error al anular la publicación",
+
+  // Glimpse sharing — Profile's Connections card
+  "profile.connectionsTitle": "Conexiones",
+  "profile.connectionsBody": "Conéctate con otro usuario de StandUp por correo electrónico para compartir vistazos de tu día y reaccionar a los suyos.",
+  "profile.connectionEmailPlaceholder": "Su correo electrónico",
+  "profile.sendRequest": "Enviar Solicitud",
+  "profile.sendingRequest": "Enviando…",
+  "profile.incomingRequests": "Solicitudes Recibidas",
+  "profile.outgoingRequests": "Solicitudes Pendientes",
+  "profile.yourConnections": "Tus Conexiones",
+  "profile.noConnectionsYet": "Aún no hay conexiones.",
+  "profile.accept": "Aceptar",
+  "profile.decline": "Rechazar",
+  "profile.cancelRequest": "Cancelar",
+  "profile.removeConnection": "Eliminar",
+  "profile.connectionRequestSent": "Solicitud enviada ✓",
+  "profile.failedLoadConnections": "Error al cargar las conexiones",
+  "profile.failedRespondRequest": "Error al responder a la solicitud",
+  "profile.failedRemoveConnection": "Error al eliminar la conexión",
+
+  // Glimpse sharing — Dashboard's Glimpses section
+  "dashboard.glimpsesTitle": "Vistazos",
+  "dashboard.glimpsesSubtitle": "Lo que tus conexiones están haciendo hoy.",
+  "dashboard.noGlimpsesToday": "Ninguna conexión ha compartido hoy todavía.",
+  "dashboard.glimpseProgress": "{completed}/{total} completados",
+  "dashboard.failedLoadGlimpses": "Error al cargar los vistazos",
 };

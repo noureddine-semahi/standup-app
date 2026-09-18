@@ -34,6 +34,11 @@ export type DailyPlan = {
   // the day the plan is reviewed/closed, not the day it was planned.
   planning_awarded?: boolean;
   planning_points?: number;
+
+  // Set when the owner taps "Publish Today" — makes this specific day's
+  // goal list (title/priority/status only) visible to accepted connections
+  // via get_published_glimpse(). Null/unset means not shared at all.
+  published_at?: string | null;
 };
 
 export type Profile = {
@@ -52,6 +57,41 @@ export type Profile = {
   avatar_url?: string | null;
   shared_at?: string | null;
   is_admin?: boolean;
+};
+
+export type ConnectionStatus = "pending" | "accepted" | "declined";
+
+// A connections row as returned to the current user, with the *other*
+// party's id/display_name already resolved — callers never need to figure
+// out "which side of requester/recipient am I" themselves.
+export type Connection = {
+  id: string;
+  status: ConnectionStatus;
+  created_at: string;
+  responded_at: string | null;
+  direction: "incoming" | "outgoing";
+  otherUserId: string;
+  otherDisplayName: string | null;
+};
+
+export type GlimpseReaction = "like" | "support" | "fire" | "clap";
+
+// The limited slice of a connection's today goal exposed by
+// get_published_glimpse() — title/priority/status only, never
+// notes/checklist/attachments/details.
+export type GlimpseGoal = {
+  goal_id: string;
+  title: string;
+  priority: number | null;
+  status: GoalStatus;
+  is_all_day: boolean | null;
+  time_of_day: string | null;
+};
+
+export type GlimpseReactionReceived = {
+  viewer_id: string;
+  viewer_display_name: string | null;
+  reaction: GlimpseReaction;
 };
 
 export type GoalNote = {
@@ -1632,6 +1672,197 @@ export async function consumePendingReferral() {
   } catch {
     // Already recorded, invalid referrer, or rejected by RLS — fine either way.
   }
+}
+
+// ── Glimpse sharing: connections, publish, reactions ────────────────────
+
+export async function findUserByEmail(
+  email: string
+): Promise<{ id: string; display_name: string | null } | null> {
+  const trimmed = email.trim();
+  if (!trimmed) return null;
+  const { data, error } = await supabase.rpc("find_user_by_email", { p_email: trimmed });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ?? null;
+}
+
+/**
+ * Sends a connection request by email. Throws a friendly error for the
+ * common failure cases (no account with that email, already connected/
+ * pending, self-request) rather than surfacing the raw Postgres error.
+ */
+export async function sendConnectionRequest(email: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const match = await findUserByEmail(email);
+  if (!match) throw new Error("No StandUp account found with that email.");
+  if (match.id === userId) throw new Error("You can't connect with yourself.");
+
+  const { error } = await supabase
+    .from("connections")
+    .insert({ requester_id: userId, recipient_id: match.id });
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("You're already connected, or a request is already pending.");
+    }
+    throw error;
+  }
+}
+
+/**
+ * Every connection row involving the current user, with the *other*
+ * party's id/display name already resolved so callers never need to work
+ * out which side of requester/recipient they are. Two queries (connections,
+ * then a batched profiles lookup) rather than a PostgREST embed, since
+ * connections only has a foreign key to auth.users, not to profiles.
+ */
+export async function listConnections(): Promise<Connection[]> {
+  const userId = await getCurrentUserId();
+
+  const { data: rows, error } = await supabase
+    .from("connections")
+    .select("id, requester_id, recipient_id, status, created_at, responded_at")
+    .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  if (!rows || rows.length === 0) return [];
+
+  const otherIds = [...new Set(rows.map((r) => (r.requester_id === userId ? r.recipient_id : r.requester_id)))];
+  const { data: profileRows, error: profileErr } = await supabase
+    .from("profiles")
+    .select("id, display_name")
+    .in("id", otherIds);
+  if (profileErr) throw profileErr;
+
+  const nameById = new Map((profileRows ?? []).map((p) => [p.id, p.display_name as string | null]));
+
+  return rows.map((r) => {
+    const isRequester = r.requester_id === userId;
+    const otherUserId = isRequester ? r.recipient_id : r.requester_id;
+    return {
+      id: r.id,
+      status: r.status as ConnectionStatus,
+      created_at: r.created_at,
+      responded_at: r.responded_at,
+      direction: isRequester ? "outgoing" : "incoming",
+      otherUserId,
+      otherDisplayName: nameById.get(otherUserId) ?? null,
+    };
+  });
+}
+
+export async function respondToConnectionRequest(id: string, accept: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("connections")
+    .update({ status: accept ? "accepted" : "declined", responded_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Covers both "cancel my outgoing request" and "remove an existing connection". */
+export async function removeConnection(id: string): Promise<void> {
+  const { error } = await supabase.from("connections").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function publishTodayPlan(planDateISO: string): Promise<void> {
+  const plan = await getOrCreatePlan(planDateISO);
+  const { error } = await supabase
+    .from("daily_plans")
+    .update({ published_at: new Date().toISOString() })
+    .eq("id", plan.id);
+  if (error) throw error;
+}
+
+export async function unpublishTodayPlan(planDateISO: string): Promise<void> {
+  const plan = await getOrCreatePlan(planDateISO);
+  const { error } = await supabase.from("daily_plans").update({ published_at: null }).eq("id", plan.id);
+  if (error) throw error;
+}
+
+/** Empty array when not connected, or the owner hasn't published that date. */
+export async function getPublishedGlimpse(ownerId: string, planDateISO: string): Promise<GlimpseGoal[]> {
+  const { data, error } = await supabase.rpc("get_published_glimpse", {
+    p_owner_id: ownerId,
+    p_plan_date: planDateISO,
+  });
+  if (error) throw error;
+  return (data ?? []) as GlimpseGoal[];
+}
+
+/** Pass reaction: null to remove the viewer's current reaction. */
+export async function setGlimpseReaction(
+  ownerId: string,
+  planDateISO: string,
+  reaction: GlimpseReaction | null
+): Promise<void> {
+  const userId = await getCurrentUserId();
+
+  if (reaction === null) {
+    const { error } = await supabase
+      .from("glimpse_reactions")
+      .delete()
+      .eq("owner_id", ownerId)
+      .eq("viewer_id", userId)
+      .eq("plan_date", planDateISO);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("glimpse_reactions").upsert(
+    {
+      owner_id: ownerId,
+      viewer_id: userId,
+      plan_date: planDateISO,
+      reaction,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "owner_id,viewer_id,plan_date" }
+  );
+  if (error) throw error;
+}
+
+export async function getMyReactionForOwner(
+  ownerId: string,
+  planDateISO: string
+): Promise<GlimpseReaction | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("glimpse_reactions")
+    .select("reaction")
+    .eq("owner_id", ownerId)
+    .eq("viewer_id", userId)
+    .eq("plan_date", planDateISO)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.reaction as GlimpseReaction | undefined) ?? null;
+}
+
+/** Owner-side: who reacted to my plan on this date, and with what. */
+export async function getReactionsReceived(planDateISO: string): Promise<GlimpseReactionReceived[]> {
+  const userId = await getCurrentUserId();
+  const { data: rows, error } = await supabase
+    .from("glimpse_reactions")
+    .select("viewer_id, reaction")
+    .eq("owner_id", userId)
+    .eq("plan_date", planDateISO);
+  if (error) throw error;
+  if (!rows || rows.length === 0) return [];
+
+  const viewerIds = [...new Set(rows.map((r) => r.viewer_id))];
+  const { data: profileRows, error: profileErr } = await supabase
+    .from("profiles")
+    .select("id, display_name")
+    .in("id", viewerIds);
+  if (profileErr) throw profileErr;
+  const nameById = new Map((profileRows ?? []).map((p) => [p.id, p.display_name as string | null]));
+
+  return rows.map((r) => ({
+    viewer_id: r.viewer_id,
+    viewer_display_name: nameById.get(r.viewer_id) ?? null,
+    reaction: r.reaction as GlimpseReaction,
+  }));
 }
 
 export async function markShared() {

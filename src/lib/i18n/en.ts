@@ -893,6 +893,52 @@ export const en = {
 
   // Profile photo alt text (Dashboard, Profile, Settings)
   "common.profilePhotoAlt": "Profile photo",
+
+  // Glimpse sharing — reaction labels (shared by Today's received-reactions
+  // strip and the Dashboard's reaction picker)
+  "glimpse.reactionLike": "Like",
+  "glimpse.reactionSupport": "Support",
+  "glimpse.reactionFire": "Fire",
+  "glimpse.reactionClap": "Clap",
+
+  // Glimpse sharing — Today's Publish toggle + received reactions
+  "today.publishToday": "📢 Publish Today",
+  "today.published": "✓ Published",
+  "today.unpublish": "Unpublish",
+  "today.publishing": "Publishing…",
+  "today.unpublishing": "Unpublishing…",
+  "today.publishHint": "Let your connections see today's goals and progress.",
+  "today.publishedHint": "Your connections can see today's goals and progress.",
+  "today.reactionsReceivedTitle": "Reactions",
+  "today.noReactionsYet": "No reactions yet.",
+  "today.failedPublish": "Failed to publish",
+  "today.failedUnpublish": "Failed to unpublish",
+
+  // Glimpse sharing — Profile's Connections card
+  "profile.connectionsTitle": "Connections",
+  "profile.connectionsBody": "Connect with another StandUp user by email to share glimpses of your day and react to theirs.",
+  "profile.connectionEmailPlaceholder": "Their email address",
+  "profile.sendRequest": "Send Request",
+  "profile.sendingRequest": "Sending…",
+  "profile.incomingRequests": "Incoming Requests",
+  "profile.outgoingRequests": "Pending Requests",
+  "profile.yourConnections": "Your Connections",
+  "profile.noConnectionsYet": "No connections yet.",
+  "profile.accept": "Accept",
+  "profile.decline": "Decline",
+  "profile.cancelRequest": "Cancel",
+  "profile.removeConnection": "Remove",
+  "profile.connectionRequestSent": "Request sent ✓",
+  "profile.failedLoadConnections": "Failed to load connections",
+  "profile.failedRespondRequest": "Failed to respond to request",
+  "profile.failedRemoveConnection": "Failed to remove connection",
+
+  // Glimpse sharing — Dashboard's Glimpses section
+  "dashboard.glimpsesTitle": "Glimpses",
+  "dashboard.glimpsesSubtitle": "What your connections are up to today.",
+  "dashboard.noGlimpsesToday": "No connections have shared today yet.",
+  "dashboard.glimpseProgress": "{completed}/{total} done",
+  "dashboard.failedLoadGlimpses": "Failed to load glimpses",
 } as const;
 
 export type TranslationKey = keyof typeof en;

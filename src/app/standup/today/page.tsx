@@ -30,15 +30,20 @@ import {
   formatTimeOfDay,
   formatDateTimeDisplay,
   upsertGoals,
+  publishTodayPlan,
+  unpublishTodayPlan,
+  getReactionsReceived,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
   type GoalAttachment,
   type GoalStatus,
+  type GlimpseReactionReceived,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import { glimpseReactionEmoji } from "@/lib/glimpseReactions";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -135,7 +140,9 @@ export default function TodayPage() {
   const [blockingSaving, setBlockingSaving] = useState(false);
   const [blockingError, setBlockingError] = useState<string | null>(null);
   const [reopening, setReopening] = useState(false);
-  
+  const [publishing, setPublishing] = useState(false);
+  const [reactionsReceived, setReactionsReceived] = useState<GlimpseReactionReceived[]>([]);
+
   // Notes + the derived history facts render as one merged timeline below
   // the goal now (see the entries computation in the render below) instead
   // of behind Notes/History tabs — both are preloaded up front regardless.
@@ -205,6 +212,35 @@ export default function TodayPage() {
 
   const locked = plan?.status === "locked";
   const dayClosed = !!plan?.reviewed_at;
+  const published = !!plan?.published_at;
+
+  useEffect(() => {
+    if (!published) {
+      setReactionsReceived([]);
+      return;
+    }
+    getReactionsReceived(todayISO)
+      .then(setReactionsReceived)
+      .catch(() => {});
+  }, [published, todayISO]);
+
+  async function togglePublish() {
+    if (publishing) return;
+    setPublishing(true);
+    setMsg(null);
+    try {
+      if (published) {
+        await unpublishTodayPlan(todayISO);
+      } else {
+        await publishTodayPlan(todayISO);
+      }
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setMsg(e?.message ?? (published ? t("today.failedUnpublish") : t("today.failedPublish")));
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   const sortedGoals = useMemo(() => {
     const list = [...goals];
@@ -713,6 +749,33 @@ export default function TodayPage() {
             <div className="text-sm text-white/70">
               {t("today.reviewedCount")}<b>{reviewedCount}/{totalCount}</b>
             </div>
+            {totalCount > 0 && (
+              <div className="flex flex-col items-start sm:items-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={togglePublish}
+                  disabled={publishing}
+                  title={published ? t("today.publishedHint") : t("today.publishHint")}
+                  className="btn"
+                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                >
+                  {publishing
+                    ? published
+                      ? t("today.unpublishing")
+                      : t("today.publishing")
+                    : published
+                      ? `${t("today.published")} — ${t("today.unpublish")}`
+                      : t("today.publishToday")}
+                </button>
+                {published && (
+                  <div className="text-xs text-white/50">
+                    {reactionsReceived.length === 0
+                      ? t("today.noReactionsYet")
+                      : reactionsReceived.map((r) => `${glimpseReactionEmoji(r.reaction)} ${r.viewer_display_name ?? ""}`).join("  ")}
+                  </div>
+                )}
+              </div>
+            )}
             {dayClosed && (
               <div className="flex flex-row gap-2">
                 <button

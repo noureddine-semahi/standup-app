@@ -878,4 +878,15 @@ export const es: Record<keyof typeof en, string> = {
   "notFound.title": "Página no encontrada",
   "notFound.body": "La página que buscas no existe o fue movida.",
   "notFound.backHome": "Volver al inicio",
+
+  // ThemeToggle aria-label
+  "theme.switchToDark": "Cambiar a modo oscuro",
+  "theme.switchToLight": "Cambiar a modo claro",
+
+  // LanguageToggle aria-label
+  "language.switchToEnglish": "Cambiar a inglés",
+  "language.switchToSpanish": "Cambiar a español",
+
+  // Profile photo alt text (Dashboard, Profile, Settings)
+  "common.profilePhotoAlt": "Foto de perfil",
 };

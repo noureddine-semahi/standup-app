@@ -880,6 +880,17 @@ export const en = {
   "notFound.title": "Page not found",
   "notFound.body": "The page you're looking for doesn't exist or was moved.",
   "notFound.backHome": "Back home",
+
+  // ThemeToggle aria-label
+  "theme.switchToDark": "Switch to dark mode",
+  "theme.switchToLight": "Switch to light mode",
+
+  // LanguageToggle aria-label
+  "language.switchToEnglish": "Switch to English",
+  "language.switchToSpanish": "Switch to Spanish",
+
+  // Profile photo alt text (Dashboard, Profile, Settings)
+  "common.profilePhotoAlt": "Profile photo",
 } as const;
 
 export type TranslationKey = keyof typeof en;

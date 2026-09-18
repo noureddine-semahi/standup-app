@@ -6,7 +6,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 // as ThemeToggle (which it's always placed next to), just "EN"/"ES" instead
 // of moon/sun icons.
 export default function LanguageToggle({ size = "md" }: { size?: "sm" | "md" }) {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   function handleToggle(e: React.MouseEvent) {
     // Defensive: safe to place next to (or inside) a clickable row/Link
@@ -30,7 +30,7 @@ export default function LanguageToggle({ size = "md" }: { size?: "sm" | "md" }) 
         type="button"
         role="switch"
         aria-checked={language === "es"}
-        aria-label={language === "es" ? "Switch to English" : "Switch to Spanish"}
+        aria-label={language === "es" ? t("language.switchToEnglish") : t("language.switchToSpanish")}
         onClick={handleToggle}
         className="relative rounded-full transition-colors flex-shrink-0"
         style={{

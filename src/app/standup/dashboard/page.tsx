@@ -492,7 +492,7 @@ export default function DashboardPage() {
                   style={{ width: "48px", height: "48px" }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={profile.avatar_url} alt="Profile photo" className="w-full h-full object-cover" />
+                  <img src={profile.avatar_url} alt={t("common.profilePhotoAlt")} className="w-full h-full object-cover" />
                 </div>
               )}
               <div key={motivationIndex} className="card-swap-fade">

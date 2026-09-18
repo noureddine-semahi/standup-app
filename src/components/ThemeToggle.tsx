@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { getStoredTheme, setTheme, onThemeChange, type Theme } from "@/lib/theme";
 import { updateThemePreference } from "@/lib/supabase/db";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Dark/light switch — same slider look as the Settings page's Appearance
 // toggle, but flanked by static 🌙/☀️ icons instead of a trailing text
 // label, for spots (Profile page, the mobile dropdown) that only have room
 // for a compact control.
 export default function ThemeToggle({ size = "md" }: { size?: "sm" | "md" }) {
+  const { t } = useLanguage();
   const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function ThemeToggle({ size = "md" }: { size?: "sm" | "md" }) {
         type="button"
         role="switch"
         aria-checked={theme === "light"}
-        aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+        aria-label={theme === "light" ? t("theme.switchToDark") : t("theme.switchToLight")}
         onClick={handleToggle}
         className="relative rounded-full transition-colors flex-shrink-0"
         style={{

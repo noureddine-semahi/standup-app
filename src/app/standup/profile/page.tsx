@@ -146,7 +146,7 @@ export default function ProfilePage() {
           >
             {profile?.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatar_url} alt="Profile photo" className="w-full h-full object-cover" />
+              <img src={profile.avatar_url} alt={t("common.profilePhotoAlt")} className="w-full h-full object-cover" />
             ) : (
               (profile?.display_name || user?.email || "U").charAt(0).toUpperCase()
             )}

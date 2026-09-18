@@ -363,7 +363,7 @@ export default function SettingsPage() {
           >
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="Profile photo" className="w-full h-full object-cover" />
+              <img src={avatarUrl} alt={t("common.profilePhotoAlt")} className="w-full h-full object-cover" />
             ) : (
               <span className="text-2xl font-bold text-white">
                 {(displayName || email || "U").charAt(0).toUpperCase()}

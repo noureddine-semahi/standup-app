@@ -221,6 +221,12 @@ export default function Header() {
             {t("nav.dashboard")}
           </Link>
           <Link
+            href="/standup/social"
+            className={pathname === "/standup/social" ? "nav-link font-semibold" : "nav-link"}
+          >
+            {t("nav.social")}
+          </Link>
+          <Link
             href="/standup/today"
             className={pathname === "/standup/today" ? "nav-link font-semibold" : "nav-link"}
           >

@@ -346,6 +346,26 @@ export const en = {
   "calendar.dayThu": "Thu",
   "calendar.dayFri": "Fri",
   "calendar.daySat": "Sat",
+
+  // Backlog
+  "backlog.failedLoad": "Failed to load backlog",
+  "backlog.failedAdd": "Failed to add goal",
+  "backlog.failedRemove": "Failed to remove goal",
+  "backlog.movedTo": "\"{title}\" moved to {date}.",
+  "backlog.failedSchedule": "Failed to schedule goal",
+  "backlog.subtitle": "Goals you know you want to do, without committing them to a day yet. Push one onto the calendar whenever time opens up.",
+  "backlog.newGoalPlaceholder": "New backlog goal...",
+  "backlog.detailsPlaceholder": "Details (optional)...",
+  "backlog.adding": "Adding…",
+  "backlog.addToBacklog": "+ Add to backlog",
+  "backlog.loading": "Loading…",
+  "backlog.nothingInBacklog": "Nothing in the backlog",
+  "backlog.staysPutMsg": "Goals added here stay put until you push them to a day.",
+  "backlog.pushToTomorrowTitle": "Push straight to tomorrow ({date})",
+  "backlog.pushToTomorrow": "→ Tomorrow",
+  "backlog.push": "Push",
+  "backlog.removeFromBacklog": "Remove from backlog",
+  "backlog.planTomorrowArrow": "← Plan Tomorrow",
 } as const;
 
 export type TranslationKey = keyof typeof en;

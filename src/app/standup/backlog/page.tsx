@@ -12,8 +12,10 @@ import {
   type BacklogGoal,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function BacklogPage() {
+  const { t } = useLanguage();
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function BacklogPage() {
     try {
       setItems(await getBacklogGoals());
     } catch (e: any) {
-      setMsg(e?.message ?? "Failed to load backlog");
+      setMsg(e?.message ?? t("backlog.failedLoad"));
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ export default function BacklogPage() {
       setDraftDetails("");
       setDraftPriority(3);
     } catch (e: any) {
-      setMsg(e?.message ?? "Failed to add goal");
+      setMsg(e?.message ?? t("backlog.failedAdd"));
     } finally {
       setAdding(false);
     }
@@ -80,7 +82,7 @@ export default function BacklogPage() {
       await deleteBacklogGoal(item.id);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
     } catch (e: any) {
-      setMsg(e?.message ?? "Failed to remove goal");
+      setMsg(e?.message ?? t("backlog.failedRemove"));
     } finally {
       setBusy(item.id, false);
     }
@@ -94,9 +96,9 @@ export default function BacklogPage() {
     try {
       await promoteBacklogGoal(item, date);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setMsg(`"${item.title}" moved to ${date}.`);
+      setMsg(t("backlog.movedTo", { title: item.title, date }));
     } catch (e: any) {
-      setMsg(e?.message ?? "Failed to schedule goal");
+      setMsg(e?.message ?? t("backlog.failedSchedule"));
     } finally {
       setBusy(item.id, false);
     }
@@ -105,10 +107,9 @@ export default function BacklogPage() {
   return (
     <div className="card card-highlight">
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Backlog</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.backlog")}</h1>
         <p className="text-white/70">
-          Goals you know you want to do, without committing them to a day yet. Push one onto the
-          calendar whenever time opens up.
+          {t("backlog.subtitle")}
         </p>
       </div>
 
@@ -146,7 +147,7 @@ export default function BacklogPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleAdd();
             }}
-            placeholder="New backlog goal..."
+            placeholder={t("backlog.newGoalPlaceholder")}
             disabled={adding}
             className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
           />
@@ -158,7 +159,7 @@ export default function BacklogPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter") handleAdd();
           }}
-          placeholder="Details (optional)..."
+          placeholder={t("backlog.detailsPlaceholder")}
           disabled={adding}
           className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
         />
@@ -168,17 +169,17 @@ export default function BacklogPage() {
           disabled={adding || !draftTitle.trim()}
           className="btn btn-primary"
         >
-          {adding ? "Adding…" : "+ Add to backlog"}
+          {adding ? t("backlog.adding") : t("backlog.addToBacklog")}
         </button>
       </div>
 
       {loading ? (
-        <div className="text-white/60 text-center py-8">Loading…</div>
+        <div className="text-white/60 text-center py-8">{t("backlog.loading")}</div>
       ) : items.length === 0 ? (
         <div className="text-white/70 text-center py-12">
           <div className="text-4xl mb-4">🗂️</div>
-          <p className="text-lg mb-2">Nothing in the backlog</p>
-          <p className="text-sm text-white/50">Goals added here stay put until you push them to a day.</p>
+          <p className="text-lg mb-2">{t("backlog.nothingInBacklog")}</p>
+          <p className="text-sm text-white/50">{t("backlog.staysPutMsg")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -205,9 +206,9 @@ export default function BacklogPage() {
                       disabled={busy}
                       className="btn"
                       style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
-                      title={`Push straight to tomorrow (${tomorrowISO})`}
+                      title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                     >
-                      → Tomorrow
+                      {t("backlog.pushToTomorrow")}
                     </button>
                     <input
                       type="date"
@@ -226,7 +227,7 @@ export default function BacklogPage() {
                       className="btn"
                       style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
                     >
-                      Push
+                      {t("backlog.push")}
                     </button>
                     <button
                       type="button"
@@ -240,7 +241,7 @@ export default function BacklogPage() {
                         background: "rgba(var(--tint-rgb), 0.06)",
                         border: "1px solid rgba(var(--tint-rgb), 0.15)",
                       }}
-                      title="Remove from backlog"
+                      title={t("backlog.removeFromBacklog")}
                     >
                       ✕
                     </button>
@@ -255,10 +256,10 @@ export default function BacklogPage() {
 
       <div className="mt-8 flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
-          ← Plan Tomorrow
+          {t("backlog.planTomorrowArrow")}
         </Link>
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">
-          Dashboard →
+          {t("nav.dashboard")} →
         </Link>
       </div>
     </div>

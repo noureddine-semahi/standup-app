@@ -59,7 +59,7 @@ export default function HistoryPage() {
       const notes = await getNotesForGoals(goals.map((g) => g.id));
       setGoalNotesMap(notes);
     } catch (e: any) {
-      setGoalListError(e?.message ?? "Failed to load goals");
+      setGoalListError(e?.message ?? t("history.failedLoadGoals"));
     } finally {
       setGoalListLoading(false);
     }
@@ -79,7 +79,7 @@ export default function HistoryPage() {
         setEntries(history);
         setLifetimeStats(stats);
       } catch (e: any) {
-        setError(e?.message ?? "Failed to load history");
+        setError(e?.message ?? t("history.failedLoadHistory"));
       } finally {
         setLoading(false);
       }
@@ -98,7 +98,7 @@ export default function HistoryPage() {
         const data = await getDailyActivity(startISO, endISO);
         setActivity(data);
       } catch (e: any) {
-        setActivityError(e?.message ?? "Failed to load activity");
+        setActivityError(e?.message ?? t("history.failedLoadActivity"));
       } finally {
         setActivityLoading(false);
       }
@@ -107,7 +107,7 @@ export default function HistoryPage() {
   }, [period]);
 
   if (loading) {
-    return <div className="card">Loading history…</div>;
+    return <div className="card">{t("history.loading")}</div>;
   }
 
   const checkedInDays = activity.filter((d) => d.checkedIn).length;
@@ -120,12 +120,12 @@ export default function HistoryPage() {
       <div className="card">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Data &amp; Metrics</h1>
-            <p className="mt-2 text-white/70">Your goals, streaks, and points, all in one place.</p>
+            <h1 className="text-3xl font-bold">{t("history.title")}</h1>
+            <p className="mt-2 text-white/70">{t("history.subtitle")}</p>
           </div>
           <div className="text-left sm:text-right">
             <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-              Total Points
+              {t("dashboard.stat.totalPoints")}
             </div>
             <div className="mt-1 text-3xl font-bold text-white">
               <AnimatedNumber value={profile?.points ?? 0} />
@@ -135,8 +135,8 @@ export default function HistoryPage() {
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold text-white mb-1">Goals &amp; Streaks</h2>
-        <p className="text-sm text-white/60 mb-4">Lifetime totals across every day you've used StandUp.</p>
+        <h2 className="text-lg font-semibold text-white mb-1">{t("history.goalsStreaksTitle")}</h2>
+        <p className="text-sm text-white/60 mb-4">{t("history.lifetimeSubtitle")}</p>
 
         {lifetimeStats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -149,7 +149,7 @@ export default function HistoryPage() {
               }}
             >
               <div className="text-2xl font-bold text-white">{lifetimeStats.totalGoalsSubmitted}</div>
-              <div className="mt-1 text-xs text-white/60">Goals submitted</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.goalsSubmitted")}</div>
             </button>
             <button
               type="button"
@@ -160,31 +160,31 @@ export default function HistoryPage() {
               }}
             >
               <div className="text-2xl font-bold text-emerald-300">{lifetimeStats.totalGoalsCompleted}</div>
-              <div className="mt-1 text-xs text-white/60">Goals completed</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.goalsCompletedLabel")}</div>
             </button>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-amber-300">{lifetimeStats.totalDaysClosed}</div>
-              <div className="mt-1 text-xs text-white/60">Days closed</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.daysClosed")}</div>
             </div>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-sky-300">{lifetimeStats.longestStreak}</div>
-              <div className="mt-1 text-xs text-white/60">Longest streak</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.longestStreak")}</div>
             </div>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-white">{lifetimeStats.maxGoalsCompletedInDay}</div>
-              <div className="mt-1 text-xs text-white/60">Best single day</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.bestSingleDay")}</div>
             </div>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-white">{lifetimeStats.reschedulesCompleted}</div>
-              <div className="mt-1 text-xs text-white/60">Reschedules followed through</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.reschedulesFollowed")}</div>
             </div>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-white">{lifetimeStats.trackedGoalsCompleted}</div>
-              <div className="mt-1 text-xs text-white/60">Tracked goals completed</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.trackedGoalsCompleted")}</div>
             </div>
             <div className="rounded-2xl bg-white/5 p-4 text-center">
               <div className="text-2xl font-bold text-white">{lifetimeStats.totalReferrals}</div>
-              <div className="mt-1 text-xs text-white/60">Successful referrals</div>
+              <div className="mt-1 text-xs text-white/60">{t("history.successfulReferrals")}</div>
             </div>
           </div>
         )}
@@ -195,15 +195,14 @@ export default function HistoryPage() {
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="text-lg font-semibold text-white">
-                {goalListFilter === "completed" ? "Completed Goals" : "Submitted Goals"}
+                {goalListFilter === "completed" ? t("history.completedGoalsTitle") : t("history.submittedGoalsTitle")}
               </h2>
               <p className="mt-1 text-sm text-white/60">
-                {goalList.length} goal{goalList.length === 1 ? "" : "s"}, newest first — each with its full
-                history and notes.
+                {t(goalList.length === 1 ? "history.goalCount.one" : "history.goalCount.other", { count: goalList.length })}
               </p>
             </div>
             <button type="button" className="btn" onClick={() => setGoalListFilter(null)}>
-              ✕ Close
+              {t("history.close")}
             </button>
           </div>
 
@@ -214,11 +213,11 @@ export default function HistoryPage() {
           )}
 
           {!goalListError && goalListLoading && (
-            <div className="text-white/60 text-sm text-center py-8">Loading goals…</div>
+            <div className="text-white/60 text-sm text-center py-8">{t("history.loadingGoals")}</div>
           )}
 
           {!goalListError && !goalListLoading && goalList.length === 0 && (
-            <div className="text-white/60 text-sm text-center py-8">Nothing here yet.</div>
+            <div className="text-white/60 text-sm text-center py-8">{t("history.nothingHereYet")}</div>
           )}
 
           {!goalListError && !goalListLoading && goalList.length > 0 && (
@@ -234,7 +233,7 @@ export default function HistoryPage() {
                   >
                     <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                     <div className="text-xs text-white/50 mb-1">
-                      {g.plan_date ? formatDateDisplay(g.plan_date) : "Unknown date"}
+                      {g.plan_date ? formatDateDisplay(g.plan_date) : t("history.unknownDate")}
                     </div>
                     <div className="text-lg font-semibold text-white">{g.title}</div>
                     {g.details && <div className="mt-1 text-sm text-white/60">{g.details}</div>}
@@ -265,7 +264,7 @@ export default function HistoryPage() {
       )}
 
       <div>
-        <h2 className="text-lg font-semibold text-white/90 mb-3">Points &amp; Usage</h2>
+        <h2 className="text-lg font-semibold text-white/90 mb-3">{t("history.pointsUsageTitle")}</h2>
       </div>
 
       <div className="card">
@@ -277,7 +276,7 @@ export default function HistoryPage() {
 
         {!error && entries.length === 0 && (
           <div className="text-white/60 text-sm py-8 text-center">
-            No points earned yet — review your goals and close out a day to start building history.
+            {t("history.noPointsYet")}
           </div>
         )}
 
@@ -300,16 +299,16 @@ export default function HistoryPage() {
                     </div>
                     <div className="mt-1 flex flex-nowrap gap-x-3 text-xs text-white/60 overflow-x-auto">
                       {entry.planningAwarded && (
-                        <span className="whitespace-nowrap">Planning +{entry.planningPoints}</span>
+                        <span className="whitespace-nowrap">{t("history.planning", { points: entry.planningPoints })}</span>
                       )}
                       {entry.awarenessAwarded && (
-                        <span className="whitespace-nowrap">Awareness +{entry.awarenessPoints}</span>
+                        <span className="whitespace-nowrap">{t("history.awareness", { points: entry.awarenessPoints })}</span>
                       )}
                       {entry.closureAwarded && (
-                        <span className="whitespace-nowrap">Closure +{entry.closurePoints}</span>
+                        <span className="whitespace-nowrap">{t("history.closure", { points: entry.closurePoints })}</span>
                       )}
                       {entry.reviewedAt && (
-                        <span className="whitespace-nowrap text-emerald-300/80">Day closed ✓</span>
+                        <span className="whitespace-nowrap text-emerald-300/80">{t("history.dayClosedCheck")}</span>
                       )}
                     </div>
                   </div>
@@ -324,8 +323,8 @@ export default function HistoryPage() {
       <div className="card">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h2 className="text-lg font-semibold text-white">Activity Overview</h2>
-            <p className="mt-1 text-sm text-white/60">Check-ins, misses, and completed goals over time.</p>
+            <h2 className="text-lg font-semibold text-white">{t("history.activityOverview")}</h2>
+            <p className="mt-1 text-sm text-white/60">{t("history.activitySubtitle")}</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -337,7 +336,7 @@ export default function HistoryPage() {
                 borderColor: period === "week" ? "rgba(245, 158, 11, 0.6)" : undefined,
               }}
             >
-              Weekly
+              {t("history.weekly")}
             </button>
             <button
               type="button"
@@ -348,7 +347,7 @@ export default function HistoryPage() {
                 borderColor: period === "month" ? "rgba(245, 158, 11, 0.6)" : undefined,
               }}
             >
-              Monthly
+              {t("history.monthly")}
             </button>
           </div>
         </div>
@@ -360,7 +359,7 @@ export default function HistoryPage() {
         )}
 
         {!activityError && activityLoading && (
-          <div className="mt-6 text-white/60 text-sm text-center py-6">Loading activity…</div>
+          <div className="mt-6 text-white/60 text-sm text-center py-6">{t("history.loadingActivity")}</div>
         )}
 
         {!activityError && !activityLoading && (
@@ -368,15 +367,15 @@ export default function HistoryPage() {
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-2xl bg-white/5 p-4 text-center">
                 <div className="text-2xl font-bold text-emerald-300">{checkedInDays}</div>
-                <div className="mt-1 text-xs text-white/60">Days checked in</div>
+                <div className="mt-1 text-xs text-white/60">{t("history.daysCheckedIn")}</div>
               </div>
               <div className="rounded-2xl bg-white/5 p-4 text-center">
                 <div className="text-2xl font-bold text-amber-300">{missedDays}</div>
-                <div className="mt-1 text-xs text-white/60">Days missed</div>
+                <div className="mt-1 text-xs text-white/60">{t("history.daysMissed")}</div>
               </div>
               <div className="rounded-2xl bg-white/5 p-4 text-center">
                 <div className="text-2xl font-bold text-sky-300">{accomplishedDays}</div>
-                <div className="mt-1 text-xs text-white/60">Days with completed goals</div>
+                <div className="mt-1 text-xs text-white/60">{t("history.daysWithCompleted")}</div>
               </div>
             </div>
 
@@ -400,9 +399,12 @@ export default function HistoryPage() {
                       key={day.date}
                       className="flex-1 flex flex-col items-center justify-end"
                       style={{ minWidth: period === "week" ? "28px" : "8px", height: "100%" }}
-                      title={`${formatDateDisplay(day.date)} — ${
-                        day.checkedIn ? "Checked in" : day.hasPlan ? "Not closed" : "Missed"
-                      }, ${day.goalsCompleted}/${day.goalsTotal} goals completed`}
+                      title={t("history.barTitle", {
+                        date: formatDateDisplay(day.date),
+                        state: day.checkedIn ? t("history.stateCheckedIn") : day.hasPlan ? t("history.stateNotClosed") : t("history.stateMissed"),
+                        completed: day.goalsCompleted,
+                        total: day.goalsTotal,
+                      })}
                     >
                       {period === "week" && (
                         <div
@@ -440,7 +442,7 @@ export default function HistoryPage() {
                   >
                     ✓
                   </span>
-                  <span className="text-white/70">Checked in</span>
+                  <span className="text-white/70">{t("history.stateCheckedIn")}</span>
                 </div>
                 <div
                   className="flex items-center gap-2 rounded-full px-3 py-1.5"
@@ -452,7 +454,7 @@ export default function HistoryPage() {
                   >
                     •
                   </span>
-                  <span className="text-white/70">Not closed</span>
+                  <span className="text-white/70">{t("history.stateNotClosed")}</span>
                 </div>
                 <div
                   className="flex items-center gap-2 rounded-full px-3 py-1.5"
@@ -464,9 +466,9 @@ export default function HistoryPage() {
                   >
                     ✕
                   </span>
-                  <span className="text-white/70">Missed</span>
+                  <span className="text-white/70">{t("history.stateMissed")}</span>
                 </div>
-                <div className="ml-auto text-white/40">Bar height = goals completed that day</div>
+                <div className="ml-auto text-white/40">{t("history.barHeightLegend")}</div>
               </div>
             </div>
           </>
@@ -475,7 +477,7 @@ export default function HistoryPage() {
 
       <div className="card">
         <Link href="/standup/profile" className="btn">
-          ← Back to Profile
+          {t("history.backToProfile")}
         </Link>
       </div>
     </div>

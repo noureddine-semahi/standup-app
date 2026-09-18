@@ -11,10 +11,13 @@
 -- earlier today -- expected and fine, this is same-day pre-production
 -- testing, not real user data.
 
+-- Table first (cascades its own policies, which is what depends on
+-- plan_glimpse_visible_to below) -- dropping the function first fails,
+-- since glimpse_reactions_insert_viewer still references it.
+drop table if exists public.glimpse_reactions cascade;
 drop function if exists public.get_published_glimpse(uuid, date);
 drop function if exists public.get_public_feed(date, int);
 drop function if exists public.plan_glimpse_visible_to(uuid, date);
-drop table if exists public.glimpse_reactions cascade;
 alter table public.daily_plans drop constraint if exists daily_plans_publish_pair_check;
 alter table public.daily_plans drop column if exists published_at;
 alter table public.daily_plans drop column if exists published_visibility;

@@ -295,6 +295,31 @@ export const en = {
   "today.refresh": "Refresh",
   "today.movedToBacklog": "Moved to Backlog ✓",
   "today.goalRescheduled": "Goal rescheduled successfully ✓",
+
+  // Calendar date-detail page (mostly shares Tomorrow's/Today's keys above)
+  "datePage.maxGoalsFocused": "Max {max} goals — keep this day focused.",
+  "datePage.needThreeGoalsForDate": "{date} requires at least 3 goals. Fill in the first 3 goals before submitting.",
+  "datePage.submittedForDatePoints": "Plan for {date} submitted ✅ +{points} pts",
+  "datePage.submittedForDate": "Plan for {date} submitted ✅",
+  "datePage.confirmClearDay": "Mark {date} as cleared? This day can't be reviewed retroactively — this just dismisses it from the \"Missed\" list on your Calendar.",
+  "datePage.clearedMarked": "{date} marked as cleared.",
+  "datePage.failedClearDay": "Failed to clear this day.",
+  "datePage.goalsFor": "Goals for {date}",
+  "datePage.pastDayViewOnly": "This day has passed — view only. Re-attempt a goal to bring it forward to a future date.",
+  "datePage.neverReviewedMissed": "⚠️ This day was never reviewed — it shows as \"Missed\" on your Calendar.",
+  "datePage.clearedOn": "✅ Cleared on {date}.",
+  "datePage.reattemptWholeDay": "🔁 Re-attempt whole day",
+  "datePage.clearing": "Clearing…",
+  "datePage.clearThisDay": "Clear this day",
+  "datePage.noGoalsPlanned": "No goals were planned for this day.",
+  "datePage.reattempt": "🔁 Re-attempt",
+  "datePage.goalRescheduledPlain": "Goal rescheduled ✓",
+  "datePage.previousActions.one": "💬 {count} previous action",
+  "datePage.previousActions.other": "💬 {count} previous actions",
+  "datePage.submitUnlocksEvening": "Submit unlocks the evening before this date ({date}) — draft and save freely until then",
+  "datePage.planSubmittedBtn": "✅ Plan submitted",
+  "datePage.submitPlanBtn": "Submit plan",
+  "datePage.lockedSubmitMsgFuture": "🔒 Submitting opens the evening before this date ({date}). You can still save this as a draft any time before then.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

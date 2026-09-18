@@ -7,6 +7,7 @@ import {
   uploadGoalAttachment,
   type GoalAttachment,
 } from "@/lib/supabase/db";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -37,6 +38,7 @@ export default function GoalAttachments({
   // controls rather than stacked in its own block.
   compact?: boolean;
 }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(items.length > 0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export default function GoalAttachments({
       onItemsChange([...items, created]);
       setExpanded(true);
     } catch (err: any) {
-      setError(err?.message ?? "Upload failed");
+      setError(err?.message ?? t("attachments.uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -82,7 +84,7 @@ export default function GoalAttachments({
       const url = await getAttachmentUrl(item.storage_path);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch {
-      setError("Couldn't open file — try again.");
+      setError(t("attachments.openFailed"));
     } finally {
       setOpeningId(null);
     }
@@ -111,7 +113,7 @@ export default function GoalAttachments({
           className="btn"
           style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
         >
-          + Files{items.length > 0 ? ` (${items.length})` : ""}
+          {t("attachments.toggleCompact")}{items.length > 0 ? ` (${items.length})` : ""}
         </button>
       ) : (
         <button
@@ -119,7 +121,7 @@ export default function GoalAttachments({
           onClick={() => setExpanded((v) => !v)}
           className="text-xs text-white/50 hover:text-white/80 transition"
         >
-          {expanded ? "▾" : "▸"} Files{items.length > 0 ? ` (${items.length})` : ""}
+          {expanded ? "▾" : "▸"} {t("attachments.toggle")}{items.length > 0 ? ` (${items.length})` : ""}
         </button>
       )}
 
@@ -135,7 +137,7 @@ export default function GoalAttachments({
                 className="flex-1 min-w-0 text-left text-sm text-white/85 hover:text-white truncate underline decoration-white/20 underline-offset-2"
                 title={item.file_name}
               >
-                {openingId === item.id ? "Opening…" : item.file_name}
+                {openingId === item.id ? t("attachments.opening") : item.file_name}
               </button>
               <span className="flex-shrink-0 text-[10px] text-white/40">{formatBytes(item.size_bytes)}</span>
               {!readOnly && (
@@ -144,7 +146,7 @@ export default function GoalAttachments({
                   onClick={() => handleDelete(item)}
                   disabled={busyIds.has(item.id)}
                   className="flex-shrink-0 text-white/30 hover:text-white/70 text-xs"
-                  title="Remove file"
+                  title={t("attachments.removeFile")}
                 >
                   ✕
                 </button>
@@ -152,7 +154,7 @@ export default function GoalAttachments({
             </div>
           ))}
 
-          {items.length === 0 && <div className="text-xs text-white/40 italic">No files yet.</div>}
+          {items.length === 0 && <div className="text-xs text-white/40 italic">{t("attachments.noFilesYet")}</div>}
 
           {!readOnly && (
             <div className="mt-1.5">
@@ -171,9 +173,9 @@ export default function GoalAttachments({
                 className="btn"
                 style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
               >
-                {uploading ? "Uploading…" : "+ Add file"}
+                {uploading ? t("attachments.uploading") : t("attachments.addFile")}
               </button>
-              <div className="mt-1 text-[10px] text-white/35">Images or PDF, up to 5MB.</div>
+              <div className="mt-1 text-[10px] text-white/35">{t("attachments.hint")}</div>
               {error && <div className="mt-1 text-[10px] text-red-400">{error}</div>}
             </div>
           )}

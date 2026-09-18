@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type BlockedReasonModalProps = {
   goalTitle: string;
@@ -13,6 +14,7 @@ type BlockedReasonModalProps = {
 
 /** Required-reason prompt shown before a goal is marked Blocked — the reason is saved as a real note on the goal's timeline, so a blocked goal always explains itself later. */
 export default function BlockedReasonModal({ goalTitle, saving, error, onCancel, onConfirm }: BlockedReasonModalProps) {
+  const { t } = useLanguage();
   const [reason, setReason] = useState("");
   const [mounted, setMounted] = useState(false);
 
@@ -49,16 +51,16 @@ export default function BlockedReasonModal({ goalTitle, saving, error, onCancel,
         style={{ maxWidth: "480px", width: "100%", position: "relative", zIndex: 10000 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-bold mb-1">What's blocking this?</h2>
+        <h2 className="text-xl font-bold mb-1">{t("blocked.title")}</h2>
         <p className="mt-1 text-sm text-white/70">
-          "{goalTitle}" will be marked Blocked. The reason is saved to this goal's timeline.
+          {t("blocked.bodyPart1")}{goalTitle}{t("blocked.bodyPart2")}
         </p>
 
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           disabled={saving}
-          placeholder="e.g. Waiting on approval from..."
+          placeholder={t("blocked.reasonPlaceholder")}
           autoFocus
           className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
           rows={3}
@@ -76,10 +78,10 @@ export default function BlockedReasonModal({ goalTitle, saving, error, onCancel,
             disabled={saving || !reason.trim()}
             className="btn btn-primary flex-1"
           >
-            {saving ? "Saving…" : "Mark Blocked"}
+            {saving ? t("blocked.saving") : t("blocked.markBlocked")}
           </button>
           <button onClick={onCancel} disabled={saving} className="btn btn-ghost">
-            Cancel
+            {t("blocked.cancel")}
           </button>
         </div>
       </div>

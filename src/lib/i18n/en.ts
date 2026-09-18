@@ -788,6 +788,98 @@ export const en = {
   "landing.step2Body": "Each morning, review yesterday's goals. Update status, add notes, close out the day.",
   "landing.step3Title": "Build Momentum",
   "landing.step3Body": "Earn points, track streaks, and watch your daily execution habit strengthen over time.",
+
+  // GoalChecklist (shared component)
+  "checklist.toggleCompact": "+ Checklist",
+  "checklist.toggle": "Checklist",
+  "checklist.noItemsYet": "No items yet.",
+  "checklist.addPlaceholder": "Add item…",
+  "checklist.adding": "Adding…",
+  "checklist.add": "Add",
+  "checklist.removeItem": "Remove item",
+
+  // GoalAttachments (shared component)
+  "attachments.toggleCompact": "+ Files",
+  "attachments.toggle": "Files",
+  "attachments.noFilesYet": "No files yet.",
+  "attachments.opening": "Opening…",
+  "attachments.removeFile": "Remove file",
+  "attachments.uploading": "Uploading…",
+  "attachments.addFile": "+ Add file",
+  "attachments.hint": "Images or PDF, up to 5MB.",
+  "attachments.uploadFailed": "Upload failed",
+  "attachments.openFailed": "Couldn't open file — try again.",
+
+  // GoalTimeline (rendering component — shared by Today, past days, History)
+  "goalTimeline.toggle": "Actions & notes",
+  "goalTimeline.nothingRecorded": "Nothing recorded yet.",
+  "goalTimeline.note": "Note",
+  "goalTimeline.action": "Action",
+
+  // RescheduleModal
+  "reschedule.reattemptWholeDay": "Re-attempt Whole Day",
+  "reschedule.rescheduleGoal": "Reschedule Goal",
+  "reschedule.moveAllGoals": "Move all {count} goals to a future date",
+  "reschedule.moveThisGoal": "Move this goal to a future date",
+  "reschedule.goalsCountLabel": "{count} goals:",
+  "reschedule.goalLabel": "Goal:",
+  "reschedule.notSureWhen": "Not sure when you'll get to this?",
+  "reschedule.moveToBacklogHint": "Move it to your Backlog instead — no date needed. Notes, checklist items, and attached files won't carry over.",
+  "reschedule.moving": "Moving…",
+  "reschedule.moveToBacklogBtn": "🗒️ Move to Backlog",
+  "reschedule.rescheduleToLabel": "Reschedule to:",
+  "reschedule.selectADate": "Select a date...",
+  "reschedule.todaySuffix": " (Today)",
+  "reschedule.tomorrowSuffix": " (Tomorrow)",
+  "reschedule.reasonLabel": "Reason (optional):",
+  "reschedule.reasonPlaceholder": "Why are you rescheduling this goal?",
+  "reschedule.pleaseSelectDate": "Please select a date",
+  "reschedule.rescheduling": "Rescheduling...",
+  "reschedule.reattemptDay": "Re-attempt Day",
+  "reschedule.cancel": "Cancel",
+  "reschedule.failedReschedule": "Failed to reschedule",
+  "reschedule.failedMoveToBacklog": "Failed to move to Backlog",
+  "reschedule.bulkFooterNote": "All {count} goals will be marked as rescheduled and will appear automatically on the selected date.",
+  "reschedule.singleFooterNote": "The goal will be marked as rescheduled and will appear automatically on the selected date.",
+
+  // BlockedReasonModal
+  "blocked.title": "What's blocking this?",
+  "blocked.bodyPart1": "\"",
+  "blocked.bodyPart2": "\" will be marked Blocked. The reason is saved to this goal's timeline.",
+  "blocked.reasonPlaceholder": "e.g. Waiting on approval from...",
+  "blocked.saving": "Saving…",
+  "blocked.markBlocked": "Mark Blocked",
+  "blocked.cancel": "Cancel",
+
+  // AssistantPanel
+  "assistant.title": "🤖 Assistant",
+  "assistant.intro": "Add a goal or act on an existing one — e.g. \"add a goal to call the dentist tomorrow\" or \"mark my workout done.\"",
+  "assistant.listeningPlaceholder": "Listening…",
+  "assistant.inputPlaceholder": "What would you like to do?",
+  "assistant.stopListening": "Stop listening",
+  "assistant.speakInstead": "Speak instead of typing",
+  "assistant.thinking": "Thinking…",
+  "assistant.send": "Send",
+  "assistant.close": "Close",
+  "assistant.deleting": "Deleting…",
+  "assistant.yesDeleteIt": "Yes, delete it",
+  "assistant.cancel": "Cancel",
+  "assistant.notSignedIn": "Not signed in.",
+  "assistant.somethingWentWrong": "Something went wrong.",
+  "assistant.remainingActions": "{count} free actions left this month.",
+
+  // AuthGate
+  "authGate.failedLoadSession": "Failed to load your session.",
+  "authGate.retry": "Retry",
+  "authGate.loading": "Loading…",
+
+  // Global error / not-found pages
+  "errorPage.title": "Something went wrong",
+  "errorPage.unexpectedError": "An unexpected error occurred.",
+  "errorPage.tryAgain": "Try again",
+  "notFound.title": "Page not found",
+  "notFound.body": "The page you're looking for doesn't exist or was moved.",
+  "notFound.backHome": "Back home",
 } as const;
 
 export type TranslationKey = keyof typeof en;

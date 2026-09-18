@@ -7,6 +7,7 @@ import {
   toggleChecklistItem,
   type ChecklistItem,
 } from "@/lib/supabase/db";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /** A goal's optional sub-item list (e.g. a grocery list under "Go to HEB"). Shared by Today, Tomorrow, and the date detail page. */
 export default function GoalChecklist({
@@ -26,6 +27,7 @@ export default function GoalChecklist({
   // rather than stacked in its own block.
   compact?: boolean;
 }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(items.length > 0);
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
@@ -101,7 +103,7 @@ export default function GoalChecklist({
           className="btn"
           style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
         >
-          + Checklist{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+          {t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
         </button>
       ) : (
         <button
@@ -109,7 +111,7 @@ export default function GoalChecklist({
           onClick={() => setExpanded((v) => !v)}
           className="text-xs text-white/50 hover:text-white/80 transition"
         >
-          {expanded ? "▾" : "▸"} Checklist{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+          {expanded ? "▾" : "▸"} {t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
         </button>
       )}
 
@@ -139,7 +141,7 @@ export default function GoalChecklist({
                   onClick={() => handleDelete(item)}
                   disabled={busyIds.has(item.id)}
                   className="flex-shrink-0 text-white/30 hover:text-white/70 text-xs"
-                  title="Remove item"
+                  title={t("checklist.removeItem")}
                 >
                   ✕
                 </button>
@@ -147,7 +149,7 @@ export default function GoalChecklist({
             </div>
           ))}
 
-          {sorted.length === 0 && <div className="text-xs text-white/40 italic">No items yet.</div>}
+          {sorted.length === 0 && <div className="text-xs text-white/40 italic">{t("checklist.noItemsYet")}</div>}
 
           {!readOnly && (
             <div className="flex gap-2 mt-1.5">
@@ -161,7 +163,7 @@ export default function GoalChecklist({
                     handleAdd();
                   }
                 }}
-                placeholder="Add item…"
+                placeholder={t("checklist.addPlaceholder")}
                 disabled={adding}
                 className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
               />
@@ -172,7 +174,7 @@ export default function GoalChecklist({
                 className="btn"
                 style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
               >
-                {adding ? "Adding…" : "Add"}
+                {adding ? t("checklist.adding") : t("checklist.add")}
               </button>
             </div>
           )}

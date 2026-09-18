@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage();
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         // local auth token, Supabase outage) left the app stuck on the
         // spinner below forever, with zero feedback and no way to retry.
         if (!mounted) return;
-        setError(e?.message ?? "Failed to load your session.");
+        setError(e?.message ?? t("authGate.failedLoadSession"));
       }
     })();
 
@@ -46,7 +48,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         <div className="card text-center">
           <p className="text-white/80 mb-3">{error}</p>
           <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
-            Retry
+            {t("authGate.retry")}
           </button>
         </div>
       </div>
@@ -56,7 +58,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="card">Loading…</div>
+        <div className="card">{t("authGate.loading")}</div>
       </div>
     );
   }

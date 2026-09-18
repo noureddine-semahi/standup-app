@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
 import type { TimelineEntry } from "@/lib/goalTimeline";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 /** Renders a goal's chronological history/notes list with a collapse toggle. Shared by Review Today, a past day's archive view, and the Data & Metrics goal lists. */
 export default function GoalTimeline({
@@ -12,6 +13,7 @@ export default function GoalTimeline({
   entries: TimelineEntry[];
   defaultExpanded?: boolean;
 }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
@@ -21,13 +23,13 @@ export default function GoalTimeline({
         onClick={() => setExpanded((v) => !v)}
         className="text-xs text-white/50 hover:text-white/80 transition"
       >
-        {expanded ? "▾" : "▸"} Actions &amp; notes{entries.length > 0 ? ` (${entries.length})` : ""}
+        {expanded ? "▾" : "▸"} {t("goalTimeline.toggle")}{entries.length > 0 ? ` (${entries.length})` : ""}
       </button>
 
       {expanded && (
         <div className="mt-2 space-y-2">
           {entries.length === 0 ? (
-            <div className="text-xs text-white/40 italic">Nothing recorded yet.</div>
+            <div className="text-xs text-white/40 italic">{t("goalTimeline.nothingRecorded")}</div>
           ) : (
             entries.map((e) => (
               <div key={e.key} className="flex items-start gap-2">
@@ -40,7 +42,7 @@ export default function GoalTimeline({
                     color: e.kind === "note" ? "#67e8f9" : "rgba(var(--tint-rgb), 0.5)",
                   }}
                 >
-                  {e.kind === "note" ? "Note" : "Action"}
+                  {e.kind === "note" ? t("goalTimeline.note") : t("goalTimeline.action")}
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white/70">{e.label}</div>

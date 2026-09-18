@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { toISODate, addDays, rescheduleGoalToDate, moveGoalToBacklog, type Goal } from "@/lib/supabase/db";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type RescheduleModalProps = {
   goals: Goal[];
@@ -11,6 +12,7 @@ type RescheduleModalProps = {
 };
 
 export default function RescheduleModal({ goals, onClose, onSuccess }: RescheduleModalProps) {
+  const { t, language } = useLanguage();
   const isBulk = goals.length > 1;
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [reason, setReason] = useState<string>("");
@@ -32,22 +34,23 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
   const dateOptions: { value: string; label: string }[] = [];
   const today = new Date();
   
+  const dateLocale = language === "es" ? "es-ES" : "en-US";
   for (let i = 0; i <= 30; i++) {
     const date = addDays(today, i);
     const isoDate = toISODate(date);
-    const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
-    const monthDay = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    
+    const dayName = date.toLocaleDateString(dateLocale, { weekday: "short" });
+    const monthDay = date.toLocaleDateString(dateLocale, { month: "short", day: "numeric" });
+
     let label = `${dayName}, ${monthDay}`;
-    if (i === 0) label += " (Today)";
-    if (i === 1) label += " (Tomorrow)";
-    
+    if (i === 0) label += t("reschedule.todaySuffix");
+    if (i === 1) label += t("reschedule.tomorrowSuffix");
+
     dateOptions.push({ value: isoDate, label });
   }
 
   async function handleReschedule() {
     if (!selectedDate) {
-      setError("Please select a date");
+      setError(t("reschedule.pleaseSelectDate"));
       return;
     }
 
@@ -70,7 +73,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
       onSuccess("rescheduled");
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? "Failed to reschedule");
+      setError(e?.message ?? t("reschedule.failedReschedule"));
       setSaving(false);
     }
   }
@@ -86,7 +89,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
       onSuccess("backlog");
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? "Failed to move to Backlog");
+      setError(e?.message ?? t("reschedule.failedMoveToBacklog"));
       setMovingToBacklog(false);
     }
   }
@@ -126,9 +129,9 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
       >
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h2 className="text-xl font-bold">{isBulk ? "Re-attempt Whole Day" : "Reschedule Goal"}</h2>
+            <h2 className="text-xl font-bold">{isBulk ? t("reschedule.reattemptWholeDay") : t("reschedule.rescheduleGoal")}</h2>
             <p className="mt-1 text-sm text-white/70">
-              {isBulk ? `Move all ${goals.length} goals to a future date` : "Move this goal to a future date"}
+              {isBulk ? t("reschedule.moveAllGoals", { count: goals.length }) : t("reschedule.moveThisGoal")}
             </p>
           </div>
           <button
@@ -150,7 +153,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
         </div>
 
         <div className="rounded-lg border border-white/10 bg-white/5 p-3 mb-4">
-          <div className="text-sm text-white/60">{isBulk ? `${goals.length} goals:` : "Goal:"}</div>
+          <div className="text-sm text-white/60">{isBulk ? t("reschedule.goalsCountLabel", { count: goals.length }) : t("reschedule.goalLabel")}</div>
           {isBulk ? (
             <ul className="mt-1 space-y-0.5">
               {goals.map((g) => (
@@ -168,10 +171,9 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
           {!isBulk && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
               <div>
-                <div className="text-sm text-white/80">Not sure when you'll get to this?</div>
+                <div className="text-sm text-white/80">{t("reschedule.notSureWhen")}</div>
                 <div className="mt-0.5 text-xs text-white/50">
-                  Move it to your Backlog instead — no date needed. Notes, checklist items, and
-                  attached files won't carry over.
+                  {t("reschedule.moveToBacklogHint")}
                 </div>
               </div>
               <button
@@ -181,14 +183,14 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
                 className="btn flex-shrink-0"
                 style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
               >
-                {movingToBacklog ? "Moving…" : "🗒️ Move to Backlog"}
+                {movingToBacklog ? t("reschedule.moving") : t("reschedule.moveToBacklogBtn")}
               </button>
             </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-white/80 mb-2">
-              Reschedule to:
+              {t("reschedule.rescheduleToLabel")}
             </label>
             <select
               value={selectedDate}
@@ -196,7 +198,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
               disabled={saving}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-white/25 disabled:opacity-50"
             >
-              <option value="">Select a date...</option>
+              <option value="">{t("reschedule.selectADate")}</option>
               {dateOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -207,13 +209,13 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
 
           <div>
             <label className="block text-sm font-medium text-white/80 mb-2">
-              Reason (optional):
+              {t("reschedule.reasonLabel")}
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               disabled={saving}
-              placeholder="Why are you rescheduling this goal?"
+              placeholder={t("reschedule.reasonPlaceholder")}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
               rows={3}
             />
@@ -231,22 +233,22 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
               disabled={saving || !selectedDate}
               className="btn btn-primary flex-1"
             >
-              {saving ? "Rescheduling..." : isBulk ? "Re-attempt Day" : "Reschedule Goal"}
+              {saving ? t("reschedule.rescheduling") : isBulk ? t("reschedule.reattemptDay") : t("reschedule.rescheduleGoal")}
             </button>
             <button
               onClick={onClose}
               disabled={saving}
               className="btn btn-ghost"
             >
-              Cancel
+              {t("reschedule.cancel")}
             </button>
           </div>
         </div>
 
         <div className="mt-4 text-xs text-white/50">
           {isBulk
-            ? `All ${goals.length} goals will be marked as rescheduled and will appear automatically on the selected date.`
-            : "The goal will be marked as rescheduled and will appear automatically on the selected date."}
+            ? t("reschedule.bulkFooterNote", { count: goals.length })
+            : t("reschedule.singleFooterNote")}
         </div>
       </div>
     </div>

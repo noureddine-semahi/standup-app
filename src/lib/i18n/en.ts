@@ -485,7 +485,9 @@ export const en = {
 
   // Achievement-unlocked modal
   "achievementModal.unlocked": "Achievement Unlocked",
-  "achievementModal.nice": "Nice! 🎉",
+  "achievementModal.sharePrompt": "Share this achievement?",
+  "achievementModal.sharing": "Sharing…",
+  "achievementModal.skip": "Skip",
 
   // Settings
   "settings.loading": "Loading settings…",
@@ -935,19 +937,19 @@ export const en = {
   "social.failedRespondRequest": "Failed to respond to request",
   "social.failedRemoveConnection": "Failed to remove connection",
 
-  // Glimpse sharing — Dashboard's Glimpses section
-  "dashboard.glimpsesTitle": "Glimpses",
-  "dashboard.glimpsesSubtitle": "What your connections are up to today.",
-  "dashboard.noGlimpsesToday": "No connections have shared today yet.",
+  // Glimpse sharing — used by PostCard's goal_glimpse rendering
   "dashboard.glimpseProgress": "{completed}/{total} done",
-  "dashboard.failedLoadGlimpses": "Failed to load glimpses",
 
   // Glimpse sharing — Social page's Public Feed section (Everyone tier)
-  "social.publicFeedTitle": "Public Feed",
-  "social.publicFeedSubtitle": "See what everyone's sharing publicly today.",
+  "social.publicFeedTitle": "Feed",
+  "social.publicFeedSubtitle": "Goals, achievements, and updates from your connections and beyond.",
   "social.noPublicPostsToday": "No one has shared publicly today yet.",
   "social.anonymousUser": "A StandUp user",
   "social.failedLoadFeed": "Failed to load the public feed",
+  "social.composerPlaceholder": "What's on your mind?",
+  "social.postButton": "Post",
+  "social.posting": "Posting…",
+  "social.failedPost": "Failed to post",
 } as const;
 
 export type TranslationKey = keyof typeof en;

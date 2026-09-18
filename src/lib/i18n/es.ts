@@ -483,7 +483,9 @@ export const es: Record<keyof typeof en, string> = {
 
   // Achievement-unlocked modal
   "achievementModal.unlocked": "Logro Desbloqueado",
-  "achievementModal.nice": "¡Genial! 🎉",
+  "achievementModal.sharePrompt": "¿Compartir este logro?",
+  "achievementModal.sharing": "Compartiendo…",
+  "achievementModal.skip": "Omitir",
 
   // Settings
   "settings.loading": "Cargando configuración…",
@@ -932,17 +934,17 @@ export const es: Record<keyof typeof en, string> = {
   "social.failedRespondRequest": "Error al responder a la solicitud",
   "social.failedRemoveConnection": "Error al eliminar la conexión",
 
-  // Glimpse sharing — Dashboard's Glimpses section
-  "dashboard.glimpsesTitle": "Vistazos",
-  "dashboard.glimpsesSubtitle": "Lo que tus conexiones están haciendo hoy.",
-  "dashboard.noGlimpsesToday": "Ninguna conexión ha compartido hoy todavía.",
+  // Glimpse sharing — used by PostCard's goal_glimpse rendering
   "dashboard.glimpseProgress": "{completed}/{total} completados",
-  "dashboard.failedLoadGlimpses": "Error al cargar los vistazos",
 
   // Glimpse sharing — Social page's Public Feed section (Everyone tier)
-  "social.publicFeedTitle": "Muro Público",
-  "social.publicFeedSubtitle": "Mira lo que todos están compartiendo públicamente hoy.",
+  "social.publicFeedTitle": "Muro",
+  "social.publicFeedSubtitle": "Objetivos, logros, y novedades de tus conexiones y más allá.",
   "social.noPublicPostsToday": "Nadie ha compartido públicamente hoy todavía.",
   "social.anonymousUser": "Un usuario de StandUp",
   "social.failedLoadFeed": "Error al cargar el muro público",
+  "social.composerPlaceholder": "¿Qué estás pensando?",
+  "social.postButton": "Publicar",
+  "social.posting": "Publicando…",
+  "social.failedPost": "Error al publicar",
 };

@@ -34,14 +34,6 @@ export type DailyPlan = {
   // the day the plan is reviewed/closed, not the day it was planned.
   planning_awarded?: boolean;
   planning_points?: number;
-
-  // Set when the owner publishes today's plan — makes this specific day's
-  // goal list (title/priority/status only) visible either to accepted
-  // connections or to any signed-in user, per published_visibility. Null
-  // on both columns means not shared at all (a DB constraint keeps them in
-  // sync — never one set without the other).
-  published_at?: string | null;
-  published_visibility?: "connections" | "everyone" | null;
 };
 
 export type Profile = {
@@ -94,9 +86,8 @@ export function connectionDisplayName(c: Pick<Connection, "otherDisplayName" | "
 
 export type GlimpseReaction = "like" | "support" | "fire" | "clap";
 
-// The limited slice of a connection's today goal exposed by
-// get_published_glimpse() — title/priority/status only, never
-// notes/checklist/attachments/details.
+// The limited slice of a goal exposed on a goal_glimpse post — title/
+// priority/status only, never notes/checklist/attachments/details.
 export type GlimpseGoal = {
   goal_id: string;
   title: string;
@@ -106,10 +97,30 @@ export type GlimpseGoal = {
   time_of_day: string | null;
 };
 
-export type GlimpseReactionReceived = {
-  viewer_id: string;
-  viewer_display_name: string | null;
-  reaction: GlimpseReaction;
+export type PostType = "goal_glimpse" | "achievement" | "motivational";
+export type PostVisibility = "connections" | "everyone";
+
+/**
+ * One feed item, as returned by get_feed() — a goal_glimpse post carries a
+ * live current goal list (not a snapshot: progress keeps updating as the
+ * owner works through their day), an achievement post carries just the id
+ * (title/description/icon resolve client-side from achievements.ts, since
+ * those are translation keys the server can't render), and a motivational
+ * post carries freeform text.
+ */
+export type Post = {
+  id: string;
+  userId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  type: PostType;
+  visibility: PostVisibility;
+  createdAt: string;
+  planDate: string | null;
+  achievementId: string | null;
+  body: string | null;
+  myReaction: GlimpseReaction | null;
+  goals: GlimpseGoal[] | null;
 };
 
 export type GoalNote = {
@@ -1796,180 +1807,129 @@ export async function removeConnection(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function publishTodayPlan(
+// ── Unified posts feed ────────────────────────────────────────────────
+
+/**
+ * Publishes (or re-publishes, changing visibility) today's goal list as a
+ * post. Goes through the upsert_daily_glimpse RPC rather than a plain
+ * client .upsert() -- PostgREST's upsert onConflict only supplies a
+ * column list, which can't target the partial unique index
+ * (posts_one_glimpse_per_day is scoped `where type = 'goal_glimpse'`, a
+ * predicate the JS client has no way to pass).
+ */
+export async function publishGoalGlimpse(
   planDateISO: string,
-  visibility: "connections" | "everyone"
+  visibility: PostVisibility
 ): Promise<void> {
   const plan = await getOrCreatePlan(planDateISO);
-  const { error } = await supabase
-    .from("daily_plans")
-    .update({ published_at: new Date().toISOString(), published_visibility: visibility })
-    .eq("id", plan.id);
-  if (error) throw error;
-}
-
-/** Clears both columns together -- a DB constraint requires them to be null/non-null in lockstep. */
-export async function unpublishTodayPlan(planDateISO: string): Promise<void> {
-  const plan = await getOrCreatePlan(planDateISO);
-  const { error } = await supabase
-    .from("daily_plans")
-    .update({ published_at: null, published_visibility: null })
-    .eq("id", plan.id);
-  if (error) throw error;
-}
-
-/** Empty array when not connected, or the owner hasn't published that date. */
-export async function getPublishedGlimpse(ownerId: string, planDateISO: string): Promise<GlimpseGoal[]> {
-  const { data, error } = await supabase.rpc("get_published_glimpse", {
-    p_owner_id: ownerId,
+  const { error } = await supabase.rpc("upsert_daily_glimpse", {
+    p_plan_id: plan.id,
     p_plan_date: planDateISO,
+    p_visibility: visibility,
   });
   if (error) throw error;
-  return (data ?? []) as GlimpseGoal[];
 }
 
-export type PublicFeedEntry = {
-  ownerId: string;
-  displayName: string | null;
-  goals: GlimpseGoal[];
-};
-
-/**
- * Every "Everyone"-visibility post for a date, grouped by owner. Capped at
- * 100 owners server-side (get_public_feed's default) -- an uncapped public
- * read with no per-caller connection gate is the kind of query worth
- * bounding up front, not after it becomes a problem.
- */
-export async function getPublicFeed(planDateISO: string): Promise<PublicFeedEntry[]> {
-  const { data, error } = await supabase.rpc("get_public_feed", { p_plan_date: planDateISO });
+export async function unpublishGoalGlimpse(planDateISO: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("posts")
+    .delete()
+    .eq("user_id", userId)
+    .eq("type", "goal_glimpse")
+    .eq("plan_date", planDateISO);
   if (error) throw error;
-
-  const byOwner = new Map<string, PublicFeedEntry>();
-  for (const row of (data ?? []) as Array<{
-    owner_id: string;
-    display_name: string | null;
-    goal_id: string;
-    title: string;
-    priority: number | null;
-    status: GoalStatus;
-    is_all_day: boolean | null;
-    time_of_day: string | null;
-  }>) {
-    let entry = byOwner.get(row.owner_id);
-    if (!entry) {
-      entry = { ownerId: row.owner_id, displayName: row.display_name, goals: [] };
-      byOwner.set(row.owner_id, entry);
-    }
-    entry.goals.push({
-      goal_id: row.goal_id,
-      title: row.title,
-      priority: row.priority,
-      status: row.status,
-      is_all_day: row.is_all_day,
-      time_of_day: row.time_of_day,
-    });
-  }
-  return [...byOwner.values()];
 }
 
 /**
- * One bulk lookup instead of N per-owner calls -- the public feed can have
- * up to 100 owners, and a round-trip per card is exactly the kind of
- * waterfall this app's perf pass just eliminated elsewhere.
+ * The owner's own publish state for a date -- always visible to them via
+ * posts' own RLS (`user_id = auth.uid()`), so this is a plain query, no
+ * RPC needed.
  */
-export async function getMyReactionsForOwners(
-  ownerIds: string[],
+export async function getMyGoalGlimpsePost(
   planDateISO: string
-): Promise<Record<string, GlimpseReaction>> {
-  if (ownerIds.length === 0) return {};
+): Promise<{ id: string; visibility: PostVisibility } | null> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
-    .from("glimpse_reactions")
-    .select("owner_id, reaction")
-    .eq("viewer_id", userId)
-    .eq("plan_date", planDateISO)
-    .in("owner_id", ownerIds);
-  if (error) throw error;
-
-  const byOwner: Record<string, GlimpseReaction> = {};
-  (data ?? []).forEach((r) => {
-    byOwner[r.owner_id] = r.reaction as GlimpseReaction;
-  });
-  return byOwner;
-}
-
-/** Pass reaction: null to remove the viewer's current reaction. */
-export async function setGlimpseReaction(
-  ownerId: string,
-  planDateISO: string,
-  reaction: GlimpseReaction | null
-): Promise<void> {
-  const userId = await getCurrentUserId();
-
-  if (reaction === null) {
-    const { error } = await supabase
-      .from("glimpse_reactions")
-      .delete()
-      .eq("owner_id", ownerId)
-      .eq("viewer_id", userId)
-      .eq("plan_date", planDateISO);
-    if (error) throw error;
-    return;
-  }
-
-  const { error } = await supabase.from("glimpse_reactions").upsert(
-    {
-      owner_id: ownerId,
-      viewer_id: userId,
-      plan_date: planDateISO,
-      reaction,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "owner_id,viewer_id,plan_date" }
-  );
-  if (error) throw error;
-}
-
-export async function getMyReactionForOwner(
-  ownerId: string,
-  planDateISO: string
-): Promise<GlimpseReaction | null> {
-  const userId = await getCurrentUserId();
-  const { data, error } = await supabase
-    .from("glimpse_reactions")
-    .select("reaction")
-    .eq("owner_id", ownerId)
-    .eq("viewer_id", userId)
+    .from("posts")
+    .select("id, visibility")
+    .eq("user_id", userId)
+    .eq("type", "goal_glimpse")
     .eq("plan_date", planDateISO)
     .maybeSingle();
   if (error) throw error;
-  return (data?.reaction as GlimpseReaction | undefined) ?? null;
+  return data ? { id: data.id, visibility: data.visibility as PostVisibility } : null;
 }
 
-/** Owner-side: who reacted to my plan on this date, and with what. */
-export async function getReactionsReceived(planDateISO: string): Promise<GlimpseReactionReceived[]> {
+/**
+ * Auto-posted the moment an achievement unlocks (see AchievementUnlockedModal),
+ * once the user picks a visibility rather than skipping. The unique index
+ * on (user_id, achievement_id) is what makes this safe to call from a
+ * second device without duplicating the post -- unlock detection itself
+ * is per-device (localStorage), so this can't be the source of truth for
+ * "already posted"; the DB constraint is.
+ */
+export async function createAchievementPost(achievementId: string, visibility: PostVisibility): Promise<void> {
   const userId = await getCurrentUserId();
-  const { data: rows, error } = await supabase
-    .from("glimpse_reactions")
-    .select("viewer_id, reaction")
-    .eq("owner_id", userId)
-    .eq("plan_date", planDateISO);
+  const { error } = await supabase
+    .from("posts")
+    .insert({ user_id: userId, type: "achievement", achievement_id: achievementId, visibility });
+  if (error && error.code !== "23505") throw error;
+}
+
+const MOTIVATIONAL_POST_MAX_LENGTH = 280;
+
+export async function createMotivationalPost(body: string, visibility: PostVisibility): Promise<void> {
+  const userId = await getCurrentUserId();
+  const trimmed = body.trim().slice(0, MOTIVATIONAL_POST_MAX_LENGTH);
+  if (!trimmed) return;
+  const { error } = await supabase.from("posts").insert({ user_id: userId, type: "motivational", body: trimmed, visibility });
   if (error) throw error;
-  if (!rows || rows.length === 0) return [];
+}
 
-  const viewerIds = [...new Set(rows.map((r) => r.viewer_id))];
-  const { data: profileRows, error: profileErr } = await supabase
-    .from("profiles")
-    .select("id, display_name")
-    .in("id", viewerIds);
-  if (profileErr) throw profileErr;
-  const nameById = new Map((profileRows ?? []).map((p) => [p.id, p.display_name as string | null]));
+type FeedRow = {
+  post_id: string;
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  type: PostType;
+  visibility: PostVisibility;
+  created_at: string;
+  plan_date: string | null;
+  achievement_id: string | null;
+  body: string | null;
+  my_reaction: GlimpseReaction | null;
+  goals: GlimpseGoal[] | null;
+};
 
-  return rows.map((r) => ({
-    viewer_id: r.viewer_id,
-    viewer_display_name: nameById.get(r.viewer_id) ?? null,
-    reaction: r.reaction as GlimpseReaction,
+/** The visibility-filtered feed (own posts + everyone + connections-visible), newest first. */
+export async function getFeed(before?: string): Promise<Post[]> {
+  const { data, error } = await supabase.rpc("get_feed", {
+    p_limit: 30,
+    p_before: before ?? null,
+  });
+  if (error) throw error;
+
+  return ((data ?? []) as FeedRow[]).map((r) => ({
+    id: r.post_id,
+    userId: r.user_id,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url,
+    type: r.type,
+    visibility: r.visibility,
+    createdAt: r.created_at,
+    planDate: r.plan_date,
+    achievementId: r.achievement_id,
+    body: r.body,
+    myReaction: r.my_reaction,
+    goals: r.goals,
   }));
+}
+
+/** Pass reaction: null to remove the viewer's current reaction. */
+export async function setPostReaction(postId: string, reaction: GlimpseReaction | null): Promise<void> {
+  const { error } = await supabase.rpc("set_post_reaction", { p_post_id: postId, p_reaction: reaction });
+  if (error) throw error;
 }
 
 export async function markShared() {

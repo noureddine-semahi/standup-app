@@ -4,7 +4,7 @@ import { GLIMPSE_REACTIONS } from "@/lib/glimpseReactions";
 import type { GlimpseReaction } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
-/** The 4 fixed reaction buttons, shared by GlimpseCard and PublicFeedCard. */
+/** The 4 fixed reaction buttons, shared by every PostCard. */
 export default function GlimpseReactionPicker({
   myReaction,
   reacting,

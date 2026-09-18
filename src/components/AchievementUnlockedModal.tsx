@@ -3,18 +3,22 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { AchievementDef } from "@/lib/achievements";
+import type { PostVisibility } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
-/** Full-screen "just unlocked" celebration for a single achievement — the Dashboard queues these one at a time when getLifetimeStats() crosses a threshold it hasn't shown before. See markAchievementSeen/getSeenAchievementIds in the Dashboard page for why an achievement only ever shows here once. */
+/** Full-screen "just unlocked" celebration for a single achievement — the Dashboard queues these one at a time when getLifetimeStats() crosses a threshold it hasn't shown before. See markAchievementSeen/getSeenAchievementIds in the Dashboard page for why an achievement only ever shows here once. Offers sharing it to the feed right in this same moment rather than as a separate step. */
 export default function AchievementUnlockedModal({
   achievement,
   onDismiss,
+  onShare,
 }: {
   achievement: AchievementDef;
   onDismiss: () => void;
+  onShare: (visibility: PostVisibility) => void;
 }) {
   const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -23,6 +27,12 @@ export default function AchievementUnlockedModal({
       document.body.style.overflow = "unset";
     };
   }, []);
+
+  function handleShare(visibility: PostVisibility) {
+    if (sharing) return;
+    setSharing(true);
+    onShare(visibility);
+  }
 
   const modalContent = (
     <div
@@ -41,7 +51,7 @@ export default function AchievementUnlockedModal({
         justifyContent: "center",
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onDismiss();
+        if (e.target === e.currentTarget && !sharing) onDismiss();
       }}
     >
       <div
@@ -61,8 +71,30 @@ export default function AchievementUnlockedModal({
         <div className="text-6xl mb-4">{achievement.icon}</div>
         <h2 className="text-2xl font-bold mb-2">{t(achievement.titleKey)}</h2>
         <p className="text-sm text-white/70 mb-6">{t(achievement.descriptionKey)}</p>
-        <button onClick={onDismiss} className="btn btn-primary w-full">
-          {t("achievementModal.nice")}
+
+        <p className="text-xs text-white/50 mb-2">{t("achievementModal.sharePrompt")}</p>
+        <div className="flex gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => handleShare("connections")}
+            disabled={sharing}
+            className="btn flex-1"
+            style={{ padding: "0.5rem", fontSize: "0.8rem" }}
+          >
+            {t("today.publishConnectionsBtn")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleShare("everyone")}
+            disabled={sharing}
+            className="btn flex-1"
+            style={{ padding: "0.5rem", fontSize: "0.8rem" }}
+          >
+            {t("today.publishEveryoneBtn")}
+          </button>
+        </div>
+        <button onClick={onDismiss} disabled={sharing} className="btn btn-primary w-full">
+          {sharing ? t("achievementModal.sharing") : t("achievementModal.skip")}
         </button>
       </div>
     </div>

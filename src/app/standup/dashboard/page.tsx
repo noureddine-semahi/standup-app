@@ -12,13 +12,12 @@ import {
   getOverdueSummary,
   getLifetimeStats,
   hoursUntilMidnight,
-  listConnections,
-  connectionDisplayName,
+  createAchievementPost,
   type Goal,
   type Profile,
   type DailyPlan,
   type OverdueSummary,
-  type Connection,
+  type PostVisibility,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -28,7 +27,6 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import ProgressCircle from "@/components/ProgressCircle";
 import AssistantPanel from "@/components/AssistantPanel";
 import AchievementUnlockedModal from "@/components/AchievementUnlockedModal";
-import GlimpseCard from "@/components/GlimpseCard";
 import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS, type AchievementDef, type AchievementStats } from "@/lib/achievements";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -139,21 +137,6 @@ export default function DashboardPage() {
   const [overdue, setOverdue] = useState<OverdueSummary>({ count: 0, oldestDate: null });
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
 
-  const [connections, setConnections] = useState<Connection[]>([]);
-  // Each GlimpseCard reports in once it knows whether it has anything to
-  // show — lets the empty-state message distinguish "still checking" from
-  // "checked every connection, none have published today".
-  const [visibleGlimpseIds, setVisibleGlimpseIds] = useState<Set<string>>(new Set());
-  const [reportedGlimpseIds, setReportedGlimpseIds] = useState<Set<string>>(new Set());
-  function handleGlimpseVisibleChange(ownerId: string, visible: boolean) {
-    setReportedGlimpseIds((prev) => new Set(prev).add(ownerId));
-    setVisibleGlimpseIds((prev) => {
-      const next = new Set(prev);
-      if (visible) next.add(ownerId);
-      else next.delete(ownerId);
-      return next;
-    });
-  }
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
   // Welcome banner for brand-new accounts — dismissal is remembered per
@@ -183,6 +166,18 @@ export default function DashboardPage() {
       saveSeenAchievementIds(user.id, seen);
     }
     setPendingAchievements((prev) => prev.filter((a) => a.id !== achievement.id));
+  }
+
+  // The unique index on (user_id, achievement_id) makes this safe to call
+  // even if this same unlock was already posted from another device --
+  // createAchievementPost swallows the resulting duplicate-key error.
+  async function shareAchievement(achievement: AchievementDef, visibility: PostVisibility) {
+    try {
+      await createAchievementPost(achievement.id, visibility);
+    } catch {
+      // Non-fatal — a failed share shouldn't block dismissing the popup.
+    }
+    dismissAchievement(achievement);
   }
 
   useEffect(() => {
@@ -216,10 +211,6 @@ export default function DashboardPage() {
 
         getOverdueSummary(todayISO)
           .then(setOverdue)
-          .catch(() => {});
-
-        listConnections()
-          .then((rows) => setConnections(rows.filter((c) => c.status === "accepted")))
           .catch(() => {});
 
         // Achievement "just unlocked" popup — compares the current unlocked
@@ -914,34 +905,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Glimpses — connections who published today, read-only preview
-            plus a reaction. Each GlimpseCard self-fetches and renders
-            nothing until it has something to show, so this section only
-            appears once at least one has actually published. */}
-        {connections.length > 0 && (
-          <div className="card card-highlight">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">{t("dashboard.glimpsesTitle")}</h2>
-              <p className="mt-1 text-sm text-white/60">{t("dashboard.glimpsesSubtitle")}</p>
-            </div>
-            {reportedGlimpseIds.size >= connections.length && visibleGlimpseIds.size === 0 ? (
-              <p className="text-sm text-white/50">{t("dashboard.noGlimpsesToday")}</p>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {connections.map((c) => (
-                  <GlimpseCard
-                    key={c.id}
-                    ownerId={c.otherUserId}
-                    displayName={connectionDisplayName(c)}
-                    planDateISO={todayISO}
-                    onVisibleChange={handleGlimpseVisibleChange}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Quick Actions (unchanged) */}
         <div
           className="card card-highlight"
@@ -983,6 +946,7 @@ export default function DashboardPage() {
           <AchievementUnlockedModal
             achievement={pendingAchievements[0]}
             onDismiss={() => dismissAchievement(pendingAchievements[0])}
+            onShare={(visibility) => shareAchievement(pendingAchievements[0], visibility)}
           />
         )}
       </div>

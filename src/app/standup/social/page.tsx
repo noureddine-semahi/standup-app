@@ -1,25 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   listConnections,
   sendConnectionRequest,
   respondToConnectionRequest,
   removeConnection,
   connectionDisplayName,
-  getPublicFeed,
-  getMyReactionsForOwners,
-  toISODate,
+  getFeed,
+  createMotivationalPost,
   type Connection,
-  type PublicFeedEntry,
-  type GlimpseReaction,
+  type Post,
+  type PostVisibility,
 } from "@/lib/supabase/db";
-import PublicFeedCard from "@/components/PublicFeedCard";
+import PostCard from "@/components/PostCard";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+
+const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 
 export default function SocialPage() {
   const { t } = useLanguage();
-  const todayISO = useMemo(() => toISODate(new Date()), []);
   const [loading, setLoading] = useState(true);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connError, setConnError] = useState<string | null>(null);
@@ -30,10 +30,14 @@ export default function SocialPage() {
   // block interaction with the others while its request is in flight.
   const [busyConnectionIds, setBusyConnectionIds] = useState<Set<string>>(new Set());
 
-  const [feed, setFeed] = useState<PublicFeedEntry[]>([]);
-  const [feedReactions, setFeedReactions] = useState<Record<string, GlimpseReaction>>({});
+  const [feed, setFeed] = useState<Post[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(true);
+
+  const [postBody, setPostBody] = useState("");
+  const [postVisibility, setPostVisibility] = useState<PostVisibility>("connections");
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
 
   function refreshConnections() {
     return listConnections()
@@ -43,13 +47,8 @@ export default function SocialPage() {
 
   function refreshFeed() {
     setFeedLoading(true);
-    return getPublicFeed(todayISO)
-      .then(async (entries) => {
-        setFeed(entries);
-        const ownerIds = entries.map((e) => e.ownerId);
-        const reactions = await getMyReactionsForOwners(ownerIds, todayISO);
-        setFeedReactions(reactions);
-      })
+    return getFeed()
+      .then(setFeed)
       .catch((e: any) => setFeedError(e?.message ?? t("social.failedLoadFeed")))
       .finally(() => setFeedLoading(false));
   }
@@ -116,6 +115,22 @@ export default function SocialPage() {
     }
   }
 
+  async function handlePost() {
+    const trimmed = postBody.trim();
+    if (!trimmed || posting) return;
+    setPosting(true);
+    setPostError(null);
+    try {
+      await createMotivationalPost(trimmed, postVisibility);
+      setPostBody("");
+      await refreshFeed();
+    } catch (e: any) {
+      setPostError(e?.message ?? t("social.failedPost"));
+    } finally {
+      setPosting(false);
+    }
+  }
+
   if (loading) {
     return <div className="card">{t("dashboard.loading")}</div>;
   }
@@ -125,14 +140,87 @@ export default function SocialPage() {
   const accepted = connections.filter((c) => c.status === "accepted");
 
   return (
-    <div className="card card-highlight">
-      <div className="mb-8">
+    <div className="space-y-6">
+      <div className="card card-highlight">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("social.title")}</h1>
         <p className="text-white/70">{t("social.subtitle")}</p>
       </div>
 
+      {/* Composer — a motivational post is the one content type a user
+          writes themselves; goal glimpses come from Today's Publish
+          buttons, achievements auto-post on unlock. */}
+      <div className="card card-highlight">
+        <textarea
+          value={postBody}
+          onChange={(e) => setPostBody(e.target.value.slice(0, MOTIVATIONAL_POST_MAX_LENGTH))}
+          placeholder={t("social.composerPlaceholder")}
+          disabled={posting}
+          rows={3}
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
+        />
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPostVisibility("connections")}
+              className="btn"
+              style={{
+                padding: "0.3rem 0.6rem",
+                fontSize: "0.75rem",
+                background: postVisibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                borderColor: postVisibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
+              }}
+            >
+              {t("today.publishConnectionsBtn")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPostVisibility("everyone")}
+              className="btn"
+              style={{
+                padding: "0.3rem 0.6rem",
+                fontSize: "0.75rem",
+                background: postVisibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                borderColor: postVisibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
+              }}
+            >
+              {t("today.publishEveryoneBtn")}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handlePost}
+            disabled={posting || !postBody.trim()}
+            className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
+          >
+            {posting ? t("social.posting") : t("social.postButton")}
+          </button>
+        </div>
+        {postError && <p className="mt-2 text-xs text-red-300">{postError}</p>}
+      </div>
+
+      {/* Feed — every post type (goal glimpses, achievements, motivational)
+          the viewer is allowed to see, newest first. */}
+      <div className="card card-highlight">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">{t("social.publicFeedTitle")}</h2>
+          <p className="mt-1 text-sm text-white/60">{t("social.publicFeedSubtitle")}</p>
+        </div>
+        {feedError && <p className="mb-3 text-xs text-red-300">{feedError}</p>}
+        {!feedLoading && feed.length === 0 ? (
+          <p className="text-sm text-white/50">{t("social.noPublicPostsToday")}</p>
+        ) : (
+          <div className="space-y-3">
+            {feed.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Connections — email request/accept. */}
       <div
-        className="rounded-2xl p-5"
+        className="card"
         style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
       >
         <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
@@ -253,32 +341,6 @@ export default function SocialPage() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Public Feed — every "Everyone"-visibility post today, from any
-          user, not just accepted connections. */}
-      <div className="mt-6">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">{t("social.publicFeedTitle")}</h2>
-          <p className="mt-1 text-sm text-white/60">{t("social.publicFeedSubtitle")}</p>
-        </div>
-        {feedError && <p className="mb-3 text-xs text-red-300">{feedError}</p>}
-        {!feedLoading && feed.length === 0 ? (
-          <p className="text-sm text-white/50">{t("social.noPublicPostsToday")}</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {feed.map((entry) => (
-              <PublicFeedCard
-                key={entry.ownerId}
-                ownerId={entry.ownerId}
-                displayName={entry.displayName ?? t("social.anonymousUser")}
-                goals={entry.goals}
-                planDateISO={todayISO}
-                initialReaction={feedReactions[entry.ownerId] ?? null}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

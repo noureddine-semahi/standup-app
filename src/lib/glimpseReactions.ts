@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { setGlimpseReaction, type GlimpseReaction } from "@/lib/supabase/db";
+import { setPostReaction, type GlimpseReaction } from "@/lib/supabase/db";
 import type { TranslationKey } from "@/lib/i18n/en";
 
 export const GLIMPSE_REACTIONS: { value: GlimpseReaction; emoji: string; labelKey: TranslationKey }[] = [
@@ -14,20 +14,18 @@ export function glimpseReactionEmoji(reaction: GlimpseReaction): string {
 }
 
 /**
- * Owns the optimistic-update state machine for one owner/date's reaction —
- * shared by GlimpseCard (self-fetches its own initial reaction) and
- * PublicFeedCard (initial reaction comes from a bulk fetch) so a fix here
- * applies to both instead of two independently-maintained copies.
- * Does NOT fetch the initial value itself; the caller supplies it however
- * fits its own data-loading shape.
+ * Owns the optimistic-update state machine for one post's reaction — every
+ * PostCard uses this so a fix here applies everywhere instead of several
+ * independently-maintained copies. Does NOT fetch the initial value itself;
+ * the caller supplies it (the feed already returns each post's
+ * myReaction in one call).
  */
-export function useGlimpseReaction(ownerId: string, planDateISO: string, initialReaction: GlimpseReaction | null) {
+export function usePostReaction(postId: string, initialReaction: GlimpseReaction | null) {
   const [myReaction, setMyReaction] = useState(initialReaction);
   const [reacting, setReacting] = useState(false);
 
   // Keeps this in sync if the parent re-fetches with a different initial
-  // value (e.g. a bulk reaction fetch resolving after this card already
-  // mounted with null).
+  // value (e.g. a feed refresh).
   useEffect(() => {
     setMyReaction(initialReaction);
   }, [initialReaction]);
@@ -39,7 +37,7 @@ export function useGlimpseReaction(ownerId: string, planDateISO: string, initial
     setReacting(true);
     setMyReaction(next);
     try {
-      await setGlimpseReaction(ownerId, planDateISO, next);
+      await setPostReaction(postId, next);
     } catch {
       setMyReaction(prev);
     } finally {

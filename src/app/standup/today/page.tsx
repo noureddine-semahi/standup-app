@@ -30,20 +30,19 @@ import {
   formatTimeOfDay,
   formatDateTimeDisplay,
   upsertGoals,
-  publishTodayPlan,
-  unpublishTodayPlan,
-  getReactionsReceived,
+  publishGoalGlimpse,
+  unpublishGoalGlimpse,
+  getMyGoalGlimpsePost,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
   type GoalAttachment,
   type GoalStatus,
-  type GlimpseReactionReceived,
+  type PostVisibility,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
-import { glimpseReactionEmoji } from "@/lib/glimpseReactions";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -141,7 +140,7 @@ export default function TodayPage() {
   const [blockingError, setBlockingError] = useState<string | null>(null);
   const [reopening, setReopening] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [reactionsReceived, setReactionsReceived] = useState<GlimpseReactionReceived[]>([]);
+  const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility } | null>(null);
 
   // Notes + the derived history facts render as one merged timeline below
   // the goal now (see the entries computation in the render below) instead
@@ -212,25 +211,26 @@ export default function TodayPage() {
 
   const locked = plan?.status === "locked";
   const dayClosed = !!plan?.reviewed_at;
-  const published = !!plan?.published_at;
+  const published = !!myGlimpsePost;
+
+  function refreshGlimpsePost() {
+    return getMyGoalGlimpsePost(todayISO)
+      .then(setMyGlimpsePost)
+      .catch(() => {});
+  }
 
   useEffect(() => {
-    if (!published) {
-      setReactionsReceived([]);
-      return;
-    }
-    getReactionsReceived(todayISO)
-      .then(setReactionsReceived)
-      .catch(() => {});
-  }, [published, todayISO]);
+    refreshGlimpsePost();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayISO]);
 
-  async function handlePublish(visibility: "connections" | "everyone") {
+  async function handlePublish(visibility: PostVisibility) {
     if (publishing) return;
     setPublishing(true);
     setMsg(null);
     try {
-      await publishTodayPlan(todayISO, visibility);
-      await refresh({ silent: true });
+      await publishGoalGlimpse(todayISO, visibility);
+      await refreshGlimpsePost();
     } catch (e: any) {
       setMsg(e?.message ?? t("today.failedPublish"));
     } finally {
@@ -243,8 +243,8 @@ export default function TodayPage() {
     setPublishing(true);
     setMsg(null);
     try {
-      await unpublishTodayPlan(todayISO);
-      await refresh({ silent: true });
+      await unpublishGoalGlimpse(todayISO);
+      await refreshGlimpsePost();
     } catch (e: any) {
       setMsg(e?.message ?? t("today.failedUnpublish"));
     } finally {
@@ -772,8 +772,8 @@ export default function TodayPage() {
                       padding: "0.4rem 0.7rem",
                       fontSize: "0.8rem",
                       whiteSpace: "nowrap",
-                      background: plan?.published_visibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
-                      borderColor: plan?.published_visibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                      background: myGlimpsePost?.visibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: myGlimpsePost?.visibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
                     }}
                   >
                     {t("today.publishConnectionsBtn")}
@@ -787,8 +787,8 @@ export default function TodayPage() {
                       padding: "0.4rem 0.7rem",
                       fontSize: "0.8rem",
                       whiteSpace: "nowrap",
-                      background: plan?.published_visibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
-                      borderColor: plan?.published_visibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                      background: myGlimpsePost?.visibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: myGlimpsePost?.visibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
                     }}
                   >
                     {t("today.publishEveryoneBtn")}
@@ -805,13 +805,6 @@ export default function TodayPage() {
                     </button>
                   )}
                 </div>
-                {published && (
-                  <div className="text-xs text-white/50">
-                    {reactionsReceived.length === 0
-                      ? t("today.noReactionsYet")
-                      : reactionsReceived.map((r) => `${glimpseReactionEmoji(r.reaction)} ${r.viewer_display_name ?? ""}`).join("  ")}
-                  </div>
-                )}
               </div>
             )}
             {dayClosed && (

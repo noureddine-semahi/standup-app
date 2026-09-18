@@ -9,6 +9,7 @@ import { onPointsUpdated } from "@/lib/pointsBus";
 import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
+import Avatar from "@/components/Avatar";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -246,16 +247,7 @@ export default function Header() {
             style={expanded ? { justifyContent: "space-between" } : undefined}
           >
             <span className="flex items-center gap-2">
-              <span className="avatar-circle" style={{ width: 22, height: 22 }}>
-                {profile?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-white">
-                    {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </span>
+              <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
               {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
             </span>
             {/* Only in the mobile dropdown (expanded) — the desktop nav's
@@ -294,15 +286,8 @@ export default function Header() {
   function avatar() {
     if (!user) return null;
     return (
-      <Link href="/standup/profile" aria-label={t("nav.profileAriaLabel")} className="avatar-circle">
-        {profile?.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
-            {(profile?.display_name || user.email || "U").charAt(0).toUpperCase()}
-          </div>
-        )}
+      <Link href="/standup/profile" aria-label={t("nav.profileAriaLabel")}>
+        <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} />
       </Link>
     );
   }

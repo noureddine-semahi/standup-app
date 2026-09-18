@@ -372,16 +372,18 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="flex gap-2 flex-wrap">
-              <button type="button" onClick={() => setShowAssistant(true)} className="btn">
+            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:flex-wrap">
+              <div className="flex gap-2 sm:order-2">
+                <Link href="/standup/today" className="btn">
+                  {t("nav.reviewToday")}
+                </Link>
+                <Link href="/standup/tomorrow" className="btn">
+                  {t("nav.planTomorrow")}
+                </Link>
+              </div>
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn sm:order-1">
                 🤖 {t("dashboard.assistant")}
               </button>
-              <Link href="/standup/today" className="btn">
-                {t("nav.reviewToday")}
-              </Link>
-              <Link href="/standup/tomorrow" className="btn">
-                {t("nav.planTomorrow")}
-              </Link>
             </div>
           </div>
 

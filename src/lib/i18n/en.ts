@@ -653,6 +653,22 @@ export const en = {
   "faq.q18.answerPart2": " for how that info is used.",
   "faq.q19.question": "Can I delete my account?",
   "faq.q19.answer": "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, checklists, attached files, Backlog items, and reschedule history, and resets your points to zero.",
+
+  // Contact
+  "contact.title": "Contact Us",
+  "contact.subtitle": "Questions, bug reports, or feature ideas — we'd like to hear them.",
+  "contact.reachUs": "Reach us at",
+  "contact.fasterAnswerPart1": "For a faster answer on how something works, check the ",
+  "contact.fasterAnswerPart2": " first, or read more ",
+  "contact.fasterAnswerPart3": " StandUp.",
+  "contact.spreadTheWord": "Spread the word",
+
+  // SocialShareButtons
+  "share.text": "Build consistency and execute daily with StandUp.",
+  "share.share": "📤 Share",
+  "share.shareOnFacebook": "Share on Facebook",
+  "share.shareOnX": "Share on X",
+  "share.linkCopied": "Link copied to clipboard!",
 } as const;
 
 export type TranslationKey = keyof typeof en;

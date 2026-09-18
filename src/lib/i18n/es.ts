@@ -651,4 +651,20 @@ export const es: Record<keyof typeof en, string> = {
   "faq.q18.answerPart2": " para saber cómo se usa esa información.",
   "faq.q19.question": "¿Puedo eliminar mi cuenta?",
   "faq.q19.answer": "Sí, desde Configuración en Zona de Peligro — esto borra tus objetivos, planes, notas, listas de verificación, archivos adjuntos, elementos de Pendientes, e historial de reprogramaciones, y restablece tus puntos a cero.",
+
+  // Contact
+  "contact.title": "Contáctanos",
+  "contact.subtitle": "Preguntas, reportes de errores, o ideas para funciones — nos gustaría escucharlas.",
+  "contact.reachUs": "Contáctanos en",
+  "contact.fasterAnswerPart1": "Para una respuesta más rápida sobre cómo funciona algo, revisa las ",
+  "contact.fasterAnswerPart2": " primero, o lee más ",
+  "contact.fasterAnswerPart3": " sobre StandUp.",
+  "contact.spreadTheWord": "Corre la voz",
+
+  // SocialShareButtons
+  "share.text": "Construye constancia y ejecuta a diario con StandUp.",
+  "share.share": "📤 Compartir",
+  "share.shareOnFacebook": "Compartir en Facebook",
+  "share.shareOnX": "Compartir en X",
+  "share.linkCopied": "¡Enlace copiado al portapapeles!",
 };

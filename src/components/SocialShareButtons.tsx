@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const SHARE_TEXT = "Build consistency and execute daily with StandUp.";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Hardcoded rather than window.location.origin — shared links need to point
 // at the real production site regardless of where the current user happens
@@ -26,10 +25,12 @@ export default function SocialShareButtons({
   className?: string;
   onPage?: boolean;
 }) {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
+  const shareText = t("share.text");
 
   const facebookHref = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(PRODUCTION_URL)}`;
-  const xHref = `https://twitter.com/intent/tweet?url=${encodeURIComponent(PRODUCTION_URL)}&text=${encodeURIComponent(SHARE_TEXT)}`;
+  const xHref = `https://twitter.com/intent/tweet?url=${encodeURIComponent(PRODUCTION_URL)}&text=${encodeURIComponent(shareText)}`;
   const linkClass = `btn btn-ghost text-sm px-4 py-2${onPage ? " btn-on-page" : ""}`;
 
   function FacebookIcon() {
@@ -53,9 +54,9 @@ export default function SocialShareButtons({
 
     try {
       if (canNativeShare) {
-        await navigator.share({ title: "StandUp", text: SHARE_TEXT, url: PRODUCTION_URL });
+        await navigator.share({ title: "StandUp", text: shareText, url: PRODUCTION_URL });
       } else {
-        await navigator.clipboard.writeText(`${SHARE_TEXT} ${PRODUCTION_URL}`);
+        await navigator.clipboard.writeText(`${shareText} ${PRODUCTION_URL}`);
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2000);
       }
@@ -68,7 +69,7 @@ export default function SocialShareButtons({
     <div className={className}>
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button type="button" onClick={handleNativeShare} className={linkClass}>
-          📤 Share
+          {t("share.share")}
         </button>
         <a
           href={facebookHref}
@@ -77,7 +78,7 @@ export default function SocialShareButtons({
           className={`${linkClass} inline-flex items-center gap-2`}
         >
           <FacebookIcon />
-          Share on Facebook
+          {t("share.shareOnFacebook")}
         </a>
         <a
           href={xHref}
@@ -86,10 +87,10 @@ export default function SocialShareButtons({
           className={`${linkClass} inline-flex items-center gap-2`}
         >
           <XIcon />
-          Share on X
+          {t("share.shareOnX")}
         </a>
       </div>
-      {copied && <p className="mt-2 text-center text-xs text-emerald-300">Link copied to clipboard!</p>}
+      {copied && <p className="mt-2 text-center text-xs text-emerald-300">{t("share.linkCopied")}</p>}
     </div>
   );
 }

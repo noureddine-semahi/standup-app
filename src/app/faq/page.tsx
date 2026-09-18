@@ -1,134 +1,84 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
+"use client";
 
-const FAQS: { question: string; answer: ReactNode }[] = [
-  {
-    question: "What is StandUp?",
-    answer:
-      "A daily execution and reflection system: you plan tomorrow's goals, review today's, and close the loop each day. It's built around one rule — you can't plan tomorrow until you've reviewed today.",
-  },
-  {
-    question: "How do I earn points?",
-    answer:
-      "Three ways: a small \"planning\" bonus when you submit tomorrow's plan, a small \"awareness\" bonus the first time you review a pending goal, and a larger \"closure\" bonus when you close out the day. The closure bonus scales up with your current streak, up to a cap — so a longer streak earns more per day.",
-  },
-  {
-    question: "What are Levels?",
-    answer:
-      "Your level is based on total points, from Starter up through Infinite at 10,000 points, with many named tiers in between. Check your current level and progress toward the next one on the Dashboard or Profile.",
-  },
-  {
-    question: "What are Achievements?",
-    answer:
-      "One-time badges for milestones — streaks (both your current run and your longest streak ever, so a broken streak doesn't erase a past achievement), completing goals, completing a goal after rescheduling it or tracking it with notes, points totals, and referrals or sharing. See all of them, including locked ones as a preview of what's next, on your Profile.",
-  },
-  {
-    question: "How do referrals work?",
-    answer:
-      "Copy your link from Profile under \"Invite & Share\" and send it to a friend. When they sign up and complete their first day, you earn 25 bonus points. The same button also lets you share your progress, which unlocks its own achievement.",
-  },
-  {
-    question: "What happens if I miss a day?",
-    answer:
-      "Your streak resets, but you don't lose access to anything — the next day you close out still earns the base closure bonus. A missed day shows up in red on your Calendar; if you'd rather dismiss it than reschedule every goal on it, open that day and use \"Clear this day\" to mark it handled.",
-  },
-  {
-    question: "Where can I see my points and activity history?",
-    answer:
-      "From your Profile, open \"Data & Metrics.\" It starts with lifetime totals — goals submitted, goals completed, days closed, longest streak, and more — followed by your day-by-day points breakdown and an Activity Overview further down (days checked in, days missed, and days with completed goals, with a weekly or monthly bar chart).",
-  },
-  {
-    question: "Can I reschedule a goal instead of completing it?",
-    answer:
-      "Yes — reschedule a goal to any future date from Review Today. It automatically appears as a goal on that date when it arrives, along with a note showing where it was rescheduled from and why.",
-  },
-  {
-    question: "How does the streak work?",
-    answer:
-      "It counts consecutive days you've closed out, walking backward from today. Today itself doesn't break the streak while it's still in progress — it just doesn't count until you close it.",
-  },
-  {
-    question: "What's the difference between \"Review Today\" and \"Plan Tomorrow\"?",
-    answer:
-      "Review Today is where you mark today's goals reviewed, update their status, add notes, and close out the day. Plan Tomorrow is where you set at least 3 goals for the next day — you can always draft and save it, but submitting it is locked until today is reviewed.",
-  },
-  {
-    question: "Can I plan further ahead than just tomorrow?",
-    answer:
-      "Yes — click any date on the Calendar to draft goals for it, days or weeks out. Drafting and saving is always open on any date. Submitting (finalizing) a plan only unlocks the evening before that date arrives, once the day before it has been reviewed — the same rule that governs Plan Tomorrow.",
-  },
-  {
-    question: "What does the Dashboard Assistant do?",
-    answer:
-      "Click 🤖 Assistant on the Dashboard and type (or tap the mic and speak) a plain request — \"add a goal to call the dentist tomorrow,\" \"mark my workout done,\" \"reschedule X to Friday,\" \"move X to Backlog,\" or \"delete X.\" Deleting a goal always asks you to confirm first, since it's the one action that can't be undone. It's free, capped at 20 actions per rolling 30-day period per account; asking something it can't confidently match to one goal doesn't use up an action, it'll just ask you to clarify.",
-  },
-  {
-    question: "What's the Backlog for?",
-    answer:
-      "A holding pen for goals you know you want to do but haven't committed to a specific day yet. Add one from Backlog with a title, details, and priority, then push it onto the Calendar for any date whenever the time opens up — it becomes a real dated goal on that day and disappears from the Backlog. It also works the other way: if a goal already scheduled on a specific day isn't something you're sure you'll get to, open its reschedule option and choose \"Move to Backlog\" instead of picking a new date — though its notes, checklist, and attached files won't come along, since Backlog items don't have those.",
-  },
-  {
-    question: "Can I break a goal into smaller steps or attach a file to it?",
-    answer:
-      "Yes — every goal has an optional checklist for sub-items (like a grocery list under \"Go to HEB\"), a place to attach files (receipts, documents — images or PDF, up to 5MB), and a single Link field for one reference URL (a doc, a meeting link, a job posting). All three show as small buttons right under the goal's title on Plan Tomorrow, Review Today, and past days, and carry forward automatically if you reschedule the goal.",
-  },
-  {
-    question: "Can I mark a goal as an all-day task instead of picking a time?",
-    answer:
-      "Yes — next to the time picker on Plan Tomorrow (or any date's plan), toggle \"All day\" and the specific time is dropped in favor of just showing the goal as spanning the whole day. It's purely a display choice — there are no reminders or notifications tied to either a specific time or All day.",
-  },
-  {
-    question: "Can I go back and look at past days?",
-    answer:
-      "Yes — past dates on the Calendar open in a view-only summary: title, priority, and status, exactly as they were, plus each goal's full chronological history and notes below it. You can't add or edit anything on a day that's already passed, but you can \"re-attempt\" any goal from it (rescheduling a fresh copy onto a future date), and if the day was never reviewed you can mark it \"Cleared\" directly.",
-  },
-  {
-    question: "Can I use dark or light mode?",
-    answer:
-      "Yes — there's a theme switch in Settings under Appearance, plus a quicker toggle right on the \"Profile & Settings\" button on your Profile page and in the mobile menu's Profile row. All three control the same setting, saved to your account, so it follows you across devices and logins, not just this browser.",
-  },
-  {
-    question: "Is my personal info required?",
-    answer: (
-      <>
-        No. First/last name, date of birth, address, phone number, and a profile photo are all
-        optional fields in Settings, kept separate from your display name. See our{" "}
-        <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
-          Privacy Policy
-        </Link>{" "}
-        for how that info is used.
-      </>
-    ),
-  },
-  {
-    question: "Can I delete my account?",
-    answer:
-      "Yes, from Settings under Danger Zone — it wipes your goals, plans, notes, checklists, attached files, Backlog items, and reschedule history, and resets your points to zero.",
-  },
+import Link from "next/link";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
+
+const FAQ_KEYS: { questionKey: TranslationKey; answerKey: TranslationKey }[] = [
+  { questionKey: "faq.q1.question", answerKey: "faq.q1.answer" },
+  { questionKey: "faq.q2.question", answerKey: "faq.q2.answer" },
+  { questionKey: "faq.q3.question", answerKey: "faq.q3.answer" },
+  { questionKey: "faq.q4.question", answerKey: "faq.q4.answer" },
+  { questionKey: "faq.q5.question", answerKey: "faq.q5.answer" },
+  { questionKey: "faq.q6.question", answerKey: "faq.q6.answer" },
+  { questionKey: "faq.q7.question", answerKey: "faq.q7.answer" },
+  { questionKey: "faq.q8.question", answerKey: "faq.q8.answer" },
+  { questionKey: "faq.q9.question", answerKey: "faq.q9.answer" },
+  { questionKey: "faq.q10.question", answerKey: "faq.q10.answer" },
+  { questionKey: "faq.q11.question", answerKey: "faq.q11.answer" },
+  { questionKey: "faq.q12.question", answerKey: "faq.q12.answer" },
+  { questionKey: "faq.q13.question", answerKey: "faq.q13.answer" },
+  { questionKey: "faq.q14.question", answerKey: "faq.q14.answer" },
+  { questionKey: "faq.q15.question", answerKey: "faq.q15.answer" },
+  { questionKey: "faq.q16.question", answerKey: "faq.q16.answer" },
+  { questionKey: "faq.q17.question", answerKey: "faq.q17.answer" },
+  // q18 (personal info) has an embedded Privacy Policy link, so it's
+  // rendered separately below rather than through this generic loop.
+  { questionKey: "faq.q19.question", answerKey: "faq.q19.answer" },
 ];
 
 export default function FAQPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4">Frequently Asked Questions</h1>
+          <h1 className="text-5xl font-bold mb-4">{t("faq.title")}</h1>
           <p className="text-lg text-page-secondary max-w-2xl mx-auto">
-            Everything you need to know about how StandUp works.
+            {t("faq.subtitle")}
           </p>
         </div>
 
         <div className="card card-highlight">
           <div className="divide-y divide-white/10">
-            {FAQS.map((item, idx) => (
+            {FAQ_KEYS.slice(0, 17).map((item, idx) => (
               <details key={idx} className="group py-4 first:pt-0 last:pb-0">
                 <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-white">
-                  {item.question}
+                  {t(item.questionKey)}
                   <span className="text-white/40 transition-transform group-open:rotate-45 text-xl leading-none flex-shrink-0">
                     +
                   </span>
                 </summary>
-                <p className="mt-3 text-sm text-white/70 leading-relaxed">{item.answer}</p>
+                <p className="mt-3 text-sm text-white/70 leading-relaxed">{t(item.answerKey)}</p>
+              </details>
+            ))}
+
+            <details className="group py-4">
+              <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-white">
+                {t("faq.q18.question")}
+                <span className="text-white/40 transition-transform group-open:rotate-45 text-xl leading-none flex-shrink-0">
+                  +
+                </span>
+              </summary>
+              <p className="mt-3 text-sm text-white/70 leading-relaxed">
+                {t("faq.q18.answerPart1")}
+                <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
+                  {t("settings.privacyPolicy")}
+                </Link>
+                {t("faq.q18.answerPart2")}
+              </p>
+            </details>
+
+            {FAQ_KEYS.slice(17).map((item, idx) => (
+              <details key={17 + idx} className="group py-4 last:pb-0">
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-white">
+                  {t(item.questionKey)}
+                  <span className="text-white/40 transition-transform group-open:rotate-45 text-xl leading-none flex-shrink-0">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm text-white/70 leading-relaxed">{t(item.answerKey)}</p>
               </details>
             ))}
           </div>
@@ -136,15 +86,15 @@ export default function FAQPage() {
 
         <div className="text-center mt-10">
           <p className="text-sm text-page-tertiary">
-            Still have questions?{" "}
+            {t("faq.stillHaveQuestions")}{" "}
             <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">
-              Contact us
+              {t("faq.contactUs")}
             </Link>{" "}
-            or learn more{" "}
+            {t("faq.orLearnMore")}{" "}
             <Link href="/about" className="text-amber-300 hover:text-amber-200 underline">
-              About
+              {t("faq.about")}
             </Link>{" "}
-            StandUp.
+            {t("faq.trailingStandup")}
           </p>
         </div>
       </div>

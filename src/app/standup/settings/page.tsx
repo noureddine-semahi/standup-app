@@ -591,9 +591,9 @@ export default function SettingsPage() {
             disabled={deleteConfirmText !== "DELETE" || deleting}
             className="btn"
             style={{
-              background: "rgba(239, 68, 68, 0.15)",
-              borderColor: "rgba(239, 68, 68, 0.4)",
-              color: "#fca5a5",
+              background: "var(--status-blocked-bg-active)",
+              borderColor: "var(--status-blocked-border-active)",
+              color: "var(--status-blocked)",
               opacity: deleteConfirmText !== "DELETE" || deleting ? 0.5 : 1,
               cursor: deleteConfirmText !== "DELETE" || deleting ? "not-allowed" : "pointer",
             }}

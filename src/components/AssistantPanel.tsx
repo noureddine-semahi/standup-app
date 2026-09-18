@@ -220,9 +220,9 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
                 width: "32px",
                 height: "32px",
                 borderRadius: "9999px",
-                background: listening ? "rgba(239, 68, 68, 0.25)" : "rgba(var(--tint-rgb),0.08)",
-                border: listening ? "1px solid rgba(239, 68, 68, 0.6)" : "1px solid rgba(var(--tint-rgb),0.15)",
-                color: listening ? "#fca5a5" : "rgba(var(--tint-rgb),0.8)",
+                background: listening ? "var(--status-blocked-bg-active)" : "rgba(var(--tint-rgb),0.08)",
+                border: listening ? "1px solid var(--status-blocked-border-active)" : "1px solid rgba(var(--tint-rgb),0.15)",
+                color: listening ? "var(--status-blocked)" : "rgba(var(--tint-rgb),0.8)",
               }}
             >
               {listening ? "⏹️" : "🎤"}
@@ -253,7 +253,7 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
                 onClick={handleConfirmDelete}
                 disabled={sending}
                 className="btn flex-1"
-                style={{ borderColor: "rgba(239, 68, 68, 0.6)", color: "#fca5a5" }}
+                style={{ borderColor: "var(--status-blocked-border-active)", color: "var(--status-blocked)" }}
               >
                 {sending ? t("assistant.deleting") : t("assistant.yesDeleteIt")}
               </button>

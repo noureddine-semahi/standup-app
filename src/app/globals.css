@@ -57,6 +57,33 @@ a {
   --status-postponed: #d8b4fe;
   --status-canceled: #cbd5e1;
 
+  /* Background/border washes for status pills (Today's quick-action
+     dropdown, admin/settings danger buttons) — dim = resting state,
+     active = selected/emphasized state. Low-opacity color-on-black reads
+     as a moody tint; the same opacity on white desaturates toward pale
+     pastel instead, which is why light theme needs meaningfully higher
+     alpha here, not just a swap of the text color above. */
+  --status-completed-bg: rgba(16, 185, 129, 0.08);
+  --status-completed-bg-active: rgba(16, 185, 129, 0.2);
+  --status-completed-border: rgba(16, 185, 129, 0.25);
+  --status-completed-border-active: rgba(16, 185, 129, 0.7);
+  --status-in-progress-bg: rgba(59, 130, 246, 0.08);
+  --status-in-progress-bg-active: rgba(59, 130, 246, 0.2);
+  --status-in-progress-border: rgba(59, 130, 246, 0.25);
+  --status-in-progress-border-active: rgba(59, 130, 246, 0.7);
+  --status-blocked-bg: rgba(239, 68, 68, 0.08);
+  --status-blocked-bg-active: rgba(239, 68, 68, 0.2);
+  --status-blocked-border: rgba(239, 68, 68, 0.25);
+  --status-blocked-border-active: rgba(239, 68, 68, 0.7);
+  --status-postponed-bg: rgba(168, 85, 247, 0.08);
+  --status-postponed-bg-active: rgba(168, 85, 247, 0.2);
+  --status-postponed-border: rgba(168, 85, 247, 0.25);
+  --status-postponed-border-active: rgba(168, 85, 247, 0.7);
+  --status-canceled-bg: rgba(100, 116, 139, 0.1);
+  --status-canceled-bg-active: rgba(100, 116, 139, 0.25);
+  --status-canceled-border: rgba(100, 116, 139, 0.3);
+  --status-canceled-border-active: rgba(100, 116, 139, 0.7);
+
   --page-bg: #05060a;
   --page-text: rgba(var(--tint-rgb), 0.92);
   --app-bg-wash-1: rgba(245, 158, 11, 0.08);
@@ -85,6 +112,32 @@ a {
   --status-blocked: #b91c1c;
   --status-postponed: #7e22ce;
   --status-canceled: #475569;
+
+  /* Same darker/more-saturated base color as the text tokens above, at
+     roughly double the dark-theme's alpha — a wash that reads as pale
+     pastel on white at 8-25% opacity needs to be pushed noticeably
+     further to look like a deliberate, pronounced tint rather than a
+     washed-out accident. */
+  --status-completed-bg: rgba(4, 120, 87, 0.16);
+  --status-completed-bg-active: rgba(4, 120, 87, 0.3);
+  --status-completed-border: rgba(4, 120, 87, 0.4);
+  --status-completed-border-active: rgba(4, 120, 87, 0.85);
+  --status-in-progress-bg: rgba(29, 78, 216, 0.16);
+  --status-in-progress-bg-active: rgba(29, 78, 216, 0.3);
+  --status-in-progress-border: rgba(29, 78, 216, 0.4);
+  --status-in-progress-border-active: rgba(29, 78, 216, 0.85);
+  --status-blocked-bg: rgba(185, 28, 28, 0.16);
+  --status-blocked-bg-active: rgba(185, 28, 28, 0.3);
+  --status-blocked-border: rgba(185, 28, 28, 0.4);
+  --status-blocked-border-active: rgba(185, 28, 28, 0.85);
+  --status-postponed-bg: rgba(126, 34, 206, 0.16);
+  --status-postponed-bg-active: rgba(126, 34, 206, 0.3);
+  --status-postponed-border: rgba(126, 34, 206, 0.4);
+  --status-postponed-border-active: rgba(126, 34, 206, 0.85);
+  --status-canceled-bg: rgba(71, 85, 105, 0.18);
+  --status-canceled-bg-active: rgba(71, 85, 105, 0.32);
+  --status-canceled-border: rgba(71, 85, 105, 0.42);
+  --status-canceled-border-active: rgba(71, 85, 105, 0.85);
 
   --page-bg: #d7dae2;
   --page-text: rgba(var(--tint-rgb), 0.92);

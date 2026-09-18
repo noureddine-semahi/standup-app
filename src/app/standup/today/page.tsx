@@ -1238,8 +1238,8 @@ export default function TodayPage() {
                           disabled={locked || isBusy}
                           className="action-btn"
                           style={{
-                            "--btn-bg": g.status === "completed" ? "rgba(16, 185, 129, 0.2)" : "rgba(16, 185, 129, 0.08)",
-                            "--btn-border": g.status === "completed" ? "rgba(16, 185, 129, 0.7)" : "rgba(16, 185, 129, 0.25)",
+                            "--btn-bg": g.status === "completed" ? "var(--status-completed-bg-active)" : "var(--status-completed-bg)",
+                            "--btn-border": g.status === "completed" ? "var(--status-completed-border-active)" : "var(--status-completed-border)",
                             "--btn-color": "var(--status-completed)",
                           } as React.CSSProperties}
                         >
@@ -1253,8 +1253,8 @@ export default function TodayPage() {
                           disabled={locked || isBusy}
                           className="action-btn"
                           style={{
-                            "--btn-bg": g.status === "in_progress" ? "rgba(59, 130, 246, 0.2)" : "rgba(59, 130, 246, 0.08)",
-                            "--btn-border": g.status === "in_progress" ? "rgba(59, 130, 246, 0.7)" : "rgba(59, 130, 246, 0.25)",
+                            "--btn-bg": g.status === "in_progress" ? "var(--status-in-progress-bg-active)" : "var(--status-in-progress-bg)",
+                            "--btn-border": g.status === "in_progress" ? "var(--status-in-progress-border-active)" : "var(--status-in-progress-border)",
                             "--btn-color": "var(--status-in-progress)",
                           } as React.CSSProperties}
                         >
@@ -1268,8 +1268,8 @@ export default function TodayPage() {
                           disabled={locked || isBusy}
                           className="action-btn"
                           style={{
-                            "--btn-bg": g.status === "blocked" ? "rgba(239, 68, 68, 0.2)" : "rgba(239, 68, 68, 0.08)",
-                            "--btn-border": g.status === "blocked" ? "rgba(239, 68, 68, 0.7)" : "rgba(239, 68, 68, 0.25)",
+                            "--btn-bg": g.status === "blocked" ? "var(--status-blocked-bg-active)" : "var(--status-blocked-bg)",
+                            "--btn-border": g.status === "blocked" ? "var(--status-blocked-border-active)" : "var(--status-blocked-border)",
                             "--btn-color": "var(--status-blocked)",
                           } as React.CSSProperties}
                         >
@@ -1283,8 +1283,8 @@ export default function TodayPage() {
                           disabled={locked || isBusy}
                           className="action-btn"
                           style={{
-                            "--btn-bg": g.status === "canceled" ? "rgba(100, 116, 139, 0.25)" : "rgba(100, 116, 139, 0.1)",
-                            "--btn-border": g.status === "canceled" ? "rgba(100, 116, 139, 0.7)" : "rgba(100, 116, 139, 0.3)",
+                            "--btn-bg": g.status === "canceled" ? "var(--status-canceled-bg-active)" : "var(--status-canceled-bg)",
+                            "--btn-border": g.status === "canceled" ? "var(--status-canceled-border-active)" : "var(--status-canceled-border)",
                             "--btn-color": "var(--status-canceled)",
                           } as React.CSSProperties}
                         >
@@ -1298,8 +1298,8 @@ export default function TodayPage() {
                           disabled={locked || isBusy}
                           className="action-btn"
                           style={{
-                            "--btn-bg": g.rescheduled_to ? "rgba(168, 85, 247, 0.2)" : "rgba(168, 85, 247, 0.08)",
-                            "--btn-border": g.rescheduled_to ? "rgba(168, 85, 247, 0.7)" : "rgba(168, 85, 247, 0.25)",
+                            "--btn-bg": g.rescheduled_to ? "var(--status-postponed-bg-active)" : "var(--status-postponed-bg)",
+                            "--btn-border": g.rescheduled_to ? "var(--status-postponed-border-active)" : "var(--status-postponed-border)",
                             "--btn-color": "var(--status-postponed)",
                           } as React.CSSProperties}
                         >

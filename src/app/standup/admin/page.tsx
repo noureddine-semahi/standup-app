@@ -374,7 +374,7 @@ export default function AdminPage() {
                   onClick={() => handleWipeData(m)}
                   disabled={busy}
                   className="btn text-xs px-3 py-1.5"
-                  style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#fca5a5" }}
+                  style={{ borderColor: "var(--status-blocked-border-active)", color: "var(--status-blocked)" }}
                 >
                   Wipe Data
                 </button>
@@ -467,7 +467,7 @@ export default function AdminPage() {
                       onClick={() => handleWipeData(m)}
                       disabled={busy}
                       className="btn text-xs px-3 py-1.5"
-                      style={{ borderColor: "rgba(239, 68, 68, 0.4)", color: "#fca5a5" }}
+                      style={{ borderColor: "var(--status-blocked-border-active)", color: "var(--status-blocked)" }}
                     >
                       Wipe Data
                     </button>
@@ -530,7 +530,7 @@ export default function AdminPage() {
             className="btn text-xs px-3 py-1.5 whitespace-nowrap"
             style={
               deviceOptedOut
-                ? { borderColor: "rgba(16, 185, 129, 0.4)", color: "#6ee7b7" }
+                ? { borderColor: "var(--status-completed-border-active)", color: "var(--status-completed)" }
                 : undefined
             }
             title="For a browser you'll deliberately use to re-visit the signed-out landing page while testing"

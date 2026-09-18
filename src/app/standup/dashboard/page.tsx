@@ -374,10 +374,10 @@ export default function DashboardPage() {
 
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:flex-wrap">
               <div className="flex gap-2 sm:order-2">
-                <Link href="/standup/today" className="btn">
+                <Link href="/standup/today" className="btn text-sm whitespace-nowrap">
                   {t("nav.reviewToday")}
                 </Link>
-                <Link href="/standup/tomorrow" className="btn">
+                <Link href="/standup/tomorrow" className="btn text-sm whitespace-nowrap">
                   {t("nav.planTomorrow")}
                 </Link>
               </div>

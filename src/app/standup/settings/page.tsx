@@ -12,6 +12,7 @@ import {
   updateThemePreference,
 } from "@/lib/supabase/db";
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
 // Error instances — `err instanceof Error` is false for those, so checking
@@ -25,6 +26,7 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 export default function SettingsPage() {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
 
@@ -128,9 +130,9 @@ export default function SettingsPage() {
       // profile, since it only fetches once on mount otherwise and would
       // keep showing the old name until the next login/reload.
       await supabase.auth.updateUser({ data: { display_name: displayName.trim() || null } });
-      setNameMsg("Display name updated ✓");
+      setNameMsg(t("settings.displayNameUpdated"));
     } catch (err) {
-      setNameErr(errorMessage(err, "Failed to update display name."));
+      setNameErr(errorMessage(err, t("settings.failedUpdateDisplayName")));
     } finally {
       setSavingName(false);
     }
@@ -143,9 +145,9 @@ export default function SettingsPage() {
     setPersonalInfoErr(null);
     try {
       await updatePersonalInfo({ firstName, lastName, dateOfBirth, address, phoneNumber });
-      setPersonalInfoMsg("Personal info saved ✓");
+      setPersonalInfoMsg(t("settings.personalInfoSaved"));
     } catch (err) {
-      setPersonalInfoErr(errorMessage(err, "Failed to save personal info."));
+      setPersonalInfoErr(errorMessage(err, t("settings.failedSavePersonalInfo")));
     } finally {
       setSavingPersonalInfo(false);
     }
@@ -162,7 +164,7 @@ export default function SettingsPage() {
       const updated = await uploadAvatar(file);
       setAvatarUrl(updated.avatar_url ?? null);
     } catch (err) {
-      setAvatarErr(errorMessage(err, "Failed to upload photo."));
+      setAvatarErr(errorMessage(err, t("settings.failedUploadPhoto")));
     } finally {
       setUploadingAvatar(false);
     }
@@ -175,7 +177,7 @@ export default function SettingsPage() {
     setEmailErr(null);
 
     if (!newEmail.trim()) {
-      setEmailErr("Please enter a new email address.");
+      setEmailErr(t("settings.enterNewEmail"));
       setSavingEmail(false);
       return;
     }
@@ -186,12 +188,10 @@ export default function SettingsPage() {
         setEmailErr(error.message);
         return;
       }
-      setEmailMsg(
-        "Check your new email address for a confirmation link — the change won't take effect until you confirm it."
-      );
+      setEmailMsg(t("settings.confirmEmailMsg"));
       setNewEmail("");
     } catch (err) {
-      setEmailErr(errorMessage(err, "Failed to update email."));
+      setEmailErr(errorMessage(err, t("settings.failedUpdateEmail")));
     } finally {
       setSavingEmail(false);
     }
@@ -204,17 +204,17 @@ export default function SettingsPage() {
     setPasswordErr(null);
 
     if (!currentPassword) {
-      setPasswordErr("Please enter your current password.");
+      setPasswordErr(t("settings.enterCurrentPassword"));
       setSavingPassword(false);
       return;
     }
     if (newPassword.length < 6) {
-      setPasswordErr("New password must be at least 6 characters.");
+      setPasswordErr(t("settings.passwordTooShort"));
       setSavingPassword(false);
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordErr("New passwords do not match.");
+      setPasswordErr(t("settings.passwordsDontMatch"));
       setSavingPassword(false);
       return;
     }
@@ -225,7 +225,7 @@ export default function SettingsPage() {
         password: currentPassword,
       });
       if (verifyError) {
-        setPasswordErr("Current password is incorrect.");
+        setPasswordErr(t("settings.currentPasswordIncorrect"));
         return;
       }
 
@@ -237,12 +237,12 @@ export default function SettingsPage() {
         return;
       }
 
-      setPasswordMsg("Password updated ✓");
+      setPasswordMsg(t("settings.passwordUpdated"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setPasswordErr(errorMessage(err, "Failed to update password."));
+      setPasswordErr(errorMessage(err, t("settings.failedUpdatePassword")));
     } finally {
       setSavingPassword(false);
     }
@@ -260,13 +260,13 @@ export default function SettingsPage() {
       // Full reload — see the same note on Header/Profile's logout handlers.
       window.location.href = "/";
     } catch (err) {
-      setDeleteErr(errorMessage(err, "Failed to delete account."));
+      setDeleteErr(errorMessage(err, t("settings.failedDeleteAccount")));
       setDeleting(false);
     }
   }
 
   if (loading) {
-    return <div className="card">Loading settings…</div>;
+    return <div className="card">{t("settings.loading")}</div>;
   }
 
   const inputClass =
@@ -278,13 +278,13 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div className="card">
-        <h1 className="text-3xl font-bold mb-2">Settings</h1>
-        <p className="text-white/70">Manage your account details.</p>
+        <h1 className="text-3xl font-bold mb-2">{t("settings.title")}</h1>
+        <p className="text-white/70">{t("settings.subtitle")}</p>
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-1">Appearance</h2>
-        <p className="text-sm text-white/50 mb-4">Switch between dark and light mode.</p>
+        <h2 className="text-lg font-semibold mb-1">{t("settings.appearanceTitle")}</h2>
+        <p className="text-sm text-white/50 mb-4">{t("settings.appearanceSubtitle")}</p>
 
         <div className="flex items-center gap-3">
           <button
@@ -312,17 +312,17 @@ export default function SettingsPage() {
             />
           </button>
           <span className="text-sm text-white/80">
-            {theme === "light" ? "☀️ Light" : "🌙 Dark"}
+            {theme === "light" ? t("settings.light") : t("settings.dark")}
           </span>
         </div>
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Profile</h2>
+        <h2 className="text-lg font-semibold mb-4">{t("settings.profileTitle")}</h2>
         <form onSubmit={handleSaveName} className="space-y-4">
           <div>
             <label htmlFor="displayName" className={labelClass}>
-              Display Name
+              {t("settings.displayName")}
             </label>
             <input
               id="displayName"
@@ -330,24 +330,24 @@ export default function SettingsPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               disabled={savingName}
-              placeholder="Your name"
+              placeholder={t("settings.yourName")}
               className={inputClass}
             />
           </div>
           {nameErr && <div className={errorClass}>{nameErr}</div>}
           {nameMsg && <div className={successClass}>{nameMsg}</div>}
           <button type="submit" disabled={savingName} className="btn btn-primary">
-            {savingName ? "Saving..." : "Save name"}
+            {savingName ? t("settings.saving") : t("settings.saveName")}
           </button>
         </form>
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-1">Personal Info</h2>
+        <h2 className="text-lg font-semibold mb-1">{t("settings.personalInfoTitle")}</h2>
         <p className="text-sm text-white/50 mb-4">
-          Completely optional — helps us personalize goals and content for you down the line. See our{" "}
+          {t("settings.personalInfoPart1")}
           <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
-            Privacy Policy
+            {t("settings.privacyPolicy")}
           </Link>
           .
         </p>
@@ -372,7 +372,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="btn" style={{ cursor: uploadingAvatar ? "not-allowed" : "pointer", opacity: uploadingAvatar ? 0.5 : 1 }}>
-              {uploadingAvatar ? "Uploading..." : "Change photo"}
+              {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
               <input
                 type="file"
                 accept="image/*"
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                 className="hidden"
               />
             </label>
-            <div className="mt-1 text-xs text-white/40">JPG or PNG, up to 5MB</div>
+            <div className="mt-1 text-xs text-white/40">{t("settings.photoHint")}</div>
             {avatarErr && <div className="mt-2 text-xs text-red-300">{avatarErr}</div>}
           </div>
         </div>
@@ -390,7 +390,7 @@ export default function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="firstName" className={labelClass}>
-                First Name
+                {t("settings.firstName")}
               </label>
               <input
                 id="firstName"
@@ -398,13 +398,13 @@ export default function SettingsPage() {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 disabled={savingPersonalInfo}
-                placeholder="First name"
+                placeholder={t("settings.firstNamePlaceholder")}
                 className={inputClass}
               />
             </div>
             <div>
               <label htmlFor="lastName" className={labelClass}>
-                Last Name
+                {t("settings.lastName")}
               </label>
               <input
                 id="lastName"
@@ -412,7 +412,7 @@ export default function SettingsPage() {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 disabled={savingPersonalInfo}
-                placeholder="Last name"
+                placeholder={t("settings.lastNamePlaceholder")}
                 className={inputClass}
               />
             </div>
@@ -421,7 +421,7 @@ export default function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="dateOfBirth" className={labelClass}>
-                Date of Birth
+                {t("settings.dateOfBirth")}
               </label>
               <input
                 id="dateOfBirth"
@@ -434,7 +434,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <label htmlFor="phoneNumber" className={labelClass}>
-                Phone Number
+                {t("settings.phoneNumber")}
               </label>
               <input
                 id="phoneNumber"
@@ -450,7 +450,7 @@ export default function SettingsPage() {
 
           <div>
             <label htmlFor="address" className={labelClass}>
-              Address
+              {t("settings.address")}
             </label>
             <input
               id="address"
@@ -458,7 +458,7 @@ export default function SettingsPage() {
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               disabled={savingPersonalInfo}
-              placeholder="Street, city, state"
+              placeholder={t("settings.addressPlaceholder")}
               className={inputClass}
             />
           </div>
@@ -466,21 +466,21 @@ export default function SettingsPage() {
           {personalInfoErr && <div className={errorClass}>{personalInfoErr}</div>}
           {personalInfoMsg && <div className={successClass}>{personalInfoMsg}</div>}
           <button type="submit" disabled={savingPersonalInfo} className="btn btn-primary">
-            {savingPersonalInfo ? "Saving..." : "Save personal info"}
+            {savingPersonalInfo ? t("settings.saving") : t("settings.savePersonalInfo")}
           </button>
         </form>
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Email</h2>
+        <h2 className="text-lg font-semibold mb-4">{t("settings.emailTitle")}</h2>
         <form onSubmit={handleSaveEmail} className="space-y-4">
           <div>
-            <label className={labelClass}>Current Email</label>
+            <label className={labelClass}>{t("settings.currentEmail")}</label>
             <input type="email" value={email} disabled className={inputClass} />
           </div>
           <div>
             <label htmlFor="newEmail" className={labelClass}>
-              New Email
+              {t("settings.newEmail")}
             </label>
             <input
               id="newEmail"
@@ -496,17 +496,17 @@ export default function SettingsPage() {
           {emailErr && <div className={errorClass}>{emailErr}</div>}
           {emailMsg && <div className={successClass}>{emailMsg}</div>}
           <button type="submit" disabled={savingEmail} className="btn btn-primary">
-            {savingEmail ? "Saving..." : "Update email"}
+            {savingEmail ? t("settings.saving") : t("settings.updateEmail")}
           </button>
         </form>
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Password</h2>
+        <h2 className="text-lg font-semibold mb-4">{t("settings.passwordTitle")}</h2>
         <form onSubmit={handleSavePassword} className="space-y-4">
           <div>
             <label htmlFor="currentPassword" className={labelClass}>
-              Current Password
+              {t("settings.currentPassword")}
             </label>
             <input
               id="currentPassword"
@@ -521,7 +521,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <label htmlFor="newPassword" className={labelClass}>
-              New Password
+              {t("settings.newPassword")}
             </label>
             <input
               id="newPassword"
@@ -533,11 +533,11 @@ export default function SettingsPage() {
               className={inputClass}
               autoComplete="new-password"
             />
-            <p className="mt-1 text-xs text-white/50">Minimum 6 characters</p>
+            <p className="mt-1 text-xs text-white/50">{t("settings.minChars")}</p>
           </div>
           <div>
             <label htmlFor="confirmNewPassword" className={labelClass}>
-              Confirm New Password
+              {t("settings.confirmNewPassword")}
             </label>
             <input
               id="confirmNewPassword"
@@ -553,27 +553,26 @@ export default function SettingsPage() {
           {passwordErr && <div className={errorClass}>{passwordErr}</div>}
           {passwordMsg && <div className={successClass}>{passwordMsg}</div>}
           <button type="submit" disabled={savingPassword} className="btn btn-primary">
-            {savingPassword ? "Updating..." : "Update password"}
+            {savingPassword ? t("settings.updating") : t("settings.updatePassword")}
           </button>
         </form>
       </div>
 
       <div className="card" style={{ border: "1px solid rgba(239, 68, 68, 0.35)" }}>
-        <h2 className="text-lg font-semibold mb-2 text-red-300">Danger Zone</h2>
+        <h2 className="text-lg font-semibold mb-2 text-red-300">{t("settings.dangerZoneTitle")}</h2>
         <p className="text-sm text-white/60">
-          This permanently deletes all your goals, plans, notes, and reschedule history, and
-          resets your points to zero. You'll be signed out immediately after.
+          {t("settings.dangerZoneBody")}
         </p>
         <p className="mt-2 text-xs text-white/40">
-          Note: this wipes your data but doesn't remove the login itself (that requires a
-          server-side operation this app isn't set up to perform) — you could technically sign
-          back in to an empty account afterward.
+          {t("settings.dangerZoneNote")}
         </p>
 
         <div className="mt-4 space-y-3">
           <div>
             <label htmlFor="deleteConfirm" className={labelClass}>
-              Type <span className="font-mono font-bold text-red-300">DELETE</span> to confirm
+              {t("settings.typeToConfirmPart1")}
+              <span className="font-mono font-bold text-red-300">DELETE</span>
+              {t("settings.typeToConfirmPart2")}
             </label>
             <input
               id="deleteConfirm"
@@ -599,7 +598,7 @@ export default function SettingsPage() {
               cursor: deleteConfirmText !== "DELETE" || deleting ? "not-allowed" : "pointer",
             }}
           >
-            {deleting ? "Deleting..." : "Delete Account"}
+            {deleting ? t("settings.deleting") : t("settings.deleteAccount")}
           </button>
         </div>
       </div>

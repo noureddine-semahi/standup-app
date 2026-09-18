@@ -332,7 +332,7 @@ export default function TodayPage() {
       setGoals(goalsWithReschedule);
     } catch (e: any) {
       if (mySeq !== refreshSeqRef.current) return;
-      if (!silent) setMsg(e?.message ?? "Failed to load");
+      if (!silent) setMsg(e?.message ?? t("today.failedLoad"));
     } finally {
       if (mySeq === refreshSeqRef.current && !silent) setLoading(false);
     }
@@ -365,10 +365,10 @@ export default function TodayPage() {
         setGoalNotes((prev) => ({ ...prev, [goalId]: notes }));
         setNotesFetched((prev) => ({ ...prev, [goalId]: true }));
       } catch (e: any) {
-        setMsg(e?.message ?? "Note saved, but couldn't refresh the list — reopen the tab to see it.");
+        setMsg(e?.message ?? t("today.noteSavedRefreshFailed"));
       }
     } catch (e: any) {
-      setMsg(e?.message ?? "Failed to add note");
+      setMsg(e?.message ?? t("today.failedAddNote"));
     } finally {
       setSavingNote((prev) => ({ ...prev, [goalId]: false }));
     }
@@ -437,8 +437,9 @@ export default function TodayPage() {
         setRescheduleGoal(goal);
       } else {
         await updateGoalStatus(goal.id, action);
-        setMsg(`Marked "${statusLabel(action, t)}" ✓`);
-        window.setTimeout(() => setMsg((cur) => (cur?.startsWith("Marked") ? null : cur)), 1500);
+        const markedMsg = t("today.markedStatus", { status: statusLabel(action, t) });
+        setMsg(markedMsg);
+        window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
 
         if (action === "completed") {
           setCelebratingGoalIds((prev) => new Set(prev).add(goal.id));
@@ -455,7 +456,7 @@ export default function TodayPage() {
 
       await refresh({ silent: true });
     } catch (e: any) {
-      setMsg(e?.message ?? "Update failed");
+      setMsg(e?.message ?? t("today.updateFailed"));
       await refresh({ silent: true });
     } finally {
       clearGoalBusy(goal.id);
@@ -505,13 +506,14 @@ export default function TodayPage() {
       await updateGoalStatus(goal.id, "blocked");
       await addGoalNote(goal.id, trimmed);
 
-      setMsg(`Marked "${statusLabel("blocked", t)}" ✓`);
-      window.setTimeout(() => setMsg((cur) => (cur?.startsWith("Marked") ? null : cur)), 1500);
+      const markedMsg = t("today.markedStatus", { status: statusLabel("blocked", t) });
+      setMsg(markedMsg);
+      window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
 
       setBlockingGoal(null);
       await refresh({ silent: true });
     } catch (e: any) {
-      setBlockingError(e?.message ?? "Failed to mark blocked");
+      setBlockingError(e?.message ?? t("today.failedMarkBlocked"));
       await refresh({ silent: true });
     } finally {
       setBlockingSaving(false);
@@ -531,14 +533,14 @@ export default function TodayPage() {
     if (totalCount > 0 && !canCloseDay) {
       setMsg(
         pendingGoals.length > 0
-          ? "Review all goals first to close the day."
-          : "Finish or update any goal still marked In Progress before closing the day."
+          ? t("today.reviewAllFirst")
+          : t("today.finishInProgress")
       );
       return;
     }
 
     setClosing(true);
-    setMsg("Closing day...");
+    setMsg(t("today.closingDay"));
 
     try {
       // getStreak() runs before markPlanReviewed(), so it reflects the unbroken
@@ -556,13 +558,13 @@ export default function TodayPage() {
       // extra points were actually added even though the day is closing again.
       setMsg(
         result?.success
-          ? `Day closed ✅ +${closurePoints} pts. Tomorrow unlocked.`
-          : `Day closed ✅ Tomorrow unlocked. (No extra points — this day already earned its closure bonus.)`
+          ? t("today.dayClosedPoints", { points: closurePoints })
+          : t("today.dayClosedNoPoints")
       );
 
       await refresh({ silent: true });
     } catch (e: any) {
-      setMsg(`Error: ${e?.message ?? "Could not close the day."}`);
+      setMsg(t("today.errorPrefix", { message: e?.message ?? t("today.couldNotClose") }));
       await refresh({ silent: true });
     } finally {
       setClosing(false);
@@ -574,7 +576,7 @@ export default function TodayPage() {
     if (!plan?.id || reopening || !dayClosed) return;
 
     setReopening(true);
-    setMsg("Reopening day...");
+    setMsg(t("today.reopeningDay"));
 
     try {
       const { error: planErr } = await supabase
@@ -593,11 +595,11 @@ export default function TodayPage() {
         .eq("plan_id", plan.id);
       if (goalsErr) throw goalsErr;
 
-      setMsg("Day reopened ✅ Review your goals again before closing.");
+      setMsg(t("today.dayReopened"));
       await refresh({ silent: true });
     } catch (e: any) {
       console.error("Reopen error:", e);
-      setMsg(`Error: ${e?.message ?? "Could not reopen the day."}`);
+      setMsg(t("today.errorPrefix", { message: e?.message ?? t("today.couldNotReopen") }));
     } finally {
       setReopening(false);
     }
@@ -610,12 +612,12 @@ export default function TodayPage() {
     const filledGoals = quickAddGoals.filter(g => g.title.trim().length > 0);
     
     if (filledGoals.length === 0) {
-      setMsg("Add at least one goal to continue.");
+      setMsg(t("today.addAtLeastOne"));
       return;
     }
 
     setAddingGoals(true);
-    setMsg("Adding goals...");
+    setMsg(t("today.addingGoalsMsg"));
 
     try {
       // Keep at most one P1 in this batch — later entries win.
@@ -643,24 +645,24 @@ export default function TodayPage() {
         await enforceSingleP1(plan.id, newP1.id);
       }
 
-      setMsg(`Added ${filledGoals.length} goal(s) ✅`);
+      setMsg(t("today.addedGoals", { count: filledGoals.length }));
       setShowQuickAdd(false);
       setQuickAddGoals([
         { title: "", priority: 1, time_of_day: "" },
         { title: "", priority: 2, time_of_day: "" },
         { title: "", priority: 3, time_of_day: "" },
       ]);
-      
+
       await refresh({ silent: true });
     } catch (e: any) {
-      setMsg(e?.message ?? "Failed to add goals");
+      setMsg(e?.message ?? t("today.failedAddGoals"));
     } finally {
       setAddingGoals(false);
     }
   }
 
   if (loading) {
-    return <div className="card">Loading…</div>;
+    return <div className="card">{t("today.loading")}</div>;
   }
 
   return (
@@ -670,29 +672,28 @@ export default function TodayPage() {
       >
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Today</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("today.title")}</h1>
             <p className="text-white/70">
               {dayClosed
-                ? "This day has been closed. You can't add or edit goals on a closed day."
-                : "Review each goal first. Pending goals stay dim until reviewed."}
+                ? t("today.dayClosedDesc")
+                : t("today.reviewFirstDesc")}
             </p>
             {plan?.status && (
               <div className="mt-2 text-sm text-white/60">
-                Date: <b>{formatDateDisplay(todayISO)}</b>
+                {t("today.datePrefix")}<b>{formatDateDisplay(todayISO)}</b>
               </div>
             )}
             {dayClosed && plan?.reviewed_at && (
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 inline-flex">
                 <span className="text-emerald-400 text-lg">✅</span>
                 <div className="text-sm text-emerald-300">
-                  Day closed at {new Date(plan.reviewed_at).toLocaleTimeString()}
+                  {t("today.dayClosedAt", { time: new Date(plan.reviewed_at).toLocaleTimeString() })}
                 </div>
               </div>
             )}
             {dayClosed && (
               <p className="mt-3 text-xs text-white/50">
-                Need to make changes? Reopen this day to add goals or make edits — remember to
-                close it again when you're done.
+                {t("today.reopenPrompt")}
               </p>
             )}
             {showEndOfDayReminder && (
@@ -702,8 +703,7 @@ export default function TodayPage() {
               >
                 <span className="text-lg">⏰</span>
                 <div className="text-sm text-amber-300">
-                  {hoursLeftToday < 1 ? "Less than an hour" : `${Math.round(hoursLeftToday)} hours`} left —
-                  close out today before midnight or it can't be reviewed retroactively.
+                  {hoursLeftToday < 1 ? t("today.lessThanHour") : t("today.hoursLeft", { hours: Math.round(hoursLeftToday) })}{t("today.endOfDaySuffix")}
                 </div>
               </div>
             )}
@@ -711,7 +711,7 @@ export default function TodayPage() {
 
           <div className="flex flex-col items-start sm:items-end gap-3">
             <div className="text-sm text-white/70">
-              Reviewed: <b>{reviewedCount}/{totalCount}</b>
+              {t("today.reviewedCount")}<b>{reviewedCount}/{totalCount}</b>
             </div>
             {dayClosed && (
               <div className="flex flex-row gap-2">
@@ -726,14 +726,14 @@ export default function TodayPage() {
                     whiteSpace: "nowrap"
                   }}
                 >
-                  {reopening ? "Reopening..." : "🔓 Reopen Day"}
+                  {reopening ? t("today.reopening") : t("today.reopenDay")}
                 </button>
                 <Link
                   className="btn btn-primary whitespace-nowrap bottom-nav-btn"
                   href="/standup/tomorrow"
                   style={{ textAlign: "center" }}
                 >
-                  Plan Tomorrow →
+                  {t("today.planTomorrowArrow")}
                 </Link>
               </div>
             )}
@@ -746,9 +746,9 @@ export default function TodayPage() {
                   title={
                     !canCloseDay
                       ? pendingGoals.length > 0
-                        ? "Review all goals first"
-                        : "Finish or update any goal still marked In Progress"
-                      : "Close out the day"
+                        ? t("today.reviewAllGoalsFirstShort")
+                        : t("today.finishInProgressShort")
+                      : t("today.closeOutDayTitle")
                   }
                   className="btn bottom-nav-btn"
                   style={{
@@ -759,14 +759,14 @@ export default function TodayPage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {closing ? "Closing…" : "✅ Close out day"}
+                  {closing ? t("today.closing") : t("today.closeOutDayBtn")}
                 </button>
                 <Link
                   className="btn btn-primary whitespace-nowrap bottom-nav-btn"
                   href="/standup/tomorrow"
                   style={{ textAlign: "center" }}
                 >
-                  Plan Tomorrow →
+                  {t("today.planTomorrowArrow")}
                 </Link>
               </div>
             )}
@@ -789,9 +789,9 @@ export default function TodayPage() {
             <>
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-amber-300 mb-1">No goals for today?</h3>
+                  <h3 className="text-lg font-bold text-amber-300 mb-1">{t("today.noGoalsToday")}</h3>
                   <p className="text-sm text-white/70">
-                    Forgot to plan yesterday? No problem! Quickly add today's goals here.
+                    {t("today.forgotYesterday")}
                   </p>
                 </div>
                 {!showQuickAdd && (
@@ -806,7 +806,7 @@ export default function TodayPage() {
                       fontWeight: "bold"
                     }}
                   >
-                    ⚡ Quick Add Goals
+                    {t("today.quickAddGoals")}
                   </button>
                 )}
               </div>
@@ -814,7 +814,7 @@ export default function TodayPage() {
           ) : (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-amber-300">Need to add more goals?</h3>
+                <h3 className="text-sm font-bold text-amber-300">{t("today.needMoreGoals")}</h3>
               </div>
               {!showQuickAdd && (
                 <button
@@ -827,7 +827,7 @@ export default function TodayPage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  ➕ Add Goals
+                  {t("today.addGoalsBtn")}
                 </button>
               )}
             </div>
@@ -861,7 +861,7 @@ export default function TodayPage() {
                           newGoals[idx].title = e.target.value;
                           setQuickAddGoals(newGoals);
                         }}
-                        placeholder={`Goal ${idx + 1}...`}
+                        placeholder={t("today.goalPlaceholder", { n: idx + 1 })}
                         className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
                       />
                     </div>
@@ -878,24 +878,24 @@ export default function TodayPage() {
                         setQuickAddGoals(newGoals);
                       }}
                       className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
-                      title="Optional time"
+                      title={t("today.optionalTimeTitle")}
                     />
                   </div>
                 ))}
-                
+
                 <div className="flex gap-3 mt-4">
                   <button
                     onClick={handleQuickAdd}
                     disabled={addingGoals}
                     className="btn btn-primary"
                   >
-                    {addingGoals ? "Adding..." : "Add Goals"}
+                    {addingGoals ? t("today.adding") : t("today.addGoalsAction")}
                   </button>
                   <button
                     onClick={() => setShowQuickAdd(false)}
                     className="btn btn-ghost"
                   >
-                    Cancel
+                    {t("today.cancel")}
                   </button>
                 </div>
               </div>
@@ -916,24 +916,24 @@ export default function TodayPage() {
             <div className="flex flex-wrap items-center gap-3">
               {pendingGoals.length > 0 ? (
                 <>
-                  <div className="text-sm text-white/70">Pending: <b>{pendingGoals.length}</b></div>
+                  <div className="text-sm text-white/70">{t("today.pendingLabel")}<b>{pendingGoals.length}</b></div>
                   <div className="h-4 w-px bg-white/10" />
-                  <div className="text-sm text-white/70">Review goals to unlock close out.</div>
+                  <div className="text-sm text-white/70">{t("today.reviewToUnlock")}</div>
                 </>
               ) : inProgressGoals.length > 0 ? (
                 <>
-                  <div className="text-sm text-white/70">In progress: <b>{inProgressGoals.length}</b></div>
+                  <div className="text-sm text-white/70">{t("today.inProgressLabel")}<b>{inProgressGoals.length}</b></div>
                   <div className="h-4 w-px bg-white/10" />
-                  <div className="text-sm text-white/70">Finish or update them before closing out.</div>
+                  <div className="text-sm text-white/70">{t("today.finishBeforeClosing")}</div>
                 </>
               ) : (
-                <div className="text-sm text-white/70">All reviewed — ready to close out!</div>
+                <div className="text-sm text-white/70">{t("today.allReviewed")}</div>
               )}
             </div>
 
             {canCloseDay && (
               <div className="mt-3 text-sm text-white/60">
-                Close out to unlock Tomorrow planning.
+                {t("today.closeToUnlockTomorrow")}
               </div>
             )}
           </div>
@@ -944,9 +944,9 @@ export default function TodayPage() {
           {sortedGoals.length === 0 && !showQuickAdd && (
             <div className="text-white/70 text-center py-12">
               <div className="text-4xl mb-4">📝</div>
-              <p className="text-lg mb-2">No goals for today</p>
+              <p className="text-lg mb-2">{t("today.noGoalsTodayEmpty")}</p>
               <p className="text-sm text-white/50">
-                Use Quick Add above to create goals for today
+                {t("today.useQuickAdd")}
               </p>
             </div>
           )}
@@ -992,7 +992,7 @@ export default function TodayPage() {
                       position: "relative",
                     } as React.CSSProperties
                   }
-                  title="Click to expand"
+                  title={t("today.clickToExpand")}
                 >
                   <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
                     <div
@@ -1028,9 +1028,9 @@ export default function TodayPage() {
                     type="button"
                     onClick={() => toggleExpandedDone(g.id)}
                     className="goal-done-collapse-btn"
-                    title="Collapse"
+                    title={t("today.collapseTitle")}
                   >
-                    ▾ Collapse
+                    {t("today.collapse")}
                   </button>
                 )}
                 {/* Number badge — a small corner tag flush with the card's
@@ -1042,7 +1042,7 @@ export default function TodayPage() {
                   {/* Goal content */}
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                      {!reviewed && <span className="text-xs text-amber-400 font-semibold">⏳ Pending review</span>}
+                      {!reviewed && <span className="text-xs text-amber-400 font-semibold">{t("today.pendingReview")}</span>}
                     </div>
 
                     <div className="text-white text-lg sm:text-xl font-medium mb-2">
@@ -1091,9 +1091,9 @@ export default function TodayPage() {
                           }}
                           className="btn"
                           style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
-                          title={g.link_url || "Attach a link"}
+                          title={g.link_url || t("today.attachLink")}
                         >
-                          {g.link_url ? "🔗 Link" : "+ Link"}
+                          {g.link_url ? `🔗 ${t("today.link")}` : `+ ${t("today.link")}`}
                         </button>
                       )}
                     </div>
@@ -1109,10 +1109,10 @@ export default function TodayPage() {
                         }
                         onBlur={() => {
                           updateGoalLink(g.id, g.link_url || null).catch((err) =>
-                            setMsg(err?.message ?? "Failed to save link")
+                            setMsg(err?.message ?? t("today.failedSaveLink"))
                           );
                         }}
-                        placeholder="https://..."
+                        placeholder={t("today.urlPlaceholder")}
                         className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
                       />
                     )}
@@ -1128,7 +1128,7 @@ export default function TodayPage() {
                           onKeyDown={(e) => {
                             if (e.key === "Enter") submitNote(g.id);
                           }}
-                          placeholder="Add a note..."
+                          placeholder={t("today.addNotePlaceholder")}
                           disabled={!!savingNote[g.id]}
                           autoFocus
                           className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
@@ -1140,7 +1140,7 @@ export default function TodayPage() {
                           className="btn"
                           style={{ padding: "0.375rem 1rem" }}
                         >
-                          {savingNote[g.id] ? "Adding…" : "Add"}
+                          {savingNote[g.id] ? t("today.addingNote") : t("today.add")}
                         </button>
                       </div>
                     )}
@@ -1163,7 +1163,7 @@ export default function TodayPage() {
                             await updateGoalPriority(g.id, plan.id, newPriority);
                             await refresh({ silent: true });
                           } catch (e: any) {
-                            setMsg(e?.message ?? "Failed to update priority");
+                            setMsg(e?.message ?? t("today.failedUpdatePriority"));
                           } finally {
                             clearGoalBusy(g.id);
                           }
@@ -1174,7 +1174,7 @@ export default function TodayPage() {
                           "--p-border": getPriorityMeta(p).border,
                           "--p-color": getPriorityMeta(p).color,
                         } as React.CSSProperties}
-                        title={`Priority ${p}`}
+                        title={t("today.priorityTitle", { p })}
                       >
                         {[1, 2, 3, 4, 5].map((v) => (
                           <option key={v} value={v}>
@@ -1207,7 +1207,7 @@ export default function TodayPage() {
                           disabled={locked}
                           className="actions-toggle"
                           data-open={!!showActions[g.id]}
-                          title={reviewed ? "Change action" : "Choose action"}
+                          title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
                         >
                           {reviewed ? "☑" : "☐"}
                         </button>
@@ -1221,7 +1221,7 @@ export default function TodayPage() {
                         onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
                         className="actions-toggle"
                         data-open={!!showNoteInput[g.id]}
-                        title="Add note"
+                        title={t("today.addNoteTitle")}
                       >
                         💬
                       </button>
@@ -1244,7 +1244,7 @@ export default function TodayPage() {
                           } as React.CSSProperties}
                         >
                           <span>✅</span>
-                          <span>Completed</span>
+                          <span>{t("status.completed")}</span>
                         </button>
 
                         <button
@@ -1259,7 +1259,7 @@ export default function TodayPage() {
                           } as React.CSSProperties}
                         >
                           <span>⚙️</span>
-                          <span>In Progress</span>
+                          <span>{t("today.inProgressAction")}</span>
                         </button>
 
                         <button
@@ -1274,7 +1274,7 @@ export default function TodayPage() {
                           } as React.CSSProperties}
                         >
                           <span>🚫</span>
-                          <span>Blocked</span>
+                          <span>{t("status.blocked")}</span>
                         </button>
 
                         <button
@@ -1289,7 +1289,7 @@ export default function TodayPage() {
                           } as React.CSSProperties}
                         >
                           <span>❌</span>
-                          <span>Canceled</span>
+                          <span>{t("status.canceled")}</span>
                         </button>
 
                         <button
@@ -1304,7 +1304,7 @@ export default function TodayPage() {
                           } as React.CSSProperties}
                         >
                           <span>📅</span>
-                          <span>{g.rescheduled_to ? `Rescheduled to ${formatDateDisplay(g.rescheduled_to)}` : "Rescheduled"}</span>
+                          <span>{g.rescheduled_to ? t("today.rescheduledTo", { date: formatDateDisplay(g.rescheduled_to) }) : t("status.rescheduled")}</span>
                         </button>
                       </div>
                     )}
@@ -1317,9 +1317,9 @@ export default function TodayPage() {
         </div>
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← Calendar</Link>
-          <button type="button" className="btn btn-ghost bottom-nav-btn" onClick={() => refresh()}>Refresh</button>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">Dashboard →</Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
+          <button type="button" className="btn btn-ghost bottom-nav-btn" onClick={() => refresh()}>{t("today.refresh")}</button>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
         </div>
 
         {msg && <div className="mt-4 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white animate-fadeIn">{msg}</div>}
@@ -1330,7 +1330,7 @@ export default function TodayPage() {
           goals={[rescheduleGoal]}
           onClose={() => setRescheduleGoal(null)}
           onSuccess={(kind) => {
-            setMsg(kind === "backlog" ? "Moved to Backlog ✓" : "Goal rescheduled successfully ✓");
+            setMsg(kind === "backlog" ? t("today.movedToBacklog") : t("today.goalRescheduled"));
             refresh({ silent: true });
           }}
         />

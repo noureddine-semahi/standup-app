@@ -13,11 +13,13 @@ import {
   getLifetimeStats,
   hoursUntilMidnight,
   createAchievementPost,
+  getStreakPassBalance,
   type Goal,
   type Profile,
   type DailyPlan,
   type OverdueSummary,
   type PostVisibility,
+  type StreakPassBalance,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -25,7 +27,7 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import {
   Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
-  MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit,
+  MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket,
 } from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -113,6 +115,7 @@ export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [streak, setStreak] = useState(0);
+  const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
   const [pointsView, setPointsView] = useState<"total" | "today">("total");
 
   // Cycles to a new (different) random quote every ~10s — see the effect
@@ -195,17 +198,18 @@ export default function DashboardPage() {
         const u = session?.user ?? null;
         setUser(u);
 
-        // These five don't depend on each other, so they run as one batch
+        // These six don't depend on each other, so they run as one batch
         // instead of a serial chain of awaits. lifetimeStats is swallowed
         // into a null on failure so one bad query can't sink the whole
         // dashboard load via Promise.all's fail-fast behavior — the
         // achievement popup just gets skipped for this load, same as before.
-        const [p, s, todayResult, tomorrowResult, lifetimeStats] = await Promise.all([
+        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes] = await Promise.all([
           getOrCreateProfile(),
           getStreak(),
           getPlanWithGoals(todayISO),
           getPlanWithGoals(tomorrowISO),
           u ? getLifetimeStats().catch(() => null) : Promise.resolve(null),
+          u ? getStreakPassBalance().catch(() => null) : Promise.resolve(null),
         ]);
         setProfile(p);
         setStreak(s);
@@ -213,6 +217,7 @@ export default function DashboardPage() {
         setTodayGoals(todayResult.goals);
         setTomorrowPlan(tomorrowResult.plan);
         setTomorrowGoals(tomorrowResult.goals);
+        setPassBalance(passes);
 
         getOverdueSummary(todayISO)
           .then(setOverdue)
@@ -594,6 +599,21 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
+            {/* Streak passes */}
+            {passBalance !== null && (
+              <div className="card card-highlight stat-tile">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("dashboard.stat.streakPasses")}</div>
+                  <div className="mt-2 sm:mt-3 flex items-center gap-1.5 text-2xl sm:text-3xl font-bold text-white">
+                    {passBalance.available} <Ticket className="text-teal-400" size={20} />
+                  </div>
+                  <div className="mt-1.5 text-xs font-normal text-white/50">
+                    {t("dashboard.streakPassHint")}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Total Points / Points Earned Today — one interchangeable
                 card slot, tap to flip between the two metrics. */}

@@ -1621,8 +1621,8 @@ export type LifetimeStats = {
 export async function getLifetimeStats(): Promise<LifetimeStats> {
   const userId = await getCurrentUserId();
 
-  // The six queries below don't depend on each other's results, so they run
-  // as one batch instead of six sequential round-trips.
+  // The seven queries below don't depend on each other's results, so they
+  // run as one batch instead of seven sequential round-trips.
   const [
     { count: totalReferrals, error: referralsError },
     { data: plans, error: plansError },
@@ -1630,6 +1630,7 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
     { data: reschedRows, error: reschedError },
     { data: notedRows, error: notesError },
     { count: totalGoalsSubmitted, error: submittedError },
+    coveredDates,
   ] = await Promise.all([
     supabase
       .from("referrals")
@@ -1653,6 +1654,8 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
     // completed — closing the loop on something you were following up on.
     supabase.from("goal_notes").select("goal_id").eq("user_id", userId),
     supabase.from("goals").select("id", { count: "exact", head: true }).eq("user_id", userId),
+    // Unbounded, matching this function's own unbounded daily_plans query.
+    getStreakPassCoveredDates("0001-01-01", "9999-12-31"),
   ]);
   if (referralsError) throw referralsError;
   if (plansError) throw plansError;
@@ -1664,6 +1667,11 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
   const reviewedDates = (plans ?? [])
     .filter((p) => !!p.reviewed_at)
     .map((p) => p.plan_date as string);
+  // Streak-pass-covered days count toward the longest-streak *record* (the
+  // whole point of a pass is to protect streak continuity) but must never
+  // inflate totalDaysClosed, which stays keyed to reviewedDates alone —
+  // a covered day was never actually reviewed.
+  const streakDates = [...new Set([...reviewedDates, ...coveredDates])];
   const planIds = (plans ?? []).map((p) => p.id);
   const materializedGoalIds = [
     ...new Set((reschedRows ?? []).map((r) => r.materialized_goal_id).filter(Boolean)),
@@ -1704,7 +1712,7 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
   ]);
 
   return {
-    longestStreak: computeLongestStreak(reviewedDates),
+    longestStreak: computeLongestStreak(streakDates),
     totalDaysClosed: reviewedDates.length,
     totalGoalsCompleted: count ?? 0,
     maxGoalsCompletedInDay,
@@ -2200,28 +2208,82 @@ export function computeClosurePoints(streakBeforeToday: number): number {
   return CLOSURE_BASE_POINTS + bonus;
 }
 
+export type StreakPassBalance = { earned: number; used: number; available: number };
+
+/**
+ * Weekly streak passes: reviewing >=5 of 7 days in a Sunday-Saturday week
+ * earns 2 passes (see the get_streak_pass_balance RPC for the week-bucketing
+ * logic). Never stored as a balance — earned/used/available are all
+ * computed on read from daily_plans.reviewed_at and streak_pass_uses.
+ */
+export async function getStreakPassBalance(): Promise<StreakPassBalance> {
+  const { data, error } = await supabase.rpc("get_streak_pass_balance");
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { earned: row?.earned ?? 0, used: row?.used ?? 0, available: row?.available ?? 0 };
+}
+
+export type StreakPassUse = {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  plan_date: string;
+  covered_at: string;
+};
+
+/** Spends one streak pass to cover planId's day. Never auto-applied — always an explicit user action. */
+export async function useStreakPass(planId: string): Promise<StreakPassUse> {
+  const todayISO = toISODate(new Date());
+  const { data, error } = await supabase.rpc("use_streak_pass", { p_plan_id: planId, p_today: todayISO });
+  if (error) throw error;
+  return data as StreakPassUse;
+}
+
+/** Plan dates (within [startISO, endISO]) the current user has covered with a streak pass. */
+export async function getStreakPassCoveredDates(startISO: string, endISO: string): Promise<Set<string>> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("streak_pass_uses")
+    .select("plan_date")
+    .eq("user_id", userId)
+    .gte("plan_date", startISO)
+    .lte("plan_date", endISO);
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.plan_date as string));
+}
+
 /**
  * Looks back up to 400 days for closed daily_plans and computes the current
  * streak. 400 days is a documented limit, not a real cap — a streak longer
  * than that will undercount rather than fail.
+ *
+ * A day covered by a streak pass (see getStreakPassCoveredDates) counts
+ * toward streak *continuity* here, same as a genuinely reviewed day — but
+ * this union only ever happens for this streak-display purpose, never for
+ * totalDaysClosed/achievements (see getLifetimeStats) or for earning more
+ * passes (get_streak_pass_balance is keyed to reviewed_at only).
  */
 export async function getStreak(): Promise<number> {
   const userId = await getCurrentUserId();
   const todayISO = toISODate(new Date());
   const windowStartISO = toISODate(addDays(new Date(), -400));
 
-  const { data, error } = await supabase
-    .from("daily_plans")
-    .select("plan_date, reviewed_at")
-    .eq("user_id", userId)
-    .gte("plan_date", windowStartISO)
-    .lte("plan_date", todayISO);
+  const [{ data, error }, coveredDates] = await Promise.all([
+    supabase
+      .from("daily_plans")
+      .select("plan_date, reviewed_at")
+      .eq("user_id", userId)
+      .gte("plan_date", windowStartISO)
+      .lte("plan_date", todayISO),
+    getStreakPassCoveredDates(windowStartISO, todayISO),
+  ]);
 
   if (error) throw error;
 
   const reviewedDates = new Set(
     (data ?? []).filter((row) => !!row.reviewed_at).map((row) => row.plan_date as string)
   );
+  for (const d of coveredDates) reviewedDates.add(d);
 
   return computeStreak(reviewedDates, todayISO);
 }
@@ -2245,25 +2307,29 @@ export type OverdueDay = {
  *
  * A day drops out of this list once every one of its goals has either been
  * reviewed or re-attempted (rescheduled forward, which sets status to
- * "postponed" but never touches reviewed_at), or once it's been manually
- * cleared via the "Clear this day" button — matches the Calendar page's
- * "Missed" vs "Cleared" distinction, so the two stay consistent.
+ * "postponed" but never touches reviewed_at), once it's been manually
+ * cleared via the "Clear this day" button, or once it's been covered by a
+ * streak pass — matches the Calendar page's "Missed"/"Cleared"/"Covered"
+ * distinction, so all three stay consistent.
  */
 export async function getOverdueDays(todayISO: string): Promise<OverdueDay[]> {
   const userId = await getCurrentUserId();
 
-  const { data: candidatePlans, error: plansErr } = await supabase
-    .from("daily_plans")
-    .select("id, plan_date")
-    .eq("user_id", userId)
-    .eq("status", "submitted")
-    .is("reviewed_at", null)
-    .is("cleared_at", null)
-    .lt("plan_date", todayISO)
-    .order("plan_date", { ascending: true });
+  const [{ data: candidatePlans, error: plansErr }, coveredDates] = await Promise.all([
+    supabase
+      .from("daily_plans")
+      .select("id, plan_date")
+      .eq("user_id", userId)
+      .eq("status", "submitted")
+      .is("reviewed_at", null)
+      .is("cleared_at", null)
+      .lt("plan_date", todayISO)
+      .order("plan_date", { ascending: true }),
+    getStreakPassCoveredDates("0001-01-01", todayISO),
+  ]);
 
   if (plansErr) throw plansErr;
-  const plans = candidatePlans ?? [];
+  const plans = (candidatePlans ?? []).filter((p) => !coveredDates.has(p.plan_date as string));
   if (plans.length === 0) return [];
 
   const { data: goalsData, error: goalsErr } = await supabase

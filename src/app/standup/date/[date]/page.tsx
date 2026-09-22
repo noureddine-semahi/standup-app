@@ -24,10 +24,14 @@ import {
   deleteGoal,
   getSuggestedTemplatesForDate,
   addGoalFromTemplate,
+  getStreakPassBalance,
+  getStreakPassCoveredDates,
+  useStreakPass,
   type ChecklistItem,
   type Goal,
   type GoalAttachment,
   type RecurringGoalTemplate,
+  type StreakPassBalance,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -49,7 +53,7 @@ import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { Clock, Link2, Plus, Sun, Redo2, X } from "lucide-react";
+import { Clock, Link2, Plus, Sun, Redo2, X, Ticket } from "lucide-react";
 
 export default function DynamicDatePage() {
   const { t } = useLanguage();
@@ -78,6 +82,9 @@ export default function DynamicDatePage() {
   const [planReviewedAt, setPlanReviewedAt] = useState<string | null>(null);
   const [planClearedAt, setPlanClearedAt] = useState<string | null>(null);
   const [clearingDay, setClearingDay] = useState(false);
+  const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
+  const [coveredByPass, setCoveredByPass] = useState(false);
+  const [usingPass, setUsingPass] = useState(false);
 
   const [goals, setGoals] = useState<DraftGoal[]>([
     { title: "", sort_order: 0, priority: DEFAULT_PRIORITY },
@@ -210,15 +217,19 @@ export default function DynamicDatePage() {
     // for dates further out, so those just stay draft-only indefinitely
     // until their eve arrives. Independent of the plan fetch, so they run
     // together.
-    const [eligible, { plan, goals: dbGoals }] = await Promise.all([
+    const [eligible, { plan, goals: dbGoals }, balance, coveredDates] = await Promise.all([
       dateISO === tomorrowISO ? isPrevDayReviewedForPlan(dateISO) : Promise.resolve(false),
       getPlanWithGoals(dateISO),
+      isPastDate ? getStreakPassBalance() : Promise.resolve(null),
+      isPastDate ? getStreakPassCoveredDates(dateISO, dateISO) : Promise.resolve(new Set<string>()),
     ]);
     setSubmitEligible(eligible);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
     setPlanReviewedAt(plan.reviewed_at);
     setPlanClearedAt(plan.cleared_at ?? null);
+    setPassBalance(balance);
+    setCoveredByPass(coveredDates.has(dateISO));
 
     // Fetch reschedule origin data, previous actions/comments, checklist
     // items, and attachments for all goals together — none of these four
@@ -540,6 +551,29 @@ export default function DynamicDatePage() {
     }
   }
 
+  async function handleUseStreakPass() {
+    if (!planId || usingPass || coveredByPass) return;
+    if (
+      !window.confirm(
+        t("datePage.confirmUseStreakPass", { count: passBalance?.available ?? 0 })
+      )
+    ) {
+      return;
+    }
+
+    setUsingPass(true);
+    setMsg(null);
+    try {
+      await useStreakPass(planId);
+      await refresh({ silent: true });
+      setMsg(t("datePage.streakPassUsed"));
+    } catch (e: any) {
+      setMsg(e?.message ?? t("datePage.failedUseStreakPass"));
+    } finally {
+      setUsingPass(false);
+    }
+  }
+
   async function removeGoal(idx: number) {
     const g = goals[idx];
 
@@ -578,7 +612,8 @@ export default function DynamicDatePage() {
 
   if (isPastDate) {
     const pastGoals = goals.filter((g) => (g.title ?? "").trim().length > 0);
-    const isMissed = planStatus === "submitted" && !planReviewedAt && !planClearedAt;
+    const isMissed = planStatus === "submitted" && !planReviewedAt && !planClearedAt && !coveredByPass;
+    const canUseStreakPass = (isMissed || !!planClearedAt) && !coveredByPass;
     // Whole-day re-attempt only offered when nothing on this day has been
     // touched at all — if even one goal was already completed or
     // individually rescheduled, a blanket "move everything" would carry
@@ -599,9 +634,14 @@ export default function DynamicDatePage() {
                 {t("datePage.neverReviewedMissed")}
               </p>
             )}
-            {!!planClearedAt && (
+            {!!planClearedAt && !coveredByPass && (
               <p className="mt-2 text-xs text-emerald-400">
                 {t("datePage.clearedOn", { date: formatDateTimeDisplay(planClearedAt) })}
+              </p>
+            )}
+            {coveredByPass && (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-teal-400">
+                <Ticket size={13} /> {t("datePage.streakPassCovered")}
               </p>
             )}
           </div>
@@ -614,6 +654,17 @@ export default function DynamicDatePage() {
             {isMissed && (
               <button className="btn" onClick={handleClearDay} disabled={clearingDay}>
                 {clearingDay ? t("datePage.clearing") : t("datePage.clearThisDay")}
+              </button>
+            )}
+            {canUseStreakPass && (
+              <button
+                className="btn inline-flex items-center gap-1.5"
+                onClick={handleUseStreakPass}
+                disabled={usingPass || (passBalance?.available ?? 0) <= 0}
+                title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+              >
+                <Ticket size={14} />
+                {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPass", { count: passBalance?.available ?? 0 })}
               </button>
             )}
             <button className="btn" onClick={() => router.push("/standup/calendar")}>

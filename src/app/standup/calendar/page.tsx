@@ -3,9 +3,18 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronUp, ChevronDown, TriangleAlert } from "lucide-react";
+import { ChevronUp, ChevronDown, TriangleAlert, Ticket } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { toISODate, formatDateDisplay, getCurrentUserId, getOverdueDays, type OverdueDay } from "@/lib/supabase/db";
+import {
+  toISODate,
+  formatDateDisplay,
+  getCurrentUserId,
+  getOverdueDays,
+  getStreakPassBalance,
+  getStreakPassCoveredDates,
+  type OverdueDay,
+  type StreakPassBalance,
+} from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type DayData = {
@@ -21,9 +30,12 @@ type DayData = {
   // both rather than reviewed_at alone. Also true if the day was manually
   // cleared via the "Clear this day" button on its view-only page.
   allGoalsHandled: boolean;
+  // Covered by a streak pass — distinct from allGoalsHandled/cleared: a
+  // covered day actually protects the streak, a cleared one doesn't.
+  coveredByPass: boolean;
 };
 
-function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue" | "cleared") {
+function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue" | "cleared" | "covered") {
   // Flat, quiet tint per state — no layered radial "sphere" gradients or heavy glow.
   switch (tone) {
     case "today":
@@ -63,6 +75,15 @@ function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue
         border: "rgba(59, 130, 246, 0.28)",
         glow: "none",
       };
+    // A missed day retroactively covered by a streak pass — unlike
+    // "cleared", this one genuinely protects the streak, so it gets its
+    // own distinct tone rather than being folded into "cleared".
+    case "covered":
+      return {
+        bg: "rgba(45, 212, 191, 0.10)",
+        border: "rgba(45, 212, 191, 0.35)",
+        glow: "none",
+      };
     case "neutral":
     default:
       return {
@@ -79,6 +100,7 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [dayData, setDayData] = useState<Record<string, DayData>>({});
   const [overdueDays, setOverdueDays] = useState<OverdueDay[]>([]);
+  const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
   const searchParams = useSearchParams();
   const [showOverdueList, setShowOverdueList] = useState(() => searchParams.get("unreviewed") === "1");
 
@@ -88,6 +110,9 @@ export default function CalendarPage() {
     getOverdueDays(todayISO)
       .then(setOverdueDays)
       .catch((error) => console.error("Error loading unreviewed days:", error));
+    getStreakPassBalance()
+      .then(setPassBalance)
+      .catch((error) => console.error("Error loading streak pass balance:", error));
   }, [todayISO]);
 
   const monthStart = useMemo(() => {
@@ -112,12 +137,15 @@ export default function CalendarPage() {
         const startISO = toISODate(monthStart);
         const endISO = toISODate(monthEnd);
 
-        const { data: plans, error: plansErr } = await supabase
-          .from("daily_plans")
-          .select("id, plan_date, reviewed_at, cleared_at")
-          .eq("user_id", userId)
-          .gte("plan_date", startISO)
-          .lte("plan_date", endISO);
+        const [{ data: plans, error: plansErr }, coveredDates] = await Promise.all([
+          supabase
+            .from("daily_plans")
+            .select("id, plan_date, reviewed_at, cleared_at")
+            .eq("user_id", userId)
+            .gte("plan_date", startISO)
+            .lte("plan_date", endISO),
+          getStreakPassCoveredDates(startISO, endISO),
+        ]);
 
         if (plansErr) throw plansErr;
 
@@ -150,6 +178,7 @@ export default function CalendarPage() {
               !!plan.cleared_at ||
               (planGoals.length > 0 &&
                 planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at)),
+            coveredByPass: coveredDates.has(plan.plan_date),
           };
         });
 
@@ -219,6 +248,16 @@ export default function CalendarPage() {
                 </span>
               </button>
             )}
+            {passBalance !== null && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm"
+                style={{ background: "rgba(45, 212, 191, 0.10)", border: "1px solid rgba(45, 212, 191, 0.3)", color: "rgb(94, 234, 212)" }}
+                title={t("calendar.streakPassHint")}
+              >
+                <Ticket size={13} />
+                {t(passBalance.available === 1 ? "calendar.passesAvailable.one" : "calendar.passesAvailable.other", { count: passBalance.available })}
+              </span>
+            )}
           </div>
         </div>
 
@@ -269,13 +308,16 @@ export default function CalendarPage() {
             const data = dayData[dateISO];
             const isToday = dateISO === todayISO;
             const isPast = dateISO < todayISO;
-            const isCleared = isPast && !!data?.hasGoals && !data?.reviewed && data?.allGoalsHandled;
-            const isOverdue = isPast && !!data?.hasGoals && !data?.reviewed && !data?.allGoalsHandled;
+            const isCovered = isPast && !!data?.coveredByPass;
+            const isCleared = isPast && !!data?.hasGoals && !data?.reviewed && data?.allGoalsHandled && !isCovered;
+            const isOverdue = isPast && !!data?.hasGoals && !data?.reviewed && !data?.allGoalsHandled && !isCovered;
 
             const tone = isToday
               ? "today"
               : data?.reviewed
               ? "closed"
+              : isCovered
+              ? "covered"
               : isOverdue
               ? "overdue"
               : isCleared
@@ -291,6 +333,8 @@ export default function CalendarPage() {
               ? t("calendar.today")
               : data?.reviewed
               ? t("calendar.dayClosed")
+              : isCovered
+              ? t("calendar.dayCovered")
               : isOverdue
               ? t("calendar.dayMissed")
               : isCleared
@@ -380,6 +424,16 @@ export default function CalendarPage() {
               }}
             />
             <span>{t("calendar.legendCleared")}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-4 h-4 rounded-md border"
+              style={{
+                background: toneStyles("covered").bg,
+                borderColor: toneStyles("covered").border,
+              }}
+            />
+            <span>{t("calendar.legendCovered")}</span>
           </div>
           <div className="flex items-center gap-2">
             <div

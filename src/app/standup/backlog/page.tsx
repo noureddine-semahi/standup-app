@@ -9,10 +9,26 @@ import {
   getBacklogGoals,
   promoteBacklogGoal,
   toISODate,
+  getRecurringGoalTemplates,
+  addRecurringGoalTemplate,
+  setRecurringGoalTemplateActive,
+  deleteRecurringGoalTemplate,
   type BacklogGoal,
+  type RecurringGoalTemplate,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
+
+const WEEKDAY_KEYS: TranslationKey[] = [
+  "calendar.daySun",
+  "calendar.dayMon",
+  "calendar.dayTue",
+  "calendar.dayWed",
+  "calendar.dayThu",
+  "calendar.dayFri",
+  "calendar.daySat",
+];
 
 export default function BacklogPage() {
   const { t } = useLanguage();
@@ -28,12 +44,99 @@ export default function BacklogPage() {
   const [pushDate, setPushDate] = useState<Record<string, string>>({});
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
+  const [templates, setTemplates] = useState<RecurringGoalTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templateMsg, setTemplateMsg] = useState<string | null>(null);
+  const [newTemplateTitle, setNewTemplateTitle] = useState("");
+  const [newTemplateDays, setNewTemplateDays] = useState<Set<number>>(new Set());
+  const [addingTemplate, setAddingTemplate] = useState(false);
+  const [busyTemplateIds, setBusyTemplateIds] = useState<Set<string>>(new Set());
+
   const todayISO = toISODate(new Date());
   const tomorrowISO = toISODate(addDays(new Date(), 1));
 
   useEffect(() => {
     refresh();
+    refreshTemplates();
   }, []);
+
+  async function refreshTemplates() {
+    setTemplatesLoading(true);
+    setTemplateMsg(null);
+    try {
+      setTemplates(await getRecurringGoalTemplates());
+    } catch (e: any) {
+      setTemplateMsg(e?.message ?? t("backlog.failedLoadTemplates"));
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }
+
+  function toggleTemplateDay(day: number) {
+    setNewTemplateDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  }
+
+  function setTemplateBusy(id: string, busy: boolean) {
+    setBusyTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleAddTemplate() {
+    const title = newTemplateTitle.trim();
+    if (!title || newTemplateDays.size === 0 || addingTemplate) return;
+    setAddingTemplate(true);
+    setTemplateMsg(null);
+    try {
+      const created = await addRecurringGoalTemplate({
+        title,
+        days_of_week: [...newTemplateDays].sort(),
+      });
+      setTemplates((prev) => [...prev, created]);
+      setNewTemplateTitle("");
+      setNewTemplateDays(new Set());
+    } catch (e: any) {
+      setTemplateMsg(e?.message ?? t("backlog.failedAddTemplate"));
+    } finally {
+      setAddingTemplate(false);
+    }
+  }
+
+  async function handleToggleTemplateActive(template: RecurringGoalTemplate) {
+    if (busyTemplateIds.has(template.id)) return;
+    setTemplateBusy(template.id, true);
+    setTemplateMsg(null);
+    try {
+      await setRecurringGoalTemplateActive(template.id, !template.active);
+      setTemplates((prev) => prev.map((t2) => (t2.id === template.id ? { ...t2, active: !template.active } : t2)));
+    } catch (e: any) {
+      setTemplateMsg(e?.message ?? t("backlog.failedUpdateTemplate"));
+    } finally {
+      setTemplateBusy(template.id, false);
+    }
+  }
+
+  async function handleDeleteTemplate(template: RecurringGoalTemplate) {
+    if (busyTemplateIds.has(template.id)) return;
+    setTemplateBusy(template.id, true);
+    setTemplateMsg(null);
+    try {
+      await deleteRecurringGoalTemplate(template.id);
+      setTemplates((prev) => prev.filter((t2) => t2.id !== template.id));
+    } catch (e: any) {
+      setTemplateMsg(e?.message ?? t("backlog.failedDeleteTemplate"));
+    } finally {
+      setTemplateBusy(template.id, false);
+    }
+  }
 
   async function refresh() {
     setLoading(true);
@@ -105,6 +208,7 @@ export default function BacklogPage() {
   }
 
   return (
+    <div className="space-y-6">
     <div className="card card-highlight">
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.backlog")}</h1>
@@ -254,7 +358,109 @@ export default function BacklogPage() {
         </div>
       )}
 
-      <div className="mt-8 flex flex-wrap gap-4 items-center justify-between">
+    </div>
+
+    <div className="card card-highlight">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-1">{t("backlog.recurringTitle")}</h2>
+        <p className="text-sm text-white/70">{t("backlog.recurringSubtitle")}</p>
+      </div>
+
+      {templateMsg && (
+        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+          {templateMsg}
+        </div>
+      )}
+
+      <div className="space-y-3 mb-6">
+        <input
+          type="text"
+          value={newTemplateTitle}
+          onChange={(e) => setNewTemplateTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleAddTemplate();
+          }}
+          placeholder={t("backlog.recurringTitlePlaceholder")}
+          disabled={addingTemplate}
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+        />
+        <div className="flex flex-wrap gap-2">
+          {WEEKDAY_KEYS.map((key, day) => (
+            <button
+              key={day}
+              type="button"
+              onClick={() => toggleTemplateDay(day)}
+              disabled={addingTemplate}
+              className="btn"
+              style={{
+                padding: "0.3rem 0.7rem",
+                fontSize: "0.8rem",
+                background: newTemplateDays.has(day) ? "rgba(245, 158, 11, 0.2)" : undefined,
+                borderColor: newTemplateDays.has(day) ? "rgba(245, 158, 11, 0.6)" : undefined,
+              }}
+            >
+              {t(key)}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={handleAddTemplate}
+          disabled={addingTemplate || !newTemplateTitle.trim() || newTemplateDays.size === 0}
+          className="btn btn-primary"
+        >
+          {addingTemplate ? t("backlog.addingTemplate") : t("backlog.addTemplate")}
+        </button>
+      </div>
+
+      {templatesLoading ? (
+        <div className="text-white/60 text-center py-6">{t("backlog.loading")}</div>
+      ) : templates.length === 0 ? (
+        <p className="text-sm text-white/50 italic">{t("backlog.noTemplatesYet")}</p>
+      ) : (
+        <div className="space-y-2">
+          {templates.map((template) => {
+            const busy = busyTemplateIds.has(template.id);
+            return (
+              <div
+                key={template.id}
+                className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2"
+                style={{ opacity: template.active ? 1 : 0.5 }}
+              >
+                <div className="min-w-0">
+                  <div className="text-sm text-white/85 truncate">{template.title}</div>
+                  <div className="text-[11px] text-white/40">
+                    {template.days_of_week.map((d) => t(WEEKDAY_KEYS[d])).join(" ")}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleTemplateActive(template)}
+                    disabled={busy}
+                    className="btn"
+                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                  >
+                    {template.active ? t("backlog.retireTemplate") : t("backlog.reactivateTemplate")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTemplate(template)}
+                    disabled={busy}
+                    className="btn"
+                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                  >
+                    {t("backlog.deleteTemplate")}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+
+      <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
           {t("backlog.planTomorrowArrow")}
         </Link>

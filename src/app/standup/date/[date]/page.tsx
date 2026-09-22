@@ -22,9 +22,12 @@ import {
   formatDateTimeDisplay,
   upsertGoals,
   deleteGoal,
+  getSuggestedTemplatesForDate,
+  addGoalFromTemplate,
   type ChecklistItem,
   type Goal,
   type GoalAttachment,
+  type RecurringGoalTemplate,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -82,6 +85,8 @@ export default function DynamicDatePage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [suggestedTemplates, setSuggestedTemplates] = useState<RecurringGoalTemplate[]>([]);
+  const [addingTemplateId, setAddingTemplateId] = useState<string | null>(null);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
@@ -290,6 +295,28 @@ export default function DynamicDatePage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateISO]);
+
+  useEffect(() => {
+    if (isPastDate) return; // read-only view — no suggestions to add
+    getSuggestedTemplatesForDate(dateISO)
+      .then(setSuggestedTemplates)
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateISO, isPastDate]);
+
+  async function handleAddSuggestedTemplate(template: RecurringGoalTemplate) {
+    if (addingTemplateId) return;
+    setAddingTemplateId(template.id);
+    try {
+      await addGoalFromTemplate(template, dateISO);
+      setSuggestedTemplates((prev) => prev.filter((t2) => t2.id !== template.id));
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setMsg(e?.message ?? t("tomorrow.failedAddSuggested"));
+    } finally {
+      setAddingTemplateId(null);
+    }
+  }
 
   function addMoreGoal() {
     if (autosaveTimerRef.current) {
@@ -777,6 +804,28 @@ export default function DynamicDatePage() {
           )}
         </div>
       </div>
+
+      {suggestedTemplates.length > 0 && (
+        <div className="mb-6">
+          <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
+            {t("tomorrow.suggestedTitle")}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {suggestedTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => handleAddSuggestedTemplate(template)}
+                disabled={addingTemplateId === template.id}
+                className="btn"
+                style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+              >
+                {addingTemplateId === template.id ? t("tomorrow.addingSuggested") : `+ ${template.title}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {goals.map((g, idx) => {

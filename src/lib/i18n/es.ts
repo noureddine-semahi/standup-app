@@ -213,6 +213,9 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.planIsPart2": ".",
   "tomorrow.priorityGoalPlaceholder": "Objetivo prioridad {p}...",
   "tomorrow.optionalGoalPlaceholder": "Objetivo opcional...",
+  "tomorrow.suggestedTitle": "Sugeridos",
+  "tomorrow.addingSuggested": "Agregando…",
+  "tomorrow.failedAddSuggested": "Error al agregar el objetivo sugerido",
 
   // Review Today
   "today.failedLoad": "Error al cargar",
@@ -364,6 +367,21 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.push": "Enviar",
   "backlog.removeFromBacklog": "Eliminar de pendientes",
   "backlog.planTomorrowArrow": "← Planificar Mañana",
+
+  // Recurring goal templates (Backlog page)
+  "backlog.recurringTitle": "Plantillas Recurrentes",
+  "backlog.recurringSubtitle": "Objetivos que surgen según un horario — se muestran como sugerencias para agregar con un toque en los días que corresponden. Nunca se agregan automáticamente.",
+  "backlog.recurringTitlePlaceholder": "p. ej. Ejercicio",
+  "backlog.addTemplate": "+ Agregar Plantilla",
+  "backlog.addingTemplate": "Agregando…",
+  "backlog.noTemplatesYet": "Aún no hay plantillas recurrentes.",
+  "backlog.retireTemplate": "Retirar",
+  "backlog.reactivateTemplate": "Reactivar",
+  "backlog.deleteTemplate": "Eliminar",
+  "backlog.failedLoadTemplates": "Error al cargar las plantillas recurrentes",
+  "backlog.failedAddTemplate": "Error al agregar la plantilla",
+  "backlog.failedUpdateTemplate": "Error al actualizar la plantilla",
+  "backlog.failedDeleteTemplate": "Error al eliminar la plantilla",
 
   // History (Data & Metrics)
   "history.loading": "Cargando historial…",

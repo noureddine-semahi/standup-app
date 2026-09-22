@@ -215,6 +215,9 @@ export const en = {
   "tomorrow.planIsPart2": ".",
   "tomorrow.priorityGoalPlaceholder": "Priority {p} goal...",
   "tomorrow.optionalGoalPlaceholder": "Optional goal...",
+  "tomorrow.suggestedTitle": "Suggested",
+  "tomorrow.addingSuggested": "Adding…",
+  "tomorrow.failedAddSuggested": "Failed to add suggested goal",
 
   // Review Today
   "today.failedLoad": "Failed to load",
@@ -366,6 +369,21 @@ export const en = {
   "backlog.push": "Push",
   "backlog.removeFromBacklog": "Remove from backlog",
   "backlog.planTomorrowArrow": "← Plan Tomorrow",
+
+  // Recurring goal templates (Backlog page)
+  "backlog.recurringTitle": "Recurring Templates",
+  "backlog.recurringSubtitle": "Goals that come up on a schedule — shown as tap-to-add suggestions on the days they're due. Never added automatically.",
+  "backlog.recurringTitlePlaceholder": "e.g. Workout",
+  "backlog.addTemplate": "+ Add Template",
+  "backlog.addingTemplate": "Adding…",
+  "backlog.noTemplatesYet": "No recurring templates yet.",
+  "backlog.retireTemplate": "Retire",
+  "backlog.reactivateTemplate": "Reactivate",
+  "backlog.deleteTemplate": "Delete",
+  "backlog.failedLoadTemplates": "Failed to load recurring templates",
+  "backlog.failedAddTemplate": "Failed to add template",
+  "backlog.failedUpdateTemplate": "Failed to update template",
+  "backlog.failedDeleteTemplate": "Failed to delete template",
 
   // History (Data & Metrics)
   "history.loading": "Loading history…",

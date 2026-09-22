@@ -172,6 +172,10 @@ export type Goal = {
   // to the checklist/attachments, for when a reference link is all a goal
   // needs (a doc, a meeting link, a job posting).
   link_url?: string | null;
+  // Set when this goal was created by tapping a recurring-template
+  // suggestion chip — used only to dedupe "already added today" against
+  // that same template, not shown anywhere in the UI.
+  source_template_id?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;
@@ -191,6 +195,25 @@ export type BacklogGoal = {
   title: string;
   details: string | null;
   priority: number;
+  created_at: string;
+};
+
+/**
+ * A recurring goal suggestion (e.g. "Workout" every Mon/Wed/Fri) — never
+ * auto-creates a goal. Plan Tomorrow (and any future date's plan) shows
+ * templates due that day as tap-to-add chips; tapping one calls
+ * addGoalFromTemplate() to create a real, independent Goal.
+ */
+export type RecurringGoalTemplate = {
+  id: string;
+  user_id: string;
+  title: string;
+  details: string | null;
+  priority: number | null;
+  time_of_day: string | null;
+  // 0=Sunday..6=Saturday, matching JS Date.getDay().
+  days_of_week: number[];
+  active: boolean;
   created_at: string;
 };
 
@@ -978,6 +1001,117 @@ export async function promoteBacklogGoal(backlog: BacklogGoal, planDateISO: stri
 
   await deleteBacklogGoal(backlog.id);
 
+  return created as Goal;
+}
+
+// ── Recurring goal templates ──────────────────────────────────────────
+
+export async function getRecurringGoalTemplates(): Promise<RecurringGoalTemplate[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("recurring_goal_templates")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as RecurringGoalTemplate[];
+}
+
+export async function addRecurringGoalTemplate(input: {
+  title: string;
+  details?: string | null;
+  priority?: number | null;
+  time_of_day?: string | null;
+  days_of_week: number[];
+}): Promise<RecurringGoalTemplate> {
+  const userId = await getCurrentUserId();
+  const trimmed = input.title.trim();
+  const { data, error } = await supabase
+    .from("recurring_goal_templates")
+    .insert({
+      user_id: userId,
+      title: trimmed,
+      details: input.details?.trim() || null,
+      priority: input.priority ?? null,
+      time_of_day: input.time_of_day || null,
+      days_of_week: input.days_of_week,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as RecurringGoalTemplate;
+}
+
+/** Retiring (active=false) keeps history/dedupe intact without deleting the row. */
+export async function setRecurringGoalTemplateActive(id: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from("recurring_goal_templates").update({ active }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteRecurringGoalTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from("recurring_goal_templates").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Active templates due on planDateISO's weekday, minus any already added
+ * to that specific date (via source_template_id) -- so a template you've
+ * already tapped once for this day stops suggesting itself.
+ */
+export async function getSuggestedTemplatesForDate(planDateISO: string): Promise<RecurringGoalTemplate[]> {
+  const userId = await getCurrentUserId();
+  const weekday = new Date(`${planDateISO}T00:00:00`).getDay();
+
+  const [{ data: templates, error: templatesErr }, plan] = await Promise.all([
+    supabase.from("recurring_goal_templates").select("*").eq("user_id", userId).eq("active", true),
+    getOrCreatePlan(planDateISO),
+  ]);
+  if (templatesErr) throw templatesErr;
+
+  const due = ((templates ?? []) as RecurringGoalTemplate[]).filter((t) => t.days_of_week.includes(weekday));
+  if (due.length === 0) return [];
+
+  const { data: existingGoals, error: goalsErr } = await supabase
+    .from("goals")
+    .select("source_template_id")
+    .eq("plan_id", plan.id)
+    .not("source_template_id", "is", null);
+  if (goalsErr) throw goalsErr;
+
+  const addedTemplateIds = new Set((existingGoals ?? []).map((g) => g.source_template_id));
+  return due.filter((t) => !addedTemplateIds.has(t.id));
+}
+
+/** Tap-to-add: creates a real, independent Goal from a template -- never automatic. */
+export async function addGoalFromTemplate(template: RecurringGoalTemplate, planDateISO: string): Promise<Goal> {
+  const plan = await getOrCreatePlan(planDateISO);
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("goals")
+    .select("sort_order")
+    .eq("plan_id", plan.id)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  if (existingErr) throw existingErr;
+  const nextSortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const userId = await getCurrentUserId();
+  const { data: created, error: insertErr } = await supabase
+    .from("goals")
+    .insert({
+      user_id: userId,
+      plan_id: plan.id,
+      title: template.title,
+      details: template.details,
+      status: "not_started",
+      sort_order: nextSortOrder,
+      priority: template.priority,
+      time_of_day: template.time_of_day,
+      source_template_id: template.id,
+    })
+    .select()
+    .single();
+  if (insertErr) throw insertErr;
   return created as Goal;
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ClipboardList, CheckCircle2 } from "lucide-react";
 import {
   isCurrentUserAdmin,
   isCurrentUserSysAdmin,
@@ -256,8 +257,8 @@ export default function AdminPage() {
               {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
             </p>
           </div>
-          <Link href="/standup/admin/product-log" className="btn btn-ghost whitespace-nowrap">
-            📋 Product Log
+          <Link href="/standup/admin/product-log" className="btn btn-ghost whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            <ClipboardList size={15} /> Product Log
           </Link>
         </div>
         {msg && <p className="mt-3 text-sm text-amber-300">{msg}</p>}
@@ -535,7 +536,7 @@ export default function AdminPage() {
             }
             title="For a browser you'll deliberately use to re-visit the signed-out landing page while testing"
           >
-            {deviceOptedOut ? "✓ This device excluded" : "Exclude this device"}
+            {deviceOptedOut ? <span className="inline-flex items-center gap-1"><CheckCircle2 size={13} /> This device excluded</span> : "Exclude this device"}
           </button>
         </div>
 

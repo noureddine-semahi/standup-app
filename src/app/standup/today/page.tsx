@@ -42,7 +42,13 @@ import {
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
-import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import { statusLabel, statusChipColors } from "@/lib/goalStatus";
+import StatusIcon from "@/components/StatusIcon";
+import {
+  ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
+  Clock, Link2, Plus, SquareCheck, Square, MessageCircle, Users, Globe,
+  AlarmClock, Hourglass,
+} from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -731,7 +737,7 @@ export default function TodayPage() {
             )}
             {dayClosed && plan?.reviewed_at && (
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 inline-flex">
-                <span className="text-emerald-400 text-lg">✅</span>
+                <CheckCircle2 className="text-emerald-400" size={20} />
                 <div className="text-sm text-emerald-300">
                   {t("today.dayClosedAt", { time: new Date(plan.reviewed_at).toLocaleTimeString() })}
                 </div>
@@ -747,7 +753,7 @@ export default function TodayPage() {
                 className="mt-3 rounded-lg px-3 py-2 inline-flex items-center gap-2"
                 style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
               >
-                <span className="text-lg">⏰</span>
+                <AlarmClock className="text-amber-400" size={18} />
                 <div className="text-sm text-amber-300">
                   {hoursLeftToday < 1 ? t("today.lessThanHour") : t("today.hoursLeft", { hours: Math.round(hoursLeftToday) })}{t("today.endOfDaySuffix")}
                 </div>
@@ -772,11 +778,14 @@ export default function TodayPage() {
                       padding: "0.4rem 0.7rem",
                       fontSize: "0.8rem",
                       whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
                       background: myGlimpsePost?.visibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
                       borderColor: myGlimpsePost?.visibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
                     }}
                   >
-                    {t("today.publishConnectionsBtn")}
+                    <Users size={13} /> {t("today.publishConnectionsBtn")}
                   </button>
                   <button
                     type="button"
@@ -787,11 +796,14 @@ export default function TodayPage() {
                       padding: "0.4rem 0.7rem",
                       fontSize: "0.8rem",
                       whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
                       background: myGlimpsePost?.visibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
                       borderColor: myGlimpsePost?.visibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
                     }}
                   >
-                    {t("today.publishEveryoneBtn")}
+                    <Globe size={13} /> {t("today.publishEveryoneBtn")}
                   </button>
                   {published && (
                     <button
@@ -1037,7 +1049,7 @@ export default function TodayPage() {
         <div className="space-y-4">
           {sortedGoals.length === 0 && !showQuickAdd && (
             <div className="text-white/70 text-center py-12">
-              <div className="text-4xl mb-4">📝</div>
+              <ClipboardList className="mx-auto mb-4 text-white/40" size={40} strokeWidth={1.5} />
               <p className="text-lg mb-2">{t("today.noGoalsTodayEmpty")}</p>
               <p className="text-sm text-white/50">
                 {t("today.useQuickAdd")}
@@ -1055,9 +1067,10 @@ export default function TodayPage() {
             // overwrites whatever status was there before (so a goal that
             // was blocked, then rescheduled, shows up as "postponed" here,
             // not "blocked" — where it's going next matters more than why
-            // it stalled). statusLabel/statusIcon/statusChipColors already
-            // render "postponed" as "📅 Rescheduled", so g.status alone is
-            // enough — no separate rescheduled_to check needed for display.
+            // it stalled). statusLabel/StatusIcon/statusChipColors already
+            // render "postponed" as a calendar icon + "Rescheduled", so
+            // g.status alone is enough — no separate rescheduled_to check
+            // needed for display.
             // The full target date and reason are one tap away in the
             // expanded card's timeline either way.
             const isCollapsible =
@@ -1068,7 +1081,6 @@ export default function TodayPage() {
               g.status === "postponed";
             const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
             const doneColors = statusChipColors(g.status);
-            const bannerText = `${statusIcon(g.status)} ${statusLabel(g.status, t)}`;
 
             if (isCollapsed) {
               return (
@@ -1104,7 +1116,10 @@ export default function TodayPage() {
                       {g.title}
                     </div>
                   </div>
-                  <div className="goal-done-banner">{bannerText}</div>
+                  <div className="goal-done-banner" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                    <StatusIcon status={g.status} size={15} />
+                    {statusLabel(g.status, t)}
+                  </div>
                 </button>
               );
             }
@@ -1116,7 +1131,7 @@ export default function TodayPage() {
                 data-pending={!reviewed}
                 style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >
-                {isCelebrating && <div className="goal-complete-badge">✓</div>}
+                {isCelebrating && <div className="goal-complete-badge"><Check size={14} strokeWidth={3} /></div>}
                 {isCollapsible && (
                   <button
                     type="button"
@@ -1136,14 +1151,19 @@ export default function TodayPage() {
                   {/* Goal content */}
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                      {!reviewed && <span className="text-xs text-amber-400 font-semibold">{t("today.pendingReview")}</span>}
+                      {!reviewed && (
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-semibold">
+                          <Hourglass size={11} /> {t("today.pendingReview")}
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-white text-lg sm:text-xl font-medium mb-2">
                       {g.title}
                       {g.time_of_day && (
-                        <span className="ml-2 text-sm font-normal text-white/50">
-                          🕐 {formatTimeOfDay(g.time_of_day)}
+                        <span className="ml-2 inline-flex items-center gap-1 text-sm font-normal text-white/50">
+                          <Clock size={13} />
+                          {formatTimeOfDay(g.time_of_day)}
                         </span>
                       )}
                     </div>
@@ -1184,10 +1204,10 @@ export default function TodayPage() {
                             setShowLinkInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }));
                           }}
                           className="btn"
-                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
                           title={g.link_url || t("today.attachLink")}
                         >
-                          {g.link_url ? `🔗 ${t("today.link")}` : `+ ${t("today.link")}`}
+                          {g.link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("today.link")}
                         </button>
                       )}
                     </div>
@@ -1286,7 +1306,7 @@ export default function TodayPage() {
                           "--chip-color": statusChipColors(g.status).color,
                         } as React.CSSProperties}
                       >
-                        <span>{statusIcon(g.status)}</span>
+                        <StatusIcon status={g.status} size={13} />
                         <span>{statusLabel(g.status, t)}</span>
                       </div>
 
@@ -1303,7 +1323,7 @@ export default function TodayPage() {
                           data-open={!!showActions[g.id]}
                           title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
                         >
-                          {reviewed ? "☑" : "☐"}
+                          {reviewed ? <SquareCheck size={16} /> : <Square size={16} />}
                         </button>
                       )}
 
@@ -1317,7 +1337,7 @@ export default function TodayPage() {
                         data-open={!!showNoteInput[g.id]}
                         title={t("today.addNoteTitle")}
                       >
-                        💬
+                        <MessageCircle size={16} />
                       </button>
                     </div>
 
@@ -1337,7 +1357,7 @@ export default function TodayPage() {
                             "--btn-color": "var(--status-completed)",
                           } as React.CSSProperties}
                         >
-                          <span>✅</span>
+                          <CheckCircle2 size={15} />
                           <span>{t("status.completed")}</span>
                         </button>
 
@@ -1352,7 +1372,7 @@ export default function TodayPage() {
                             "--btn-color": "var(--status-in-progress)",
                           } as React.CSSProperties}
                         >
-                          <span>⚙️</span>
+                          <Settings2 size={15} />
                           <span>{t("today.inProgressAction")}</span>
                         </button>
 
@@ -1367,7 +1387,7 @@ export default function TodayPage() {
                             "--btn-color": "var(--status-blocked)",
                           } as React.CSSProperties}
                         >
-                          <span>🚫</span>
+                          <Ban size={15} />
                           <span>{t("status.blocked")}</span>
                         </button>
 
@@ -1382,7 +1402,7 @@ export default function TodayPage() {
                             "--btn-color": "var(--status-canceled)",
                           } as React.CSSProperties}
                         >
-                          <span>❌</span>
+                          <XCircle size={15} />
                           <span>{t("status.canceled")}</span>
                         </button>
 
@@ -1397,7 +1417,7 @@ export default function TodayPage() {
                             "--btn-color": "var(--status-postponed)",
                           } as React.CSSProperties}
                         >
-                          <span>📅</span>
+                          <CalendarClock size={15} />
                           <span>{g.rescheduled_to ? t("today.rescheduledTo", { date: formatDateDisplay(g.rescheduled_to) }) : t("status.rescheduled")}</span>
                         </button>
                       </div>

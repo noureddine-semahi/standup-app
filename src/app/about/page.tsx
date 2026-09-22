@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
+import { Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar, Receipt, ListChecks } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -58,7 +59,7 @@ export default function AboutPage() {
             <div className="space-y-4 text-white/80">
               <div>
                 <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
-                  <span className="text-xl">🧠</span>
+                  <Brain size={20} className="text-white/80" />
                   {t("about.awarenessBeforeAction")}
                 </h3>
                 <p className="text-sm text-white/70">
@@ -68,7 +69,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
-                  <span className="text-xl">🔄</span>
+                  <RefreshCw size={20} className="text-white/80" />
                   {t("about.reflectionBeforePlanning")}
                 </h3>
                 <p className="text-sm text-white/70">
@@ -78,7 +79,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 font-semibold text-white mb-1">
-                  <span className="text-xl">📈</span>
+                  <TrendingUp size={20} className="text-white/80" />
                   {t("about.consistencyOverIntensity")}
                 </h3>
                 <p className="text-sm text-white/70">
@@ -128,7 +129,7 @@ export default function AboutPage() {
             <div className="space-y-5">
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">📋</span>
+                  <ClipboardList size={18} className="text-white/80" />
                   {t("about.dailyReview")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -138,7 +139,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">🎯</span>
+                  <Target size={18} className="text-white/80" />
                   {t("about.intentionalPlanning")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -148,7 +149,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">🔥</span>
+                  <Flame size={18} className="text-white/80" />
                   {t("about.pointsStreaks")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -158,7 +159,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">📅</span>
+                  <CalendarClock size={18} className="text-white/80" />
                   {t("about.smartRescheduling")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -168,7 +169,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">🚫</span>
+                  <Ban size={18} className="text-white/80" />
                   {t("about.reviewGating")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -178,7 +179,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">🗓️</span>
+                  <Calendar size={18} className="text-white/80" />
                   {t("about.fullCalendarHistory")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -188,7 +189,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">🧾</span>
+                  <Receipt size={18} className="text-white/80" />
                   {t("about.honestOutcomes")}
                 </h3>
                 <p className="text-sm text-white/60">
@@ -198,7 +199,7 @@ export default function AboutPage() {
 
               <div>
                 <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
-                  <span className="text-lg">🛒</span>
+                  <ListChecks size={18} className="text-white/80" />
                   {t("about.subTasksFiles")}
                 </h3>
                 <p className="text-sm text-white/60">

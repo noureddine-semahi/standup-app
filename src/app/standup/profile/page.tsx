@@ -273,8 +273,15 @@ export default function ProfilePage() {
                 }}
                 title={t(a.descriptionKey)}
               >
-                <div className="text-2xl" style={{ filter: unlocked ? "none" : "grayscale(1)" }}>
-                  {a.icon}
+                <div
+                  className="mx-auto flex items-center justify-center rounded-full"
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    color: unlocked ? "rgb(52, 211, 153)" : "rgba(var(--tint-rgb), 0.4)",
+                  }}
+                >
+                  <a.icon size={22} strokeWidth={1.75} />
                 </div>
                 <div className="mt-1.5 text-[11px] font-semibold text-white leading-tight">
                   {t(a.titleKey)}

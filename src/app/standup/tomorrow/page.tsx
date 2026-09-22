@@ -41,6 +41,7 @@ import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2 } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -743,10 +744,10 @@ export default function TomorrowGoalsPage() {
                           type="button"
                           onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
                           className="btn"
-                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
                           title={(g as any).link_url ? (g as any).link_url : t("tomorrow.attachLink")}
                         >
-                          {(g as any).link_url ? `🔗 ${t("tomorrow.link")}` : `+ ${t("tomorrow.link")}`}
+                          {(g as any).link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("tomorrow.link")}
                         </button>
                       </div>
 
@@ -814,18 +815,21 @@ export default function TomorrowGoalsPage() {
                           style={{
                             padding: "0.2rem 0.55rem",
                             fontSize: "0.7rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.3rem",
                             background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
                             borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
                           }}
                           title={t("tomorrow.allDayTitle")}
                         >
-                          {(g as any).is_all_day ? `☀️ ${t("tomorrow.allDay")}` : t("tomorrow.allDay")}
+                          {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
                         </button>
                       </div>
 
                       {g.rescheduled_from_date && (
                         <div className="mt-2 flex items-start gap-2">
-                          <span className="text-yellow-400 text-xs mt-0.5">↷</span>
+                          <Redo2 className="text-yellow-400 mt-0.5" size={13} />
                           <div>
                             <div className="text-xs text-yellow-300/90 font-medium">
                               {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
@@ -920,7 +924,7 @@ export default function TomorrowGoalsPage() {
                           className="flex-shrink-0 flex items-center justify-center hover:bg-black/40 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-105"
                           title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
                         >
-                          ✕
+                          <X size={15} strokeWidth={2.5} />
                         </button>
                       )}
 
@@ -932,7 +936,7 @@ export default function TomorrowGoalsPage() {
                           data-open={!!showNoteInput[g.id]}
                           title={t("tomorrow.addNoteTitle")}
                         >
-                          💬
+                          <MessageCircle size={16} />
                         </button>
                       )}
                     </div>
@@ -1013,7 +1017,7 @@ export default function TomorrowGoalsPage() {
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog">🗒️ {t("nav.backlog")}</Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.backlog")}</Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
         </div>
 

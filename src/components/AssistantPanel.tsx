@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Bot, X, Mic, StopCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { toISODate, addDays } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -172,10 +173,13 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 mb-1">
-          <h2 className="text-xl font-bold">{t("assistant.title")}</h2>
+          <h2 className="flex items-center gap-2 text-xl font-bold">
+            <Bot size={20} className="text-white/70" />
+            {t("assistant.title")}
+          </h2>
           <button
             onClick={onClose}
-            className="text-white/50 hover:text-white/80 text-2xl leading-none"
+            className="text-white/50 hover:text-white/80 leading-none"
             style={{
               background: "rgba(var(--tint-rgb),0.1)",
               width: "32px",
@@ -186,7 +190,7 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
               justifyContent: "center",
             }}
           >
-            ×
+            <X size={16} />
           </button>
         </div>
         <p className="text-sm text-white/70 mb-4">
@@ -225,7 +229,7 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
                 color: listening ? "var(--status-blocked)" : "rgba(var(--tint-rgb),0.8)",
               }}
             >
-              {listening ? "⏹️" : "🎤"}
+              {listening ? <StopCircle size={16} /> : <Mic size={16} />}
             </button>
           )}
         </div>
@@ -266,7 +270,7 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
 
         {lastResponse && !error && !lastResponse.requiresConfirmation && (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90">
-            {lastResponse.actionTaken && <span className="text-emerald-400 mr-1">✓</span>}
+            {lastResponse.actionTaken && <CheckCircle2 className="inline-block text-emerald-400 mr-1 align-text-bottom" size={15} />}
             {lastResponse.message}
           </div>
         )}

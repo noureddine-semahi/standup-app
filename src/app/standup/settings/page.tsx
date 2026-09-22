@@ -12,6 +12,7 @@ import {
   updateThemePreference,
 } from "@/lib/supabase/db";
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
+import { Sun, Moon } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
@@ -311,7 +312,8 @@ export default function SettingsPage() {
               }}
             />
           </button>
-          <span className="text-sm text-white/80">
+          <span className="inline-flex items-center gap-1.5 text-sm text-white/80">
+            {theme === "light" ? <Sun size={14} /> : <Moon size={14} />}
             {theme === "light" ? t("settings.light") : t("settings.dark")}
           </span>
         </div>

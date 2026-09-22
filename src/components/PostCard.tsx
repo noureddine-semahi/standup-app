@@ -1,7 +1,8 @@
 "use client";
 
 import Avatar from "@/components/Avatar";
-import { statusIcon, statusLabel } from "@/lib/goalStatus";
+import { statusLabel } from "@/lib/goalStatus";
+import StatusIcon from "@/components/StatusIcon";
 import { usePostReaction } from "@/lib/glimpseReactions";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
 import { ACHIEVEMENTS } from "@/lib/achievements";
@@ -41,7 +42,7 @@ export default function PostCard({ post }: { post: Post }) {
             <div className="space-y-1 mb-3">
               {post.goals.map((g) => (
                 <div key={g.goal_id} className="flex items-center gap-2 text-xs">
-                  <span title={statusLabel(g.status, t)}>{statusIcon(g.status)}</span>
+                  <span title={statusLabel(g.status, t)} className="inline-flex"><StatusIcon status={g.status} /></span>
                   <span className="truncate text-white/80">{g.title}</span>
                 </div>
               ))}
@@ -55,7 +56,18 @@ export default function PostCard({ post }: { post: Post }) {
             if (!achievement) return null;
             return (
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">{achievement.icon}</span>
+                <div
+                  className="flex-shrink-0 flex items-center justify-center rounded-full"
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    background: "rgba(245, 158, 11, 0.12)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    color: "rgb(252, 211, 77)",
+                  }}
+                >
+                  <achievement.icon size={18} strokeWidth={1.75} />
+                </div>
                 <div>
                   <div className="text-sm font-semibold text-white">{t(achievement.titleKey)}</div>
                   <div className="text-xs text-white/60">{t(achievement.descriptionKey)}</div>

@@ -21,7 +21,12 @@ import {
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
-import { statusIcon, statusLabel, statusChipColors } from "@/lib/goalStatus";
+import { statusLabel, statusChipColors } from "@/lib/goalStatus";
+import StatusIcon from "@/components/StatusIcon";
+import {
+  Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
+  MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit,
+} from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import ProgressCircle from "@/components/ProgressCircle";
@@ -396,8 +401,8 @@ export default function DashboardPage() {
                   {t("nav.planTomorrow")}
                 </Link>
               </div>
-              <button type="button" onClick={() => setShowAssistant(true)} className="btn sm:order-1">
-                🤖 {t("dashboard.assistant")}
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn sm:order-1 inline-flex items-center gap-2">
+                <Bot size={15} /> {t("dashboard.assistant")}
               </button>
             </div>
           </div>
@@ -413,7 +418,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-base font-bold text-white">👋 {t("dashboard.welcomeTitle")}</div>
+                  <div className="flex items-center gap-2 text-base font-bold text-white"><Hand size={17} /> {t("dashboard.welcomeTitle")}</div>
                   <p className="mt-2 text-sm text-white/70 leading-relaxed">
                     {t("dashboard.welcomePart1")}<b>{t("nav.planTomorrow")}</b>{t("dashboard.welcomePart2")}
                     <b>{t("nav.reviewToday")}</b>{t("dashboard.welcomePart3")}
@@ -448,8 +453,8 @@ export default function DashboardPage() {
               className="mt-6 rounded-2xl p-5"
               style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)" }}
             >
-              <div className="text-base font-bold text-emerald-300">
-                🎉 {t("dashboard.allCaughtUpTitle")}
+              <div className="flex items-center gap-2 text-base font-bold text-emerald-300">
+                <PartyPopper size={18} /> {t("dashboard.allCaughtUpTitle")}
               </div>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">
                 {t("dashboard.allCaughtUpBody")}
@@ -467,8 +472,8 @@ export default function DashboardPage() {
               className="mt-6 rounded-2xl p-5"
               style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
             >
-              <div className="text-base font-bold text-amber-300">
-                ⚠️ {t(overdue.count === 1 ? "dashboard.overdueTitle.one" : "dashboard.overdueTitle.other", { count: overdue.count })}
+              <div className="flex items-center gap-2 text-base font-bold text-amber-300">
+                <TriangleAlert size={17} /> {t(overdue.count === 1 ? "dashboard.overdueTitle.one" : "dashboard.overdueTitle.other", { count: overdue.count })}
               </div>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">
                 {t("dashboard.overdueBody")}
@@ -487,8 +492,8 @@ export default function DashboardPage() {
               className="mt-6 rounded-2xl p-5"
               style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
             >
-              <div className="text-base font-bold text-amber-300">
-                ⏰ {hoursLeftToday < 1 ? t("dashboard.hoursLeftLessThanHour") : t("dashboard.hoursLeft", { hours: Math.round(hoursLeftToday) })}
+              <div className="flex items-center gap-2 text-base font-bold text-amber-300">
+                <AlarmClock size={17} /> {hoursLeftToday < 1 ? t("dashboard.hoursLeftLessThanHour") : t("dashboard.hoursLeft", { hours: Math.round(hoursLeftToday) })}
               </div>
               <p className="mt-2 text-sm text-white/70 leading-relaxed">
                 {t(todayPending === 1 ? "dashboard.pendingReviewBanner.one" : "dashboard.pendingReviewBanner.other", { count: todayPending })}
@@ -514,7 +519,7 @@ export default function DashboardPage() {
                 </div>
               )}
               <div key={motivationIndex} className="card-swap-fade">
-                <div className="text-sm text-white/70">✨ {t("dashboard.motivationLabel")}</div>
+                <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
                 <div className="mt-2 text-base font-semibold text-white leading-snug">
                   {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
                     name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
@@ -581,8 +586,8 @@ export default function DashboardPage() {
             >
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">{t("dashboard.stat.streak")}</div>
-                <div className="mt-2 sm:mt-3 text-2xl sm:text-3xl font-bold text-white">
-                  {streak} {streak > 0 && "🔥"}
+                <div className="mt-2 sm:mt-3 flex items-center gap-1.5 text-2xl sm:text-3xl font-bold text-white">
+                  {streak} {streak > 0 && <Flame className="text-orange-400" size={22} />}
                 </div>
                 <div className="mt-1.5 text-xs font-normal text-white/50">
                   {streak > 0 ? t("dashboard.keepGoing") : t("dashboard.startStreak")}
@@ -790,12 +795,12 @@ export default function DashboardPage() {
                             {reviewed ? (
                               <>
                                 <span>{statusLabel(g.status, t)}</span>
-                                <span>{statusIcon(g.status)}</span>
+                                <StatusIcon status={g.status} size={12} />
                               </>
                             ) : (
                               <>
                                 <span>{t("dashboard.pending")}</span>
-                                <span>⏳</span>
+                                <Hourglass size={12} />
                               </>
                             )}
                           </div>
@@ -806,7 +811,7 @@ export default function DashboardPage() {
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
                             title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
                           >
-                            💬 {latestNotes[g.id]}
+                            <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
                           </div>
                         )}
                         </div>
@@ -879,7 +884,7 @@ export default function DashboardPage() {
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
                             title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
                           >
-                            💬 {latestNotes[g.id]}
+                            <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
                           </div>
                         )}
                         </div>
@@ -912,25 +917,25 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold mb-4">{t("dashboard.quickActions")}</h2>
           <div className="flex flex-wrap gap-3">
             {todayPending > 0 && (
-              <Link href="/standup/today" className="btn btn-primary">
-                ⚡ {t(todayPending > 1 ? "dashboard.reviewPending.other" : "dashboard.reviewPending.one", { count: todayPending })}
+              <Link href="/standup/today" className="btn btn-primary inline-flex items-center gap-2">
+                <Zap size={15} /> {t(todayPending > 1 ? "dashboard.reviewPending.other" : "dashboard.reviewPending.one", { count: todayPending })}
               </Link>
             )}
             {!todayClosed && todayTotal > 0 && todayPending === 0 && (
-              <Link href="/standup/today" className="btn btn-primary">
-                ✅ {t("dashboard.closeOutDay")}
+              <Link href="/standup/today" className="btn btn-primary inline-flex items-center gap-2">
+                <CheckCircle2 size={15} /> {t("dashboard.closeOutDay")}
               </Link>
             )}
             {tomorrowTotal === 0 && (
-              <Link href="/standup/tomorrow" className="btn btn-primary">
-                🎯 {t("nav.planTomorrow")}
+              <Link href="/standup/tomorrow" className="btn btn-primary inline-flex items-center gap-2">
+                <Target size={15} /> {t("nav.planTomorrow")}
               </Link>
             )}
-            <Link href="/standup/today" className="btn">
-              📋 {t("dashboard.todaysGoals")}
+            <Link href="/standup/today" className="btn inline-flex items-center gap-2">
+              <ClipboardList size={15} /> {t("dashboard.todaysGoals")}
             </Link>
-            <Link href="/standup/tomorrow" className="btn">
-              📝 {t("dashboard.stat.tomorrowPlan")}
+            <Link href="/standup/tomorrow" className="btn inline-flex items-center gap-2">
+              <FileEdit size={15} /> {t("dashboard.stat.tomorrowPlan")}
             </Link>
           </div>
         </div>

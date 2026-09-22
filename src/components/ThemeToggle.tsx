@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import { getStoredTheme, setTheme, onThemeChange, type Theme } from "@/lib/theme";
 import { updateThemePreference } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Dark/light switch — same slider look as the Settings page's Appearance
-// toggle, but flanked by static 🌙/☀️ icons instead of a trailing text
+// toggle, but flanked by static moon/sun icons instead of a trailing text
 // label, for spots (Profile page, the mobile dropdown) that only have room
 // for a compact control.
 export default function ThemeToggle({ size = "md" }: { size?: "sm" | "md" }) {
@@ -32,12 +33,12 @@ export default function ThemeToggle({ size = "md" }: { size?: "sm" | "md" }) {
   const width = size === "sm" ? 40 : 52;
   const height = size === "sm" ? 22 : 28;
   const knob = size === "sm" ? 16 : 22;
-  const iconSize = size === "sm" ? "0.75rem" : "0.9rem";
+  const iconSize = size === "sm" ? 12 : 14;
 
   return (
     <span className="inline-flex items-center flex-shrink-0" style={{ gap: size === "sm" ? "4px" : "6px" }}>
-      <span aria-hidden="true" style={{ fontSize: iconSize, lineHeight: 1 }}>
-        🌙
+      <span aria-hidden="true" className="inline-flex text-white/70" style={{ lineHeight: 1 }}>
+        <Moon size={iconSize} />
       </span>
       <button
         type="button"
@@ -64,8 +65,8 @@ export default function ThemeToggle({ size = "md" }: { size?: "sm" | "md" }) {
           }}
         />
       </button>
-      <span aria-hidden="true" style={{ fontSize: iconSize, lineHeight: 1 }}>
-        ☀️
+      <span aria-hidden="true" className="inline-flex text-amber-300/80" style={{ lineHeight: 1 }}>
+        <Sun size={iconSize} />
       </span>
     </span>
   );

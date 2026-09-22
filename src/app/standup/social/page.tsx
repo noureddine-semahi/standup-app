@@ -14,6 +14,7 @@ import {
   type PostVisibility,
 } from "@/lib/supabase/db";
 import PostCard from "@/components/PostCard";
+import { Users, Globe } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 const MOTIVATIONAL_POST_MAX_LENGTH = 280;
@@ -167,11 +168,14 @@ export default function SocialPage() {
               style={{
                 padding: "0.3rem 0.6rem",
                 fontSize: "0.75rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
                 background: postVisibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
                 borderColor: postVisibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
               }}
             >
-              {t("today.publishConnectionsBtn")}
+              <Users size={12} /> {t("today.publishConnectionsBtn")}
             </button>
             <button
               type="button"
@@ -180,11 +184,14 @@ export default function SocialPage() {
               style={{
                 padding: "0.3rem 0.6rem",
                 fontSize: "0.75rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
                 background: postVisibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
                 borderColor: postVisibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
               }}
             >
-              {t("today.publishEveryoneBtn")}
+              <Globe size={12} /> {t("today.publishEveryoneBtn")}
             </button>
           </div>
           <button

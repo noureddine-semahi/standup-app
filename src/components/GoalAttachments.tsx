@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Image as ImageIcon, FileText, Paperclip, X, ChevronDown, ChevronRight } from "lucide-react";
 import {
   deleteGoalAttachment,
   getAttachmentUrl,
@@ -15,10 +16,10 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function fileIcon(mime: string) {
-  if (mime.startsWith("image/")) return "🖼️";
-  if (mime === "application/pdf") return "📄";
-  return "📎";
+function FileIcon({ mime }: { mime: string }) {
+  if (mime.startsWith("image/")) return <ImageIcon size={14} />;
+  if (mime === "application/pdf") return <FileText size={14} />;
+  return <Paperclip size={14} />;
 }
 
 /** A goal's optional file attachments (receipts, documents). Shared by Today, Tomorrow, and the date detail page. */
@@ -121,7 +122,9 @@ export default function GoalAttachments({
           onClick={() => setExpanded((v) => !v)}
           className="text-xs text-white/50 hover:text-white/80 transition"
         >
-          {expanded ? "▾" : "▸"} {t("attachments.toggle")}{items.length > 0 ? ` (${items.length})` : ""}
+          <span className="inline-flex items-center gap-1">
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("attachments.toggle")}{items.length > 0 ? ` (${items.length})` : ""}
+          </span>
         </button>
       )}
 
@@ -129,7 +132,7 @@ export default function GoalAttachments({
         <div className="mt-2 space-y-1.5">
           {items.map((item) => (
             <div key={item.id} className="flex items-center gap-2">
-              <span className="flex-shrink-0">{fileIcon(item.mime_type)}</span>
+              <span className="flex-shrink-0 text-white/50"><FileIcon mime={item.mime_type} /></span>
               <button
                 type="button"
                 onClick={() => handleView(item)}
@@ -148,7 +151,7 @@ export default function GoalAttachments({
                   className="flex-shrink-0 text-white/30 hover:text-white/70 text-xs"
                   title={t("attachments.removeFile")}
                 >
-                  ✕
+                  <X size={13} />
                 </button>
               )}
             </div>

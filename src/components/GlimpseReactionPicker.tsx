@@ -28,12 +28,13 @@ export default function GlimpseReactionPicker({
           className="btn"
           style={{
             padding: "0.25rem 0.5rem",
-            fontSize: "0.85rem",
+            display: "inline-flex",
+            alignItems: "center",
             background: myReaction === r.value ? "rgba(245, 158, 11, 0.25)" : undefined,
             borderColor: myReaction === r.value ? "rgba(245, 158, 11, 0.6)" : undefined,
           }}
         >
-          {r.emoji}
+          <r.icon size={15} strokeWidth={2.25} />
         </button>
       ))}
     </div>

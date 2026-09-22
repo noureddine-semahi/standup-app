@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { NotebookText } from "lucide-react";
 import { toISODate, addDays, rescheduleGoalToDate, moveGoalToBacklog, type Goal } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -181,8 +182,9 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
                 onClick={handleMoveToBacklog}
                 disabled={saving || movingToBacklog}
                 className="btn flex-shrink-0"
-                style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
+                style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
               >
+                {!movingToBacklog && <NotebookText size={14} />}
                 {movingToBacklog ? t("reschedule.moving") : t("reschedule.moveToBacklogBtn")}
               </button>
             </div>

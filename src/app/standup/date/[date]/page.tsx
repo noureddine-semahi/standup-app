@@ -41,13 +41,15 @@ import {
   type DraftGoal,
 } from "@/lib/goalLogic";
 import { getPriorityMeta } from "@/lib/priorityStyles";
-import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import { statusLabel, statusChipColors } from "@/lib/goalStatus";
+import StatusIcon from "@/components/StatusIcon";
 import RescheduleModal from "@/components/RescheduleModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { Clock, Link2, Plus, Sun, Redo2, X } from "lucide-react";
 
 export default function DynamicDatePage() {
   const { t } = useLanguage();
@@ -645,8 +647,9 @@ export default function DynamicDatePage() {
                       <div className="text-lg font-semibold text-white">
                         {g.title}
                         {g.time_of_day && (
-                          <span className="ml-2 text-sm font-normal text-white/50">
-                            🕐 {formatTimeOfDay(g.time_of_day)}
+                          <span className="ml-2 inline-flex items-center gap-1 text-sm font-normal text-white/50">
+                            <Clock size={13} />
+                            {formatTimeOfDay(g.time_of_day)}
                           </span>
                         )}
                       </div>
@@ -681,18 +684,21 @@ export default function DynamicDatePage() {
                             type="button"
                             onClick={() => window.open(g.link_url as string, "_blank", "noopener,noreferrer")}
                             className="btn"
-                            style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                            style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
                             title={g.link_url}
                           >
-                            🔗 {t("tomorrow.link")}
+                            <Link2 size={11} /> {t("tomorrow.link")}
                           </button>
                         )}
                       </div>
 
                       {g.rescheduled_from_date && (
-                        <div className="mt-2 text-xs text-white/50">
-                          ↩ {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
-                          {g.reschedule_reason && <span className="italic"> — "{g.reschedule_reason}"</span>}
+                        <div className="mt-2 inline-flex items-start gap-1 text-xs text-white/50">
+                          <Redo2 size={12} className="mt-0.5 flex-shrink-0" />
+                          <span>
+                            {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
+                            {g.reschedule_reason && <span className="italic"> — "{g.reschedule_reason}"</span>}
+                          </span>
                         </div>
                       )}
 
@@ -708,7 +714,7 @@ export default function DynamicDatePage() {
                           "--chip-color": statusChipColors(status).color,
                         } as React.CSSProperties}
                       >
-                        <span>{statusIcon(status)}</span>
+                        <StatusIcon status={status} size={13} />
                         <span>{statusLabel(status, t)}</span>
                       </div>
 
@@ -939,10 +945,10 @@ export default function DynamicDatePage() {
                       type="button"
                       onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
                       className="btn"
-                      style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+                      style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
                       title={(g as any).link_url ? (g as any).link_url : t("tomorrow.attachLink")}
                     >
-                      {(g as any).link_url ? `🔗 ${t("tomorrow.link")}` : `+ ${t("tomorrow.link")}`}
+                      {(g as any).link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("tomorrow.link")}
                     </button>
                   </div>
 
@@ -1012,12 +1018,15 @@ export default function DynamicDatePage() {
                       style={{
                         padding: "0.2rem 0.55rem",
                         fontSize: "0.7rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
                         background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
                         borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
                       }}
                       title={t("tomorrow.allDayTitle")}
                     >
-                      {(g as any).is_all_day ? `☀️ ${t("tomorrow.allDay")}` : t("tomorrow.allDay")}
+                      {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
                     </button>
                   </div>
 
@@ -1025,7 +1034,7 @@ export default function DynamicDatePage() {
                   {g.id && g.rescheduled_from_date && (
                     <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
                       <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
-                        <span className="text-lg">↩️</span>
+                        <Redo2 className="text-amber-300" size={18} />
                         <div>
                           <div className="text-xs font-semibold text-amber-300">
                             {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
@@ -1099,7 +1108,7 @@ export default function DynamicDatePage() {
                         className="flex-shrink-0 flex items-center justify-center hover:bg-black/40 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-105"
                         title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
                       >
-                        ✕
+                        <X size={15} strokeWidth={2.5} />
                       </button>
                     )}
                   </div>

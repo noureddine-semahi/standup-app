@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { ChevronUp, ChevronDown, TriangleAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { toISODate, formatDateDisplay, getCurrentUserId, getOverdueDays, type OverdueDay } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -213,7 +214,9 @@ export default function CalendarPage() {
                 className="btn"
                 style={{ background: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.4)" }}
               >
-                {t("calendar.unreviewedCount", { count: overdueDays.length })} {showOverdueList ? "▴" : "▾"}
+                <span className="inline-flex items-center gap-1.5">
+                  <TriangleAlert size={13} /> {t("calendar.unreviewedCount", { count: overdueDays.length })} {showOverdueList ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </span>
               </button>
             )}
           </div>

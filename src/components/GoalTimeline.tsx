@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
 import type { TimelineEntry } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -23,7 +24,9 @@ export default function GoalTimeline({
         onClick={() => setExpanded((v) => !v)}
         className="text-xs text-white/50 hover:text-white/80 transition"
       >
-        {expanded ? "▾" : "▸"} {t("goalTimeline.toggle")}{entries.length > 0 ? ` (${entries.length})` : ""}
+        <span className="inline-flex items-center gap-1">
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("goalTimeline.toggle")}{entries.length > 0 ? ` (${entries.length})` : ""}
+        </span>
       </button>
 
       {expanded && (

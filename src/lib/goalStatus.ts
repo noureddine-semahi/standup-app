@@ -35,19 +35,6 @@ export function statusPillClass(status: GoalStatus) {
   }
 }
 
-export function statusIcon(status: GoalStatus) {
-  switch (status) {
-    case "completed": return "✅";
-    case "in_progress": return "⚙️";
-    case "blocked": return "🚫";
-    case "postponed": return "📅";
-    case "attempted": return "🔸";
-    case "canceled": return "❌";
-    case "not_started":
-    default: return "✓";
-  }
-}
-
 export type StatusChipColors = { bg: string; border: string; color: string };
 
 // Distinct color per status, used for the compact status chip (styled like

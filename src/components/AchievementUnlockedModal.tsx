@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { Users, Globe } from "lucide-react";
 import type { AchievementDef } from "@/lib/achievements";
 import type { PostVisibility } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -68,7 +69,18 @@ export default function AchievementUnlockedModal({
         <div className="text-xs uppercase tracking-wider text-amber-300 font-semibold mb-3">
           {t("achievementModal.unlocked")}
         </div>
-        <div className="text-6xl mb-4">{achievement.icon}</div>
+        <div
+          className="mx-auto mb-4 flex items-center justify-center rounded-full"
+          style={{
+            width: "84px",
+            height: "84px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.35)",
+            color: "rgb(252, 211, 77)",
+          }}
+        >
+          <achievement.icon size={40} strokeWidth={1.75} />
+        </div>
         <h2 className="text-2xl font-bold mb-2">{t(achievement.titleKey)}</h2>
         <p className="text-sm text-white/70 mb-6">{t(achievement.descriptionKey)}</p>
 
@@ -79,18 +91,18 @@ export default function AchievementUnlockedModal({
             onClick={() => handleShare("connections")}
             disabled={sharing}
             className="btn flex-1"
-            style={{ padding: "0.5rem", fontSize: "0.8rem" }}
+            style={{ padding: "0.5rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
           >
-            {t("today.publishConnectionsBtn")}
+            <Users size={14} /> {t("today.publishConnectionsBtn")}
           </button>
           <button
             type="button"
             onClick={() => handleShare("everyone")}
             disabled={sharing}
             className="btn flex-1"
-            style={{ padding: "0.5rem", fontSize: "0.8rem" }}
+            style={{ padding: "0.5rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
           >
-            {t("today.publishEveryoneBtn")}
+            <Globe size={14} /> {t("today.publishEveryoneBtn")}
           </button>
         </div>
         <button onClick={onDismiss} disabled={sharing} className="btn btn-primary w-full">

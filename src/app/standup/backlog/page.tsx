@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Archive, X } from "lucide-react";
 import {
   addBacklogGoal,
   addDays,
@@ -281,7 +282,7 @@ export default function BacklogPage() {
         <div className="text-white/60 text-center py-8">{t("backlog.loading")}</div>
       ) : items.length === 0 ? (
         <div className="text-white/70 text-center py-12">
-          <div className="text-4xl mb-4">🗂️</div>
+          <Archive className="mx-auto mb-4 text-white/40" size={40} strokeWidth={1.5} />
           <p className="text-lg mb-2">{t("backlog.nothingInBacklog")}</p>
           <p className="text-sm text-white/50">{t("backlog.staysPutMsg")}</p>
         </div>
@@ -347,7 +348,7 @@ export default function BacklogPage() {
                       }}
                       title={t("backlog.removeFromBacklog")}
                     >
-                      ✕
+                      <X size={14} />
                     </button>
                   </div>
                 </div>

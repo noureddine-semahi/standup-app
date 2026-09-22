@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X, ChevronDown, ChevronRight } from "lucide-react";
 import {
   addChecklistItem,
   deleteChecklistItem,
@@ -111,7 +112,9 @@ export default function GoalChecklist({
           onClick={() => setExpanded((v) => !v)}
           className="text-xs text-white/50 hover:text-white/80 transition"
         >
-          {expanded ? "▾" : "▸"} {t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+          <span className="inline-flex items-center gap-1">
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+          </span>
         </button>
       )}
 
@@ -143,7 +146,7 @@ export default function GoalChecklist({
                   className="flex-shrink-0 text-white/30 hover:text-white/70 text-xs"
                   title={t("checklist.removeItem")}
                 >
-                  ✕
+                  <X size={13} />
                 </button>
               )}
             </div>

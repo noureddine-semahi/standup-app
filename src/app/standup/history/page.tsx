@@ -22,7 +22,9 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import GoalTimeline from "@/components/GoalTimeline";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { getPriorityMeta } from "@/lib/priorityStyles";
-import { statusLabel, statusIcon, statusChipColors } from "@/lib/goalStatus";
+import { statusLabel, statusChipColors } from "@/lib/goalStatus";
+import StatusIcon from "@/components/StatusIcon";
+import { Check, Dot, X } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type ActivityPeriod = "week" | "month";
@@ -201,8 +203,8 @@ export default function HistoryPage() {
                 {t(goalList.length === 1 ? "history.goalCount.one" : "history.goalCount.other", { count: goalList.length })}
               </p>
             </div>
-            <button type="button" className="btn" onClick={() => setGoalListFilter(null)}>
-              {t("history.close")}
+            <button type="button" className="btn inline-flex items-center gap-1.5" onClick={() => setGoalListFilter(null)}>
+              <X size={13} /> {t("history.close")}
             </button>
           </div>
 
@@ -250,7 +252,7 @@ export default function HistoryPage() {
                           "--chip-color": statusChipColors(status).color,
                         } as React.CSSProperties}
                       >
-                        <span>{statusIcon(status)}</span>
+                        <StatusIcon status={status} size={13} />
                         <span>{statusLabel(status, t)}</span>
                       </div>
                     </div>
@@ -308,7 +310,9 @@ export default function HistoryPage() {
                         <span className="whitespace-nowrap">{t("history.closure", { points: entry.closurePoints })}</span>
                       )}
                       {entry.reviewedAt && (
-                        <span className="whitespace-nowrap text-emerald-300/80">{t("history.dayClosedCheck")}</span>
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-emerald-300/80">
+                          <Check size={12} /> {t("history.dayClosedCheck")}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -392,7 +396,7 @@ export default function HistoryPage() {
                     : day.hasPlan
                     ? { top: "#fbbf24", bottom: "#d97706" }
                     : { top: "rgba(var(--tint-rgb),0.22)", bottom: "rgba(var(--tint-rgb),0.08)" };
-                  const mark = day.checkedIn ? "✓" : day.hasPlan ? "•" : "✕";
+                  const MarkIcon = day.checkedIn ? Check : day.hasPlan ? Dot : X;
 
                   return (
                     <div
@@ -408,12 +412,12 @@ export default function HistoryPage() {
                     >
                       {period === "week" && (
                         <div
-                          className="text-[10px] leading-none mb-1"
+                          className="mb-1"
                           style={{
                             color: state === "checkedIn" ? "#34d399" : state === "notClosed" ? "#fbbf24" : "rgba(var(--tint-rgb),0.4)",
                           }}
                         >
-                          {mark}
+                          <MarkIcon size={10} strokeWidth={3} />
                         </div>
                       )}
                       <div
@@ -437,10 +441,10 @@ export default function HistoryPage() {
                   style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(0,0,0,0.55)" }}
                 >
                   <span
-                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[10px] font-bold text-black"
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-black"
                     style={{ background: "linear-gradient(180deg, #34d399, #059669)", border: "1px solid rgba(0,0,0,0.55)" }}
                   >
-                    ✓
+                    <Check size={11} strokeWidth={3} />
                   </span>
                   <span className="text-white/70">{t("history.stateCheckedIn")}</span>
                 </div>
@@ -449,10 +453,10 @@ export default function HistoryPage() {
                   style={{ background: "rgba(245, 158, 11, 0.10)", border: "1px solid rgba(0,0,0,0.55)" }}
                 >
                   <span
-                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[10px] font-bold text-black"
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-black"
                     style={{ background: "linear-gradient(180deg, #fbbf24, #d97706)", border: "1px solid rgba(0,0,0,0.55)" }}
                   >
-                    •
+                    <Dot size={14} strokeWidth={4} />
                   </span>
                   <span className="text-white/70">{t("history.stateNotClosed")}</span>
                 </div>
@@ -461,10 +465,10 @@ export default function HistoryPage() {
                   style={{ background: "rgba(var(--tint-rgb), 0.05)", border: "1px solid rgba(0,0,0,0.55)" }}
                 >
                   <span
-                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-[10px] font-bold text-white/70"
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-sm text-white/70"
                     style={{ background: "rgba(var(--tint-rgb), 0.15)", border: "1px solid rgba(0,0,0,0.55)" }}
                   >
-                    ✕
+                    <X size={11} strokeWidth={3} />
                   </span>
                   <span className="text-white/70">{t("history.stateMissed")}</span>
                 </div>

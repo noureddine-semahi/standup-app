@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Share2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Hardcoded rather than window.location.origin — shared links need to point
@@ -68,7 +69,8 @@ export default function SocialShareButtons({
   return (
     <div className={className}>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <button type="button" onClick={handleNativeShare} className={linkClass}>
+        <button type="button" onClick={handleNativeShare} className={`${linkClass} inline-flex items-center gap-2`}>
+          <Share2 size={16} />
           {t("share.share")}
         </button>
         <a

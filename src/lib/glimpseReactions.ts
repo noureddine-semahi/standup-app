@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
+import { ThumbsUp, HeartHandshake, Flame, Hand, type LucideIcon } from "lucide-react";
 import { setPostReaction, type GlimpseReaction } from "@/lib/supabase/db";
 import type { TranslationKey } from "@/lib/i18n/en";
 
-export const GLIMPSE_REACTIONS: { value: GlimpseReaction; emoji: string; labelKey: TranslationKey }[] = [
-  { value: "like", emoji: "👍", labelKey: "glimpse.reactionLike" },
-  { value: "support", emoji: "🤝", labelKey: "glimpse.reactionSupport" },
-  { value: "fire", emoji: "🔥", labelKey: "glimpse.reactionFire" },
-  { value: "clap", emoji: "👏", labelKey: "glimpse.reactionClap" },
+export const GLIMPSE_REACTIONS: { value: GlimpseReaction; icon: LucideIcon; labelKey: TranslationKey }[] = [
+  { value: "like", icon: ThumbsUp, labelKey: "glimpse.reactionLike" },
+  { value: "support", icon: HeartHandshake, labelKey: "glimpse.reactionSupport" },
+  { value: "fire", icon: Flame, labelKey: "glimpse.reactionFire" },
+  { value: "clap", icon: Hand, labelKey: "glimpse.reactionClap" },
 ];
-
-export function glimpseReactionEmoji(reaction: GlimpseReaction): string {
-  return GLIMPSE_REACTIONS.find((r) => r.value === reaction)?.emoji ?? "👍";
-}
 
 /**
  * Owns the optimistic-update state machine for one post's reaction — every

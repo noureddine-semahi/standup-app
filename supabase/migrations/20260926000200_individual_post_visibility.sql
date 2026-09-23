@@ -85,6 +85,11 @@ end; $$;
 revoke all on function public.set_post_reaction(uuid, text) from public;
 grant execute on function public.set_post_reaction(uuid, text) to authenticated;
 
+-- get_feed's return row shape is changing (two new output columns) --
+-- Postgres refuses to CREATE OR REPLACE a function across a return-type
+-- change, so the old version must be dropped first (same reasoning as
+-- upsert_daily_glimpse's signature change below).
+drop function if exists public.get_feed(int, timestamptz);
 create or replace function public.get_feed(p_limit int default 30, p_before timestamptz default null)
 returns table(
   post_id uuid, user_id uuid, display_name text, avatar_url text, type text, visibility text, created_at timestamptz,

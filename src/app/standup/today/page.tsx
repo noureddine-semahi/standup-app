@@ -1462,8 +1462,14 @@ export default function TodayPage() {
                       {/* Actions checkbox — unchecked until the goal has
                           been reviewed; opens the same 5-action dropdown
                           either way, so you can also use it to change an
-                          already-picked action later. */}
-                      {!dayClosed && !assignment && (
+                          already-picked action later. Available even once
+                          assigned out — the assigner still independently
+                          reviews/closes their own day regardless of what
+                          the recipient does with their own copy (same
+                          "independent status" model goal assignments
+                          already use), otherwise a day containing an
+                          assigned goal could never be reviewed/closed. */}
+                      {!dayClosed && (
                         <button
                           type="button"
                           onClick={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
@@ -1493,7 +1499,7 @@ export default function TodayPage() {
                     {/* Quick-action dropdown — picking any of these reviews
                         the goal, applies the action, and closes itself in
                         one click (see selectQuickAction). */}
-                    {!dayClosed && !assignment && showActions[g.id] && (
+                    {!dayClosed && showActions[g.id] && (
                       <div className="flex flex-col gap-2" style={{ minWidth: "180px" }}>
                         <button
                           type="button"

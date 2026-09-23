@@ -14,13 +14,18 @@ import {
   hoursUntilMidnight,
   createAchievementPost,
   getStreakPassBalance,
+  listConnections,
+  getMyGoalAssignments,
   type Goal,
   type Profile,
   type DailyPlan,
   type OverdueSummary,
   type PostVisibility,
   type StreakPassBalance,
+  type Connection,
+  type GoalAssignment,
 } from "@/lib/supabase/db";
+import PendingNotifications from "@/components/PendingNotifications";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
@@ -117,6 +122,8 @@ export default function DashboardPage() {
   const [streak, setStreak] = useState(0);
   const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
   const [pointsView, setPointsView] = useState<"total" | "today">("total");
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
 
   // Cycles to a new (different) random quote every ~10s — see the effect
   // below, which reschedules itself off motivationIndex the same way the
@@ -198,18 +205,21 @@ export default function DashboardPage() {
         const u = session?.user ?? null;
         setUser(u);
 
-        // These six don't depend on each other, so they run as one batch
-        // instead of a serial chain of awaits. lifetimeStats is swallowed
-        // into a null on failure so one bad query can't sink the whole
-        // dashboard load via Promise.all's fail-fast behavior — the
-        // achievement popup just gets skipped for this load, same as before.
-        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes] = await Promise.all([
+        // These eight don't depend on each other, so they run as one batch
+        // instead of a serial chain of awaits. lifetimeStats/connections/
+        // goalAssignments are swallowed into a null/[] on failure so one bad
+        // query can't sink the whole dashboard load via Promise.all's
+        // fail-fast behavior — the achievement popup or notifications
+        // section just gets skipped for this load, same as before.
+        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments] = await Promise.all([
           getOrCreateProfile(),
           getStreak(),
           getPlanWithGoals(todayISO),
           getPlanWithGoals(tomorrowISO),
           u ? getLifetimeStats().catch(() => null) : Promise.resolve(null),
           u ? getStreakPassBalance().catch(() => null) : Promise.resolve(null),
+          u ? listConnections().catch(() => []) : Promise.resolve([]),
+          u ? getMyGoalAssignments().catch(() => []) : Promise.resolve([]),
         ]);
         setProfile(p);
         setStreak(s);
@@ -217,6 +227,8 @@ export default function DashboardPage() {
         setTodayGoals(todayResult.goals);
         setTomorrowPlan(tomorrowResult.plan);
         setTomorrowGoals(tomorrowResult.goals);
+        setConnections(conns);
+        setGoalAssignments(assignments);
         setPassBalance(passes);
 
         getOverdueSummary(todayISO)
@@ -694,6 +706,12 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        <PendingNotifications
+          connections={connections}
+          goalAssignments={goalAssignments}
+          onChange={() => setRefreshKey((k) => k + 1)}
+        />
 
         {/* ✅ P1 Goal Highlight (use Tomorrow-like stronger red styling) */}
         {todayP1 && (

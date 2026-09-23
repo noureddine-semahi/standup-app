@@ -76,6 +76,10 @@ export type Connection = {
   // text the recipient was found by) — a fallback for display_name, which
   // is optional at signup and often null.
   otherEmail: string | null;
+  // Set once the requester has acknowledged a resolved (accepted/declined)
+  // request on the Dashboard's notifications section — null while pending,
+  // and irrelevant on the recipient's own side (they made the decision).
+  requesterSeenAt: string | null;
 };
 
 /**
@@ -2065,7 +2069,9 @@ export async function listConnections(): Promise<Connection[]> {
 
   const { data: rows, error } = await supabase
     .from("connections")
-    .select("id, requester_id, recipient_id, status, created_at, responded_at, requester_email, recipient_email")
+    .select(
+      "id, requester_id, recipient_id, status, created_at, responded_at, requester_email, recipient_email, requester_seen_at"
+    )
     .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -2092,6 +2098,7 @@ export async function listConnections(): Promise<Connection[]> {
       otherUserId,
       otherDisplayName: nameById.get(otherUserId) ?? null,
       otherEmail: isRequester ? r.recipient_email : r.requester_email,
+      requesterSeenAt: r.requester_seen_at,
     };
   });
 }
@@ -2101,6 +2108,12 @@ export async function respondToConnectionRequest(id: string, accept: boolean): P
     .from("connections")
     .update({ status: accept ? "accepted" : "declined", responded_at: new Date().toISOString() })
     .eq("id", id);
+  if (error) throw error;
+}
+
+/** Acknowledges a resolved connection request on the requester's side (see Connection.requesterSeenAt) — a security definer RPC since the requester has no UPDATE grant on this table under RLS at all, resolved or not. */
+export async function markConnectionSeen(id: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_connection_seen", { p_connection_id: id });
   if (error) throw error;
 }
 
@@ -2139,6 +2152,10 @@ export type GoalAssignment = {
   assignerGoalStatus: GoalStatus | null;
   recipientGoalStatus: GoalStatus | null;
   direction: "assigned" | "received";
+  // Set once the assigner has acknowledged a resolved (accepted/declined)
+  // assignment on the Dashboard's notifications section — null while
+  // pending, and irrelevant on the recipient's own side.
+  assignerSeenAt: string | null;
 };
 
 /** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
@@ -2189,6 +2206,7 @@ type GoalAssignmentRow = {
   recipient_display_name: string | null;
   assigner_goal_status: GoalStatus | null;
   recipient_goal_status: GoalStatus | null;
+  assigner_seen_at: string | null;
 };
 
 /** Every goal assignment the caller is either party to — the Friends tab's sole source of assignment state; Tomorrow/Today never call this (their "Assign to" pill is local-optimistic only). */
@@ -2212,7 +2230,14 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     assignerGoalStatus: r.assigner_goal_status,
     recipientGoalStatus: r.recipient_goal_status,
     direction: r.assigner_id === userId ? "assigned" : "received",
+    assignerSeenAt: r.assigner_seen_at,
   }));
+}
+
+/** Acknowledges a resolved goal assignment on the assigner's side (see GoalAssignment.assignerSeenAt) — a security definer RPC, same reasoning as markConnectionSeen. */
+export async function markGoalAssignmentSeen(id: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_goal_assignment_seen", { p_assignment_id: id });
+  if (error) throw error;
 }
 
 // ── Unified posts feed ────────────────────────────────────────────────

@@ -360,8 +360,8 @@ h1, h2, h3, h4, h5, h6 {
      narrower desktop widths where the nav's own content nearly fills the
      row — gap enforces a floor so Dashboard never sits flush against the
      logo, while still allowing space-between to grow it further on wide
-     screens. */
-  gap: 32px;
+     screens. Bumped from 32px -> 56px; 32px wasn't enough breathing room. */
+  gap: 56px;
 }
 
 .brand {

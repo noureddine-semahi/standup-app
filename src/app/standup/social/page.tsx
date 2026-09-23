@@ -27,8 +27,9 @@ import {
 import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import StatusIcon from "@/components/StatusIcon";
-import { statusLabel } from "@/lib/goalStatus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X } from "lucide-react";
+import { statusLabel, statusChipColors } from "@/lib/goalStatus";
+import { getPriorityMeta } from "@/lib/priorityStyles";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X, Hourglass, XCircle } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -536,17 +537,22 @@ export default function SocialPage() {
                 <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold mb-1.5">
                   {t("social.incomingRequests")}
                 </div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {incoming.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                      <span className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</span>
-                      <div className="flex gap-1.5 flex-shrink-0">
+                    <div
+                      key={c.id}
+                      className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
+                      style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
+                    >
+                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c)} size={56} />
+                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c)}</div>
+                      <div className="flex gap-1.5 w-full">
                         <button
                           type="button"
                           onClick={() => handleRespond(c.id, true)}
                           disabled={busyConnectionIds.has(c.id)}
-                          className="btn"
-                          style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                          className="btn flex-1"
+                          style={{ padding: "0.3rem 0.4rem", fontSize: "0.72rem" }}
                         >
                           {t("social.accept")}
                         </button>
@@ -554,8 +560,8 @@ export default function SocialPage() {
                           type="button"
                           onClick={() => handleRespond(c.id, false)}
                           disabled={busyConnectionIds.has(c.id)}
-                          className="btn"
-                          style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                          className="btn flex-1"
+                          style={{ padding: "0.3rem 0.4rem", fontSize: "0.72rem" }}
                         >
                           {t("social.decline")}
                         </button>
@@ -571,16 +577,21 @@ export default function SocialPage() {
                 <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold mb-1.5">
                   {t("social.outgoingRequests")}
                 </div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {outgoing.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                      <span className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</span>
+                    <div
+                      key={c.id}
+                      className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
+                      style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
+                    >
+                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c)} size={56} />
+                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c)}</div>
                       <button
                         type="button"
                         onClick={() => handleRemoveConnection(c.id)}
                         disabled={busyConnectionIds.has(c.id)}
-                        className="btn flex-shrink-0"
-                        style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                        className="btn w-full"
+                        style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                       >
                         {t("social.cancelRequest")}
                       </button>
@@ -597,16 +608,21 @@ export default function SocialPage() {
               {accepted.length === 0 ? (
                 <p className="text-xs text-white/40 italic">{t("social.noConnectionsYet")}</p>
               ) : (
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {accepted.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                      <span className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</span>
+                    <div
+                      key={c.id}
+                      className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
+                      style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
+                    >
+                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c)} size={56} />
+                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c)}</div>
                       <button
                         type="button"
                         onClick={() => handleRemoveConnection(c.id)}
                         disabled={busyConnectionIds.has(c.id)}
-                        className="btn flex-shrink-0"
-                        style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                        className="btn w-full"
+                        style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                       >
                         {t("social.removeConnection")}
                       </button>
@@ -638,9 +654,19 @@ export default function SocialPage() {
                 ) : (
                   <div className="space-y-1.5">
                     {assignmentsForYou.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
+                      <div key={a.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
+                        <div
+                          className="priority-chip-sm"
+                          style={{
+                            "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
+                            "--p-border": getPriorityMeta(a.snapshotPriority).border,
+                            "--p-color": getPriorityMeta(a.snapshotPriority).color,
+                          } as React.CSSProperties}
+                        >
+                          P{a.snapshotPriority}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
                           <div className="text-[11px] text-white/50 truncate">
                             {t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") })}
                           </div>
@@ -679,34 +705,72 @@ export default function SocialPage() {
                   <p className="text-xs text-white/40 italic">{t("social.noAssignedGoals")}</p>
                 ) : (
                   <div className="space-y-1.5">
-                    {assignedByYou.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/50 truncate">
-                            <span className="truncate">
-                              {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
-                            </span>
-                            {a.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                            {a.status === "declined" && <span>· {t("social.assignmentDeclined")}</span>}
-                            {a.status === "accepted" && a.recipientGoalStatus && (
-                              <span className="inline-flex items-center gap-1">
-                                · <StatusIcon status={a.recipientGoalStatus} size={12} /> {statusLabel(a.recipientGoalStatus, t)}
-                              </span>
-                            )}
+                    {assignedByYou.map((a) => {
+                      // Declined reuses "canceled"'s established slate treatment --
+                      // semantically the same thing (didn't happen), not an alarm.
+                      const chip =
+                        a.status === "pending"
+                          ? { bg: "rgba(245, 158, 11, 0.1)", border: "rgba(245, 158, 11, 0.35)", color: "#fcd34d" }
+                          : a.status === "declined"
+                          ? statusChipColors("canceled")
+                          : a.recipientGoalStatus
+                          ? statusChipColors(a.recipientGoalStatus)
+                          : null;
+                      return (
+                        <div key={a.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
+                          <div
+                            className="priority-chip-sm"
+                            style={{
+                              "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
+                              "--p-border": getPriorityMeta(a.snapshotPriority).border,
+                              "--p-color": getPriorityMeta(a.snapshotPriority).color,
+                            } as React.CSSProperties}
+                          >
+                            P{a.snapshotPriority}
                           </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
+                            <div className="text-[11px] text-white/50 truncate">
+                              {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
+                            </div>
+                          </div>
+                          {chip && (
+                            <div
+                              className="status-chip-sm"
+                              style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as React.CSSProperties}
+                            >
+                              {a.status === "pending" ? (
+                                <>
+                                  <Hourglass size={12} />
+                                  <span>{t("social.assignmentPending")}</span>
+                                </>
+                              ) : a.status === "declined" ? (
+                                <>
+                                  <XCircle size={12} />
+                                  <span>{t("social.assignmentDeclined")}</span>
+                                </>
+                              ) : (
+                                a.recipientGoalStatus && (
+                                  <>
+                                    <StatusIcon status={a.recipientGoalStatus} size={12} />
+                                    <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                                  </>
+                                )
+                              )}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDismissAssignment(a.id)}
+                            disabled={busyAssignmentIds.has(a.id)}
+                            className="btn flex-shrink-0"
+                            style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                          >
+                            {t("social.dismiss")}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDismissAssignment(a.id)}
-                          disabled={busyAssignmentIds.has(a.id)}
-                          className="btn flex-shrink-0"
-                          style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
-                        >
-                          {t("social.dismiss")}
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

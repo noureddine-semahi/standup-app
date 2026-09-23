@@ -72,6 +72,7 @@ export type Connection = {
   direction: "incoming" | "outgoing";
   otherUserId: string;
   otherDisplayName: string | null;
+  otherAvatarUrl: string | null;
   // Captured at request time (requester's own session email; the exact
   // text the recipient was found by) — a fallback for display_name, which
   // is optional at signup and often null.
@@ -2080,15 +2081,18 @@ export async function listConnections(): Promise<Connection[]> {
   const otherIds = [...new Set(rows.map((r) => (r.requester_id === userId ? r.recipient_id : r.requester_id)))];
   const { data: profileRows, error: profileErr } = await supabase
     .from("profiles")
-    .select("id, display_name")
+    .select("id, display_name, avatar_url")
     .in("id", otherIds);
   if (profileErr) throw profileErr;
 
-  const nameById = new Map((profileRows ?? []).map((p) => [p.id, p.display_name as string | null]));
+  const profileById = new Map(
+    (profileRows ?? []).map((p) => [p.id, { displayName: p.display_name as string | null, avatarUrl: p.avatar_url as string | null }])
+  );
 
   return rows.map((r) => {
     const isRequester = r.requester_id === userId;
     const otherUserId = isRequester ? r.recipient_id : r.requester_id;
+    const otherProfile = profileById.get(otherUserId);
     return {
       id: r.id,
       status: r.status as ConnectionStatus,
@@ -2096,7 +2100,8 @@ export async function listConnections(): Promise<Connection[]> {
       responded_at: r.responded_at,
       direction: isRequester ? "outgoing" : "incoming",
       otherUserId,
-      otherDisplayName: nameById.get(otherUserId) ?? null,
+      otherDisplayName: otherProfile?.displayName ?? null,
+      otherAvatarUrl: otherProfile?.avatarUrl ?? null,
       otherEmail: isRequester ? r.recipient_email : r.requester_email,
       requesterSeenAt: r.requester_seen_at,
     };

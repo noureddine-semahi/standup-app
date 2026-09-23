@@ -18,6 +18,7 @@ export const es: Record<keyof typeof en, string> = {
   "nav.signIn": "Iniciar Sesión",
   "nav.signUp": "Registrarse",
   "nav.profileAriaLabel": "Perfil",
+  "nav.notificationsAriaLabel": "Notificaciones",
   "nav.openMenu": "Abrir menú",
   "nav.closeMenu": "Cerrar menú",
   "nav.logout": "Cerrar Sesión",

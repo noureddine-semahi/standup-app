@@ -530,10 +530,50 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 2px;
 }
 
-/* Secondary nav (Calendar/Backlog, About/FAQ/Contact, Profile) always lives
-   behind this button rather than inline — only Dashboard/Community/Review
-   Today/Plan Tomorrow (.nav-primary) ever compete with the logo for space,
-   which is what actually fits without overflowing. */
+/* Notification bell — always visible regardless of breakpoint (unlike
+   everything else in the header), positioned between the primary links
+   and the More button on desktop, or between the logo and the mobile
+   avatar/hamburger on narrow screens. */
+.nav-bell-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--tint-rgb), 0.15);
+  color: rgba(var(--tint-rgb), 0.85);
+  flex-shrink: 0;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-bell-btn:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: rgb(252, 211, 77);
+}
+
+.nav-bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 9999px;
+  background: rgb(239, 68, 68);
+  color: white;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px rgba(var(--panel-rgb), 1);
+}
+
+/* Secondary nav (About/FAQ/Contact, Profile) always lives behind this
+   button rather than inline — only Dashboard/Community/Review Today/
+   Plan Tomorrow/Calendar↔Backlog (.nav-primary) ever compete with the
+   logo for space, which is what actually fits without overflowing. */
 .nav-more-wrap {
   position: relative;
 }

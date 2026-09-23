@@ -10,6 +10,8 @@ import {
   type Connection,
   type GoalAssignment,
 } from "@/lib/supabase/db";
+import { computeNotificationBuckets } from "@/lib/notificationBuckets";
+import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 const ACTION_BTN_STYLE = { padding: "0.25rem 0.6rem", fontSize: "0.7rem" } as const;
@@ -45,17 +47,13 @@ export default function PendingNotifications({
     });
   }
 
-  const pendingConnections = connections.filter((c) => c.direction === "incoming" && c.status === "pending");
-  const pendingAssignments = goalAssignments.filter((a) => a.direction === "received" && a.status === "pending");
-  // Sent out, still awaiting a response -- naturally moves into
-  // resolvedAssignments below once the recipient accepts/declines.
-  const pendingAssignedByYou = goalAssignments.filter((a) => a.direction === "assigned" && a.status === "pending");
-  const resolvedConnections = connections.filter(
-    (c) => c.direction === "outgoing" && c.status !== "pending" && !c.requesterSeenAt
-  );
-  const resolvedAssignments = goalAssignments.filter(
-    (a) => a.direction === "assigned" && a.status !== "pending" && !a.assignerSeenAt
-  );
+  const {
+    pendingConnections,
+    pendingAssignments,
+    pendingAssignedByYou,
+    resolvedConnections,
+    resolvedAssignments,
+  } = computeNotificationBuckets(connections, goalAssignments);
 
   const total =
     pendingConnections.length +
@@ -72,6 +70,7 @@ export default function PendingNotifications({
     try {
       await action();
       onChange();
+      notifyNotificationsUpdated();
     } catch (e: any) {
       setError(e?.message ?? t("dashboard.notificationActionFailed"));
     } finally {

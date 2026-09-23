@@ -32,6 +32,7 @@ import {
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
+import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import {
   applyPriorityChange,
   compactForSave,
@@ -347,6 +348,7 @@ export default function TomorrowGoalsPage() {
     try {
       await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "shared");
       await refreshGoalAssignments();
+      notifyNotificationsUpdated();
     } catch (e: any) {
       setAssignError(e?.message ?? t("goalAssign.failed"));
     } finally {

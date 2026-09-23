@@ -18,6 +18,7 @@ export const en = {
   "nav.signIn": "Sign In",
   "nav.signUp": "Sign Up",
   "nav.profileAriaLabel": "Profile",
+  "nav.notificationsAriaLabel": "Notifications",
   "nav.openMenu": "Open menu",
   "nav.closeMenu": "Close menu",
   "nav.logout": "Logout",

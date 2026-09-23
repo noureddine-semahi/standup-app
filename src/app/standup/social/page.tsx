@@ -29,6 +29,7 @@ import Avatar from "@/components/Avatar";
 import StatusIcon from "@/components/StatusIcon";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { getPriorityMeta } from "@/lib/priorityStyles";
+import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X, Hourglass, XCircle, Lock, Unlock } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -146,6 +147,7 @@ export default function SocialPage() {
     try {
       await respondToGoalAssignment(id, accept);
       await refreshGoalAssignments();
+      notifyNotificationsUpdated();
     } catch (e: any) {
       setAssignmentError(e?.message ?? t("social.failedAssignRespond"));
     } finally {
@@ -160,6 +162,7 @@ export default function SocialPage() {
     try {
       await removeGoalAssignment(id);
       await refreshGoalAssignments();
+      notifyNotificationsUpdated();
     } catch (e: any) {
       setAssignmentError(e?.message ?? t("social.failedDismissAssignment"));
     } finally {
@@ -210,6 +213,7 @@ export default function SocialPage() {
     try {
       await respondToConnectionRequest(id, accept);
       refreshConnections();
+      notifyNotificationsUpdated();
       // A declined request falls back into the discoverable pool.
       if (!accept) refreshDiscover();
     } catch (e: any) {
@@ -226,6 +230,7 @@ export default function SocialPage() {
     try {
       await removeConnection(id);
       refreshConnections();
+      notifyNotificationsUpdated();
       // Cancelling an outgoing request or removing an accepted connection
       // both put this person back into the discoverable pool.
       refreshDiscover();

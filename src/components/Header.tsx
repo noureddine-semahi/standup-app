@@ -4,13 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { getOrCreateProfile, updateThemePreference, consumePendingReferral, type Profile } from "@/lib/supabase/db";
+import {
+  getOrCreateProfile,
+  updateThemePreference,
+  consumePendingReferral,
+  listConnections,
+  getMyGoalAssignments,
+  type Profile,
+  type Connection,
+  type GoalAssignment,
+} from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
+import { onNotificationsUpdated } from "@/lib/notificationsBus";
+import { countNotifications } from "@/lib/notificationBuckets";
 import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Bell } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -57,6 +68,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const moreRef = useRef<HTMLDivElement>(null);
 
   async function handleLogout() {
@@ -147,6 +159,37 @@ export default function Header() {
     setMoreOpen(false);
   }, [pathname]);
 
+  // The header stays mounted across client-side navigation (it lives in
+  // the root layout, not per-page), so its notification count needs its
+  // own refresh triggers rather than a plain mount-only fetch: the
+  // notificationsBus event (fired by whatever action actually changed a
+  // count — Social/Today/Tomorrow/Dashboard) is the primary one, and a
+  // refetch on every pathname change is a cheap safety net for any action
+  // this session didn't get around to wiring up explicitly.
+  function refreshNotificationCount() {
+    if (!user) return;
+    Promise.all([listConnections(), getMyGoalAssignments()])
+      .then(([conns, assignments]: [Connection[], GoalAssignment[]]) =>
+        setNotificationCount(countNotifications(conns, assignments))
+      )
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    if (!user) {
+      setNotificationCount(0);
+      return;
+    }
+    refreshNotificationCount();
+    return onNotificationsUpdated(refreshNotificationCount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => {
+    refreshNotificationCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   // The "More" panel floats over the page rather than pushing content down
   // (unlike the full-width mobile dropdown), so it needs an explicit
   // click-outside to close — otherwise it'd stay open until another nav
@@ -228,11 +271,13 @@ export default function Header() {
     );
   }
 
-  // The four primary, daily-use destinations — always visible inline
+  // The five primary, daily-use destinations — always visible inline
   // whenever there's room for the logo plus these (see .nav-primary),
-  // never tucked behind the More button. Everything else (Calendar/
-  // Backlog, About/FAQ/Contact, Profile) lives in secondaryLinks below.
-  function primaryLinks() {
+  // never tucked behind the More button. Calendar/Backlog share one
+  // rotating slot (calendarLinks) rather than two separate links, to
+  // keep this row's width in check. Everything else (About/FAQ/Contact,
+  // Profile) lives in secondaryLinks below.
+  function primaryLinks(expanded = false) {
     if (loading) return <div className="text-sm text-white/50">...</div>;
 
     if (user) {
@@ -262,6 +307,7 @@ export default function Header() {
           >
             {t("nav.planTomorrow")}
           </Link>
+          {calendarLinks(expanded)}
         </>
       );
     }
@@ -280,17 +326,16 @@ export default function Header() {
     );
   }
 
-  // Everything besides the four primary links — always behind the More
-  // button/panel (or, on true mobile, folded into the one full dropdown
-  // alongside primaryLinks) rather than competing with them for header
-  // space.
+  // Everything besides the five primary links (About/FAQ/Contact,
+  // Profile) — always behind the More button/panel (or, on true mobile,
+  // folded into the one full dropdown alongside primaryLinks) rather
+  // than competing with them for header space.
   function secondaryLinks(expanded: boolean) {
     if (loading) return null;
 
     if (user) {
       return (
         <>
-          {calendarLinks(expanded)}
           {infoLinks(expanded)}
           <Link
             href="/standup/profile"
@@ -327,6 +372,24 @@ export default function Header() {
     );
   }
 
+  // Always visible regardless of breakpoint (unlike the primary/secondary
+  // split) — a pending-notification indicator is exactly the kind of thing
+  // that shouldn't disappear into a menu. Links straight to the Dashboard,
+  // where PendingNotifications (the same five buckets, via
+  // notificationBuckets.ts) actually lives, rather than duplicating that
+  // list in a header dropdown.
+  function notificationBell() {
+    if (!user) return null;
+    return (
+      <Link href="/standup/dashboard" className="nav-bell-btn" aria-label={t("nav.notificationsAriaLabel")}>
+        <Bell size={18} />
+        {notificationCount > 0 && (
+          <span className="nav-bell-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
+        )}
+      </Link>
+    );
+  }
+
   if (isRecoveryPage) {
     return (
       <header className="app-header">
@@ -350,14 +413,18 @@ export default function Header() {
           StandUp
         </Link>
 
-        {/* Primary row: the four daily-use links, always visible whenever
+        {/* Primary row: the five daily-use links, always visible whenever
             there's room for the logo plus these — see .nav-primary. */}
         <nav className="nav nav-primary">{primaryLinks()}</nav>
 
-        {/* Secondary links (Calendar/Backlog, About/FAQ/Contact, Profile)
-            live behind this button rather than inline, so only four items
-            ever compete with the logo for space. Hidden alongside
-            .nav-primary on true mobile — see .nav-more-wrap. */}
+        {/* Bell is always visible regardless of breakpoint, alongside
+            whichever of nav-primary/nav-mobile-trigger is currently shown. */}
+        {notificationBell()}
+
+        {/* Secondary links (About/FAQ/Contact, Profile) live behind this
+            button rather than inline, so only five items ever compete with
+            the logo for space. Hidden alongside .nav-primary on true
+            mobile — see .nav-more-wrap. */}
         <div className="nav-more-wrap" ref={moreRef}>
           <button
             type="button"
@@ -407,7 +474,7 @@ export default function Header() {
 
       {menuOpen && (
         <div className="mobile-menu-panel">
-          {primaryLinks()}
+          {primaryLinks(true)}
           {secondaryLinks(true)}
           {user && (
             <button

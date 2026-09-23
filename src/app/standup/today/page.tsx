@@ -58,6 +58,7 @@ import {
   AlarmClock, Hourglass, Lock, Unlock,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
+import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Priority options matching Tomorrow page
@@ -313,6 +314,7 @@ export default function TodayPage() {
     try {
       await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "shared");
       await refreshGoalAssignments();
+      notifyNotificationsUpdated();
     } catch (e: any) {
       setAssignError(e?.message ?? t("goalAssign.failed"));
     } finally {
@@ -338,6 +340,7 @@ export default function TodayPage() {
     try {
       await respondToGoalAssignment(assignmentId, accept);
       await refreshGoalAssignments();
+      notifyNotificationsUpdated();
       if (accept) await refresh({ silent: true });
     } catch (e: any) {
       setAssignError(e?.message ?? t("goalAssign.failed"));
@@ -822,7 +825,10 @@ export default function TodayPage() {
           assignmentFailed = true;
         }
       }
-      if (anyAssignmentAttempted) await refreshGoalAssignments();
+      if (anyAssignmentAttempted) {
+        await refreshGoalAssignments();
+        notifyNotificationsUpdated();
+      }
 
       setMsg(
         assignmentFailed

@@ -1000,6 +1000,27 @@ export const en = {
   "social.failedRespondRequest": "Failed to respond to request",
   "social.failedRemoveConnection": "Failed to remove connection",
 
+  // Goal sharing/assignment — Social page's Friends tab
+  "social.goalAssignmentsTitle": "Goal Assignments",
+  "social.goalAssignmentsSubtitle": "Goals a connection has assigned to you, and goals you've assigned to others.",
+  "social.assignmentsForYou": "Assignments for You",
+  "social.assignedByYou": "Goals You've Assigned",
+  "social.assignedByLabel": "Assigned by {name}",
+  "social.assignedToLabel": "Assigned to {name}",
+  "social.assignmentPending": "Pending",
+  "social.assignmentDeclined": "Declined",
+  "social.dismiss": "Dismiss",
+  "social.noAssignmentsForYou": "No pending assignments.",
+  "social.noAssignedGoals": "You haven't assigned any goals yet.",
+  "social.failedLoadAssignments": "Failed to load goal assignments",
+  "social.failedAssignRespond": "Failed to respond to assignment",
+  "social.failedDismissAssignment": "Failed to dismiss assignment",
+
+  // Goal sharing/assignment — the "Assign to" control on Tomorrow/Today
+  "goalAssign.placeholder": "Assign to…",
+  "goalAssign.pendingBadge": "Assigned to {name} — pending",
+  "goalAssign.failed": "Failed to assign goal",
+
   // Glimpse sharing — used by PostCard's goal_glimpse rendering
   "dashboard.glimpseProgress": "{completed}/{total} done",
 

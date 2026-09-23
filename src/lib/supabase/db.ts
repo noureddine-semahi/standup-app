@@ -2043,6 +2043,111 @@ export async function removeConnection(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Goal assignments ──────────────────────────────────────────────────
+
+export type GoalAssignmentStatus = "pending" | "accepted" | "declined";
+
+/**
+ * One goal_assignments row as returned by get_my_goal_assignments(), with
+ * `direction` pre-computed against the caller so UI never has to compare
+ * ids itself — same convenience Connection.direction already provides.
+ * assignerGoalStatus/recipientGoalStatus are the LIVE current status of
+ * each side's own independent goal (null before a recipient accepts, or
+ * if that goal was since deleted) — this is the one place either party
+ * can see the other's goal status, since goals' own RLS is select-own-only.
+ */
+export type GoalAssignment = {
+  id: string;
+  status: GoalAssignmentStatus;
+  createdAt: string;
+  respondedAt: string | null;
+  planDate: string;
+  snapshotTitle: string;
+  snapshotDetails: string | null;
+  snapshotPriority: number;
+  assignerId: string;
+  assignerDisplayName: string | null;
+  recipientId: string;
+  recipientDisplayName: string | null;
+  assignerGoalStatus: GoalStatus | null;
+  recipientGoalStatus: GoalStatus | null;
+  direction: "assigned" | "received";
+};
+
+/** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
+export async function createGoalAssignment(goalId: string, recipientId: string): Promise<void> {
+  const { error } = await supabase.rpc("create_goal_assignment", {
+    p_goal_id: goalId,
+    p_recipient_id: recipientId,
+  });
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("This goal is already assigned.");
+    }
+    throw error;
+  }
+}
+
+/**
+ * Accept or decline a pending goal assignment. On accept, the RPC
+ * materializes the recipient's own independent goal onto their plan for
+ * the same plan_date as the assigner's original — never a shared row.
+ */
+export async function respondToGoalAssignment(assignmentId: string, accept: boolean): Promise<void> {
+  const { error } = await supabase.rpc("respond_to_goal_assignment", {
+    p_assignment_id: assignmentId,
+    p_accept: accept,
+  });
+  if (error) throw error;
+}
+
+/** Dismiss an assignment record (either participant, any status) — never touches the recipient's already-materialized goal, only this join row. */
+export async function removeGoalAssignment(assignmentId: string): Promise<void> {
+  const { error } = await supabase.from("goal_assignments").delete().eq("id", assignmentId);
+  if (error) throw error;
+}
+
+type GoalAssignmentRow = {
+  assignment_id: string;
+  status: GoalAssignmentStatus;
+  created_at: string;
+  responded_at: string | null;
+  plan_date: string;
+  snapshot_title: string;
+  snapshot_details: string | null;
+  snapshot_priority: number;
+  assigner_id: string;
+  assigner_display_name: string | null;
+  recipient_id: string;
+  recipient_display_name: string | null;
+  assigner_goal_status: GoalStatus | null;
+  recipient_goal_status: GoalStatus | null;
+};
+
+/** Every goal assignment the caller is either party to — the Friends tab's sole source of assignment state; Tomorrow/Today never call this (their "Assign to" pill is local-optimistic only). */
+export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase.rpc("get_my_goal_assignments");
+  if (error) throw error;
+  return ((data ?? []) as GoalAssignmentRow[]).map((r) => ({
+    id: r.assignment_id,
+    status: r.status,
+    createdAt: r.created_at,
+    respondedAt: r.responded_at,
+    planDate: r.plan_date,
+    snapshotTitle: r.snapshot_title,
+    snapshotDetails: r.snapshot_details,
+    snapshotPriority: r.snapshot_priority,
+    assignerId: r.assigner_id,
+    assignerDisplayName: r.assigner_display_name,
+    recipientId: r.recipient_id,
+    recipientDisplayName: r.recipient_display_name,
+    assignerGoalStatus: r.assigner_goal_status,
+    recipientGoalStatus: r.recipient_goal_status,
+    direction: r.assigner_id === userId ? "assigned" : "received",
+  }));
+}
+
 // ── Unified posts feed ────────────────────────────────────────────────
 
 /**

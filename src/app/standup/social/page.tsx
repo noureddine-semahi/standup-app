@@ -12,13 +12,19 @@ import {
   createMotivationalPost,
   getDiscoverableUsers,
   sendConnectionRequestToUser,
+  getMyGoalAssignments,
+  respondToGoalAssignment,
+  removeGoalAssignment,
   type Connection,
   type Post,
   type PostVisibility,
   type DiscoverableUser,
+  type GoalAssignment,
 } from "@/lib/supabase/db";
 import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
+import StatusIcon from "@/components/StatusIcon";
+import { statusLabel } from "@/lib/goalStatus";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -43,6 +49,10 @@ export default function SocialPage() {
   const [discoverLoadingMore, setDiscoverLoadingMore] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
   const [busyDiscoverIds, setBusyDiscoverIds] = useState<Set<string>>(new Set());
+
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [busyAssignmentIds, setBusyAssignmentIds] = useState<Set<string>>(new Set());
 
   const [feed, setFeed] = useState<Post[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -107,6 +117,49 @@ export default function SocialPage() {
     }
   }
 
+  function refreshGoalAssignments() {
+    return getMyGoalAssignments()
+      .then(setGoalAssignments)
+      .catch((e: any) => setAssignmentError(e?.message ?? t("social.failedLoadAssignments")));
+  }
+
+  function setAssignmentBusy(id: string, busy: boolean) {
+    setBusyAssignmentIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleRespondAssignment(id: string, accept: boolean) {
+    if (busyAssignmentIds.has(id)) return;
+    setAssignmentBusy(id, true);
+    setAssignmentError(null);
+    try {
+      await respondToGoalAssignment(id, accept);
+      await refreshGoalAssignments();
+    } catch (e: any) {
+      setAssignmentError(e?.message ?? t("social.failedAssignRespond"));
+    } finally {
+      setAssignmentBusy(id, false);
+    }
+  }
+
+  async function handleDismissAssignment(id: string) {
+    if (busyAssignmentIds.has(id)) return;
+    setAssignmentBusy(id, true);
+    setAssignmentError(null);
+    try {
+      await removeGoalAssignment(id);
+      await refreshGoalAssignments();
+    } catch (e: any) {
+      setAssignmentError(e?.message ?? t("social.failedDismissAssignment"));
+    } finally {
+      setAssignmentBusy(id, false);
+    }
+  }
+
   function refreshFeed() {
     setFeedLoading(true);
     return getFeed()
@@ -130,6 +183,7 @@ export default function SocialPage() {
     refreshConnections().finally(() => setLoading(false));
     refreshFeed();
     refreshDiscover();
+    refreshGoalAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -198,6 +252,9 @@ export default function SocialPage() {
   const incoming = connections.filter((c) => c.status === "pending" && c.direction === "incoming");
   const outgoing = connections.filter((c) => c.status === "pending" && c.direction === "outgoing");
   const accepted = connections.filter((c) => c.status === "accepted");
+
+  const assignmentsForYou = goalAssignments.filter((a) => a.direction === "received" && a.status === "pending");
+  const assignedByYou = goalAssignments.filter((a) => a.direction === "assigned");
 
   // Tabs are a plain client-side filter over the one already-fetched feed
   // page — no extra query per tab, since getFeed() already returns exactly
@@ -477,6 +534,101 @@ export default function SocialPage() {
               )}
             </div>
           </div>
+          </div>
+
+          <div
+            className="card"
+            style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
+          >
+            <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
+              {t("social.goalAssignmentsTitle")}
+            </div>
+            <p className="text-xs text-white/60 mb-3">{t("social.goalAssignmentsSubtitle")}</p>
+            {assignmentError && <p className="mt-2 text-xs text-red-300">{assignmentError}</p>}
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold mb-1.5">
+                  {t("social.assignmentsForYou")}
+                </div>
+                {assignmentsForYou.length === 0 ? (
+                  <p className="text-xs text-white/40 italic">{t("social.noAssignmentsForYou")}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {assignmentsForYou.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
+                          <div className="text-[11px] text-white/50 truncate">
+                            {t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") })}
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleRespondAssignment(a.id, true)}
+                            disabled={busyAssignmentIds.has(a.id)}
+                            className="btn"
+                            style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                          >
+                            {t("social.accept")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRespondAssignment(a.id, false)}
+                            disabled={busyAssignmentIds.has(a.id)}
+                            className="btn"
+                            style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                          >
+                            {t("social.decline")}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold mb-1.5">
+                  {t("social.assignedByYou")}
+                </div>
+                {assignedByYou.length === 0 ? (
+                  <p className="text-xs text-white/40 italic">{t("social.noAssignedGoals")}</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {assignedByYou.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/50 truncate">
+                            <span className="truncate">
+                              {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
+                            </span>
+                            {a.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                            {a.status === "declined" && <span>· {t("social.assignmentDeclined")}</span>}
+                            {a.status === "accepted" && a.recipientGoalStatus && (
+                              <span className="inline-flex items-center gap-1">
+                                · <StatusIcon status={a.recipientGoalStatus} size={12} /> {statusLabel(a.recipientGoalStatus, t)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDismissAssignment(a.id)}
+                          disabled={busyAssignmentIds.has(a.id)}
+                          className="btn flex-shrink-0"
+                          style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                        >
+                          {t("social.dismiss")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}

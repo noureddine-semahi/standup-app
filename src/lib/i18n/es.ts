@@ -997,6 +997,27 @@ export const es: Record<keyof typeof en, string> = {
   "social.failedRespondRequest": "Error al responder a la solicitud",
   "social.failedRemoveConnection": "Error al eliminar la conexión",
 
+  // Goal sharing/assignment — Social page's Friends tab
+  "social.goalAssignmentsTitle": "Objetivos Asignados",
+  "social.goalAssignmentsSubtitle": "Objetivos que una conexión te asignó, y objetivos que has asignado a otros.",
+  "social.assignmentsForYou": "Asignaciones para Ti",
+  "social.assignedByYou": "Objetivos que Has Asignado",
+  "social.assignedByLabel": "Asignado por {name}",
+  "social.assignedToLabel": "Asignado a {name}",
+  "social.assignmentPending": "Pendiente",
+  "social.assignmentDeclined": "Rechazado",
+  "social.dismiss": "Descartar",
+  "social.noAssignmentsForYou": "No hay asignaciones pendientes.",
+  "social.noAssignedGoals": "Aún no has asignado ningún objetivo.",
+  "social.failedLoadAssignments": "Error al cargar las asignaciones de objetivos",
+  "social.failedAssignRespond": "Error al responder a la asignación",
+  "social.failedDismissAssignment": "Error al descartar la asignación",
+
+  // Goal sharing/assignment — the "Assign to" control on Tomorrow/Today
+  "goalAssign.placeholder": "Asignar a…",
+  "goalAssign.pendingBadge": "Asignado a {name} — pendiente",
+  "goalAssign.failed": "Error al asignar el objetivo",
+
   // Glimpse sharing — used by PostCard's goal_glimpse rendering
   "dashboard.glimpseProgress": "{completed}/{total} completados",
 

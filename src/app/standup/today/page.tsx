@@ -35,6 +35,7 @@ import {
   getMyGoalGlimpsePost,
   listConnections,
   connectionDisplayName,
+  createGoalAssignment,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
@@ -151,6 +152,9 @@ export default function TodayPage() {
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
+  const [assignedGoals, setAssignedGoals] = useState<Record<string, string>>({});
+  const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   // Notes + the derived history facts render as one merged timeline below
   // the goal now (see the entries computation in the render below) instead
@@ -265,6 +269,25 @@ export default function TodayPage() {
       setMsg(e?.message ?? t("today.failedUnpublish"));
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function handleAssignGoal(goalId: string, recipientId: string) {
+    if (assigningGoalIds.has(goalId)) return;
+    const conn = acceptedConnections.find((c) => c.otherUserId === recipientId);
+    setAssigningGoalIds((prev) => new Set(prev).add(goalId));
+    setAssignError(null);
+    try {
+      await createGoalAssignment(goalId, recipientId);
+      setAssignedGoals((prev) => ({ ...prev, [goalId]: conn ? connectionDisplayName(conn) : t("social.anonymousUser") }));
+    } catch (e: any) {
+      setAssignError(e?.message ?? t("goalAssign.failed"));
+    } finally {
+      setAssigningGoalIds((prev) => {
+        const next = new Set(prev);
+        next.delete(goalId);
+        return next;
+      });
     }
   }
 
@@ -1220,7 +1243,35 @@ export default function TodayPage() {
                           {g.link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("today.link")}
                         </button>
                       )}
+                      {acceptedConnections.length > 0 && (
+                        assignedGoals[g.id] ? (
+                          <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0">
+                            {t("goalAssign.pendingBadge", { name: assignedGoals[g.id] })}
+                          </span>
+                        ) : (
+                          <select
+                            value=""
+                            disabled={assigningGoalIds.has(g.id) || dayClosed}
+                            onChange={(e) => {
+                              const recipientId = e.target.value;
+                              if (recipientId) handleAssignGoal(g.id, recipientId);
+                            }}
+                            className="btn"
+                            style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", flexShrink: 0 }}
+                          >
+                            <option value="" disabled>
+                              {t("goalAssign.placeholder")}
+                            </option>
+                            {acceptedConnections.map((c) => (
+                              <option key={c.otherUserId} value={c.otherUserId}>
+                                {connectionDisplayName(c)}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      )}
                     </div>
+                    {assignError && <div className="mt-1 text-[11px] text-red-400">{assignError}</div>}
 
                     {!dayClosed && showLinkInput[g.id] && (
                       <input

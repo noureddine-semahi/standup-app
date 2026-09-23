@@ -2074,6 +2074,109 @@ export async function setPostReaction(postId: string, reaction: GlimpseReaction 
   if (error) throw error;
 }
 
+export type PostComment = {
+  id: string;
+  postId: string;
+  userId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  parentCommentId: string | null;
+  body: string;
+  createdAt: string;
+  myReaction: GlimpseReaction | null;
+};
+
+type CommentRow = {
+  comment_id: string;
+  post_id: string;
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  parent_comment_id: string | null;
+  body: string;
+  created_at: string;
+  my_reaction: GlimpseReaction | null;
+};
+
+function commentRowToComment(r: CommentRow): PostComment {
+  return {
+    id: r.comment_id,
+    postId: r.post_id,
+    userId: r.user_id,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url,
+    parentCommentId: r.parent_comment_id,
+    body: r.body,
+    createdAt: r.created_at,
+    myReaction: r.my_reaction,
+  };
+}
+
+/** Every comment + reply on one post, oldest first (threads read top-down). */
+export async function getPostComments(postId: string): Promise<PostComment[]> {
+  const { data, error } = await supabase.rpc("get_post_comments", { p_post_id: postId });
+  if (error) throw error;
+  return ((data ?? []) as CommentRow[]).map(commentRowToComment);
+}
+
+/** Batched comment counts for a page of posts, keyed by post id — powers the collapsed "Comments (N)" toggle without a query per post. */
+export async function getPostCommentCounts(postIds: string[]): Promise<Record<string, number>> {
+  if (postIds.length === 0) return {};
+  const { data, error } = await supabase.rpc("get_post_comment_counts", { p_post_ids: postIds });
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as { post_id: string; comment_count: number }[]) {
+    counts[row.post_id] = row.comment_count;
+  }
+  return counts;
+}
+
+/**
+ * parentCommentId omitted (or null) for a top-level comment, set for a
+ * reply — replies can't themselves be replied to (enforced server-side).
+ * The RPC returns the raw inserted row (no profiles join), so
+ * displayName/avatarUrl come back null; fill those in client-side from
+ * the current user's already-known profile for optimistic display.
+ */
+export async function addPostComment(postId: string, body: string, parentCommentId?: string | null): Promise<PostComment> {
+  const { data, error } = await supabase.rpc("add_post_comment", {
+    p_post_id: postId,
+    p_body: body,
+    p_parent_comment_id: parentCommentId ?? null,
+  });
+  if (error) throw error;
+  const row = data as {
+    id: string;
+    post_id: string;
+    user_id: string;
+    parent_comment_id: string | null;
+    body: string;
+    created_at: string;
+  };
+  return {
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    displayName: null,
+    avatarUrl: null,
+    parentCommentId: row.parent_comment_id,
+    body: row.body,
+    createdAt: row.created_at,
+    myReaction: null,
+  };
+}
+
+export async function deletePostComment(commentId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_post_comment", { p_comment_id: commentId });
+  if (error) throw error;
+}
+
+/** Pass reaction: null to remove the viewer's current reaction. */
+export async function setCommentReaction(commentId: string, reaction: GlimpseReaction | null): Promise<void> {
+  const { error } = await supabase.rpc("set_comment_reaction", { p_comment_id: commentId, p_reaction: reaction });
+  if (error) throw error;
+}
+
 export async function markShared() {
   const userId = await getCurrentUserId();
   await supabase

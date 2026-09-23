@@ -948,6 +948,10 @@ export const es: Record<keyof typeof en, string> = {
   "nav.social": "Social",
   "social.title": "Social",
   "social.subtitle": "Administra tus conexiones y controla quién puede ver tus días publicados.",
+  "social.tabMyFeed": "Mi Muro",
+  "social.tabGlobal": "Global",
+  "social.tabCircle": "Mi Círculo",
+  "social.tabFriends": "Amigos",
   "social.connectionsTitle": "Conexiones",
   "social.connectionsBody": "Conéctate con otro usuario de StandUp por correo electrónico para compartir vistazos de tu día y reaccionar a los suyos.",
   "social.connectionEmailPlaceholder": "Su correo electrónico",
@@ -979,4 +983,17 @@ export const es: Record<keyof typeof en, string> = {
   "social.postButton": "Publicar",
   "social.posting": "Publicando…",
   "social.failedPost": "Error al publicar",
+
+  // Comments on posts, one level of replies, reactions on comments
+  "comments.toggle": "Comentarios",
+  "comments.loading": "Cargando comentarios…",
+  "comments.noCommentsYet": "Aún no hay comentarios — sé el primero.",
+  "comments.placeholder": "Escribe un comentario…",
+  "comments.replyPlaceholder": "Escribe una respuesta…",
+  "comments.postButton": "Publicar",
+  "comments.posting": "Publicando…",
+  "comments.replyButton": "Responder",
+  "comments.failedLoad": "Error al cargar los comentarios",
+  "comments.failedPost": "Error al publicar el comentario",
+  "comments.failedDelete": "Error al eliminar el comentario",
 };

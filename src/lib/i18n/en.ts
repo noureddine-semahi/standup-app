@@ -951,6 +951,10 @@ export const en = {
   "nav.social": "Social",
   "social.title": "Social",
   "social.subtitle": "Manage your connections and control who can see your published days.",
+  "social.tabMyFeed": "My Feed",
+  "social.tabGlobal": "Global",
+  "social.tabCircle": "My Circle",
+  "social.tabFriends": "Friends",
   "social.connectionsTitle": "Connections",
   "social.connectionsBody": "Connect with another StandUp user by email to share glimpses of your day and react to theirs.",
   "social.connectionEmailPlaceholder": "Their email address",
@@ -982,6 +986,19 @@ export const en = {
   "social.postButton": "Post",
   "social.posting": "Posting…",
   "social.failedPost": "Failed to post",
+
+  // Comments on posts, one level of replies, reactions on comments
+  "comments.toggle": "Comments",
+  "comments.loading": "Loading comments…",
+  "comments.noCommentsYet": "No comments yet — be the first.",
+  "comments.placeholder": "Write a comment…",
+  "comments.replyPlaceholder": "Write a reply…",
+  "comments.postButton": "Post",
+  "comments.posting": "Posting…",
+  "comments.replyButton": "Reply",
+  "comments.failedLoad": "Failed to load comments",
+  "comments.failedPost": "Failed to post comment",
+  "comments.failedDelete": "Failed to delete comment",
 } as const;
 
 export type TranslationKey = keyof typeof en;

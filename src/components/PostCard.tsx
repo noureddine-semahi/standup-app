@@ -5,6 +5,7 @@ import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import { usePostReaction } from "@/lib/glimpseReactions";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
+import CommentThread from "@/components/CommentThread";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import type { Post } from "@/lib/supabase/db";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
@@ -15,7 +16,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
  * split now that every post (goal glimpse, achievement, motivational) goes
  * through one getFeed() call and one reaction system. Purely presentational.
  */
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({ post, commentCount = 0 }: { post: Post; commentCount?: number }) {
   const { t } = useLanguage();
   const { myReaction, reacting, pickReaction } = usePostReaction(post.id, post.myReaction);
   const displayName = post.displayName ?? t("social.anonymousUser");
@@ -81,6 +82,7 @@ export default function PostCard({ post }: { post: Post }) {
         )}
 
         <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} />
+        <CommentThread postId={post.id} initialCommentCount={commentCount} />
       </div>
     </div>
   );

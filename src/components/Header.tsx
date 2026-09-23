@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
@@ -10,6 +10,7 @@ import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
+import { MoreHorizontal } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -54,7 +55,9 @@ export default function Header() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -141,7 +144,23 @@ export default function Header() {
   // mobile dropdown, so it never stays open across a page change.
   useEffect(() => {
     setMenuOpen(false);
+    setMoreOpen(false);
   }, [pathname]);
+
+  // The "More" panel floats over the page rather than pushing content down
+  // (unlike the full-width mobile dropdown), so it needs an explicit
+  // click-outside to close — otherwise it'd stay open until another nav
+  // link was clicked.
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreOpen]);
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isRecoveryPage = pathname === "/reset-password";
@@ -209,7 +228,11 @@ export default function Header() {
     );
   }
 
-  function navLinks(expanded = false) {
+  // The four primary, daily-use destinations — always visible inline
+  // whenever there's room for the logo plus these (see .nav-primary),
+  // never tucked behind the More button. Everything else (Calendar/
+  // Backlog, About/FAQ/Contact, Profile) lives in secondaryLinks below.
+  function primaryLinks() {
     if (loading) return <div className="text-sm text-white/50">...</div>;
 
     if (user) {
@@ -239,6 +262,34 @@ export default function Header() {
           >
             {t("nav.planTomorrow")}
           </Link>
+        </>
+      );
+    }
+
+    if (isAuthPage) return null;
+
+    return (
+      <>
+        <Link href="/login" className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}>
+          {t("nav.signIn")}
+        </Link>
+        <Link href="/signup" className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}>
+          {t("nav.signUp")}
+        </Link>
+      </>
+    );
+  }
+
+  // Everything besides the four primary links — always behind the More
+  // button/panel (or, on true mobile, folded into the one full dropdown
+  // alongside primaryLinks) rather than competing with them for header
+  // space.
+  function secondaryLinks(expanded: boolean) {
+    if (loading) return null;
+
+    if (user) {
+      return (
+        <>
           {calendarLinks(expanded)}
           {infoLinks(expanded)}
           <Link
@@ -250,10 +301,9 @@ export default function Header() {
               <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
               {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
             </span>
-            {/* Only in the mobile dropdown (expanded) — the desktop nav's
-                Profile chip and the always-visible mobile header stay clean;
-                this is the one place it lives, tucked inside the button
-                itself rather than as a separate always-on control. */}
+            {/* Only in an expanded dropdown (More panel or mobile) — never
+                inline, this is the one place it lives, tucked inside the
+                button itself rather than as a separate always-on control. */}
             {expanded && (
               <span className="flex items-center gap-2">
                 <ThemeToggle size="sm" />
@@ -265,22 +315,7 @@ export default function Header() {
       );
     }
 
-    return (
-      <>
-        {infoLinks(expanded)}
-
-        {!isAuthPage && (
-          <>
-            <Link href="/login" className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}>
-              {t("nav.signIn")}
-            </Link>
-            <Link href="/signup" className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}>
-              {t("nav.signUp")}
-            </Link>
-          </>
-        )}
-      </>
-    );
+    return infoLinks(expanded);
   }
 
   function avatar() {
@@ -315,15 +350,45 @@ export default function Header() {
           StandUp
         </Link>
 
-        {/* Desktop: full horizontal row. The avatar is now folded into the
-            profile nav-link chip itself (see navLinks), so it isn't
-            rendered separately here anymore. Hidden on mobile — see
-            .nav-desktop in globals.css. */}
-        <nav className="nav nav-desktop">{navLinks()}</nav>
+        {/* Primary row: the four daily-use links, always visible whenever
+            there's room for the logo plus these — see .nav-primary. */}
+        <nav className="nav nav-primary">{primaryLinks()}</nav>
+
+        {/* Secondary links (Calendar/Backlog, About/FAQ/Contact, Profile)
+            live behind this button rather than inline, so only four items
+            ever compete with the logo for space. Hidden alongside
+            .nav-primary on true mobile — see .nav-more-wrap. */}
+        <div className="nav-more-wrap" ref={moreRef}>
+          <button
+            type="button"
+            className="nav-more-btn"
+            aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((v) => !v)}
+          >
+            <MoreHorizontal size={18} />
+          </button>
+          {moreOpen && (
+            <div className="nav-more-panel">
+              {secondaryLinks(true)}
+              {user && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="nav-link nav-link-logout"
+                >
+                  {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Mobile: logo stays on the left (above), avatar + hamburger stay
-            visible here, and the rest of the links live in the dropdown
-            panel below. Hidden on desktop — see .nav-mobile-trigger. */}
+            visible here, and every link (primary and secondary) lives in
+            the full-width dropdown panel below. Hidden above the mobile
+            breakpoint — see .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
           {!loading && avatar()}
           <button
@@ -342,7 +407,8 @@ export default function Header() {
 
       {menuOpen && (
         <div className="mobile-menu-panel">
-          {navLinks(true)}
+          {primaryLinks()}
+          {secondaryLinks(true)}
           {user && (
             <button
               type="button"

@@ -496,15 +496,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Mobile header: hidden until the max-width media query below flips these
-   two — .nav-desktop (the full horizontal row) and .nav-mobile-trigger
-   (avatar + hamburger only) are mutually exclusive. */
+   two — .nav-primary + .nav-more (the row of primary links plus the
+   secondary-items trigger) and .nav-mobile-trigger (avatar + hamburger
+   only) are mutually exclusive. */
 .nav-mobile-trigger {
   display: none;
   align-items: center;
   gap: 12px;
 }
 
-.hamburger-btn {
+.hamburger-btn,
+.nav-more-btn {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -528,14 +530,48 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 2px;
 }
 
+/* Secondary nav (Calendar/Backlog, About/FAQ/Contact, Profile) always lives
+   behind this button rather than inline — only Dashboard/Community/Review
+   Today/Plan Tomorrow (.nav-primary) ever compete with the logo for space,
+   which is what actually fits without overflowing. */
+.nav-more-wrap {
+  position: relative;
+}
+
+.nav-more-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  background: rgba(var(--panel-rgb), 0.98);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+}
+
+.nav-more-panel .nav-link {
+  flex: none;
+  min-width: 0;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
 /* Only ever in the DOM while open (see Header.tsx), but default to hidden
    too in case the viewport is resized past the breakpoint while it's open. */
 .mobile-menu-panel {
   display: none;
 }
 
-@media (max-width: 1300px) {
-  .nav-desktop {
+@media (max-width: 680px) {
+  .nav-primary,
+  .nav-more-wrap {
     display: none;
   }
 

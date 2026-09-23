@@ -2067,38 +2067,34 @@ export async function sendConnectionRequestToUser(userId: string): Promise<void>
 /**
  * Every connection row involving the current user, with the *other*
  * party's id/display name already resolved so callers never need to work
- * out which side of requester/recipient they are. Two queries (connections,
- * then a batched profiles lookup) rather than a PostgREST embed, since
- * connections only has a foreign key to auth.users, not to profiles.
+ * out which side of requester/recipient they are. Goes through the
+ * get_my_connections RPC (security definer) rather than a plain client
+ * query joining profiles directly -- profiles' only SELECT policy is
+ * "read your own row" (auth.uid() = id), so a direct query for the OTHER
+ * party's display_name/avatar_url has always silently returned nothing.
  */
 export async function listConnections(): Promise<Connection[]> {
   const userId = await getCurrentUserId();
 
-  const { data: rows, error } = await supabase
-    .from("connections")
-    .select(
-      "id, requester_id, recipient_id, status, created_at, responded_at, requester_email, recipient_email, requester_seen_at"
-    )
-    .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_my_connections");
   if (error) throw error;
-  if (!rows || rows.length === 0) return [];
-
-  const otherIds = [...new Set(rows.map((r) => (r.requester_id === userId ? r.recipient_id : r.requester_id)))];
-  const { data: profileRows, error: profileErr } = await supabase
-    .from("profiles")
-    .select("id, display_name, avatar_url")
-    .in("id", otherIds);
-  if (profileErr) throw profileErr;
-
-  const profileById = new Map(
-    (profileRows ?? []).map((p) => [p.id, { displayName: p.display_name as string | null, avatarUrl: p.avatar_url as string | null }])
-  );
+  const rows = (data ?? []) as {
+    id: string;
+    requester_id: string;
+    recipient_id: string;
+    status: string;
+    created_at: string;
+    responded_at: string | null;
+    requester_email: string | null;
+    recipient_email: string | null;
+    requester_seen_at: string | null;
+    other_display_name: string | null;
+    other_avatar_url: string | null;
+  }[];
 
   return rows.map((r) => {
     const isRequester = r.requester_id === userId;
     const otherUserId = isRequester ? r.recipient_id : r.requester_id;
-    const otherProfile = profileById.get(otherUserId);
     return {
       id: r.id,
       status: r.status as ConnectionStatus,
@@ -2106,8 +2102,8 @@ export async function listConnections(): Promise<Connection[]> {
       responded_at: r.responded_at,
       direction: isRequester ? "outgoing" : "incoming",
       otherUserId,
-      otherDisplayName: otherProfile?.displayName ?? null,
-      otherAvatarUrl: otherProfile?.avatarUrl ?? null,
+      otherDisplayName: r.other_display_name,
+      otherAvatarUrl: r.other_avatar_url,
       otherEmail: isRequester ? r.recipient_email : r.requester_email,
       requesterSeenAt: r.requester_seen_at,
     };

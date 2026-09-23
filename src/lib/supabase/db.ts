@@ -1934,6 +1934,55 @@ export async function sendConnectionRequest(email: string): Promise<void> {
   }
 }
 
+export type DiscoverableUser = {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  invited: boolean;
+  createdAt: string; // pagination cursor only, not displayed
+};
+
+/** Browsable page of discoverable users (see get_discoverable_users for the exclusion rules), newest accounts first. */
+export async function getDiscoverableUsers(beforeCreatedAt?: string, beforeId?: string): Promise<DiscoverableUser[]> {
+  const { data, error } = await supabase.rpc("get_discoverable_users", {
+    p_limit: 30,
+    p_before: beforeCreatedAt ?? null,
+    p_before_id: beforeId ?? null,
+  });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url,
+    invited: r.invited,
+    createdAt: r.created_at,
+  }));
+}
+
+/** Invite a user found via discovery (id already known — no email lookup needed). Same dedupe/self-request handling as sendConnectionRequest. */
+export async function sendConnectionRequestToUser(userId: string): Promise<void> {
+  const currentUserId = await getCurrentUserId();
+  if (userId === currentUserId) throw new Error("You can't connect with yourself.");
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const { error } = await supabase.from("connections").insert({
+    requester_id: currentUserId,
+    recipient_id: userId,
+    requester_email: session?.user?.email ?? null,
+    recipient_email: null, // unknown here — discovery only exposes name/avatar, not email
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("You're already connected, or a request is already pending.");
+    }
+    throw error;
+  }
+}
+
 /**
  * Every connection row involving the current user, with the *other*
  * party's id/display name already resolved so callers never need to work

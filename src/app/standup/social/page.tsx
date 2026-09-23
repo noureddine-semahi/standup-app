@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   listConnections,
-  sendConnectionRequest,
   respondToConnectionRequest,
   removeConnection,
   connectionDisplayName,
@@ -11,12 +10,16 @@ import {
   getPostCommentCounts,
   getCurrentUserId,
   createMotivationalPost,
+  getDiscoverableUsers,
+  sendConnectionRequestToUser,
   type Connection,
   type Post,
   type PostVisibility,
+  type DiscoverableUser,
 } from "@/lib/supabase/db";
 import PostCard from "@/components/PostCard";
-import { Users, Globe, LayoutGrid, UserPlus } from "lucide-react";
+import Avatar from "@/components/Avatar";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -31,12 +34,15 @@ export default function SocialPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connError, setConnError] = useState<string | null>(null);
-  const [connEmail, setConnEmail] = useState("");
-  const [sendingRequest, setSendingRequest] = useState(false);
-  const [sendRequestMsg, setSendRequestMsg] = useState<string | null>(null);
   // Per-row busy tracking so accepting/declining/removing one row doesn't
   // block interaction with the others while its request is in flight.
   const [busyConnectionIds, setBusyConnectionIds] = useState<Set<string>>(new Set());
+
+  const [discoverUsers, setDiscoverUsers] = useState<DiscoverableUser[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(true);
+  const [discoverLoadingMore, setDiscoverLoadingMore] = useState(false);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [busyDiscoverIds, setBusyDiscoverIds] = useState<Set<string>>(new Set());
 
   const [feed, setFeed] = useState<Post[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -52,6 +58,53 @@ export default function SocialPage() {
     return listConnections()
       .then(setConnections)
       .catch((e: any) => setConnError(e?.message ?? t("social.failedLoadConnections")));
+  }
+
+  function refreshDiscover() {
+    setDiscoverLoading(true);
+    setDiscoverError(null);
+    return getDiscoverableUsers()
+      .then(setDiscoverUsers)
+      .catch((e: any) => setDiscoverError(e?.message ?? t("social.failedLoadDiscover")))
+      .finally(() => setDiscoverLoading(false));
+  }
+
+  async function handleLoadMoreDiscover() {
+    if (discoverLoadingMore || discoverUsers.length === 0) return;
+    const last = discoverUsers[discoverUsers.length - 1];
+    setDiscoverLoadingMore(true);
+    setDiscoverError(null);
+    try {
+      const more = await getDiscoverableUsers(last.createdAt, last.id);
+      setDiscoverUsers((prev) => [...prev, ...more]);
+    } catch (e: any) {
+      setDiscoverError(e?.message ?? t("social.failedLoadDiscover"));
+    } finally {
+      setDiscoverLoadingMore(false);
+    }
+  }
+
+  function setDiscoverBusy(id: string, busy: boolean) {
+    setBusyDiscoverIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleInvite(user: DiscoverableUser) {
+    if (busyDiscoverIds.has(user.id) || user.invited) return;
+    setDiscoverBusy(user.id, true);
+    setDiscoverError(null);
+    try {
+      await sendConnectionRequestToUser(user.id);
+      setDiscoverUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, invited: true } : u)));
+    } catch (e: any) {
+      setDiscoverError(e?.message ?? t("social.failedInvite"));
+    } finally {
+      setDiscoverBusy(user.id, false);
+    }
   }
 
   function refreshFeed() {
@@ -76,6 +129,7 @@ export default function SocialPage() {
       .catch(() => {});
     refreshConnections().finally(() => setLoading(false));
     refreshFeed();
+    refreshDiscover();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -88,24 +142,6 @@ export default function SocialPage() {
     });
   }
 
-  async function handleSendRequest() {
-    const email = connEmail.trim();
-    if (!email || sendingRequest) return;
-    setSendingRequest(true);
-    setConnError(null);
-    setSendRequestMsg(null);
-    try {
-      await sendConnectionRequest(email);
-      setConnEmail("");
-      setSendRequestMsg(t("social.connectionRequestSent"));
-      refreshConnections();
-    } catch (e: any) {
-      setConnError(e?.message ?? t("social.failedLoadConnections"));
-    } finally {
-      setSendingRequest(false);
-    }
-  }
-
   async function handleRespond(id: string, accept: boolean) {
     if (busyConnectionIds.has(id)) return;
     setConnectionBusy(id, true);
@@ -113,6 +149,8 @@ export default function SocialPage() {
     try {
       await respondToConnectionRequest(id, accept);
       refreshConnections();
+      // A declined request falls back into the discoverable pool.
+      if (!accept) refreshDiscover();
     } catch (e: any) {
       setConnError(e?.message ?? t("social.failedRespondRequest"));
     } finally {
@@ -127,6 +165,9 @@ export default function SocialPage() {
     try {
       await removeConnection(id);
       refreshConnections();
+      // Cancelling an outgoing request or removing an accepted connection
+      // both put this person back into the discoverable pool.
+      refreshDiscover();
     } catch (e: any) {
       setConnError(e?.message ?? t("social.failedRemoveConnection"));
     } finally {
@@ -279,40 +320,75 @@ export default function SocialPage() {
       )}
 
       {activeTab === "friends" && (
-        <div
-          className="card"
-          style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
-        >
+        <>
+          <div className="card card-highlight">
+            <h2 className="text-lg font-semibold mb-1">{t("social.discoverTitle")}</h2>
+            <p className="text-sm text-white/60 mb-4">{t("social.discoverSubtitle")}</p>
+
+            {discoverError && <p className="mb-3 text-xs text-red-300">{discoverError}</p>}
+
+            {discoverLoading ? (
+              <p className="text-sm text-white/50">{t("dashboard.loading")}</p>
+            ) : discoverUsers.length === 0 ? (
+              <p className="text-sm text-white/50 italic">{t("social.noOneToDiscover")}</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {discoverUsers.map((user) => {
+                    const name = user.displayName ?? t("social.anonymousUser");
+                    const busy = busyDiscoverIds.has(user.id);
+                    return (
+                      <div
+                        key={user.id}
+                        className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
+                        style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
+                      >
+                        <Avatar avatarUrl={user.avatarUrl} label={name} size={56} />
+                        <div className="text-sm text-white/85 truncate w-full">{name}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleInvite(user)}
+                          disabled={busy || user.invited}
+                          className="btn w-full inline-flex items-center justify-center gap-1.5"
+                          style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                        >
+                          {user.invited ? (
+                            <>
+                              <UserCheck size={12} /> {t("social.invitationSent")}
+                            </>
+                          ) : busy ? (
+                            t("social.inviting")
+                          ) : (
+                            t("social.invite")
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 text-center">
+                  <button
+                    type="button"
+                    onClick={handleLoadMoreDiscover}
+                    disabled={discoverLoadingMore}
+                    className="btn"
+                    style={{ padding: "0.4rem 1rem", fontSize: "0.8rem" }}
+                  >
+                    {discoverLoadingMore ? t("dashboard.loading") : t("social.loadMore")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div
+            className="card"
+            style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
+          >
           <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
             {t("social.connectionsTitle")}
           </div>
           <p className="text-xs text-white/60 mb-3">{t("social.connectionsBody")}</p>
-
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="email"
-              value={connEmail}
-              onChange={(e) => setConnEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSendRequest();
-                }
-              }}
-              placeholder={t("social.connectionEmailPlaceholder")}
-              disabled={sendingRequest}
-              className="flex-1 min-w-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-            />
-            <button
-              type="button"
-              onClick={handleSendRequest}
-              disabled={sendingRequest || !connEmail.trim()}
-              className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
-            >
-              {sendingRequest ? t("social.sendingRequest") : t("social.sendRequest")}
-            </button>
-          </div>
-          {sendRequestMsg && <p className="mt-2 text-xs text-emerald-300">{sendRequestMsg}</p>}
           {connError && <p className="mt-2 text-xs text-red-300">{connError}</p>}
 
           <div className="mt-4 space-y-4">
@@ -401,7 +477,8 @@ export default function SocialPage() {
               )}
             </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -91,7 +91,7 @@ export default function PendingNotifications({
         {pendingConnections.map((c) => (
           <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
             <div className="min-w-0">
-              <div className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</div>
+              <div className="text-sm text-white/85 truncate">{connectionDisplayName(c, t)}</div>
               <div className="text-[11px] text-white/50 truncate">{t("dashboard.connectionRequestLabel")}</div>
             </div>
             <div className="flex gap-1.5 flex-shrink-0">
@@ -164,7 +164,7 @@ export default function PendingNotifications({
         {resolvedConnections.map((c) => (
           <div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
             <div className="min-w-0">
-              <div className="text-sm text-white/85 truncate">{connectionDisplayName(c)}</div>
+              <div className="text-sm text-white/85 truncate">{connectionDisplayName(c, t)}</div>
               <div className="text-[11px] text-white/50 truncate">
                 {c.status === "accepted" ? t("dashboard.connectionAcceptedStatus") : t("dashboard.connectionDeclinedStatus")}
               </div>

@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client";
 import type { Theme } from "@/lib/theme";
+import type { TranslationKey } from "@/lib/i18n/en";
 
 export type PlanStatus = "draft" | "submitted" | "locked";
 export type GoalStatus =
@@ -85,13 +86,18 @@ export type Connection = {
 
 /**
  * display_name is optional at signup and often null — falls back to the
- * local part of the captured email, then a short id fragment, so a
- * connection never renders as a raw full UUID.
+ * same "A StandUp user" placeholder every other anonymous-person context
+ * in this app already uses (feed posts, assignment labels), rather than
+ * deriving anything from their email. That email fallback used to show
+ * the local part of the captured email (e.g. "kabyldorado" from
+ * "kabyldorado@hotmail.com") — still visibly a piece of someone's email
+ * address, not a real identifier.
  */
-export function connectionDisplayName(c: Pick<Connection, "otherDisplayName" | "otherEmail" | "otherUserId">): string {
-  if (c.otherDisplayName) return c.otherDisplayName;
-  if (c.otherEmail) return c.otherEmail.split("@")[0];
-  return c.otherUserId.slice(0, 8);
+export function connectionDisplayName(
+  c: Pick<Connection, "otherDisplayName">,
+  t: (key: TranslationKey) => string
+): string {
+  return c.otherDisplayName || t("social.anonymousUser");
 }
 
 export type GlimpseReaction = "like" | "support" | "fire" | "clap";

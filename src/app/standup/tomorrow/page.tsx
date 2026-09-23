@@ -899,7 +899,7 @@ export default function TomorrowGoalsPage() {
                                 </option>
                                 {acceptedConnections.map((c) => (
                                   <option key={c.otherUserId} value={c.otherUserId}>
-                                    {connectionDisplayName(c)}
+                                    {connectionDisplayName(c, t)}
                                   </option>
                                 ))}
                               </select>

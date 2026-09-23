@@ -940,7 +940,7 @@ export default function TodayPage() {
                       <optgroup label={t("today.publishIndividualGroupLabel")}>
                         {acceptedConnections.map((c) => (
                           <option key={c.otherUserId} value={`individual:${c.otherUserId}`}>
-                            {connectionDisplayName(c)}
+                            {connectionDisplayName(c, t)}
                           </option>
                         ))}
                       </optgroup>
@@ -1209,7 +1209,7 @@ export default function TodayPage() {
                             <option value="">{t("goalAssign.placeholder")}</option>
                             {acceptedConnections.map((c) => (
                               <option key={c.otherUserId} value={c.otherUserId}>
-                                {connectionDisplayName(c)}
+                                {connectionDisplayName(c, t)}
                               </option>
                             ))}
                           </select>
@@ -1510,7 +1510,7 @@ export default function TodayPage() {
                               </option>
                               {acceptedConnections.map((c) => (
                                 <option key={c.otherUserId} value={c.otherUserId}>
-                                  {connectionDisplayName(c)}
+                                  {connectionDisplayName(c, t)}
                                 </option>
                               ))}
                             </select>

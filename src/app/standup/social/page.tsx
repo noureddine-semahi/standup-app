@@ -550,8 +550,8 @@ export default function SocialPage() {
                       className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
                       style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
                     >
-                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c)} size={56} />
-                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c)}</div>
+                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c, t)} size={56} />
+                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
                       <div className="flex gap-1.5 w-full">
                         <button
                           type="button"
@@ -590,8 +590,8 @@ export default function SocialPage() {
                       className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
                       style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
                     >
-                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c)} size={56} />
-                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c)}</div>
+                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c, t)} size={56} />
+                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
                       <button
                         type="button"
                         onClick={() => handleRemoveConnection(c.id)}
@@ -621,8 +621,8 @@ export default function SocialPage() {
                       className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
                       style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
                     >
-                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c)} size={56} />
-                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c)}</div>
+                      <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c, t)} size={56} />
+                      <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
                       <button
                         type="button"
                         onClick={() => handleRemoveConnection(c.id)}

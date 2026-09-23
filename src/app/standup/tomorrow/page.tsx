@@ -28,6 +28,7 @@ import {
   type RecurringGoalTemplate,
   type Connection,
   type GoalAssignment,
+  type GoalAssignmentType,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -49,7 +50,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -93,6 +94,9 @@ export default function TomorrowGoalsPage() {
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
   const [assignError, setAssignError] = useState<string | null>(null);
+  // Which type the "Assign to" picker will use for a row's NEXT assignment
+  // — chosen via the Lock/Unlock toggle before a recipient is picked.
+  const [assignTypeByGoalId, setAssignTypeByGoalId] = useState<Record<string, GoalAssignmentType>>({});
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -341,7 +345,7 @@ export default function TomorrowGoalsPage() {
     setAssigningGoalIds((prev) => new Set(prev).add(goalId));
     setAssignError(null);
     try {
-      await createGoalAssignment(goalId, recipientId);
+      await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "shared");
       await refreshGoalAssignments();
     } catch (e: any) {
       setAssignError(e?.message ?? t("goalAssign.failed"));
@@ -701,10 +705,17 @@ export default function TomorrowGoalsPage() {
                 : DEFAULT_PRIORITY;
             const opt = getPriorityMeta(p);
             // Set once this goal has been assigned out to a connection
-            // (and they haven't declined) — the row switches to read-only
-            // and shows their live status instead of this user's own
-            // controls; see assignedOutByGoalId above.
+            // (and they haven't declined) — shows the recipient's live
+            // status either way. Only "exclusive" locks these still-being-
+            // drafted fields; "shared" stays fully editable. Locking title/
+            // time/priority for exclusive here (unlike Today, which only
+            // locks checklist/attachments/link/priority) matters because
+            // these fields are still live-editable up until submission --
+            // continuing to edit them after an exclusive assignment would
+            // silently diverge from the frozen snapshot the recipient
+            // already has, since assignment never re-syncs.
             const assignment = g.id ? assignedOutByGoalId.get(g.id) : undefined;
+            const isExclusive = assignment?.assignmentType === "exclusive";
 
             return (
               <div key={g.id ?? `row-${idx}`}>
@@ -756,7 +767,7 @@ export default function TomorrowGoalsPage() {
                         }}
                         type="text"
                         value={g.title ?? ""}
-                        disabled={locked || submitting || !!assignment}
+                        disabled={locked || submitting || isExclusive}
                         onKeyDown={(e) => onGoalKeyDown(e, idx)}
                         onBlur={() => {
                           if (skipNextBlurAutosaveRef.current) {
@@ -794,7 +805,7 @@ export default function TomorrowGoalsPage() {
                               onItemsChange={(items) =>
                                 setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
                               }
-                              readOnly={locked || !!assignment}
+                              readOnly={locked || isExclusive}
                             />
                             <GoalAttachments
                               compact
@@ -803,15 +814,15 @@ export default function TomorrowGoalsPage() {
                               onItemsChange={(items) =>
                                 setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
                               }
-                              readOnly={locked || !!assignment}
+                              readOnly={locked || isExclusive}
                             />
                           </>
                         )}
-                        {((g as any).link_url || !assignment) && (
+                        {((g as any).link_url || !isExclusive) && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (assignment) {
+                              if (isExclusive) {
                                 if ((g as any).link_url) window.open((g as any).link_url, "_blank", "noopener,noreferrer");
                                 return;
                               }
@@ -826,7 +837,7 @@ export default function TomorrowGoalsPage() {
                         )}
                         {assignment ? (
                           <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
-                            <Lock size={11} />
+                            {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
                             {t("goalAssign.assignedToLabel", {
                               name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
                             })}
@@ -841,31 +852,55 @@ export default function TomorrowGoalsPage() {
                         ) : (
                           g.id &&
                           acceptedConnections.length > 0 && (
-                            <select
-                              value=""
-                              disabled={assigningGoalIds.has(g.id) || locked}
-                              onChange={(e) => {
-                                const recipientId = e.target.value;
-                                if (recipientId) handleAssignGoal(g.id as string, recipientId);
-                              }}
-                              className="btn"
-                              style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", flexShrink: 0 }}
-                            >
-                              <option value="" disabled>
-                                {t("goalAssign.placeholder")}
-                              </option>
-                              {acceptedConnections.map((c) => (
-                                <option key={c.otherUserId} value={c.otherUserId}>
-                                  {connectionDisplayName(c)}
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAssignTypeByGoalId((prev) => ({
+                                    ...prev,
+                                    [g.id as string]: (prev[g.id as string] ?? "shared") === "exclusive" ? "shared" : "exclusive",
+                                  }))
+                                }
+                                className="btn"
+                                style={{ padding: "0.15rem 0.35rem", flexShrink: 0 }}
+                                title={
+                                  (assignTypeByGoalId[g.id] ?? "shared") === "exclusive"
+                                    ? t("goalAssign.exclusiveHint")
+                                    : t("goalAssign.sharedHint")
+                                }
+                              >
+                                {(assignTypeByGoalId[g.id] ?? "shared") === "exclusive" ? (
+                                  <Lock size={11} />
+                                ) : (
+                                  <Unlock size={11} />
+                                )}
+                              </button>
+                              <select
+                                value=""
+                                disabled={assigningGoalIds.has(g.id) || locked}
+                                onChange={(e) => {
+                                  const recipientId = e.target.value;
+                                  if (recipientId) handleAssignGoal(g.id as string, recipientId);
+                                }}
+                                className="btn"
+                                style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", flexShrink: 0 }}
+                              >
+                                <option value="" disabled>
+                                  {t("goalAssign.placeholder")}
                                 </option>
-                              ))}
-                            </select>
+                                {acceptedConnections.map((c) => (
+                                  <option key={c.otherUserId} value={c.otherUserId}>
+                                    {connectionDisplayName(c)}
+                                  </option>
+                                ))}
+                              </select>
+                            </>
                           )
                         )}
                       </div>
                       {assignError && <div className="mt-1 text-[11px] text-red-400">{assignError}</div>}
 
-                      {!assignment && showLinkInput[idx] && (
+                      {!isExclusive && showLinkInput[idx] && (
                         <input
                           type="url"
                           value={(g as any).link_url ?? ""}
@@ -892,7 +927,7 @@ export default function TomorrowGoalsPage() {
                           <input
                             type="time"
                             value={g.time_of_day?.slice(0, 5) ?? ""}
-                            disabled={locked || submitting || !!assignment}
+                            disabled={locked || submitting || isExclusive}
                             onBlur={() => {
                               if (skipNextBlurAutosaveRef.current) {
                                 skipNextBlurAutosaveRef.current = false;
@@ -916,7 +951,7 @@ export default function TomorrowGoalsPage() {
                         )}
                         <button
                           type="button"
-                          disabled={locked || submitting || !!assignment}
+                          disabled={locked || submitting || isExclusive}
                           onClick={() => {
                             setGoals((prev) =>
                               prev.map((x, i) =>
@@ -1003,7 +1038,7 @@ export default function TomorrowGoalsPage() {
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <select
                         value={p}
-                        disabled={locked || submitting || !!assignment}
+                        disabled={locked || submitting || isExclusive}
                         onChange={(e) => {
                           priorityChangeInProgressRef.current = true;
                           const v = Number(e.target.value);
@@ -1024,7 +1059,7 @@ export default function TomorrowGoalsPage() {
                       </select>
 
                       {/* Clear/Remove button - same size/shape as the priority select */}
-                      {!locked && !assignment && (
+                      {!locked && !isExclusive && (
                         <button
                           onClick={() => removeGoal(idx)}
                           disabled={submitting}

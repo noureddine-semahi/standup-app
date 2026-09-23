@@ -2131,6 +2131,7 @@ export async function removeConnection(id: string): Promise<void> {
 // ── Goal assignments ──────────────────────────────────────────────────
 
 export type GoalAssignmentStatus = "pending" | "accepted" | "declined";
+export type GoalAssignmentType = "shared" | "exclusive";
 
 /**
  * One goal_assignments row as returned by get_my_goal_assignments(), with
@@ -2165,13 +2166,23 @@ export type GoalAssignment = {
   // assignment back to a specific row on the assigner's own plan so it
   // can switch to read-only. Null if that goal was since deleted.
   assignerGoalId: string | null;
+  // "shared": both sides independently track their own copy, no lock at
+  // all on the assigner's side. "exclusive": only the recipient can act
+  // on it -- the assigner's own copy is fully locked and excluded from
+  // their own day's review-before-close requirement.
+  assignmentType: GoalAssignmentType;
 };
 
 /** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
-export async function createGoalAssignment(goalId: string, recipientId: string): Promise<void> {
+export async function createGoalAssignment(
+  goalId: string,
+  recipientId: string,
+  assignmentType: GoalAssignmentType = "shared"
+): Promise<void> {
   const { error } = await supabase.rpc("create_goal_assignment", {
     p_goal_id: goalId,
     p_recipient_id: recipientId,
+    p_assignment_type: assignmentType,
   });
   if (error) {
     if (error.code === "23505") {
@@ -2217,9 +2228,10 @@ type GoalAssignmentRow = {
   recipient_goal_status: GoalStatus | null;
   assigner_seen_at: string | null;
   assigner_goal_id: string | null;
+  assignment_type: GoalAssignmentType;
 };
 
-/** Every goal assignment the caller is either party to — the Friends tab's sole source of assignment state; Tomorrow/Today never call this (their "Assign to" pill is local-optimistic only). */
+/** Every goal assignment the caller is either party to — the Friends tab's, Dashboard's, and Today/Tomorrow's shared source of assignment state. */
 export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase.rpc("get_my_goal_assignments");
@@ -2242,6 +2254,7 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     direction: r.assigner_id === userId ? "assigned" : "received",
     assignerSeenAt: r.assigner_seen_at,
     assignerGoalId: r.assigner_goal_id,
+    assignmentType: r.assignment_type,
   }));
 }
 

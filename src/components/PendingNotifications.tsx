@@ -47,6 +47,9 @@ export default function PendingNotifications({
 
   const pendingConnections = connections.filter((c) => c.direction === "incoming" && c.status === "pending");
   const pendingAssignments = goalAssignments.filter((a) => a.direction === "received" && a.status === "pending");
+  // Sent out, still awaiting a response -- naturally moves into
+  // resolvedAssignments below once the recipient accepts/declines.
+  const pendingAssignedByYou = goalAssignments.filter((a) => a.direction === "assigned" && a.status === "pending");
   const resolvedConnections = connections.filter(
     (c) => c.direction === "outgoing" && c.status !== "pending" && !c.requesterSeenAt
   );
@@ -55,7 +58,11 @@ export default function PendingNotifications({
   );
 
   const total =
-    pendingConnections.length + pendingAssignments.length + resolvedConnections.length + resolvedAssignments.length;
+    pendingConnections.length +
+    pendingAssignments.length +
+    pendingAssignedByYou.length +
+    resolvedConnections.length +
+    resolvedAssignments.length;
   if (total === 0) return null;
 
   async function run(id: string, action: () => Promise<void>) {
@@ -136,6 +143,19 @@ export default function PendingNotifications({
               >
                 {t("social.decline")}
               </button>
+            </div>
+          </div>
+        ))}
+
+        {pendingAssignedByYou.map((a) => (
+          <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
+              <div className="text-[11px] text-white/50 truncate">
+                {t("dashboard.assignmentWaitingStatus", {
+                  name: a.recipientDisplayName ?? t("social.anonymousUser"),
+                })}
+              </div>
             </div>
           </div>
         ))}

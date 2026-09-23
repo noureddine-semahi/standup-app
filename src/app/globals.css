@@ -360,8 +360,12 @@ h1, h2, h3, h4, h5, h6 {
      narrower desktop widths where the nav's own content nearly fills the
      row — gap enforces a floor so Dashboard never sits flush against the
      logo, while still allowing space-between to grow it further on wide
-     screens. Bumped from 32px -> 56px; 32px wasn't enough breathing room. */
-  gap: 56px;
+     screens. This is now a *per-pair* gap across 5 direct children (brand,
+     nav-primary, bell, nav-profile, nav-more-wrap) rather than the 2 it
+     was tuned for, so it's deliberately smaller than earlier attempts
+     (56px × 4 gaps would itself eat ~224px) — .nav-primary's own 10px gap
+     already handles spacing between the primary links themselves. */
+  gap: 18px;
 }
 
 .brand {
@@ -420,6 +424,18 @@ h1, h2, h3, h4, h5, h6 {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+}
+
+/* Overrides .nav-link's own flex:1 1 130px/min-width:128px (tuned for
+   full-width labels like "Plan Tomorrow") -- the profile chip is just a
+   small avatar + short name, shouldn't reserve a full nav-link's worth
+   of space now that it's a direct .app-header-inner child (competing
+   with the bell/more-button/nav-primary for the same row) rather than
+   one of five items inside .nav-primary's own flex context. */
+.nav-profile {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 170px;
 }
 
 .nav-link::before {
@@ -609,8 +625,9 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 760px) {
   .nav-primary,
+  .nav-profile,
   .nav-more-wrap {
     display: none;
   }

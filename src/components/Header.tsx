@@ -326,10 +326,11 @@ export default function Header() {
     );
   }
 
-  // Everything besides the five primary links (About/FAQ/Contact,
-  // Profile) — always behind the More button/panel (or, on true mobile,
-  // folded into the one full dropdown alongside primaryLinks) rather
-  // than competing with them for header space.
+  // Everything besides the five primary links, the always-visible bell,
+  // and the always-visible Profile chip (About/FAQ/Contact plus the
+  // Theme/Language toggles) — behind the More button/panel (or, on true
+  // mobile, folded into the one full dropdown alongside primaryLinks)
+  // rather than competing with them for header space.
   function secondaryLinks(expanded: boolean) {
     if (loading) return null;
 
@@ -337,30 +338,39 @@ export default function Header() {
       return (
         <>
           {infoLinks(expanded)}
-          <Link
-            href="/standup/profile"
-            className={pathname === "/standup/profile" ? "nav-link font-semibold flex items-center gap-2" : "nav-link flex items-center gap-2"}
-            style={expanded ? { justifyContent: "space-between" } : undefined}
-          >
-            <span className="flex items-center gap-2">
-              <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
-              {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
-            </span>
-            {/* Only in an expanded dropdown (More panel or mobile) — never
-                inline, this is the one place it lives, tucked inside the
-                button itself rather than as a separate always-on control. */}
-            {expanded && (
-              <span className="flex items-center gap-2">
-                <ThemeToggle size="sm" />
-                <LanguageToggle size="sm" />
-              </span>
-            )}
-          </Link>
+          {/* Profile itself is always visible now (see profileLink below)
+              — this is just the settings row that used to live tucked
+              inside the Profile chip in the expanded dropdown. */}
+          <div className="flex items-center gap-2 px-3 py-1.5">
+            <ThemeToggle size="sm" />
+            <LanguageToggle size="sm" />
+          </div>
         </>
       );
     }
 
     return infoLinks(expanded);
+  }
+
+  // Always visible regardless of breakpoint, right next to the
+  // notification bell — this used to be the sole way to reach Profile on
+  // desktop before it got folded into secondaryLinks/the More panel;
+  // moved back out since losing the name inline was a regression.
+  function profileLink() {
+    if (!user) return null;
+    return (
+      <Link
+        href="/standup/profile"
+        className={
+          pathname === "/standup/profile"
+            ? "nav-link nav-profile font-semibold flex items-center gap-2"
+            : "nav-link nav-profile flex items-center gap-2"
+        }
+      >
+        <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
+        {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
+      </Link>
+    );
   }
 
   function avatar() {
@@ -421,10 +431,17 @@ export default function Header() {
             whichever of nav-primary/nav-mobile-trigger is currently shown. */}
         {notificationBell()}
 
-        {/* Secondary links (About/FAQ/Contact, Profile) live behind this
-            button rather than inline, so only five items ever compete with
-            the logo for space. Hidden alongside .nav-primary on true
-            mobile — see .nav-more-wrap. */}
+        {/* Profile (avatar + name) sits next to the bell whenever
+            nav-primary has room — hidden on true mobile, same as before
+            this whole restructure, where nav-mobile-trigger's compact
+            avatar-only icon takes over instead (a name label doesn't fit
+            a phone-width row next to the hamburger). */}
+        {profileLink()}
+
+        {/* Secondary links (About/FAQ/Contact, Theme/Language) live behind
+            this button rather than inline, so only five items ever
+            compete with the logo for space. Hidden alongside .nav-primary
+            on true mobile — see .nav-more-wrap. */}
         <div className="nav-more-wrap" ref={moreRef}>
           <button
             type="button"

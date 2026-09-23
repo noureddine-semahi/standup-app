@@ -356,6 +356,12 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* space-between alone lets the nav crowd right up against the brand on
+     narrower desktop widths where the nav's own content nearly fills the
+     row — gap enforces a floor so Dashboard never sits flush against the
+     logo, while still allowing space-between to grow it further on wide
+     screens. */
+  gap: 32px;
 }
 
 .brand {

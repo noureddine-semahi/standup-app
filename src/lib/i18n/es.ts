@@ -976,8 +976,8 @@ export const es: Record<keyof typeof en, string> = {
   "today.failedUnpublish": "Error al anular la publicación",
 
   // Glimpse sharing — Social page (connections management)
-  "nav.social": "Social",
-  "social.title": "Social",
+  "nav.social": "Comunidad",
+  "social.title": "Comunidad",
   "social.subtitle": "Administra tus conexiones y controla quién puede ver tus días publicados.",
   "social.tabMyFeed": "Mi Muro",
   "social.tabGlobal": "Global",

@@ -979,8 +979,8 @@ export const en = {
   "today.failedUnpublish": "Failed to unpublish",
 
   // Glimpse sharing — Social page (connections management)
-  "nav.social": "Social",
-  "social.title": "Social",
+  "nav.social": "Community",
+  "social.title": "Community",
   "social.subtitle": "Manage your connections and control who can see your published days.",
   "social.tabMyFeed": "My Feed",
   "social.tabGlobal": "Global",

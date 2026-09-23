@@ -427,46 +427,51 @@ export default function Header() {
             there's room for the logo plus these — see .nav-primary. */}
         <nav className="nav nav-primary">{primaryLinks()}</nav>
 
-        {/* Bell is always visible regardless of breakpoint, alongside
-            whichever of nav-primary/nav-mobile-trigger is currently shown. */}
-        {notificationBell()}
-
-        {/* Profile (avatar + name) sits next to the bell whenever
-            nav-primary has room — hidden on true mobile, same as before
-            this whole restructure, where nav-mobile-trigger's compact
-            avatar-only icon takes over instead (a name label doesn't fit
-            a phone-width row next to the hamburger). */}
+        {/* Profile (avatar + name) sits before the bell/More cluster
+            whenever nav-primary has room — hidden on true mobile, same as
+            before this whole restructure, where nav-mobile-trigger's
+            compact avatar-only icon takes over instead (a name label
+            doesn't fit a phone-width row next to the hamburger). */}
         {profileLink()}
 
-        {/* Secondary links (About/FAQ/Contact, Theme/Language) live behind
-            this button rather than inline, so only five items ever
-            compete with the logo for space. Hidden alongside .nav-primary
-            on true mobile — see .nav-more-wrap. */}
-        <div className="nav-more-wrap" ref={moreRef}>
-          <button
-            type="button"
-            className="nav-more-btn"
-            aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-            aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((v) => !v)}
-          >
-            <MoreHorizontal size={18} />
-          </button>
-          {moreOpen && (
-            <div className="nav-more-panel">
-              {secondaryLinks(true)}
-              {user && (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="nav-link nav-link-logout"
-                >
-                  {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
-                </button>
-              )}
-            </div>
-          )}
+        {/* Bell + More button grouped tightly together (their own small
+            gap, not the header's wider one) so they read as one utility
+            cluster — bell is always visible regardless of breakpoint,
+            alongside whichever of nav-primary/nav-mobile-trigger is
+            currently shown; the More button is hidden on true mobile
+            alongside nav-primary (see .nav-more-wrap). */}
+        <div className="nav-utility-cluster">
+          {notificationBell()}
+
+          {/* Secondary links (About/FAQ/Contact, Theme/Language) live
+              behind this button rather than inline, so only five items
+              ever compete with the logo for space. */}
+          <div className="nav-more-wrap" ref={moreRef}>
+            <button
+              type="button"
+              className="nav-more-btn"
+              aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {moreOpen && (
+              <div className="nav-more-panel">
+                {secondaryLinks(true)}
+                {user && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="nav-link nav-link-logout"
+                  >
+                    {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Mobile: logo stays on the left (above), avatar + hamburger stay

@@ -586,10 +586,19 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 0 2px rgba(var(--panel-rgb), 1);
 }
 
-/* Secondary nav (About/FAQ/Contact, Profile) always lives behind this
-   button rather than inline — only Dashboard/Community/Review Today/
-   Plan Tomorrow/Calendar↔Backlog (.nav-primary) ever compete with the
-   logo for space, which is what actually fits without overflowing. */
+/* Bell + More button grouped as one tight utility cluster (their own
+   small gap) rather than sharing .app-header-inner's wider gap — reads
+   as one attached unit instead of two independently-spaced icons. */
+.nav-utility-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Secondary nav (About/FAQ/Contact, Theme/Language) always lives behind
+   this button rather than inline — only Dashboard/Community/Review
+   Today/Plan Tomorrow/Calendar↔Backlog (.nav-primary) ever compete with
+   the logo for space, which is what actually fits without overflowing. */
 .nav-more-wrap {
   position: relative;
 }

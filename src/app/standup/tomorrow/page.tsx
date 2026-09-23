@@ -346,7 +346,7 @@ export default function TomorrowGoalsPage() {
     setAssigningGoalIds((prev) => new Set(prev).add(goalId));
     setAssignError(null);
     try {
-      await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "shared");
+      await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "exclusive");
       await refreshGoalAssignments();
       notifyNotificationsUpdated();
     } catch (e: any) {
@@ -708,16 +708,18 @@ export default function TomorrowGoalsPage() {
             const opt = getPriorityMeta(p);
             // Set once this goal has been assigned out to a connection
             // (and they haven't declined) — shows the recipient's live
-            // status either way. Only "exclusive" locks these still-being-
-            // drafted fields; "shared" stays fully editable. Locking title/
-            // time/priority for exclusive here (unlike Today, which only
-            // locks checklist/attachments/link/priority) matters because
-            // these fields are still live-editable up until submission --
-            // continuing to edit them after an exclusive assignment would
-            // silently diverge from the frozen snapshot the recipient
-            // already has, since assignment never re-syncs.
+            // status either way. "shared" always stays fully editable.
+            // "exclusive" only locks these still-being-drafted fields once
+            // the recipient has actually accepted — while pending, nothing
+            // has been handed off yet. Locking title/time/priority for
+            // exclusive here (unlike Today, which only locks checklist/
+            // attachments/link/priority) matters because these fields are
+            // still live-editable up until submission -- continuing to
+            // edit them after acceptance would silently diverge from the
+            // frozen snapshot the recipient already has, since assignment
+            // never re-syncs.
             const assignment = g.id ? assignedOutByGoalId.get(g.id) : undefined;
-            const isExclusive = assignment?.assignmentType === "exclusive";
+            const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
 
             return (
               <div key={g.id ?? `row-${idx}`}>
@@ -865,18 +867,18 @@ export default function TomorrowGoalsPage() {
                                 onClick={() =>
                                   setAssignTypeByGoalId((prev) => ({
                                     ...prev,
-                                    [g.id as string]: (prev[g.id as string] ?? "shared") === "exclusive" ? "shared" : "exclusive",
+                                    [g.id as string]: (prev[g.id as string] ?? "exclusive") === "exclusive" ? "shared" : "exclusive",
                                   }))
                                 }
                                 className="btn"
                                 style={{ padding: "0.15rem 0.35rem", flexShrink: 0 }}
                                 title={
-                                  (assignTypeByGoalId[g.id as string] ?? "shared") === "exclusive"
+                                  (assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive"
                                     ? t("goalAssign.exclusiveHint")
                                     : t("goalAssign.sharedHint")
                                 }
                               >
-                                {(assignTypeByGoalId[g.id as string] ?? "shared") === "exclusive" ? (
+                                {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive" ? (
                                   <Lock size={11} />
                                 ) : (
                                   <Unlock size={11} />

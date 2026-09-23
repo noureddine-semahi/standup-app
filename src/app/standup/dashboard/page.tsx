@@ -32,7 +32,7 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import {
   Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
-  MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket,
+  MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket, Lock, Unlock,
 } from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -358,6 +358,20 @@ export default function DashboardPage() {
 
   const sortedTodayGoals = sortGoals(todayGoals);
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
+
+  // Goals assigned out to a connection (declined ones excluded), keyed by
+  // this user's own goals.id — same map shape Today/Tomorrow's own pages
+  // use, so a goal assigned from either shows the same "assigned to
+  // {name}" info here too instead of looking like any other goal.
+  const assignedOutByGoalId = useMemo(() => {
+    const map = new Map<string, GoalAssignment>();
+    for (const a of goalAssignments) {
+      if (a.direction === "assigned" && a.status !== "declined" && a.assignerGoalId) {
+        map.set(a.assignerGoalId, a);
+      }
+    }
+    return map;
+  }, [goalAssignments]);
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
 
@@ -750,6 +764,26 @@ export default function DashboardPage() {
                   <div className="mt-1 text-base font-semibold text-white">
                     {statusLabel(todayP1.status, t)}
                   </div>
+
+                  {(() => {
+                    const assignment = assignedOutByGoalId.get(todayP1.id);
+                    if (!assignment) return null;
+                    return (
+                      <div className="mt-3 text-xs text-white/50 inline-flex items-center gap-1">
+                        {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                        {t("goalAssign.assignedToLabel", {
+                          name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                        })}
+                        {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                        {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                          <span className="inline-flex items-center gap-1">
+                            · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
+                            {statusLabel(assignment.recipientGoalStatus, t)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="text-white/50">→</div>
@@ -786,6 +820,7 @@ export default function DashboardPage() {
                   {sortedTodayGoals.map((g, idx) => {
                     const reviewed = !!g.reviewed_at;
                     const priority = g.priority;
+                    const assignment = assignedOutByGoalId.get(g.id);
 
                     return (
                       <div
@@ -844,6 +879,22 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
+                        {assignment && (
+                          <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
+                            {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                            {t("goalAssign.assignedToLabel", {
+                              name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                            })}
+                            {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                            {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                              <span className="inline-flex items-center gap-1">
+                                · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
+                                {statusLabel(assignment.recipientGoalStatus, t)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {noteCounts[g.id] > 0 && (
                           <div
                             className="mt-1.5 truncate text-xs text-cyan-300/80"
@@ -889,6 +940,7 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {sortedTomorrowGoals.slice(0, 5).map((g, idx) => {
                     const priority = g.priority;
+                    const assignment = assignedOutByGoalId.get(g.id);
 
                     return (
                       <div
@@ -914,6 +966,22 @@ export default function DashboardPage() {
                             >
                               P{priority}
                             </div>
+                          </div>
+                        )}
+
+                        {assignment && (
+                          <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
+                            {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                            {t("goalAssign.assignedToLabel", {
+                              name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                            })}
+                            {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                            {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                              <span className="inline-flex items-center gap-1">
+                                · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
+                                {statusLabel(assignment.recipientGoalStatus, t)}
+                              </span>
+                            )}
                           </div>
                         )}
 

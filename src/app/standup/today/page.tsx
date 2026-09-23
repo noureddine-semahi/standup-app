@@ -186,9 +186,9 @@ export default function TodayPage() {
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddGoals, setQuickAddGoals] = useState([
-    { title: "", priority: 1, time_of_day: "", assigneeId: "", assigneeType: "shared" as GoalAssignmentType },
-    { title: "", priority: 2, time_of_day: "", assigneeId: "", assigneeType: "shared" as GoalAssignmentType },
-    { title: "", priority: 3, time_of_day: "", assigneeId: "", assigneeType: "shared" as GoalAssignmentType },
+    { title: "", priority: 1, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
+    { title: "", priority: 2, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
+    { title: "", priority: 3, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
   ]);
   const [addingGoals, setAddingGoals] = useState(false);
 
@@ -312,7 +312,7 @@ export default function TodayPage() {
     setAssigningGoalIds((prev) => new Set(prev).add(goalId));
     setAssignError(null);
     try {
-      await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "shared");
+      await createGoalAssignment(goalId, recipientId, assignTypeByGoalId[goalId] ?? "exclusive");
       await refreshGoalAssignments();
       notifyNotificationsUpdated();
     } catch (e: any) {
@@ -374,7 +374,11 @@ export default function TodayPage() {
   const totalCount = sortedGoals.length;
 
   const reviewableGoals = useMemo(
-    () => sortedGoals.filter((g) => assignedOutByGoalId.get(g.id)?.assignmentType !== "exclusive"),
+    () =>
+      sortedGoals.filter((g) => {
+        const a = assignedOutByGoalId.get(g.id);
+        return !(a?.assignmentType === "exclusive" && a.status === "accepted");
+      }),
     [sortedGoals, assignedOutByGoalId]
   );
   const reviewableTotalCount = reviewableGoals.length;
@@ -837,9 +841,9 @@ export default function TodayPage() {
       );
       setShowQuickAdd(false);
       setQuickAddGoals([
-        { title: "", priority: 1, time_of_day: "", assigneeId: "", assigneeType: "shared" as GoalAssignmentType },
-        { title: "", priority: 2, time_of_day: "", assigneeId: "", assigneeType: "shared" as GoalAssignmentType },
-        { title: "", priority: 3, time_of_day: "", assigneeId: "", assigneeType: "shared" as GoalAssignmentType },
+        { title: "", priority: 1, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
+        { title: "", priority: 2, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
+        { title: "", priority: 3, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
       ]);
 
       await refresh({ silent: true });
@@ -1290,11 +1294,14 @@ export default function TodayPage() {
             const isCelebrating = celebratingGoalIds.has(g.id);
             // Set once this goal has been assigned out to a connection
             // (and they haven't declined) — shows the recipient's live
-            // status either way. Only "exclusive" locks this user's own
-            // controls and excludes it from their own review requirement;
-            // "shared" stays a completely normal, fully editable goal.
+            // status either way. "shared" always stays a completely normal,
+            // fully editable goal. "exclusive" only locks this user's own
+            // controls (and excludes it from their own review requirement)
+            // once the recipient has actually accepted — while still
+            // pending, nothing has been handed off yet, so this user keeps
+            // full access until then.
             const assignment = assignedOutByGoalId.get(g.id);
-            const isExclusive = assignment?.assignmentType === "exclusive";
+            const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
             // "postponed" always means rescheduled — rescheduleGoalToDate()
             // is the only path that ever sets it, and it unconditionally
             // overwrites whatever status was there before (so a goal that
@@ -1471,18 +1478,18 @@ export default function TodayPage() {
                               onClick={() =>
                                 setAssignTypeByGoalId((prev) => ({
                                   ...prev,
-                                  [g.id]: (prev[g.id] ?? "shared") === "exclusive" ? "shared" : "exclusive",
+                                  [g.id]: (prev[g.id] ?? "exclusive") === "exclusive" ? "shared" : "exclusive",
                                 }))
                               }
                               className="btn"
                               style={{ padding: "0.15rem 0.35rem", flexShrink: 0 }}
                               title={
-                                (assignTypeByGoalId[g.id] ?? "shared") === "exclusive"
+                                (assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
                                   ? t("goalAssign.exclusiveHint")
                                   : t("goalAssign.sharedHint")
                               }
                             >
-                              {(assignTypeByGoalId[g.id] ?? "shared") === "exclusive" ? (
+                              {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
                                 <Lock size={11} />
                               ) : (
                                 <Unlock size={11} />

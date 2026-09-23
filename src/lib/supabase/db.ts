@@ -2177,7 +2177,7 @@ export type GoalAssignment = {
 export async function createGoalAssignment(
   goalId: string,
   recipientId: string,
-  assignmentType: GoalAssignmentType = "shared"
+  assignmentType: GoalAssignmentType = "exclusive"
 ): Promise<void> {
   const { error } = await supabase.rpc("create_goal_assignment", {
     p_goal_id: goalId,

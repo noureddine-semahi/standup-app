@@ -176,9 +176,9 @@ export default function TodayPage() {
   // Quick Add state
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddGoals, setQuickAddGoals] = useState([
-    { title: "", priority: 1, time_of_day: "" },
-    { title: "", priority: 2, time_of_day: "" },
-    { title: "", priority: 3, time_of_day: "" },
+    { title: "", priority: 1, time_of_day: "", assigneeId: "" },
+    { title: "", priority: 2, time_of_day: "", assigneeId: "" },
+    { title: "", priority: 3, time_of_day: "", assigneeId: "" },
   ]);
   const [addingGoals, setAddingGoals] = useState(false);
 
@@ -730,12 +730,36 @@ export default function TodayPage() {
         await enforceSingleP1(plan.id, newP1.id);
       }
 
-      setMsg(t("today.addedGoals", { count: filledGoals.length }));
+      // Match each newly-inserted goal back to the quick-add row it came
+      // from via sort_order (unique per row in this batch — goalsToAdd set
+      // it to goals.length + idx) so a recipient picked before the goal had
+      // a real id can still be assigned once it does.
+      const sortOrderToGoalId = new Map(
+        saved.filter((g) => !existingIds.has(g.id)).map((g) => [g.sort_order, g.id])
+      );
+      let assignmentFailed = false;
+      for (let idx = 0; idx < dedupedGoals.length; idx++) {
+        const assigneeId = dedupedGoals[idx].assigneeId;
+        if (!assigneeId) continue;
+        const goalId = sortOrderToGoalId.get(goalsToAdd[idx].sort_order);
+        if (!goalId) continue;
+        try {
+          await createGoalAssignment(goalId, assigneeId);
+        } catch {
+          assignmentFailed = true;
+        }
+      }
+
+      setMsg(
+        assignmentFailed
+          ? t("today.addedGoalsAssignFailed", { count: filledGoals.length })
+          : t("today.addedGoals", { count: filledGoals.length })
+      );
       setShowQuickAdd(false);
       setQuickAddGoals([
-        { title: "", priority: 1, time_of_day: "" },
-        { title: "", priority: 2, time_of_day: "" },
-        { title: "", priority: 3, time_of_day: "" },
+        { title: "", priority: 1, time_of_day: "", assigneeId: "" },
+        { title: "", priority: 2, time_of_day: "", assigneeId: "" },
+        { title: "", priority: 3, time_of_day: "", assigneeId: "" },
       ]);
 
       await refresh({ silent: true });
@@ -1008,17 +1032,37 @@ export default function TodayPage() {
                         native time input has a minimum width it won't
                         shrink past, which left the title almost no room on
                         narrow phones when all three shared one flex row. */}
-                    <input
-                      type="time"
-                      value={g.time_of_day}
-                      onChange={(e) => {
-                        const newGoals = [...quickAddGoals];
-                        newGoals[idx].time_of_day = e.target.value;
-                        setQuickAddGoals(newGoals);
-                      }}
-                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
-                      title={t("today.optionalTimeTitle")}
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={g.time_of_day}
+                        onChange={(e) => {
+                          const newGoals = [...quickAddGoals];
+                          newGoals[idx].time_of_day = e.target.value;
+                          setQuickAddGoals(newGoals);
+                        }}
+                        className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
+                        title={t("today.optionalTimeTitle")}
+                      />
+                      {acceptedConnections.length > 0 && (
+                        <select
+                          value={g.assigneeId}
+                          onChange={(e) => {
+                            const newGoals = [...quickAddGoals];
+                            newGoals[idx].assigneeId = e.target.value;
+                            setQuickAddGoals(newGoals);
+                          }}
+                          className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
+                        >
+                          <option value="">{t("goalAssign.placeholder")}</option>
+                          {acceptedConnections.map((c) => (
+                            <option key={c.otherUserId} value={c.otherUserId}>
+                              {connectionDisplayName(c)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
                 ))}
 

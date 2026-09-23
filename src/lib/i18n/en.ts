@@ -248,6 +248,7 @@ export const en = {
   "today.addAtLeastOne": "Add at least one goal to continue.",
   "today.addingGoalsMsg": "Adding goals...",
   "today.addedGoals": "Added {count} goal(s) ✅",
+  "today.addedGoalsAssignFailed": "Added {count} goal(s), but one or more assignments failed — try again from the goal itself.",
   "today.failedAddGoals": "Failed to add goals",
   "today.loading": "Loading…",
   "today.title": "Today",

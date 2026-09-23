@@ -1443,22 +1443,28 @@ export default function TodayPage() {
                           {g.link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("today.link")}
                         </button>
                       )}
-                      {assignment ? (
-                        <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
-                          {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                          {t("goalAssign.assignedToLabel", {
-                            name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                          })}
-                          {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                          {assignment.status === "accepted" && assignment.recipientGoalStatus && (
-                            <span className="inline-flex items-center gap-1">
-                              · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
-                              {statusLabel(assignment.recipientGoalStatus, t)}
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        acceptedConnections.length > 0 && (
+                    </div>
+
+                    {/* Assign to — own row right below Checklist/Files/Link
+                        rather than sharing their row, so it doesn't compete
+                        with those for space or get lost among them. */}
+                    {(assignment || acceptedConnections.length > 0) && (
+                      <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
+                        {assignment ? (
+                          <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                            {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                            {t("goalAssign.assignedToLabel", {
+                              name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                            })}
+                            {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                            {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                              <span className="inline-flex items-center gap-1">
+                                · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
+                                {statusLabel(assignment.recipientGoalStatus, t)}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
                           <>
                             <button
                               type="button"
@@ -1502,9 +1508,9 @@ export default function TodayPage() {
                               ))}
                             </select>
                           </>
-                        )
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                     {assignError && <div className="mt-1 text-[11px] text-red-400">{assignError}</div>}
 
                     {!dayClosed && !isExclusive && showLinkInput[g.id] && (

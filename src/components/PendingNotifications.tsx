@@ -12,6 +12,8 @@ import {
 } from "@/lib/supabase/db";
 import { computeNotificationBuckets } from "@/lib/notificationBuckets";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
+import { statusLabel } from "@/lib/goalStatus";
+import StatusIcon from "@/components/StatusIcon";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 const ACTION_BTN_STYLE = { padding: "0.25rem 0.6rem", fontSize: "0.7rem" } as const;
@@ -183,9 +185,17 @@ export default function PendingNotifications({
           <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
             <div className="min-w-0">
               <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
-              <div className="text-[11px] text-white/50 truncate">
-                {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })} ·{" "}
-                {a.status === "accepted" ? t("dashboard.accepted") : t("social.assignmentDeclined")}
+              <div className="text-[11px] text-white/50 truncate inline-flex items-center gap-1">
+                {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
+                {a.status === "declined" ? (
+                  <span>· {t("social.assignmentDeclined")}</span>
+                ) : a.recipientGoalStatus ? (
+                  <span className="inline-flex items-center gap-1">
+                    · <StatusIcon status={a.recipientGoalStatus} size={12} /> {statusLabel(a.recipientGoalStatus, t)}
+                  </span>
+                ) : (
+                  <span>· {t("dashboard.accepted")}</span>
+                )}
               </div>
             </div>
             <button

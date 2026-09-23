@@ -384,6 +384,16 @@ export const en = {
   "backlog.removeFromBacklog": "Remove from backlog",
   "backlog.planTomorrowArrow": "← Plan Tomorrow",
 
+  // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set
+  "backlog.longTermTitle": "Long-Term Goals",
+  "backlog.longTermSubtitle": "Resolutions and monthly goals with a target date — push one into a day's plan whenever you're ready to act on it.",
+  "backlog.longTermTitlePlaceholder": "e.g. Learn Spanish this year",
+  "backlog.categoryPlaceholder": "Category (optional)",
+  "backlog.addLongTermGoal": "+ Add Long-Term Goal",
+  "backlog.noLongTermGoalsYet": "No long-term goals yet.",
+  "backlog.overdueTag": "Overdue",
+  "backlog.failedAddLongTerm": "Failed to add long-term goal",
+
   // Recurring goal templates (Backlog page)
   "backlog.recurringTitle": "Recurring Templates",
   "backlog.recurringSubtitle": "Goals that come up on a schedule — shown as tap-to-add suggestions on the days they're due. Never added automatically.",

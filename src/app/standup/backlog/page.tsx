@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Archive, X } from "lucide-react";
 import {
   addBacklogGoal,
+  addLongTermGoal,
   addDays,
   deleteBacklogGoal,
   getBacklogGoals,
@@ -14,6 +15,7 @@ import {
   addRecurringGoalTemplate,
   setRecurringGoalTemplateActive,
   deleteRecurringGoalTemplate,
+  formatDateDisplay,
   type BacklogGoal,
   type RecurringGoalTemplate,
 } from "@/lib/supabase/db";
@@ -52,6 +54,16 @@ export default function BacklogPage() {
   const [newTemplateDays, setNewTemplateDays] = useState<Set<number>>(new Set());
   const [addingTemplate, setAddingTemplate] = useState(false);
   const [busyTemplateIds, setBusyTemplateIds] = useState<Set<string>>(new Set());
+
+  const [longTermMsg, setLongTermMsg] = useState<string | null>(null);
+  const [ltDraftTitle, setLtDraftTitle] = useState("");
+  const [ltDraftDetails, setLtDraftDetails] = useState("");
+  const [ltDraftPriority, setLtDraftPriority] = useState(3);
+  const [ltDraftTargetDate, setLtDraftTargetDate] = useState("");
+  const [ltDraftCategory, setLtDraftCategory] = useState("");
+  const [addingLongTerm, setAddingLongTerm] = useState(false);
+  const [ltPushDate, setLtPushDate] = useState<Record<string, string>>({});
+  const [busyLongTermIds, setBusyLongTermIds] = useState<Set<string>>(new Set());
 
   const todayISO = toISODate(new Date());
   const tomorrowISO = toISODate(addDays(new Date(), 1));
@@ -208,6 +220,68 @@ export default function BacklogPage() {
     }
   }
 
+  function setLongTermBusy(id: string, busy: boolean) {
+    setBusyLongTermIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleAddLongTerm() {
+    const title = ltDraftTitle.trim();
+    if (!title || !ltDraftTargetDate || addingLongTerm) return;
+    setAddingLongTerm(true);
+    setLongTermMsg(null);
+    try {
+      const created = await addLongTermGoal(title, ltDraftDetails, ltDraftPriority, ltDraftTargetDate, ltDraftCategory);
+      setItems((prev) => [...prev, created]);
+      setLtDraftTitle("");
+      setLtDraftDetails("");
+      setLtDraftPriority(3);
+      setLtDraftTargetDate("");
+      setLtDraftCategory("");
+    } catch (e: any) {
+      setLongTermMsg(e?.message ?? t("backlog.failedAddLongTerm"));
+    } finally {
+      setAddingLongTerm(false);
+    }
+  }
+
+  async function handleDeleteLongTerm(item: BacklogGoal) {
+    if (busyLongTermIds.has(item.id)) return;
+    setLongTermBusy(item.id, true);
+    setLongTermMsg(null);
+    try {
+      await deleteBacklogGoal(item.id);
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+    } catch (e: any) {
+      setLongTermMsg(e?.message ?? t("backlog.failedRemove"));
+    } finally {
+      setLongTermBusy(item.id, false);
+    }
+  }
+
+  async function handlePushLongTerm(item: BacklogGoal) {
+    const date = ltPushDate[item.id] ?? item.target_date ?? "";
+    if (!date || busyLongTermIds.has(item.id)) return;
+    setLongTermBusy(item.id, true);
+    setLongTermMsg(null);
+    try {
+      await promoteBacklogGoal(item, date);
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      setLongTermMsg(t("backlog.movedTo", { title: item.title, date }));
+    } catch (e: any) {
+      setLongTermMsg(e?.message ?? t("backlog.failedSchedule"));
+    } finally {
+      setLongTermBusy(item.id, false);
+    }
+  }
+
+  const plainItems = items.filter((i) => !i.target_date);
+  const longTermItems = items.filter((i) => !!i.target_date);
+
   return (
     <div className="space-y-6">
     <div className="card card-highlight">
@@ -280,7 +354,7 @@ export default function BacklogPage() {
 
       {loading ? (
         <div className="text-white/60 text-center py-8">{t("backlog.loading")}</div>
-      ) : items.length === 0 ? (
+      ) : plainItems.length === 0 ? (
         <div className="text-white/70 text-center py-12">
           <Archive className="mx-auto mb-4 text-white/40" size={40} strokeWidth={1.5} />
           <p className="text-lg mb-2">{t("backlog.nothingInBacklog")}</p>
@@ -288,7 +362,7 @@ export default function BacklogPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {items.map((item) => {
+          {plainItems.map((item) => {
             const meta = getPriorityMeta(item.priority);
             const busy = busyIds.has(item.id);
             return (
@@ -359,6 +433,173 @@ export default function BacklogPage() {
         </div>
       )}
 
+    </div>
+
+    <div className="card card-highlight">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-1">{t("backlog.longTermTitle")}</h2>
+        <p className="text-sm text-white/70">{t("backlog.longTermSubtitle")}</p>
+      </div>
+
+      {longTermMsg && (
+        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+          {longTermMsg}
+        </div>
+      )}
+
+      <div className="space-y-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={ltDraftPriority}
+            onChange={(e) => setLtDraftPriority(Number(e.target.value))}
+            disabled={addingLongTerm}
+            className="priority-select"
+            style={
+              {
+                "--p-bg": getPriorityMeta(ltDraftPriority).bg,
+                "--p-border": getPriorityMeta(ltDraftPriority).border,
+                "--p-color": getPriorityMeta(ltDraftPriority).color,
+              } as React.CSSProperties
+            }
+          >
+            {[1, 2, 3, 4, 5].map((v) => (
+              <option key={v} value={v}>
+                P{v}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={ltDraftTitle}
+            onChange={(e) => setLtDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddLongTerm();
+            }}
+            placeholder={t("backlog.longTermTitlePlaceholder")}
+            disabled={addingLongTerm}
+            className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="date"
+            value={ltDraftTargetDate}
+            onChange={(e) => setLtDraftTargetDate(e.target.value)}
+            disabled={addingLongTerm}
+            className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+          />
+          <input
+            type="text"
+            value={ltDraftCategory}
+            onChange={(e) => setLtDraftCategory(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddLongTerm();
+            }}
+            placeholder={t("backlog.categoryPlaceholder")}
+            disabled={addingLongTerm}
+            className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          />
+        </div>
+        <input
+          type="text"
+          value={ltDraftDetails}
+          onChange={(e) => setLtDraftDetails(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleAddLongTerm();
+          }}
+          placeholder={t("backlog.detailsPlaceholder")}
+          disabled={addingLongTerm}
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={handleAddLongTerm}
+          disabled={addingLongTerm || !ltDraftTitle.trim() || !ltDraftTargetDate}
+          className="btn btn-primary"
+        >
+          {addingLongTerm ? t("backlog.adding") : t("backlog.addLongTermGoal")}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-white/60 text-center py-8">{t("backlog.loading")}</div>
+      ) : longTermItems.length === 0 ? (
+        <p className="text-sm text-white/50 italic">{t("backlog.noLongTermGoalsYet")}</p>
+      ) : (
+        <div className="space-y-4">
+          {longTermItems.map((item) => {
+            const meta = getPriorityMeta(item.priority);
+            const busy = busyLongTermIds.has(item.id);
+            const isOverdue = !!item.target_date && item.target_date < todayISO;
+            return (
+              <div
+                key={item.id}
+                className="goal-row"
+                style={{ "--p-color": meta.color } as React.CSSProperties}
+              >
+                <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
+                <div className="flex items-start flex-wrap gap-4">
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <div className="text-white text-lg font-medium mb-1">{item.title}</div>
+                    {item.details && <div className="text-sm text-white/60 mb-1">{item.details}</div>}
+                    <div className="flex items-center flex-wrap gap-2">
+                      <span
+                        className={isOverdue ? "text-xs text-amber-300/80" : "text-xs text-white/50"}
+                        title={isOverdue ? t("backlog.overdueTag") : undefined}
+                      >
+                        {formatDateDisplay(item.target_date as string)}
+                      </span>
+                      {item.category && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-white/70">
+                          {item.category}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <input
+                      type="date"
+                      value={ltPushDate[item.id] ?? item.target_date ?? ""}
+                      disabled={busy}
+                      onChange={(e) =>
+                        setLtPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handlePushLongTerm(item)}
+                      disabled={busy || !(ltPushDate[item.id] ?? item.target_date)}
+                      className="btn"
+                      style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
+                    >
+                      {t("backlog.push")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLongTerm(item)}
+                      disabled={busy}
+                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90 text-sm"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "8px",
+                        background: "rgba(var(--tint-rgb), 0.06)",
+                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
+                      }}
+                      title={t("backlog.removeFromBacklog")}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
 
     <div className="card card-highlight">

@@ -382,6 +382,16 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.removeFromBacklog": "Eliminar de pendientes",
   "backlog.planTomorrowArrow": "← Planificar Mañana",
 
+  // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set
+  "backlog.longTermTitle": "Objetivos a Largo Plazo",
+  "backlog.longTermSubtitle": "Propósitos y metas mensuales con una fecha objetivo — envía uno al plan de un día cuando estés listo para trabajarlo.",
+  "backlog.longTermTitlePlaceholder": "ej. Aprender español este año",
+  "backlog.categoryPlaceholder": "Categoría (opcional)",
+  "backlog.addLongTermGoal": "+ Agregar Objetivo a Largo Plazo",
+  "backlog.noLongTermGoalsYet": "Aún no hay objetivos a largo plazo.",
+  "backlog.overdueTag": "Atrasado",
+  "backlog.failedAddLongTerm": "Error al agregar el objetivo a largo plazo",
+
   // Recurring goal templates (Backlog page)
   "backlog.recurringTitle": "Plantillas Recurrentes",
   "backlog.recurringSubtitle": "Objetivos que surgen según un horario — se muestran como sugerencias para agregar con un toque en los días que corresponden. Nunca se agregan automáticamente.",

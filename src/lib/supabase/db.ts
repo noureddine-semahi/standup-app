@@ -188,13 +188,20 @@ export type Goal = {
   previous_actions?: GoalNote[];
 };
 
-/** An undated goal in the backlog — not yet attached to any daily_plans row. Promoted to a real Goal via promoteBacklogGoal() when a day opens up for it. */
+/**
+ * An undated goal in the backlog — not yet attached to any daily_plans
+ * row. Promoted to a real Goal via promoteBacklogGoal() when a day opens
+ * up for it. A row with target_date set is a "Long-Term Goal" (its own
+ * section on the Backlog page); target_date null is a plain backlog item.
+ */
 export type BacklogGoal = {
   id: string;
   user_id: string;
   title: string;
   details: string | null;
   priority: number;
+  target_date: string | null;
+  category: string | null;
   created_at: string;
 };
 
@@ -925,18 +932,42 @@ export async function getBacklogGoals(): Promise<BacklogGoal[]> {
   return (data ?? []) as BacklogGoal[];
 }
 
-export async function addBacklogGoal(title: string, details: string | null, priority: number): Promise<BacklogGoal> {
+export async function addBacklogGoal(
+  title: string,
+  details: string | null,
+  priority: number,
+  targetDate: string | null = null,
+  category: string | null = null
+): Promise<BacklogGoal> {
   const userId = await getCurrentUserId();
   const trimmed = title.trim();
 
   const { data, error } = await supabase
     .from("goal_backlog")
-    .insert({ user_id: userId, title: trimmed, details: details?.trim() || null, priority })
+    .insert({
+      user_id: userId,
+      title: trimmed,
+      details: details?.trim() || null,
+      priority,
+      target_date: targetDate,
+      category: category?.trim() || null,
+    })
     .select()
     .single();
 
   if (error) throw error;
   return data as BacklogGoal;
+}
+
+/** Thin wrapper for the Long-Term Goals form — same table/insert as addBacklogGoal, just a self-documenting call site. */
+export async function addLongTermGoal(
+  title: string,
+  details: string | null,
+  priority: number,
+  targetDate: string,
+  category: string | null
+): Promise<BacklogGoal> {
+  return addBacklogGoal(title, details, priority, targetDate, category);
 }
 
 export async function deleteBacklogGoal(backlogId: string) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   listConnections,
   respondToConnectionRequest,
@@ -15,6 +15,9 @@ import {
   getMyGoalAssignments,
   respondToGoalAssignment,
   removeGoalAssignment,
+  uploadPostImage,
+  POST_IMAGE_ALLOWED_TYPES,
+  POST_IMAGE_MAX_BYTES,
   type Connection,
   type Post,
   type PostVisibility,
@@ -25,7 +28,7 @@ import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import StatusIcon from "@/components/StatusIcon";
 import { statusLabel } from "@/lib/goalStatus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -63,6 +66,9 @@ export default function SocialPage() {
   const [postVisibility, setPostVisibility] = useState<PostVisibility>("connections");
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreviewUrl, setPostImagePreviewUrl] = useState<string | null>(null);
+  const postImageInputRef = useRef<HTMLInputElement | null>(null);
 
   function refreshConnections() {
     return listConnections()
@@ -229,14 +235,50 @@ export default function SocialPage() {
     }
   }
 
+  function handlePostImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPostError(null);
+    if (!POST_IMAGE_ALLOWED_TYPES.includes(file.type)) {
+      setPostError(t("social.photoTypeInvalid"));
+      return;
+    }
+    if (file.size > POST_IMAGE_MAX_BYTES) {
+      setPostError(t("social.photoTooLarge"));
+      return;
+    }
+    if (postImagePreviewUrl) URL.revokeObjectURL(postImagePreviewUrl);
+    setPostImageFile(file);
+    setPostImagePreviewUrl(URL.createObjectURL(file));
+  }
+
+  function clearPostImage() {
+    if (postImagePreviewUrl) URL.revokeObjectURL(postImagePreviewUrl);
+    setPostImageFile(null);
+    setPostImagePreviewUrl(null);
+  }
+
+  // Revoke the blob URL on unmount too, not just on explicit clear/post —
+  // otherwise navigating away with an image still selected leaks it.
+  useEffect(() => {
+    return () => {
+      if (postImagePreviewUrl) URL.revokeObjectURL(postImagePreviewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postImagePreviewUrl]);
+
   async function handlePost() {
     const trimmed = postBody.trim();
     if (!trimmed || posting) return;
     setPosting(true);
     setPostError(null);
     try {
-      await createMotivationalPost(trimmed, postVisibility);
+      let imagePath: string | null = null;
+      if (postImageFile) imagePath = await uploadPostImage(postImageFile);
+      await createMotivationalPost(trimmed, postVisibility, imagePath);
       setPostBody("");
+      clearPostImage();
       await refreshFeed();
     } catch (e: any) {
       setPostError(e?.message ?? t("social.failedPost"));
@@ -308,6 +350,46 @@ export default function SocialPage() {
               rows={3}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
             />
+
+            <input
+              ref={postImageInputRef}
+              type="file"
+              accept={POST_IMAGE_ALLOWED_TYPES.join(",")}
+              onChange={handlePostImageSelected}
+              disabled={posting}
+              className="hidden"
+            />
+            {postImagePreviewUrl ? (
+              <div className="mt-2 relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={postImagePreviewUrl}
+                  alt=""
+                  className="h-24 w-24 rounded-lg object-cover border border-white/10"
+                />
+                <button
+                  type="button"
+                  onClick={clearPostImage}
+                  disabled={posting}
+                  className="absolute -top-2 -right-2 flex items-center justify-center rounded-full"
+                  style={{ width: "22px", height: "22px", background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.2)" }}
+                  title={t("social.removePhoto")}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => postImageInputRef.current?.click()}
+                disabled={posting}
+                className="btn mt-2 inline-flex items-center gap-1.5"
+                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+              >
+                <ImagePlus size={13} /> {t("social.addPhoto")}
+              </button>
+            )}
+
             <div className="flex items-center justify-between gap-2 mt-2">
               <div className="flex gap-2">
                 <button

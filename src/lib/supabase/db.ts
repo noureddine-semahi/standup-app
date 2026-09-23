@@ -128,6 +128,7 @@ export type Post = {
   goals: GlimpseGoal[] | null;
   targetUserId: string | null;
   targetDisplayName: string | null;
+  imagePath: string | null;
 };
 
 export type GoalNote = {
@@ -1371,6 +1372,58 @@ export async function deleteGoalAttachment(attachmentId: string, storagePath: st
   }
 }
 
+const POST_IMAGE_BUCKET = "post-images";
+export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+// PNG/JPEG/WEBP only — deliberately narrower than ATTACHMENT_ALLOWED_TYPES.
+// Goal attachments are opened via window.open() and never rendered inline,
+// so HEIC's spotty <img> support doesn't matter there. Post images render
+// inline in other users' feeds across arbitrary browsers, so a HEIC photo
+// could be posted but invisible to viewers — excluded to avoid that.
+export const POST_IMAGE_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+/**
+ * Uploads to the private "post-images" bucket and returns the storage path
+ * (not a URL — see getPostImageUrl). Does not touch the posts table; the
+ * caller wires the returned path into createMotivationalPost's imagePath.
+ */
+export async function uploadPostImage(file: File): Promise<string> {
+  if (!POST_IMAGE_ALLOWED_TYPES.includes(file.type)) {
+    throw new Error("Only PNG, JPEG, or WEBP images are supported.");
+  }
+  if (file.size > POST_IMAGE_MAX_BYTES) {
+    throw new Error(`Image too large — max ${Math.round(POST_IMAGE_MAX_BYTES / (1024 * 1024))}MB.`);
+  }
+
+  const userId = await getCurrentUserId();
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
+  const storagePath = `${userId}/${crypto.randomUUID()}${ext}`;
+
+  const { error } = await supabase.storage
+    .from(POST_IMAGE_BUCKET)
+    .upload(storagePath, file, { contentType: file.type });
+  if (error) throw error;
+  return storagePath;
+}
+
+/**
+ * Signed URL, 1 hour — longer than getAttachmentUrl's 5 minutes (a one-off
+ * click-to-open link) since this backs passive inline <img> rendering
+ * during a feed-scroll session that can easily outlast 5 minutes, while
+ * still expiring well within a browsing day rather than lingering
+ * indefinitely like a public URL would.
+ */
+export async function getPostImageUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(POST_IMAGE_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function deleteOrphanedPostImage(storagePath: string) {
+  await supabase.storage.from(POST_IMAGE_BUCKET).remove([storagePath]);
+}
+
 export type GoalEventKind = "status_change" | "priority_change" | "reviewed" | "rescheduled";
 
 /**
@@ -2224,12 +2277,24 @@ export async function createAchievementPost(achievementId: string, visibility: P
 
 const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 
-export async function createMotivationalPost(body: string, visibility: PostVisibility): Promise<void> {
+export async function createMotivationalPost(
+  body: string,
+  visibility: PostVisibility,
+  imagePath?: string | null
+): Promise<void> {
   const userId = await getCurrentUserId();
   const trimmed = body.trim().slice(0, MOTIVATIONAL_POST_MAX_LENGTH);
   if (!trimmed) return;
-  const { error } = await supabase.from("posts").insert({ user_id: userId, type: "motivational", body: trimmed, visibility });
-  if (error) throw error;
+  const { error } = await supabase
+    .from("posts")
+    .insert({ user_id: userId, type: "motivational", body: trimmed, visibility, image_path: imagePath ?? null });
+  if (error) {
+    // Mirrors uploadGoalAttachment's orphan cleanup: the image was already
+    // uploaded successfully, so a failed post insert must not leave it
+    // stranded with no row and no way for the user to ever delete it.
+    if (imagePath) await deleteOrphanedPostImage(imagePath);
+    throw error;
+  }
 }
 
 type FeedRow = {
@@ -2247,6 +2312,7 @@ type FeedRow = {
   goals: GlimpseGoal[] | null;
   target_user_id: string | null;
   target_display_name: string | null;
+  image_path: string | null;
 };
 
 /** The visibility-filtered feed (own posts + everyone + connections-visible), newest first. */
@@ -2272,6 +2338,7 @@ export async function getFeed(before?: string): Promise<Post[]> {
     goals: r.goals,
     targetUserId: r.target_user_id,
     targetDisplayName: r.target_display_name,
+    imagePath: r.image_path,
   }));
 }
 

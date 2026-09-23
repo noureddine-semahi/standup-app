@@ -7,6 +7,7 @@ import StatusIcon from "@/components/StatusIcon";
 import { usePostReaction } from "@/lib/glimpseReactions";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
 import CommentThread from "@/components/CommentThread";
+import PostImage from "@/components/PostImage";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import type { Post } from "@/lib/supabase/db";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
@@ -86,6 +87,7 @@ export default function PostCard({ post, commentCount = 0 }: { post: Post; comme
         {post.type === "motivational" && post.body && (
           <p className="text-sm text-white/80 mb-3 whitespace-pre-wrap">{post.body}</p>
         )}
+        {post.type === "motivational" && post.imagePath && <PostImage imagePath={post.imagePath} />}
 
         <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} />
         <CommentThread postId={post.id} initialCommentCount={commentCount} />

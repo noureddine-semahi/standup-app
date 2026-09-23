@@ -33,12 +33,15 @@ import {
   publishGoalGlimpse,
   unpublishGoalGlimpse,
   getMyGoalGlimpsePost,
+  listConnections,
+  connectionDisplayName,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
   type GoalAttachment,
   type GoalStatus,
   type PostVisibility,
+  type Connection,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -46,7 +49,7 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
-  Clock, Link2, Plus, SquareCheck, Square, MessageCircle, Users, Globe,
+  Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -146,7 +149,8 @@ export default function TodayPage() {
   const [blockingError, setBlockingError] = useState<string | null>(null);
   const [reopening, setReopening] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility } | null>(null);
+  const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
+  const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
 
   // Notes + the derived history facts render as one merged timeline below
   // the goal now (see the entries computation in the render below) instead
@@ -230,12 +234,18 @@ export default function TodayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayISO]);
 
-  async function handlePublish(visibility: PostVisibility) {
+  useEffect(() => {
+    listConnections()
+      .then((cs) => setAcceptedConnections(cs.filter((c) => c.status === "accepted")))
+      .catch(() => {});
+  }, []);
+
+  async function handlePublish(visibility: PostVisibility, targetUserId?: string) {
     if (publishing) return;
     setPublishing(true);
     setMsg(null);
     try {
-      await publishGoalGlimpse(todayISO, visibility);
+      await publishGoalGlimpse(todayISO, visibility, targetUserId);
       await refreshGlimpsePost();
     } catch (e: any) {
       setMsg(e?.message ?? t("today.failedPublish"));
@@ -769,42 +779,42 @@ export default function TodayPage() {
               <div className="flex flex-col items-start sm:items-end gap-1.5">
                 <span className="text-xs text-white/50">{t("today.publishLabel")}</span>
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePublish("connections")}
-                    disabled={publishing}
-                    className="btn"
-                    style={{
-                      padding: "0.4rem 0.7rem",
-                      fontSize: "0.8rem",
-                      whiteSpace: "nowrap",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.35rem",
-                      background: myGlimpsePost?.visibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
-                      borderColor: myGlimpsePost?.visibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                  <select
+                    value={
+                      !myGlimpsePost
+                        ? ""
+                        : myGlimpsePost.visibility === "individual"
+                        ? `individual:${myGlimpsePost.targetUserId}`
+                        : myGlimpsePost.visibility
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (!value) return;
+                      if (value.startsWith("individual:")) {
+                        handlePublish("individual", value.slice("individual:".length));
+                      } else {
+                        handlePublish(value as PostVisibility);
+                      }
                     }}
-                  >
-                    <Users size={13} /> {t("today.publishConnectionsBtn")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePublish("everyone")}
                     disabled={publishing}
-                    className="btn"
-                    style={{
-                      padding: "0.4rem 0.7rem",
-                      fontSize: "0.8rem",
-                      whiteSpace: "nowrap",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.35rem",
-                      background: myGlimpsePost?.visibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
-                      borderColor: myGlimpsePost?.visibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
-                    }}
+                    className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    style={{ maxWidth: "220px" }}
                   >
-                    <Globe size={13} /> {t("today.publishEveryoneBtn")}
-                  </button>
+                    <option value="" disabled>
+                      {t("today.publishSelectPlaceholder")}
+                    </option>
+                    <option value="everyone">{t("today.publishEveryoneBtn")}</option>
+                    <option value="connections">{t("today.publishConnectionsBtn")}</option>
+                    {acceptedConnections.length > 0 && (
+                      <optgroup label={t("today.publishIndividualGroupLabel")}>
+                        {acceptedConnections.map((c) => (
+                          <option key={c.otherUserId} value={`individual:${c.otherUserId}`}>
+                            {connectionDisplayName(c)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
                   {published && (
                     <button
                       type="button"

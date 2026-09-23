@@ -102,7 +102,7 @@ export type GlimpseGoal = {
 };
 
 export type PostType = "goal_glimpse" | "achievement" | "motivational";
-export type PostVisibility = "connections" | "everyone";
+export type PostVisibility = "connections" | "everyone" | "individual";
 
 /**
  * One feed item, as returned by get_feed() — a goal_glimpse post carries a
@@ -110,7 +110,8 @@ export type PostVisibility = "connections" | "everyone";
  * owner works through their day), an achievement post carries just the id
  * (title/description/icon resolve client-side from achievements.ts, since
  * those are translation keys the server can't render), and a motivational
- * post carries freeform text.
+ * post carries freeform text. targetUserId/targetDisplayName are only set
+ * when visibility is "individual" (shared with exactly one connection).
  */
 export type Post = {
   id: string;
@@ -125,6 +126,8 @@ export type Post = {
   body: string | null;
   myReaction: GlimpseReaction | null;
   goals: GlimpseGoal[] | null;
+  targetUserId: string | null;
+  targetDisplayName: string | null;
 };
 
 export type GoalNote = {
@@ -2052,13 +2055,15 @@ export async function removeConnection(id: string): Promise<void> {
  */
 export async function publishGoalGlimpse(
   planDateISO: string,
-  visibility: PostVisibility
+  visibility: PostVisibility,
+  targetUserId?: string
 ): Promise<void> {
   const plan = await getOrCreatePlan(planDateISO);
   const { error } = await supabase.rpc("upsert_daily_glimpse", {
     p_plan_id: plan.id,
     p_plan_date: planDateISO,
     p_visibility: visibility,
+    p_target_user_id: targetUserId ?? null,
   });
   if (error) throw error;
 }
@@ -2081,17 +2086,19 @@ export async function unpublishGoalGlimpse(planDateISO: string): Promise<void> {
  */
 export async function getMyGoalGlimpsePost(
   planDateISO: string
-): Promise<{ id: string; visibility: PostVisibility } | null> {
+): Promise<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("posts")
-    .select("id, visibility")
+    .select("id, visibility, target_user_id")
     .eq("user_id", userId)
     .eq("type", "goal_glimpse")
     .eq("plan_date", planDateISO)
     .maybeSingle();
   if (error) throw error;
-  return data ? { id: data.id, visibility: data.visibility as PostVisibility } : null;
+  return data
+    ? { id: data.id, visibility: data.visibility as PostVisibility, targetUserId: data.target_user_id }
+    : null;
 }
 
 /**
@@ -2133,6 +2140,8 @@ type FeedRow = {
   body: string | null;
   my_reaction: GlimpseReaction | null;
   goals: GlimpseGoal[] | null;
+  target_user_id: string | null;
+  target_display_name: string | null;
 };
 
 /** The visibility-filtered feed (own posts + everyone + connections-visible), newest first. */
@@ -2156,6 +2165,8 @@ export async function getFeed(before?: string): Promise<Post[]> {
     body: r.body,
     myReaction: r.my_reaction,
     goals: r.goals,
+    targetUserId: r.target_user_id,
+    targetDisplayName: r.target_display_name,
   }));
 }
 

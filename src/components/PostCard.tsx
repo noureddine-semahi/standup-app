@@ -1,6 +1,7 @@
 "use client";
 
 import Avatar from "@/components/Avatar";
+import { Lock } from "lucide-react";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import { usePostReaction } from "@/lib/glimpseReactions";
@@ -40,6 +41,11 @@ export default function PostCard({ post, commentCount = 0 }: { post: Post; comme
                 total: post.goals.length,
               })}
             </div>
+            {post.visibility === "individual" && post.targetDisplayName && (
+              <div className="mb-2 inline-flex items-center gap-1 text-xs text-white/50">
+                <Lock size={11} /> {t("today.publishSharedWithLabel", { name: post.targetDisplayName })}
+              </div>
+            )}
             <div className="space-y-1 mb-3">
               {post.goals.map((g) => (
                 <div key={g.goal_id} className="flex items-center gap-2 text-xs">

@@ -633,6 +633,11 @@ export const es: Record<keyof typeof en, string> = {
   "signup.createAccount": "Crear cuenta",
   "signup.alreadyHaveAccount": "¿Ya tienes una cuenta?",
   "signup.signIn": "Iniciar sesión",
+  "signup.privacyConsentTitle": "Antes de continuar",
+  "signup.privacyConsentIntro": "Lee nuestra Política de Privacidad. Desplázate hasta el final para continuar.",
+  "signup.privacyConsentAgree": "Acepto",
+  "signup.privacyConsentCancel": "Cancelar",
+  "signup.privacyConsentScrollHint": "Desplázate hasta el final para continuar",
 
   // Forgot password
   "forgot.title": "Restablecer Contraseña",

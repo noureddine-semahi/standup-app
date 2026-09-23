@@ -635,6 +635,11 @@ export const en = {
   "signup.createAccount": "Create account",
   "signup.alreadyHaveAccount": "Already have an account?",
   "signup.signIn": "Sign in",
+  "signup.privacyConsentTitle": "Before you continue",
+  "signup.privacyConsentIntro": "Please read our Privacy Policy. Scroll to the bottom to continue.",
+  "signup.privacyConsentAgree": "I Agree",
+  "signup.privacyConsentCancel": "Cancel",
+  "signup.privacyConsentScrollHint": "Scroll to the bottom to continue",
 
   // Forgot password
   "forgot.title": "Reset Password",

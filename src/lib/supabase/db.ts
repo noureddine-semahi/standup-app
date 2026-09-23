@@ -56,6 +56,7 @@ export type Profile = {
   avatar_url?: string | null;
   shared_at?: string | null;
   is_admin?: boolean;
+  privacy_accepted_at?: string | null;
 };
 
 export type ConnectionStatus = "pending" | "accepted" | "declined";
@@ -332,9 +333,22 @@ export async function getOrCreateProfile() {
       ? userData.user.user_metadata.display_name
       : null;
 
+  // Same seeding pattern as display_name above, for the Privacy Policy
+  // consent timestamp captured at signup (see PrivacyConsentModal).
+  const metaPrivacyAcceptedAt =
+    typeof userData.user.user_metadata?.privacy_accepted_at === "string"
+      ? userData.user.user_metadata.privacy_accepted_at
+      : null;
+
   const { data: created, error: insErr } = await supabase
     .from("profiles")
-    .insert({ id: userId, display_name: metaDisplayName, points: 0, theme: "dark" })
+    .insert({
+      id: userId,
+      display_name: metaDisplayName,
+      points: 0,
+      theme: "dark",
+      privacy_accepted_at: metaPrivacyAcceptedAt,
+    })
     .select("*")
     .single();
 

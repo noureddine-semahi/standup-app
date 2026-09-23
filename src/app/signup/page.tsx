@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { storePendingReferral } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import PrivacyConsentModal from "@/components/PrivacyConsentModal";
 
 export default function SignupPage() {
   const { t } = useLanguage();
@@ -17,6 +18,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showConsent, setShowConsent] = useState(false);
 
   // Stashed for later rather than acted on now — if email confirmation is
   // required, the session that actually gets created lands on a fresh page
@@ -52,6 +54,14 @@ export default function SignupPage() {
       return;
     }
 
+    setLoading(false);
+    setShowConsent(true);
+  }
+
+  async function completeSignup() {
+    setLoading(true);
+    setError(null);
+
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
@@ -59,6 +69,7 @@ export default function SignupPage() {
         options: {
           data: {
             display_name: displayName.trim() || null,
+            privacy_accepted_at: new Date().toISOString(),
           },
           emailRedirectTo: `${window.location.origin}/standup/today`,
         },
@@ -77,6 +88,8 @@ export default function SignupPage() {
           setLoading(false);
           return;
         }
+
+        setShowConsent(false);
 
         // If email confirmation is disabled, redirect immediately
         if (data.session) {
@@ -220,6 +233,19 @@ export default function SignupPage() {
           </Link>
         </div>
       </div>
+
+      {showConsent && (
+        <PrivacyConsentModal
+          saving={loading}
+          error={error}
+          onCancel={() => {
+            if (loading) return;
+            setShowConsent(false);
+            setError(null);
+          }}
+          onConfirm={completeSignup}
+        />
+      )}
     </div>
   );
 }

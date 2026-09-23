@@ -1029,6 +1029,7 @@ export const es: Record<keyof typeof en, string> = {
   // Goal sharing/assignment — the "Assign to" control on Tomorrow/Today
   "goalAssign.placeholder": "Asignar a…",
   "goalAssign.pendingBadge": "Asignado a {name} — pendiente",
+  "goalAssign.assignedToLabel": "Asignado a {name}",
   "goalAssign.failed": "Error al asignar el objetivo",
 
   // Glimpse sharing — used by PostCard's goal_glimpse rendering

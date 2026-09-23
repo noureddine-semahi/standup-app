@@ -2156,6 +2156,10 @@ export type GoalAssignment = {
   // assignment on the Dashboard's notifications section — null while
   // pending, and irrelevant on the recipient's own side.
   assignerSeenAt: string | null;
+  // The assigner's own goals.id — lets Today/Tomorrow match this
+  // assignment back to a specific row on the assigner's own plan so it
+  // can switch to read-only. Null if that goal was since deleted.
+  assignerGoalId: string | null;
 };
 
 /** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
@@ -2207,6 +2211,7 @@ type GoalAssignmentRow = {
   assigner_goal_status: GoalStatus | null;
   recipient_goal_status: GoalStatus | null;
   assigner_seen_at: string | null;
+  assigner_goal_id: string | null;
 };
 
 /** Every goal assignment the caller is either party to — the Friends tab's sole source of assignment state; Tomorrow/Today never call this (their "Assign to" pill is local-optimistic only). */
@@ -2231,6 +2236,7 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     recipientGoalStatus: r.recipient_goal_status,
     direction: r.assigner_id === userId ? "assigned" : "received",
     assignerSeenAt: r.assigner_seen_at,
+    assignerGoalId: r.assigner_goal_id,
   }));
 }
 

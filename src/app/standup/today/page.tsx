@@ -36,6 +36,7 @@ import {
   listConnections,
   connectionDisplayName,
   createGoalAssignment,
+  getMyGoalAssignments,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
@@ -43,6 +44,7 @@ import {
   type GoalStatus,
   type PostVisibility,
   type Connection,
+  type GoalAssignment,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -51,7 +53,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
-  AlarmClock, Hourglass,
+  AlarmClock, Hourglass, Lock,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -152,7 +154,7 @@ export default function TodayPage() {
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
-  const [assignedGoals, setAssignedGoals] = useState<Record<string, string>>({});
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
   const [assignError, setAssignError] = useState<string | null>(null);
 
@@ -244,6 +246,31 @@ export default function TodayPage() {
       .catch(() => {});
   }, []);
 
+  function refreshGoalAssignments() {
+    return getMyGoalAssignments()
+      .then(setGoalAssignments)
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    refreshGoalAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Goals assigned out to a connection (declined ones excluded -- a
+  // decline voids the delegation and the goal reverts to fully normal),
+  // keyed by the assigner's own goals.id so a row can look itself up in
+  // O(1) and switch to read-only + the recipient's live status.
+  const assignedOutByGoalId = useMemo(() => {
+    const map = new Map<string, GoalAssignment>();
+    for (const a of goalAssignments) {
+      if (a.direction === "assigned" && a.status !== "declined" && a.assignerGoalId) {
+        map.set(a.assignerGoalId, a);
+      }
+    }
+    return map;
+  }, [goalAssignments]);
+
   async function handlePublish(visibility: PostVisibility, targetUserId?: string) {
     if (publishing) return;
     setPublishing(true);
@@ -274,12 +301,11 @@ export default function TodayPage() {
 
   async function handleAssignGoal(goalId: string, recipientId: string) {
     if (assigningGoalIds.has(goalId)) return;
-    const conn = acceptedConnections.find((c) => c.otherUserId === recipientId);
     setAssigningGoalIds((prev) => new Set(prev).add(goalId));
     setAssignError(null);
     try {
       await createGoalAssignment(goalId, recipientId);
-      setAssignedGoals((prev) => ({ ...prev, [goalId]: conn ? connectionDisplayName(conn) : t("social.anonymousUser") }));
+      await refreshGoalAssignments();
     } catch (e: any) {
       setAssignError(e?.message ?? t("goalAssign.failed"));
     } finally {
@@ -738,17 +764,20 @@ export default function TodayPage() {
         saved.filter((g) => !existingIds.has(g.id)).map((g) => [g.sort_order, g.id])
       );
       let assignmentFailed = false;
+      let anyAssignmentAttempted = false;
       for (let idx = 0; idx < dedupedGoals.length; idx++) {
         const assigneeId = dedupedGoals[idx].assigneeId;
         if (!assigneeId) continue;
         const goalId = sortOrderToGoalId.get(goalsToAdd[idx].sort_order);
         if (!goalId) continue;
+        anyAssignmentAttempted = true;
         try {
           await createGoalAssignment(goalId, assigneeId);
         } catch {
           assignmentFailed = true;
         }
       }
+      if (anyAssignmentAttempted) await refreshGoalAssignments();
 
       setMsg(
         assignmentFailed
@@ -1139,6 +1168,11 @@ export default function TodayPage() {
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
             const isCelebrating = celebratingGoalIds.has(g.id);
+            // Set once this goal has been assigned out to a connection
+            // (and they haven't declined) — the row switches to read-only
+            // and shows their live status instead of this user's own
+            // controls; see assignedOutByGoalId above.
+            const assignment = assignedOutByGoalId.get(g.id);
             // "postponed" always means rescheduled — rescheduleGoalToDate()
             // is the only path that ever sets it, and it unconditionally
             // overwrites whatever status was there before (so a goal that
@@ -1259,7 +1293,7 @@ export default function TodayPage() {
                         onItemsChange={(items) =>
                           setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
                         }
-                        readOnly={dayClosed}
+                        readOnly={dayClosed || !!assignment}
                       />
                       <GoalAttachments
                         compact
@@ -1268,13 +1302,13 @@ export default function TodayPage() {
                         onItemsChange={(items) =>
                           setAttachments((prev) => ({ ...prev, [g.id]: items }))
                         }
-                        readOnly={dayClosed}
+                        readOnly={dayClosed || !!assignment}
                       />
-                      {(g.link_url || !dayClosed) && (
+                      {(g.link_url || (!dayClosed && !assignment)) && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (dayClosed) {
+                            if (dayClosed || assignment) {
                               if (g.link_url) window.open(g.link_url, "_blank", "noopener,noreferrer");
                               return;
                             }
@@ -1287,12 +1321,22 @@ export default function TodayPage() {
                           {g.link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("today.link")}
                         </button>
                       )}
-                      {acceptedConnections.length > 0 && (
-                        assignedGoals[g.id] ? (
-                          <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0">
-                            {t("goalAssign.pendingBadge", { name: assignedGoals[g.id] })}
-                          </span>
-                        ) : (
+                      {assignment ? (
+                        <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                          <Lock size={11} />
+                          {t("goalAssign.assignedToLabel", {
+                            name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                          })}
+                          {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                          {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                            <span className="inline-flex items-center gap-1">
+                              · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
+                              {statusLabel(assignment.recipientGoalStatus, t)}
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        acceptedConnections.length > 0 && (
                           <select
                             value=""
                             disabled={assigningGoalIds.has(g.id) || dayClosed}
@@ -1317,7 +1361,7 @@ export default function TodayPage() {
                     </div>
                     {assignError && <div className="mt-1 text-[11px] text-red-400">{assignError}</div>}
 
-                    {!dayClosed && showLinkInput[g.id] && (
+                    {!dayClosed && !assignment && showLinkInput[g.id] && (
                       <input
                         type="url"
                         value={g.link_url ?? ""}
@@ -1373,7 +1417,7 @@ export default function TodayPage() {
                     <div className="flex items-center gap-3">
                       <select
                         value={p}
-                        disabled={locked || dayClosed}
+                        disabled={locked || dayClosed || !!assignment}
                         onChange={async (e) => {
                           const newPriority = Number(e.target.value);
                           if (!plan?.id) return;
@@ -1419,7 +1463,7 @@ export default function TodayPage() {
                           been reviewed; opens the same 5-action dropdown
                           either way, so you can also use it to change an
                           already-picked action later. */}
-                      {!dayClosed && (
+                      {!dayClosed && !assignment && (
                         <button
                           type="button"
                           onClick={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
@@ -1449,7 +1493,7 @@ export default function TodayPage() {
                     {/* Quick-action dropdown — picking any of these reviews
                         the goal, applies the action, and closes itself in
                         one click (see selectQuickAction). */}
-                    {!dayClosed && showActions[g.id] && (
+                    {!dayClosed && !assignment && showActions[g.id] && (
                       <div className="flex flex-col gap-2" style={{ minWidth: "180px" }}>
                         <button
                           type="button"

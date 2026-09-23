@@ -1032,6 +1032,7 @@ export const en = {
   // Goal sharing/assignment — the "Assign to" control on Tomorrow/Today
   "goalAssign.placeholder": "Assign to…",
   "goalAssign.pendingBadge": "Assigned to {name} — pending",
+  "goalAssign.assignedToLabel": "Assigned to {name}",
   "goalAssign.failed": "Failed to assign goal",
 
   // Glimpse sharing — used by PostCard's goal_glimpse rendering

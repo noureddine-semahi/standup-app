@@ -313,6 +313,22 @@ export default function DashboardPage() {
     return () => window.clearTimeout(id);
   }, [pointsView]);
 
+  // Goals assigned out to a connection (declined ones excluded), keyed by
+  // this user's own goals.id — same map shape Today/Tomorrow's own pages
+  // use, so a goal assigned from either shows the same "assigned to
+  // {name}" info here too instead of looking like any other goal. Must
+  // stay above the early loading return below — hooks can't be
+  // conditionally skipped.
+  const assignedOutByGoalId = useMemo(() => {
+    const map = new Map<string, GoalAssignment>();
+    for (const a of goalAssignments) {
+      if (a.direction === "assigned" && a.status !== "declined" && a.assignerGoalId) {
+        map.set(a.assignerGoalId, a);
+      }
+    }
+    return map;
+  }, [goalAssignments]);
+
   if (loading) {
     return <div className="card">{t("dashboard.loading")}</div>;
   }
@@ -358,20 +374,6 @@ export default function DashboardPage() {
 
   const sortedTodayGoals = sortGoals(todayGoals);
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
-
-  // Goals assigned out to a connection (declined ones excluded), keyed by
-  // this user's own goals.id — same map shape Today/Tomorrow's own pages
-  // use, so a goal assigned from either shows the same "assigned to
-  // {name}" info here too instead of looking like any other goal.
-  const assignedOutByGoalId = useMemo(() => {
-    const map = new Map<string, GoalAssignment>();
-    for (const a of goalAssignments) {
-      if (a.direction === "assigned" && a.status !== "declined" && a.assignerGoalId) {
-        map.set(a.assignerGoalId, a);
-      }
-    }
-    return map;
-  }, [goalAssignments]);
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
 

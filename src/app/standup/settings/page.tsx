@@ -10,9 +10,10 @@ import {
   uploadAvatar,
   deleteAccount,
   updateThemePreference,
+  updateDiscoverablePreference,
 } from "@/lib/supabase/db";
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
@@ -33,6 +34,11 @@ export default function SettingsPage() {
 
   // Appearance card
   const [theme, setThemeState] = useState<Theme>("dark");
+
+  // Privacy card
+  const [discoverable, setDiscoverableState] = useState(true);
+  const [savingDiscoverable, setSavingDiscoverable] = useState(false);
+  const [discoverableErr, setDiscoverableErr] = useState<string | null>(null);
 
   // Profile card
   const [displayName, setDisplayName] = useState("");
@@ -90,6 +96,24 @@ export default function SettingsPage() {
     updateThemePreference(next).catch(() => {});
   }
 
+  async function handleDiscoverableChange(next: boolean) {
+    if (savingDiscoverable) return;
+    const prev = discoverable;
+    setDiscoverableState(next);
+    setSavingDiscoverable(true);
+    setDiscoverableErr(null);
+    try {
+      await updateDiscoverablePreference(next);
+    } catch (e: any) {
+      // Unlike theme, a silently-failed save here could leave someone
+      // believing they're hidden when they're not — revert and say so.
+      setDiscoverableState(prev);
+      setDiscoverableErr(errorMessage(e, t("settings.failedUpdateDiscoverable")));
+    } finally {
+      setSavingDiscoverable(false);
+    }
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -105,6 +129,7 @@ export default function SettingsPage() {
         // that already has a saved preference.
         setThemeState(profile.theme);
         setTheme(profile.theme);
+        setDiscoverableState(profile.discoverable);
         setDisplayName(profile.display_name ?? "");
         setFirstName(profile.first_name ?? "");
         setLastName(profile.last_name ?? "");
@@ -471,6 +496,44 @@ export default function SettingsPage() {
             {savingPersonalInfo ? t("settings.saving") : t("settings.savePersonalInfo")}
           </button>
         </form>
+      </div>
+
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-1">{t("settings.privacyTitle")}</h2>
+        <p className="text-sm text-white/50 mb-4">{t("settings.privacySubtitle")}</p>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={discoverable}
+            disabled={savingDiscoverable}
+            onClick={() => handleDiscoverableChange(!discoverable)}
+            className="relative rounded-full transition-colors disabled:opacity-50"
+            style={{
+              width: "52px",
+              height: "28px",
+              background: discoverable ? "var(--accent-purple)" : "rgba(var(--tint-rgb),0.15)",
+              border: "1px solid rgba(var(--tint-rgb),0.18)",
+            }}
+          >
+            <span
+              className="absolute rounded-full bg-white transition-transform"
+              style={{
+                width: "22px",
+                height: "22px",
+                top: "2px",
+                left: "2px",
+                transform: discoverable ? "translateX(24px)" : "translateX(0)",
+              }}
+            />
+          </button>
+          <span className="inline-flex items-center gap-1.5 text-sm text-white/80">
+            {discoverable ? <Eye size={14} /> : <EyeOff size={14} />}
+            {discoverable ? t("settings.discoverable") : t("settings.hidden")}
+          </span>
+        </div>
+        {discoverableErr && <div className={`mt-3 ${errorClass}`}>{discoverableErr}</div>}
       </div>
 
       <div className="card">

@@ -41,6 +41,10 @@ export type Profile = {
   display_name: string | null;
   points: number;
   theme: Theme;
+  // Whether another user's email-based connection request can find this
+  // account. Never affects existing connections, only future
+  // find_user_by_email lookups. Defaults true.
+  discoverable: boolean;
 
   // Optional personal info — never required, kept for possible future
   // personalization (e.g. goal suggestions tuned to age/location).
@@ -338,6 +342,13 @@ export async function getOrCreateProfile() {
 export async function updateThemePreference(theme: Theme) {
   const userId = await getCurrentUserId();
   const { error } = await supabase.from("profiles").update({ theme }).eq("id", userId);
+  if (error) throw error;
+}
+
+/** Whether this account can be found by another user's email-based connection request. Never affects existing connections, only future find_user_by_email lookups. */
+export async function updateDiscoverablePreference(discoverable: boolean) {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase.from("profiles").update({ discoverable }).eq("id", userId);
   if (error) throw error;
 }
 

@@ -151,6 +151,20 @@ export default function TomorrowGoalsPage() {
     return map;
   }, [goalAssignments]);
 
+  // Mirror of the map above, for the other side: goals of mine that are
+  // themselves the materialized product of an assignment I received and
+  // accepted. Locks the Assign-to control on that row -- see the same
+  // map in today/page.tsx for the full reasoning.
+  const receivedByGoalId = useMemo(() => {
+    const map = new Map<string, GoalAssignment>();
+    for (const a of goalAssignments) {
+      if (a.direction === "received" && a.status === "accepted" && a.recipientGoalId) {
+        map.set(a.recipientGoalId, a);
+      }
+    }
+    return map;
+  }, [goalAssignments]);
+
   useEffect(() => {
     if (pendingFocusIndex == null) return;
 
@@ -715,6 +729,7 @@ export default function TomorrowGoalsPage() {
             // frozen snapshot the recipient already has, since assignment
             // never re-syncs.
             const assignment = g.id ? assignedOutByGoalId.get(g.id) : undefined;
+            const received = g.id ? receivedByGoalId.get(g.id) : undefined;
             const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
 
             return (
@@ -840,7 +855,7 @@ export default function TomorrowGoalsPage() {
                       {/* Assign to — own row right below Checklist/Files/Link
                           rather than sharing their row, so it doesn't compete
                           with those for space or get lost among them. */}
-                      {(assignment || (g.id && acceptedConnections.length > 0)) && (
+                      {(assignment || received || (g.id && acceptedConnections.length > 0)) && (
                         <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
                           {assignment ? (
                             <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
@@ -855,6 +870,16 @@ export default function TomorrowGoalsPage() {
                                   {statusLabel(assignment.recipientGoalStatus, t)}
                                 </span>
                               )}
+                            </span>
+                          ) : received ? (
+                            // A goal that's itself the product of an
+                            // assignment I received -- locked from being
+                            // re-assigned onward (see receivedByGoalId above).
+                            <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                              <Lock size={11} />
+                              {t("social.assignedByLabel", {
+                                name: received.assignerDisplayName ?? t("social.anonymousUser"),
+                              })}
                             </span>
                           ) : (
                             <>

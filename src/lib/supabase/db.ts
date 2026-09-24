@@ -2195,6 +2195,13 @@ export type GoalAssignment = {
   // on it -- the assigner's own copy is fully locked and excluded from
   // their own day's review-before-close requirement.
   assignmentType: GoalAssignmentType;
+  // The recipient's own goals.id, materialized once they accept -- the
+  // mirror of assignerGoalId, for the other side. Lets Today/Tomorrow
+  // recognize "this goal of mine IS an accepted assignment I received"
+  // and lock its own Assign-to control (re-assigning something assigned
+  // to you isn't a scenario the data model represents). Null while
+  // pending/declined, or if that goal was since deleted.
+  recipientGoalId: string | null;
 };
 
 /** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
@@ -2253,6 +2260,7 @@ type GoalAssignmentRow = {
   assigner_seen_at: string | null;
   assigner_goal_id: string | null;
   assignment_type: GoalAssignmentType;
+  recipient_goal_id: string | null;
 };
 
 /** Every goal assignment the caller is either party to — the Friends tab's, Dashboard's, and Today/Tomorrow's shared source of assignment state. */
@@ -2279,6 +2287,7 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     assignerSeenAt: r.assigner_seen_at,
     assignerGoalId: r.assigner_goal_id,
     assignmentType: r.assignment_type,
+    recipientGoalId: r.recipient_goal_id,
   }));
 }
 

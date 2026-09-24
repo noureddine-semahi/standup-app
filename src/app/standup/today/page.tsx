@@ -280,6 +280,23 @@ export default function TodayPage() {
     return map;
   }, [goalAssignments]);
 
+  // The mirror of the map above: goals of MINE that are themselves the
+  // materialized product of an assignment I received and accepted. Only
+  // "accepted" matters here (a pending assignment hasn't materialized a
+  // real goal yet — that's the separate pendingReceivedForToday banner).
+  // Keyed by the recipient's own goals.id so a row can recognize itself
+  // and lock its own Assign-to control — re-assigning a goal that was
+  // assigned to you isn't a scenario this data model represents.
+  const receivedByGoalId = useMemo(() => {
+    const map = new Map<string, GoalAssignment>();
+    for (const a of goalAssignments) {
+      if (a.direction === "received" && a.status === "accepted" && a.recipientGoalId) {
+        map.set(a.recipientGoalId, a);
+      }
+    }
+    return map;
+  }, [goalAssignments]);
+
   async function handlePublish(visibility: PostVisibility, targetUserId?: string) {
     if (publishing) return;
     setPublishing(true);
@@ -1292,6 +1309,7 @@ export default function TodayPage() {
             // pending, nothing has been handed off yet, so this user keeps
             // full access until then.
             const assignment = assignedOutByGoalId.get(g.id);
+            const received = receivedByGoalId.get(g.id);
             const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
             // This user's own copy of an exclusive-assigned goal never gets
             // touched again once handed off (they're locked out of it), so
@@ -1456,7 +1474,7 @@ export default function TodayPage() {
                     {/* Assign to — own row right below Checklist/Files/Link
                         rather than sharing their row, so it doesn't compete
                         with those for space or get lost among them. */}
-                    {(assignment || acceptedConnections.length > 0) && (
+                    {(assignment || received || acceptedConnections.length > 0) && (
                       <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
                         {assignment ? (
                           <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
@@ -1471,6 +1489,17 @@ export default function TodayPage() {
                                 {statusLabel(assignment.recipientGoalStatus, t)}
                               </span>
                             )}
+                          </span>
+                        ) : received ? (
+                          // A goal that's itself the product of an assignment
+                          // I received — locked from being re-assigned onward
+                          // (see receivedByGoalId above), same Lock icon
+                          // language as the assigner's own side uses.
+                          <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                            <Lock size={11} />
+                            {t("social.assignedByLabel", {
+                              name: received.assignerDisplayName ?? t("social.anonymousUser"),
+                            })}
                           </span>
                         ) : (
                           <>

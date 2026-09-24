@@ -637,7 +637,7 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 760px) {
   .nav-primary,
   .nav-profile,
-  .nav-more-wrap {
+  .nav-utility-cluster-desktop {
     display: none;
   }
 

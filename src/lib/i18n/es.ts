@@ -12,6 +12,7 @@ export const es: Record<keyof typeof en, string> = {
   "nav.contact": "Contacto",
   "nav.calendar": "Calendario",
   "nav.backlog": "Pendientes",
+  "nav.assignments": "Objetivos Asignados",
   "nav.dashboard": "Panel",
   "nav.reviewToday": "Revisar Hoy",
   "nav.planTomorrow": "Planificar Mañana",
@@ -986,6 +987,7 @@ export const es: Record<keyof typeof en, string> = {
   "social.tabGlobal": "Global",
   "social.tabCircle": "Mi Círculo",
   "social.tabFriends": "Amigos",
+  "social.tabGoals": "Objetivos",
   "social.discoverTitle": "Descubrir",
   "social.discoverSubtitle": "Personas en StandUp que eligieron ser visibles. Invita a alguien para empezar a compartir vistazos de tu día y reaccionar a los suyos.",
   "social.invite": "Invitar",
@@ -1016,6 +1018,7 @@ export const es: Record<keyof typeof en, string> = {
   // Goal sharing/assignment — Social page's Friends tab
   "social.goalAssignmentsTitle": "Objetivos Asignados",
   "social.goalAssignmentsSubtitle": "Objetivos que una conexión te asignó, y objetivos que has asignado a otros.",
+  "assignments.subtitle": "Todo lo asignado entre tú y tus conexiones, en un solo lugar.",
   "social.assignmentsForYou": "Asignaciones para Ti",
   "social.goalsAssignedToYouTitle": "Objetivos Asignados a Ti",
   "social.assignedByYou": "Objetivos que Has Asignado",

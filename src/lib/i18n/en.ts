@@ -12,6 +12,7 @@ export const en = {
   "nav.contact": "Contact",
   "nav.calendar": "Calendar",
   "nav.backlog": "Backlog",
+  "nav.assignments": "Goal Assignments",
   "nav.dashboard": "Dashboard",
   "nav.reviewToday": "Review Today",
   "nav.planTomorrow": "Plan Tomorrow",
@@ -989,6 +990,7 @@ export const en = {
   "social.tabGlobal": "Global",
   "social.tabCircle": "My Circle",
   "social.tabFriends": "Friends",
+  "social.tabGoals": "Goals",
   "social.discoverTitle": "Discover",
   "social.discoverSubtitle": "People on StandUp who've opted into being found. Invite someone to start sharing glimpses of your day and reacting to theirs.",
   "social.invite": "Invite",
@@ -1019,6 +1021,7 @@ export const en = {
   // Goal sharing/assignment — Social page's Friends tab
   "social.goalAssignmentsTitle": "Goal Assignments",
   "social.goalAssignmentsSubtitle": "Goals a connection has assigned to you, and goals you've assigned to others.",
+  "assignments.subtitle": "Everything assigned between you and your connections, in one place.",
   "social.assignmentsForYou": "Assignments for You",
   "social.goalsAssignedToYouTitle": "Goals Assigned to You",
   "social.assignedByYou": "Goals You've Assigned",

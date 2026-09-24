@@ -51,11 +51,13 @@ const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> 
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 // Same space-saving trick as the About/FAQ/Contact rotation above, applied
-// to Calendar/Backlog — a two-page loop, so each just links straight to
-// the other.
+// to Calendar/Backlog/Assignments — a three-page loop, each showing the
+// next one in the cycle and linking there. Off all three, defaults to
+// "Calendar" (first in the loop).
 const CALENDAR_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
   "/standup/calendar": { labelKey: "nav.backlog", href: "/standup/backlog" },
-  "/standup/backlog": { labelKey: "nav.calendar", href: "/standup/calendar" },
+  "/standup/backlog": { labelKey: "nav.assignments", href: "/standup/assignments" },
+  "/standup/assignments": { labelKey: "nav.calendar", href: "/standup/calendar" },
 };
 const CALENDAR_PAGES = Object.keys(CALENDAR_ROTATION);
 
@@ -267,6 +269,12 @@ export default function Header() {
         >
           {t("nav.backlog")}
         </Link>
+        <Link
+          href="/standup/assignments"
+          className={pathname === "/standup/assignments" ? "nav-link font-semibold" : "nav-link"}
+        >
+          {t("nav.assignments")}
+        </Link>
       </>
     );
   }
@@ -436,11 +444,11 @@ export default function Header() {
 
         {/* Bell + More button grouped tightly together (their own small
             gap, not the header's wider one) so they read as one utility
-            cluster — bell is always visible regardless of breakpoint,
-            alongside whichever of nav-primary/nav-mobile-trigger is
-            currently shown; the More button is hidden on true mobile
-            alongside nav-primary (see .nav-more-wrap). */}
-        <div className="nav-utility-cluster">
+            cluster on desktop. Hidden entirely on true mobile — the bell
+            re-appears there instead grouped with the hamburger/avatar in
+            nav-mobile-trigger below, since a name-less icon pair fits a
+            phone-width row better than floating on its own mid-header. */}
+        <div className="nav-utility-cluster nav-utility-cluster-desktop">
           {notificationBell()}
 
           {/* Secondary links (About/FAQ/Contact, Theme/Language) live
@@ -480,6 +488,7 @@ export default function Header() {
             breakpoint — see .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
           {!loading && avatar()}
+          {notificationBell()}
           <button
             type="button"
             className="hamburger-btn"

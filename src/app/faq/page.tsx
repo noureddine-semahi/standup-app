@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -37,17 +38,37 @@ const FAQ_KEYS: { questionKey: TranslationKey; answerKey: TranslationKey }[] = [
 export default function FAQPage() {
   const { t } = useLanguage();
 
+  useEffect(() => {
+    const els = document.querySelectorAll(".scroll-reveal");
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="min-h-screen">
+      <noscript>
+        <style>{`.scroll-reveal { opacity: 1 !important; transform: none !important; }`}</style>
+      </noscript>
       <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="text-center mb-12">
+        <div className="scroll-reveal text-center mb-12">
           <h1 className="text-5xl font-bold mb-4">{t("faq.title")}</h1>
           <p className="text-lg text-page-secondary max-w-2xl mx-auto">
             {t("faq.subtitle")}
           </p>
         </div>
 
-        <div className="card card-highlight">
+        <div className="scroll-reveal card card-highlight">
           <div className="divide-y divide-white/10">
             {FAQ_KEYS.slice(0, 17).map((item, idx) => (
               <details key={idx} className="group py-4 first:pt-0 last:pb-0">
@@ -91,7 +112,7 @@ export default function FAQPage() {
           </div>
         </div>
 
-        <div className="text-center mt-10">
+        <div className="scroll-reveal text-center mt-10">
           <p className="text-sm text-page-tertiary">
             {t("faq.stillHaveQuestions")}{" "}
             <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">

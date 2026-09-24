@@ -8,43 +8,46 @@ export default function PrivacyPolicyContent() {
   const { t } = useLanguage();
 
   return (
-    <div className="space-y-6">
-      <section>
+    // divide-y hairline rows instead of plain space-y-6 -- 8 sections read
+    // as a scannable ledger this way, matching the pattern already used
+    // for FAQ's accordion and About's definition lists elsewhere in the app.
+    <div className="divide-y divide-white/10">
+      <section className="pb-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.whatWeCollectTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.whatWeCollectBody")}</p>
       </section>
 
-      <section>
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.whyWeCollectTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.whyWeCollectBody")}</p>
       </section>
 
-      <section>
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.sharingWithOthersTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.sharingWithOthersBody")}</p>
       </section>
 
-      <section>
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.homepageVisitsTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.homepageVisitsBody")}</p>
       </section>
 
-      <section>
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.referralsTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.referralsBody")}</p>
       </section>
 
-      <section>
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.whereStoredTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.whereStoredBody")}</p>
       </section>
 
-      <section>
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.yourControlTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.yourControlBody")}</p>
       </section>
 
-      <section>
+      <section className="pt-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.questionsTitle")}</h2>
         <p className="text-sm text-white/70">
           {t("privacy.questionsPart1")}

@@ -382,6 +382,28 @@ export default function TodayPage() {
     return list;
   }, [goals]);
 
+  // Goals I assigned out whose RECIPIENT's copy is due today -- not
+  // necessarily the same as today's date, since the recipient can
+  // reschedule their own materialized copy independently. My own goal
+  // row for this assignment never moves (it stays frozen on whatever
+  // date I originally assigned it), so if the recipient's copy has since
+  // moved to a different date, I'd otherwise have no way to see it land
+  // on the day it's actually due -- only a read-only view here, since
+  // only the recipient can act on their own goal. Excludes anything
+  // already visible via my own sortedGoals (my own row for the SAME
+  // assignment is still today, e.g. the recipient hasn't moved it), so
+  // nothing renders twice.
+  const assignedOutDueToday = useMemo(() => {
+    const ownGoalIdsToday = new Set(sortedGoals.map((g) => g.id));
+    return goalAssignments.filter(
+      (a) =>
+        a.direction === "assigned" &&
+        a.status === "accepted" &&
+        a.recipientPlanDate === todayISO &&
+        !(a.assignerGoalId && ownGoalIdsToday.has(a.assignerGoalId))
+    );
+  }, [goalAssignments, sortedGoals, todayISO]);
+
   // "Total goals today" (for "does the day have any goals at all" gates —
   // empty-state, showing the close/plan-tomorrow buttons) always counts
   // every goal, including exclusive-assigned ones. Review PROGRESS, below,
@@ -1078,6 +1100,54 @@ export default function TodayPage() {
                       {t("social.decline")}
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Goals I assigned out whose recipient's copy is due today —
+            read-only (only the recipient can act on it), since it may not
+            be the goal's original date at all if they rescheduled their
+            own copy forward. This is the one place I get to see it land
+            on the day it's actually due, not just its original date. */}
+        {assignedOutDueToday.length > 0 && (
+          <div className="mb-6 card card-highlight">
+            <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-3">
+              {t("today.assignedOutDueTodayTitle")}
+            </div>
+            <div className="space-y-1.5">
+              {assignedOutDueToday.map((a) => (
+                <div key={a.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
+                  <div
+                    className="priority-chip-sm"
+                    style={{
+                      "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
+                      "--p-border": getPriorityMeta(a.snapshotPriority).border,
+                      "--p-color": getPriorityMeta(a.snapshotPriority).color,
+                    } as React.CSSProperties}
+                  >
+                    P{a.snapshotPriority}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
+                    <div className="text-[11px] text-white/50 truncate">
+                      {t("goalAssign.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
+                    </div>
+                  </div>
+                  {a.recipientGoalStatus && (
+                    <div
+                      className="status-chip-sm flex-shrink-0"
+                      style={{
+                        "--chip-bg": statusChipColors(a.recipientGoalStatus).bg,
+                        "--chip-border": statusChipColors(a.recipientGoalStatus).border,
+                        "--chip-color": statusChipColors(a.recipientGoalStatus).color,
+                      } as React.CSSProperties}
+                    >
+                      <StatusIcon status={a.recipientGoalStatus} size={12} />
+                      <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

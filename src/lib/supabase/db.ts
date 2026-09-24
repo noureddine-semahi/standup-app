@@ -2202,6 +2202,13 @@ export type GoalAssignment = {
   // to you isn't a scenario the data model represents). Null while
   // pending/declined, or if that goal was since deleted.
   recipientGoalId: string | null;
+  // The recipient's goal's ACTUAL CURRENT plan_date -- unlike planDate
+  // above (a frozen snapshot from the moment of assignment), this tracks
+  // live if the recipient reschedules their own copy forward. Lets the
+  // assigner's Today page show a read-only view of the goal on whatever
+  // date it's actually due now, not just its original date. Null before
+  // acceptance or if that goal was since deleted.
+  recipientPlanDate: string | null;
 };
 
 /** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
@@ -2261,6 +2268,7 @@ type GoalAssignmentRow = {
   assigner_goal_id: string | null;
   assignment_type: GoalAssignmentType;
   recipient_goal_id: string | null;
+  recipient_plan_date: string | null;
 };
 
 /** Every goal assignment the caller is either party to — the Friends tab's, Dashboard's, and Today/Tomorrow's shared source of assignment state. */
@@ -2288,6 +2296,7 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     assignerGoalId: r.assigner_goal_id,
     assignmentType: r.assignment_type,
     recipientGoalId: r.recipient_goal_id,
+    recipientPlanDate: r.recipient_plan_date,
   }));
 }
 

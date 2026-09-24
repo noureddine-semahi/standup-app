@@ -253,6 +253,7 @@ export const en = {
   "today.addedGoals": "Added {count} goal(s) ✅",
   "today.addedGoalsAssignFailed": "Added {count} goal(s), but one or more assignments failed — try again from the goal itself.",
   "today.pendingAssignmentsTitle": "Assigned to You Today",
+  "today.assignedOutDueTodayTitle": "Goals You Assigned, Due Today",
   "today.failedAddGoals": "Failed to add goals",
   "today.loading": "Loading…",
   "today.title": "Today",

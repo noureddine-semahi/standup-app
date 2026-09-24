@@ -251,6 +251,7 @@ export const es: Record<keyof typeof en, string> = {
   "today.addedGoals": "{count} objetivo(s) agregado(s) ✅",
   "today.addedGoalsAssignFailed": "Se agregaron {count} objetivo(s), pero una o más asignaciones fallaron — inténtalo de nuevo desde el objetivo.",
   "today.pendingAssignmentsTitle": "Asignado a ti hoy",
+  "today.assignedOutDueTodayTitle": "Objetivos que asignaste, vencen hoy",
   "today.failedAddGoals": "Error al agregar objetivos",
   "today.loading": "Cargando…",
   "today.title": "Hoy",

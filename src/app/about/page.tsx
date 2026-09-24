@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
-import { Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar, Receipt, ListChecks } from "lucide-react";
+import { Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar, Receipt, ListChecks, Users, Send, MessageCircle, Umbrella } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -204,6 +204,59 @@ export default function AboutPage() {
                 </h3>
                 <p className="text-sm text-white/60">
                   {t("about.subTasksFilesBody")}
+                </p>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          {/* Growing Together — the social/collaborative layer, same
+              enumerated-capability format as The Bigger Picture above,
+              placed right after it since it's an extension of "what the
+              app does," not a separate pitch. */}
+          <div
+            className="card card-highlight"
+          >
+          <div className="p-0 sm:p-6">
+            <h2 className={`text-2xl text-amber-300 mb-6`}>{t("about.connectTitle")}</h2>
+            <div className="space-y-5">
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <Users size={18} className="text-white/80" />
+                  {t("about.connections")}
+                </h3>
+                <p className="text-sm text-white/60">
+                  {t("about.connectionsBody")}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <Send size={18} className="text-white/80" />
+                  {t("about.goalAssignments")}
+                </h3>
+                <p className="text-sm text-white/60">
+                  {t("about.goalAssignmentsBody")}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <MessageCircle size={18} className="text-white/80" />
+                  {t("about.reactionsComments")}
+                </h3>
+                <p className="text-sm text-white/60">
+                  {t("about.reactionsCommentsBody")}
+                </p>
+              </div>
+
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold mb-1">
+                  <Umbrella size={18} className="text-white/80" />
+                  {t("about.streakPasses")}
+                </h3>
+                <p className="text-sm text-white/60">
+                  {t("about.streakPassesBody")}
                 </p>
               </div>
             </div>

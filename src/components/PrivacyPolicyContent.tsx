@@ -20,6 +20,11 @@ export default function PrivacyPolicyContent() {
       </section>
 
       <section>
+        <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.sharingWithOthersTitle")}</h2>
+        <p className="text-sm text-white/70">{t("privacy.sharingWithOthersBody")}</p>
+      </section>
+
+      <section>
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.homepageVisitsTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.homepageVisitsBody")}</p>
       </section>

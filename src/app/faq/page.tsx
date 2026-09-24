@@ -26,6 +26,12 @@ const FAQ_KEYS: { questionKey: TranslationKey; answerKey: TranslationKey }[] = [
   // rendered separately below rather than through this generic loop.
   { questionKey: "faq.q19.question", answerKey: "faq.q19.answer" },
   { questionKey: "faq.q20.question", answerKey: "faq.q20.answer" },
+  { questionKey: "faq.q21.question", answerKey: "faq.q21.answer" },
+  { questionKey: "faq.q22.question", answerKey: "faq.q22.answer" },
+  { questionKey: "faq.q23.question", answerKey: "faq.q23.answer" },
+  { questionKey: "faq.q24.question", answerKey: "faq.q24.answer" },
+  { questionKey: "faq.q25.question", answerKey: "faq.q25.answer" },
+  { questionKey: "faq.q26.question", answerKey: "faq.q26.answer" },
 ];
 
 export default function FAQPage() {

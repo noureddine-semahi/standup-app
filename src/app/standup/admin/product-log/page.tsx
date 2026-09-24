@@ -78,23 +78,28 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
     summary:
       "A full language system built from scratch rather than a library -- a plain React Context mirroring the existing theme pattern (localStorage plus a same-tab event). The English dictionary is the source of truth; Spanish is typed against it so the build fails if a new string is ever added without a translation. Every page and shared component outside the Admin panel (which stays English-only by design) is now translated -- Dashboard, Today, Tomorrow, Calendar, Backlog, History, Profile, Settings, the landing page, all auth pages, FAQ, Contact, Privacy, About, and every shared modal/component. The toggle sits right next to the theme toggle, in the same two spots. Two things stay untranslated on purpose: historical notes already logged to a goal's timeline, and the Dashboard assistant's own reply text, which comes from the LLM rather than the dictionary. Unlike theme, the language choice is stored per-browser only, not synced to the account yet.",
   },
+  {
+    period: "Glimpse Sharing & Connections — September 18",
+    summary:
+      "StandUp's first social surface: send a connection request by email, accept or decline it, then publish today's goal list as a \"glimpse\" post visible to accepted connections (or, added the same day, to Everyone via a public feed). One unified posts table backs three post types -- goal glimpses, achievement unlocks, and freeform motivational posts -- all through the same feed and reaction system. Reactions are a fixed set of four (like/support/fire/clap), one per viewer per post. Connections management moved to its own Social nav tab.",
+  },
+  {
+    period: "Full Social, Long-Term Goals & Icons — September 22",
+    summary:
+      "Five features shipped as one sequence: connections discovery (browse and request with one tap, replacing manual email search) plus a privacy/discoverability toggle (opt out of email lookup, on by default); an audience dropdown on Review Today's Publish control (Connections / Everyone / one named connection); comments, replies, and comment reactions on any post, splitting Social into 4 tabs (My Feed / Global / My Circle / Friends); weekly streak passes (2 forgiven misses per week for a 5-of-7 pace, derived on read); and recurring goal templates (Phase 1 -- tap-to-add suggestion chips on Plan Tomorrow) plus long-term goals (Phase 2 -- target-dated goals as a Backlog extension). Also this day: the app-wide icon system -- every emoji used as a functional UI icon replaced with lucide-react, via a shared StatusIcon component and a per-achievement icon mapping.",
+  },
+  {
+    period: "Goal Assignments, Notifications & Header Overhaul — September 23",
+    summary:
+      "Goal sharing/assignment: assign one of your own goals to an accepted connection, who can accept or decline it; once accepted it materializes as a real, independent goal on their own plan. Assignments carry a shared vs. exclusive type (exclusive is the default) -- shared stays fully independent forever; exclusive locks the assigner out of their own copy only once the recipient has actually accepted, and is excluded from the assigner's own day-closure requirement. The assigner can also view the recipient's actual logged actions on a handed-off goal, merged into the same \"Actions & notes\" timeline. A dedicated /standup/assignments page holds the full assignment view. Also this day: a Privacy Policy consent gate at signup; a pending-notifications section on the Dashboard mirrored by a header notification bell; photo attachments on motivational posts; and a header navigation overhaul (small always-visible primary group plus a \"More\" panel; the Social nav tab was also renamed Community). A cluster of same-day fixes: listConnections() had been silently unable to read the other party's display name for the entire lifetime of the connections feature (profiles' RLS only allows reading your own row -- fixed with a security-definer RPC, the same class of fix later needed for posts sharing itself and for cross-user goal-note visibility); a React hooks-order crash on the Dashboard; and an assigned-out goal's status badge reading the assigner's own frozen copy instead of the recipient's live status, in four independent rendering paths before all four were fixed.",
+  },
 ];
 
 const UP_NEXT: { phase: string; detail: string }[] = [
   {
-    phase: "Phase 1 — Recurring suggestion chips",
-    detail:
-      "The gym-motivation use case: \"Workout\" reappears as a tap-to-add suggestion on the days it's due, instead of retyping it daily. New recurring_goal_templates table (title, details, default priority, optional time-of-day, days-of-week, active flag); a small management screen; Plan Tomorrow gets a \"Suggested\" row of chips for templates due tomorrow. A nullable source_template_id on goals gives a clean \"already added\" check. Deliberately not automatic goal creation — every principle this app runs on argues for a tap, not a silent injection.",
-  },
-  {
-    phase: "Phase 2 — Long-term goals (resolutions, monthly goals)",
-    detail:
-      "\"Learn Spanish this year,\" New Year's resolutions, monthly goals — same park-it-then-act-on-it mechanic as Backlog, longer horizon. Likely an extension of Backlog (add target_date and category) rather than a new table; can attach the existing checklist feature for milestones.",
-  },
-  {
     phase: "Phase 3 — Challenges (parked, not scoped)",
     detail:
-      "Fixed-window, rule-based challenges (\"75 Hard\"-style) with their own streak/badge mechanics. A bigger positioning shift, similar in kind to the network/monetization ideas below — revisit only with a deliberate decision, not as a natural extension of Phase 1/2.",
+      "Fixed-window, rule-based challenges (\"75 Hard\"-style) with their own streak/badge mechanics. A bigger positioning shift, similar in kind to the network/monetization ideas below — revisit only with a deliberate decision, not as a natural extension of what's shipped.",
   },
 ];
 
@@ -119,9 +124,9 @@ const PARKED: { title: string; detail: string }[] = [
       "Drawing a shape (checkmark, X, reverse-C) over a goal to complete/cancel/reschedule it. A simpler directional-swipe version is the recommended path — true freeform shape recognition fights the browser's native scroll gesture on the same list.",
   },
   {
-    title: "Shared goals / connections",
+    title: "Shared goals / connections — monitoring facet",
     detail:
-      "Three distinct facets, not equal in cost: sharing one specific goal (smallest slice), a broader status/progress view for another person (needs a real \"what's visible\" decision), and active monitoring by an accountability partner (heaviest — depends on notifications existing first, since it implies notifying them, not just giving read access). Build in that order if revisited.",
+      "Of the three facets originally scoped here, the first two shipped September 18-23: sharing one specific goal (goal assignment, shared/exclusive types) and a broader status/progress view for another person (the connections feed, Discover, comments and reactions). What remains parked is the third and heaviest: active monitoring/notifications for an accountability partner — still blocked on the same missing piece as the Notifications & email entry below.",
   },
   {
     title: "Notifications & email",
@@ -202,7 +207,11 @@ export default function ProductLogPage() {
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-1">Up Next</h2>
-        <p className="text-sm text-white/50 mb-4">Scoped and ready to build, not started yet. Build order: 1 → 2 → 3.</p>
+        <p className="text-sm text-white/50 mb-4">
+          Recurring suggestion chips (Phase 1) and long-term goals (Phase 2) — both previously
+          listed here — shipped September 22. Nothing is currently scoped and queued; the next
+          candidate needs its own go/no-go.
+        </p>
         <div className="space-y-4">
           {UP_NEXT.map((item) => (
             <div

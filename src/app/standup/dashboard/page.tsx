@@ -730,7 +730,16 @@ export default function DashboardPage() {
         />
 
         {/* ✅ P1 Goal Highlight (use Tomorrow-like stronger red styling) */}
-        {todayP1 && (
+        {todayP1 && (() => {
+          const assignment = assignedOutByGoalId.get(todayP1.id);
+          // Once handed off exclusively (and accepted), this user's own copy
+          // never gets touched again -- its reviewed_at/status sit frozen at
+          // whatever they were at assignment time. Mirror the recipient's
+          // live status instead, same fix as Today's own page.
+          const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+          const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : todayP1.status;
+          const effectiveReviewed = isExclusive ? true : !!todayP1.reviewed_at;
+          return (
           <Link href="/standup/today" className="block">
             <div
               className="card card-highlight transition-all duration-300 hover:scale-[1.005] cursor-pointer"
@@ -741,10 +750,10 @@ export default function DashboardPage() {
                     <span className="rounded-full border border-red-500/30 bg-red-500/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-red-300">
                       {t("dashboard.p1Badge")}
                     </span>
-                    {!todayP1.reviewed_at && (
+                    {!effectiveReviewed && (
                       <span className="text-xs font-normal text-white/50">{t("dashboard.pendingReviewShort")}</span>
                     )}
-                    {todayP1.reviewed_at && (
+                    {effectiveReviewed && (
                       <span className="text-xs font-normal text-white/50">{t("dashboard.reviewedCheck")}</span>
                     )}
                   </div>
@@ -764,35 +773,32 @@ export default function DashboardPage() {
                     {t("dashboard.statusLabel")}
                   </div>
                   <div className="mt-1 text-base font-semibold text-white">
-                    {statusLabel(todayP1.status, t)}
+                    {statusLabel(effectiveStatus, t)}
                   </div>
 
-                  {(() => {
-                    const assignment = assignedOutByGoalId.get(todayP1.id);
-                    if (!assignment) return null;
-                    return (
-                      <div className="mt-3 text-xs text-white/50 inline-flex items-center gap-1">
-                        {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                        {t("goalAssign.assignedToLabel", {
-                          name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                        })}
-                        {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                        {assignment.status === "accepted" && assignment.recipientGoalStatus && (
-                          <span className="inline-flex items-center gap-1">
-                            · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
-                            {statusLabel(assignment.recipientGoalStatus, t)}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {assignment && (
+                    <div className="mt-3 text-xs text-white/50 inline-flex items-center gap-1">
+                      {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                      {t("goalAssign.assignedToLabel", {
+                        name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                      })}
+                      {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                      {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                        <span className="inline-flex items-center gap-1">
+                          · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
+                          {statusLabel(assignment.recipientGoalStatus, t)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-white/50">→</div>
               </div>
             </div>
           </Link>
-        )}
+          );
+        })()}
 
         {/* Today & Tomorrow Overview Grid (keep logic; enhance row styles) */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -820,9 +826,15 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {sortedTodayGoals.map((g, idx) => {
-                    const reviewed = !!g.reviewed_at;
                     const priority = g.priority;
                     const assignment = assignedOutByGoalId.get(g.id);
+                    // Mirror Today's own effectiveStatus/reviewed fix: once
+                    // handed off exclusively (and accepted), this user's own
+                    // copy never changes again -- show the recipient's live
+                    // status instead of the frozen placeholder.
+                    const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+                    const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : g.status;
+                    const reviewed = isExclusive ? true : !!g.reviewed_at;
 
                     return (
                       <div
@@ -861,16 +873,16 @@ export default function DashboardPage() {
                           <div
                             className="status-chip-sm"
                             style={{
-                              "--chip-bg": reviewed ? statusChipColors(g.status).bg : "rgba(245, 158, 11, 0.08)",
-                              "--chip-border": reviewed ? statusChipColors(g.status).border : "rgba(245, 158, 11, 0.3)",
-                              "--chip-color": reviewed ? statusChipColors(g.status).color : "#fcd34d",
+                              "--chip-bg": reviewed ? statusChipColors(effectiveStatus).bg : "rgba(245, 158, 11, 0.08)",
+                              "--chip-border": reviewed ? statusChipColors(effectiveStatus).border : "rgba(245, 158, 11, 0.3)",
+                              "--chip-color": reviewed ? statusChipColors(effectiveStatus).color : "#fcd34d",
                             } as React.CSSProperties}
-                            title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(g.status, t) }) : t("dashboard.pendingReviewShort")}
+                            title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(effectiveStatus, t) }) : t("dashboard.pendingReviewShort")}
                           >
                             {reviewed ? (
                               <>
-                                <span>{statusLabel(g.status, t)}</span>
-                                <StatusIcon status={g.status} size={12} />
+                                <span>{statusLabel(effectiveStatus, t)}</span>
+                                <StatusIcon status={effectiveStatus} size={12} />
                               </>
                             ) : (
                               <>

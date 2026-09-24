@@ -3,6 +3,7 @@
 import { GLIMPSE_REACTIONS } from "@/lib/glimpseReactions";
 import type { GlimpseReaction } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { hexToRgba } from "@/lib/color";
 
 /** The 4 fixed reaction buttons, shared by every PostCard. */
 export default function GlimpseReactionPicker({
@@ -30,8 +31,9 @@ export default function GlimpseReactionPicker({
             padding: "0.25rem 0.5rem",
             display: "inline-flex",
             alignItems: "center",
-            background: myReaction === r.value ? "rgba(245, 158, 11, 0.25)" : undefined,
-            borderColor: myReaction === r.value ? "rgba(245, 158, 11, 0.6)" : undefined,
+            color: myReaction === r.value ? r.color : hexToRgba(r.color, 0.75),
+            background: myReaction === r.value ? hexToRgba(r.color, 0.18) : undefined,
+            borderColor: myReaction === r.value ? hexToRgba(r.color, 0.55) : undefined,
           }}
         >
           <r.icon size={15} strokeWidth={2.25} />

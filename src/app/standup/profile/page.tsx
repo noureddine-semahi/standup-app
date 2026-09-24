@@ -19,6 +19,7 @@ import { ACHIEVEMENTS } from "@/lib/achievements";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { hexToRgba } from "@/lib/color";
 
 export default function ProfilePage() {
   const { t } = useLanguage();
@@ -267,8 +268,8 @@ export default function ProfilePage() {
                 key={a.id}
                 className="rounded-xl p-3 text-center transition"
                 style={{
-                  background: unlocked ? "rgba(16, 185, 129, 0.08)" : "rgba(var(--tint-rgb), 0.03)",
-                  border: unlocked ? "1px solid rgba(16, 185, 129, 0.25)" : "1px solid rgba(var(--tint-rgb), 0.08)",
+                  background: unlocked ? hexToRgba(a.color, 0.1) : "rgba(var(--tint-rgb), 0.03)",
+                  border: unlocked ? `1px solid ${hexToRgba(a.color, 0.35)}` : "1px solid rgba(var(--tint-rgb), 0.08)",
                   opacity: unlocked ? 1 : 0.5,
                 }}
                 title={t(a.descriptionKey)}
@@ -278,10 +279,10 @@ export default function ProfilePage() {
                   style={{
                     width: "40px",
                     height: "40px",
-                    color: unlocked ? "rgb(52, 211, 153)" : "rgba(var(--tint-rgb), 0.4)",
+                    color: unlocked ? a.color : "rgba(var(--tint-rgb), 0.4)",
                   }}
                 >
-                  <a.icon size={22} strokeWidth={1.75} />
+                  <a.icon size={24} strokeWidth={2} />
                 </div>
                 <div className="mt-1.5 text-[11px] font-semibold text-white leading-tight">
                   {t(a.titleKey)}

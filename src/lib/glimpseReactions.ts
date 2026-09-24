@@ -3,11 +3,15 @@ import { ThumbsUp, HeartHandshake, Flame, Hand, type LucideIcon } from "lucide-r
 import { setPostReaction, setCommentReaction, type GlimpseReaction } from "@/lib/supabase/db";
 import type { TranslationKey } from "@/lib/i18n/en";
 
-export const GLIMPSE_REACTIONS: { value: GlimpseReaction; icon: LucideIcon; labelKey: TranslationKey }[] = [
-  { value: "like", icon: ThumbsUp, labelKey: "glimpse.reactionLike" },
-  { value: "support", icon: HeartHandshake, labelKey: "glimpse.reactionSupport" },
-  { value: "fire", icon: Flame, labelKey: "glimpse.reactionFire" },
-  { value: "clap", icon: Hand, labelKey: "glimpse.reactionClap" },
+// Each reaction gets its own accent (reusing hues the app already assigns
+// meaning to elsewhere) rather than one uniform gray -- 4 identical-looking
+// buttons is what made picking a reaction harder to scan than the old
+// distinct, colorful emoji set.
+export const GLIMPSE_REACTIONS: { value: GlimpseReaction; icon: LucideIcon; labelKey: TranslationKey; color: string }[] = [
+  { value: "like", icon: ThumbsUp, labelKey: "glimpse.reactionLike", color: "#60a5fa" },
+  { value: "support", icon: HeartHandshake, labelKey: "glimpse.reactionSupport", color: "#f43f5e" },
+  { value: "fire", icon: Flame, labelKey: "glimpse.reactionFire", color: "#f59e0b" },
+  { value: "clap", icon: Hand, labelKey: "glimpse.reactionClap", color: "#34d399" },
 ];
 
 /**

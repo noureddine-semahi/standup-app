@@ -51,11 +51,15 @@ a {
   --priority-3: #facc15;
   --priority-4: #94a3b8;
   --priority-5: #64748b;
-  --status-completed: #6ee7b7;
-  --status-in-progress: #93c5fd;
-  --status-blocked: #fca5a5;
-  --status-postponed: #d8b4fe;
-  --status-canceled: #cbd5e1;
+  /* One shade more saturated than the original 300-family pastels (still
+     legible on near-black, but with real hue punch instead of reading as
+     pale/washed-out) -- same hue families the bg/border rgba() values
+     below already use, just carried up into the text/icon color too. */
+  --status-completed: #34d399;
+  --status-in-progress: #60a5fa;
+  --status-blocked: #f87171;
+  --status-postponed: #c084fc;
+  --status-canceled: #94a3b8;
 
   /* Background/border washes for status pills (Today's quick-action
      dropdown, admin/settings danger buttons) — dim = resting state,

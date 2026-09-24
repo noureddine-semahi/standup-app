@@ -79,7 +79,7 @@ export default function AchievementUnlockedModal({
             color: "rgb(252, 211, 77)",
           }}
         >
-          <achievement.icon size={40} strokeWidth={1.75} />
+          <achievement.icon size={40} strokeWidth={2} />
         </div>
         <h2 className="text-2xl font-bold mb-2">{t(achievement.titleKey)}</h2>
         <p className="text-sm text-white/70 mb-6">{t(achievement.descriptionKey)}</p>

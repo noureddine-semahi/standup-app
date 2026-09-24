@@ -26,8 +26,22 @@ export type AchievementDef = {
   titleKey: TranslationKey;
   descriptionKey: TranslationKey;
   icon: LucideIcon;
+  // One accent per achievement FAMILY (streak/goals/points/recovery/social),
+  // reusing hues the app already assigns meaning to elsewhere (status/accent
+  // tokens in globals.css) rather than inventing a new palette. Every badge
+  // rendering uniform green regardless of type — its only prior state — is
+  // what made a 26-badge grid hard to tell apart at a glance once emoji
+  // (each inherently distinct and colorful) were replaced with monochrome
+  // line icons.
+  color: string;
   isUnlocked: (stats: AchievementStats) => boolean;
 };
+
+const STREAK_COLOR = "#f59e0b"; // amber -- matches --accent-amber
+const GOALS_COLOR = "#10b981"; // emerald -- matches --accent-emerald / --status-completed family
+const POINTS_COLOR = "#a855f7"; // purple -- matches --status-postponed family
+const RECOVERY_COLOR = "#3b82f6"; // blue -- matches --status-in-progress family
+const SOCIAL_COLOR = "#f43f5e"; // rose -- matches --accent-rose
 
 // Separate from levels on purpose: levels track cumulative points (long-term
 // effort), achievements are one-time milestones — mostly continuity
@@ -39,6 +53,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.first-close.title",
     descriptionKey: "achievement.first-close.description",
     icon: Sprout,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.totalDaysClosed >= 1,
   },
   {
@@ -46,6 +61,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-3.title",
     descriptionKey: "achievement.streak-3.description",
     icon: Sparkles,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 3,
   },
   {
@@ -53,6 +69,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.challenge-5-day.title",
     descriptionKey: "achievement.challenge-5-day.description",
     icon: Flag,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 5,
   },
   {
@@ -60,6 +77,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-7.title",
     descriptionKey: "achievement.streak-7.description",
     icon: Flame,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 7,
   },
   {
@@ -67,6 +85,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-14.title",
     descriptionKey: "achievement.streak-14.description",
     icon: Dumbbell,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 14,
   },
   {
@@ -74,6 +93,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-30.title",
     descriptionKey: "achievement.streak-30.description",
     icon: Trophy,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 30,
   },
   {
@@ -81,6 +101,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-100.title",
     descriptionKey: "achievement.streak-100.description",
     icon: Crown,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 100,
   },
   {
@@ -88,6 +109,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-200.title",
     descriptionKey: "achievement.streak-200.description",
     icon: Orbit,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 200,
   },
   {
@@ -95,6 +117,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.streak-365.title",
     descriptionKey: "achievement.streak-365.description",
     icon: PartyPopper,
+    color: STREAK_COLOR,
     isUnlocked: (s) => s.longestStreak >= 365,
   },
   {
@@ -102,6 +125,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.goals-10.title",
     descriptionKey: "achievement.goals-10.description",
     icon: CheckCircle2,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.totalGoalsCompleted >= 10,
   },
   {
@@ -109,6 +133,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.goals-50.title",
     descriptionKey: "achievement.goals-50.description",
     icon: Target,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.totalGoalsCompleted >= 50,
   },
   {
@@ -116,6 +141,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.goals-100.title",
     descriptionKey: "achievement.goals-100.description",
     icon: Rocket,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.totalGoalsCompleted >= 100,
   },
   {
@@ -123,6 +149,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.goals-250.title",
     descriptionKey: "achievement.goals-250.description",
     icon: Shield,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.totalGoalsCompleted >= 250,
   },
   {
@@ -130,6 +157,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.goals-500.title",
     descriptionKey: "achievement.goals-500.description",
     icon: Mountain,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.totalGoalsCompleted >= 500,
   },
   {
@@ -137,6 +165,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.points-100.title",
     descriptionKey: "achievement.points-100.description",
     icon: Percent,
+    color: POINTS_COLOR,
     isUnlocked: (s) => s.totalPoints >= 100,
   },
   {
@@ -144,6 +173,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.points-500.title",
     descriptionKey: "achievement.points-500.description",
     icon: Star,
+    color: POINTS_COLOR,
     isUnlocked: (s) => s.totalPoints >= 500,
   },
   {
@@ -151,6 +181,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.points-1000.title",
     descriptionKey: "achievement.points-1000.description",
     icon: Medal,
+    color: POINTS_COLOR,
     isUnlocked: (s) => s.totalPoints >= 1000,
   },
   {
@@ -158,6 +189,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.points-2000.title",
     descriptionKey: "achievement.points-2000.description",
     icon: Award,
+    color: POINTS_COLOR,
     isUnlocked: (s) => s.totalPoints >= 2000,
   },
   {
@@ -165,6 +197,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.points-5000.title",
     descriptionKey: "achievement.points-5000.description",
     icon: Gem,
+    color: POINTS_COLOR,
     isUnlocked: (s) => s.totalPoints >= 5000,
   },
   {
@@ -172,6 +205,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.points-10000.title",
     descriptionKey: "achievement.points-10000.description",
     icon: Diamond,
+    color: POINTS_COLOR,
     isUnlocked: (s) => s.totalPoints >= 10000,
   },
   {
@@ -179,6 +213,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.reschedule-closed.title",
     descriptionKey: "achievement.reschedule-closed.description",
     icon: Repeat,
+    color: RECOVERY_COLOR,
     isUnlocked: (s) => s.reschedulesCompleted >= 1,
   },
   {
@@ -186,6 +221,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.tracked-goal-closed.title",
     descriptionKey: "achievement.tracked-goal-closed.description",
     icon: Search,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.trackedGoalsCompleted >= 1,
   },
   {
@@ -193,6 +229,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.challenge-5-goals.title",
     descriptionKey: "achievement.challenge-5-goals.description",
     icon: ListChecks,
+    color: GOALS_COLOR,
     isUnlocked: (s) => s.maxGoalsCompletedInDay >= 5,
   },
   {
@@ -200,6 +237,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.referral-1.title",
     descriptionKey: "achievement.referral-1.description",
     icon: Handshake,
+    color: SOCIAL_COLOR,
     isUnlocked: (s) => s.totalReferrals >= 1,
   },
   {
@@ -207,6 +245,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.referral-5.title",
     descriptionKey: "achievement.referral-5.description",
     icon: Globe,
+    color: SOCIAL_COLOR,
     isUnlocked: (s) => s.totalReferrals >= 5,
   },
   {
@@ -214,6 +253,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     titleKey: "achievement.social-share.title",
     descriptionKey: "achievement.social-share.description",
     icon: Megaphone,
+    color: SOCIAL_COLOR,
     isUnlocked: (s) => s.hasShared,
   },
 ];

@@ -851,6 +851,52 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
 }
 
+/* About page — scroll-entrance reveal (/looks-expensive trial, 2026-09-24).
+   Scoped to .about-reveal so it can't collide with any other page's own
+   animation. JS (about/page.tsx) toggles .is-visible via IntersectionObserver;
+   under reduced motion the element is simply always in its final state. */
+.about-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.about-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* The One Rule section's stepped-up panel -- the page's one contrast beat
+   on an otherwise all-dark surface (a lighter tint of --tint-rgb, not a
+   literal light-mode swap), plus a typographic accent-underline that draws
+   in under the rule statement itself once revealed. */
+.about-rule-panel {
+  background: rgba(var(--tint-rgb), 0.08);
+}
+.about-rule-underline {
+  display: block;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.9), rgba(16, 185, 129, 0.9));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s;
+}
+.about-reveal.is-visible .about-rule-underline {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-rule-underline {
+    transform: scaleX(1);
+    transition: none;
+  }
+}
+
 /* ✨ Animations */
 @keyframes fadeIn {
   from {

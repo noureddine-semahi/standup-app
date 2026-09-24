@@ -110,7 +110,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-black to-slate-950 p-4">
+    // No background class here on purpose -- the root layout's .app-bg
+    // (real brand gradient + ambient washes) already sits behind every
+    // page; this div used to paint over it with a generic gradient.
+    <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="card">
           <div className="text-center">

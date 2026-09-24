@@ -84,7 +84,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-black to-slate-950 p-4">
+    // No background class here on purpose -- the root layout already
+    // renders .app-bg (the real brand gradient + amber/emerald ambient
+    // washes) behind every page. This div used to paint an opaque generic
+    // slate/black gradient directly over it, hiding the actual brand
+    // background for the entire auth flow.
+    <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="card">
           <div className="text-center">

@@ -45,7 +45,11 @@ export default function PostImage({ imagePath }: { imagePath: string }) {
     <img
       src={url}
       alt={t("social.photoAlt")}
-      className="mb-3 max-h-80 w-full rounded-lg object-cover"
+      // object-contain (not cover) — the whole photo always shows at its
+      // real aspect ratio, never cropped or stretched to fill the box.
+      // max-h-80 only caps unusually tall photos from dominating the feed;
+      // for anything under that height it has no visible effect at all.
+      className="mb-3 max-h-80 w-full rounded-lg object-contain"
       onError={() => setFailed(true)}
     />
   );

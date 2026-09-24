@@ -1288,7 +1288,6 @@ export default function TodayPage() {
           )}
 
           {sortedGoals.map((g, idx) => {
-            const reviewed = !!g.reviewed_at;
             const p = typeof g.priority === "number" ? g.priority : 3;
             const isBusy = busyGoalIds.has(g.id);
             const isCelebrating = celebratingGoalIds.has(g.id);
@@ -1302,6 +1301,16 @@ export default function TodayPage() {
             // full access until then.
             const assignment = assignedOutByGoalId.get(g.id);
             const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+            // This user's own copy of an exclusive-assigned goal never gets
+            // touched again once handed off (they're locked out of it), so
+            // its status/reviewed_at would otherwise sit frozen at
+            // "not_started"/pending forever regardless of what the recipient
+            // actually does. Mirror the recipient's live status instead, and
+            // treat it as already reviewed — it's excluded from this user's
+            // own review requirement (reviewableGoals, above) so it
+            // shouldn't keep showing a "pending review" nag either.
+            const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : g.status;
+            const reviewed = isExclusive ? true : !!g.reviewed_at;
             // "postponed" always means rescheduled — rescheduleGoalToDate()
             // is the only path that ever sets it, and it unconditionally
             // overwrites whatever status was there before (so a goal that
@@ -1314,13 +1323,13 @@ export default function TodayPage() {
             // The full target date and reason are one tap away in the
             // expanded card's timeline either way.
             const isCollapsible =
-              g.status === "completed" ||
-              g.status === "canceled" ||
-              g.status === "blocked" ||
-              g.status === "in_progress" ||
-              g.status === "postponed";
+              effectiveStatus === "completed" ||
+              effectiveStatus === "canceled" ||
+              effectiveStatus === "blocked" ||
+              effectiveStatus === "in_progress" ||
+              effectiveStatus === "postponed";
             const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
-            const doneColors = statusChipColors(g.status);
+            const doneColors = statusChipColors(effectiveStatus);
 
             if (isCollapsed) {
               return (
@@ -1357,8 +1366,8 @@ export default function TodayPage() {
                     </div>
                   </div>
                   <div className="goal-done-banner" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                    <StatusIcon status={g.status} size={15} />
-                    {statusLabel(g.status, t)}
+                    <StatusIcon status={effectiveStatus} size={15} />
+                    {statusLabel(effectiveStatus, t)}
                   </div>
                 </button>
               );
@@ -1609,13 +1618,13 @@ export default function TodayPage() {
                       <div
                         className="status-chip"
                         style={{
-                          "--chip-bg": statusChipColors(g.status).bg,
-                          "--chip-border": statusChipColors(g.status).border,
-                          "--chip-color": statusChipColors(g.status).color,
+                          "--chip-bg": statusChipColors(effectiveStatus).bg,
+                          "--chip-border": statusChipColors(effectiveStatus).border,
+                          "--chip-color": statusChipColors(effectiveStatus).color,
                         } as React.CSSProperties}
                       >
-                        <StatusIcon status={g.status} size={13} />
-                        <span>{statusLabel(g.status, t)}</span>
+                        <StatusIcon status={effectiveStatus} size={13} />
+                        <span>{statusLabel(effectiveStatus, t)}</span>
                       </div>
 
                       {/* Actions checkbox — unchecked until the goal has

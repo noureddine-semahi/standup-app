@@ -9,6 +9,7 @@ import {
   awardPlanningPoints,
   getAttachmentsForGoals,
   getChecklistItemsForGoals,
+  getNotesForGoals,
   getPlanWithGoals,
   isYesterdayReviewed,
   submitPlan,
@@ -258,11 +259,13 @@ export default function TomorrowGoalsPage() {
           .select("materialized_goal_id, from_date, reason")
           .in("materialized_goal_id", goalIds)
           .eq("materialized", true),
-        supabase
-          .from("goal_notes")
-          .select("goal_id, note, created_at, kind")
-          .in("goal_id", goalIds)
-          .order("created_at", { ascending: false }),
+        // Goes through getNotesForGoals (get_goal_notes RPC), not a plain
+        // table query, so an assigned-out goal's timeline also includes the
+        // recipient's own logged actions on their separate copy.
+        getNotesForGoals(goalIds).catch((e) => {
+          console.error("Failed to load goal notes", e);
+          return {} as Record<string, any[]>;
+        }),
         getChecklistItemsForGoals(goalIds).catch((e) => {
           console.error("Failed to load checklist items", e);
           return {} as Record<string, ChecklistItem[]>;
@@ -282,10 +285,7 @@ export default function TomorrowGoalsPage() {
         }
       });
 
-      notesResult.data?.forEach(note => {
-        if (!notesMap[note.goal_id]) notesMap[note.goal_id] = [];
-        notesMap[note.goal_id].push(note);
-      });
+      notesMap = notesResult;
       setGoalComments(notesMap);
       setChecklistItems(checklistResult);
       setAttachments(attachmentsResult);
@@ -595,13 +595,9 @@ export default function TomorrowGoalsPage() {
     setSavingNote((prev) => ({ ...prev, [goalId]: true }));
     try {
       await addGoalNote(goalId, text);
-      const { data: notes } = await supabase
-        .from("goal_notes")
-        .select("*")
-        .eq("goal_id", goalId)
-        .order("created_at", { ascending: false });
+      const byGoal = await getNotesForGoals([goalId]);
       setGoals((prev) =>
-        prev.map((g, i) => (i === idx ? { ...g, previous_actions: notes || [] } : g))
+        prev.map((g, i) => (i === idx ? { ...g, previous_actions: byGoal[goalId] ?? [] } : g))
       );
       setNoteDraft((prev) => ({ ...prev, [goalId]: "" }));
     } catch (e: any) {

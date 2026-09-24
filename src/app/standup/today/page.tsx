@@ -17,6 +17,7 @@ import {
   enforceSingleP1,
   getAttachmentsForGoals,
   getChecklistItemsForGoals,
+  getNotesForGoals,
   getPlanWithGoals,
   getStreak,
   hoursUntilMidnight,
@@ -442,11 +443,13 @@ export default function TodayPage() {
           // Preload notes for every goal up front — the Notes tab defaults
           // to showing them, so without this a goal with real note history
           // would still read "No notes yet" until the tab was clicked once.
-          supabase
-            .from("goal_notes")
-            .select("*")
-            .in("goal_id", goalIds)
-            .order("created_at", { ascending: false }),
+          // Goes through getNotesForGoals (get_goal_notes RPC), not a plain
+          // table query, so an assigned-out goal's timeline also includes
+          // the recipient's own logged actions on their separate copy.
+          getNotesForGoals(goalIds).catch((e) => {
+            console.error("Failed to load goal notes", e);
+            return {} as Record<string, any[]>;
+          }),
           getChecklistItemsForGoals(goalIds).catch((e) => {
             console.error("Failed to load checklist items", e);
             return {} as Record<string, ChecklistItem[]>;
@@ -466,14 +469,9 @@ export default function TodayPage() {
           }
         });
 
-        const notesByGoal: Record<string, any[]> = {};
-        (notesResult.data ?? []).forEach((n) => {
-          (notesByGoal[n.goal_id] ??= []).push(n);
-        });
-
         if (mySeq !== refreshSeqRef.current) return;
 
-        setGoalNotes(notesByGoal);
+        setGoalNotes(notesResult);
         setNotesFetched((prev) => {
           const next = { ...prev };
           goalIds.forEach((id) => (next[id] = true));
@@ -503,14 +501,8 @@ export default function TodayPage() {
 
   // Fetch goal notes/history
   async function fetchGoalNotes(goalId: string) {
-    const { data, error } = await supabase
-      .from("goal_notes")
-      .select("*")
-      .eq("goal_id", goalId)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    const byGoal = await getNotesForGoals([goalId]);
+    return byGoal[goalId] ?? [];
   }
 
   async function submitNote(goalId: string) {

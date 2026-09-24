@@ -1894,21 +1894,43 @@ export async function getGoalsByFilter(
   return rows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null })) as ArchivedGoal[];
 }
 
-/** Notes + logged history events for a batch of goals — feeds buildGoalTimeline for each. */
+/**
+ * Notes + logged history events for a batch of goals — feeds
+ * buildGoalTimeline for each. Goes through the get_goal_notes RPC rather
+ * than a plain client query: for any requested goal the caller has
+ * assigned out, this also pulls in the recipient's own notes on their
+ * separate copy (their real, logged status changes/reviews/etc.) tagged
+ * under the SAME requested goal id, so an assigner can actually see what
+ * happened on a goal they handed off, not just their own frozen "Goal
+ * created" entry. A plain query against goal_notes' own RLS could never
+ * do this — it only ever returns the caller's own rows.
+ */
 export async function getNotesForGoals(goalIds: string[]): Promise<Record<string, any[]>> {
   if (goalIds.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from("goal_notes")
-    .select("goal_id, note, created_at, kind")
-    .in("goal_id", goalIds)
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_goal_notes", { p_goal_ids: goalIds });
   if (error) throw error;
 
+  const rows = (data ?? []) as {
+    request_goal_id: string;
+    note: string;
+    created_at: string;
+    kind: string | null;
+    actor_display_name: string | null;
+  }[];
+
   const byGoal: Record<string, any[]> = {};
-  (data ?? []).forEach((n) => {
-    (byGoal[n.goal_id] ??= []).push(n);
+  rows.forEach((r) => {
+    (byGoal[r.request_goal_id] ??= []).push({
+      goal_id: r.request_goal_id,
+      note: r.actor_display_name ? `${r.actor_display_name}: ${r.note}` : r.note,
+      created_at: r.created_at,
+      kind: r.kind,
+    });
   });
+  Object.values(byGoal).forEach((notes) =>
+    notes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  );
   return byGoal;
 }
 

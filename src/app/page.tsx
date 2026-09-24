@@ -89,6 +89,27 @@ export default function LandingPage() {
     return () => window.clearTimeout(id);
   }, []);
 
+  // Scroll-entrance reveal for Features/How It Works/CTA -- the digit
+  // light-in above was previously the only animation on this page; the
+  // skill's motion law wants 2+ distinct types, and this is a genuinely
+  // different one (scroll-triggered, not mount-triggered).
+  useEffect(() => {
+    const els = document.querySelectorAll(".scroll-reveal");
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [loading]);
+
   useEffect(() => {
     async function checkAuth() {
       const {
@@ -133,6 +154,12 @@ export default function LandingPage() {
 
   return (
     <div className="led-world min-h-screen">
+      {/* Without JS, the scroll-reveal IntersectionObserver (below) never
+          runs, so these sections would sit at their rest state (opacity: 0)
+          forever. Force them visible whenever JS hasn't executed. */}
+      <noscript>
+        <style>{`.scroll-reveal { opacity: 1 !important; transform: none !important; }`}</style>
+      </noscript>
       {/* Hero — the day itself rendered as a bank of scoreboard digits,
           lit segments in ghost-cell mode until they light on load. */}
       <div className="max-w-5xl mx-auto px-4 py-20 sm:py-28 text-center">
@@ -168,8 +195,11 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Features */}
-      <div className="max-w-6xl mx-auto px-4 py-20">
+      {/* Features — ledger rows, not 6 identical led-cell boxes. A single
+          column keeps the divider logic simple (Tailwind's divide-y) rather
+          than fighting a 2-column grid's row-pairing; the process sequence
+          below and the CTA are where led-cell's box treatment is earned. */}
+      <div className="scroll-reveal max-w-3xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
           <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.whyStandup")}</h2>
           <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
@@ -177,12 +207,9 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* min-w-0 on every grid item — a CSS Grid item's default min-width:auto
-            let unbreakable content stretch a track past the viewport on the
-            Dashboard earlier this session; cheap insurance against a repeat. */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
+        <div className="divide-y divide-white/10">
           {FEATURES.map((f) => (
-            <div key={f.titleKey} className="led-cell p-6">
+            <div key={f.titleKey} className="py-5">
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className="led-dot"
@@ -198,8 +225,9 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* How It Works */}
-      <div className="max-w-6xl mx-auto px-4 py-20">
+      {/* How It Works — keeps led-cell (1 of 2 card-budget slots): a
+          3-step sequence genuinely reads as discrete devices. */}
+      <div className="scroll-reveal max-w-6xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
           <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.howItWorks")}</h2>
           <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
@@ -222,8 +250,9 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* CTA */}
-      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+      {/* CTA — keeps led-cell (2 of 2 card-budget slots): the single most
+          important box on the page earns its containment. */}
+      <div className="scroll-reveal max-w-3xl mx-auto px-4 py-20 text-center">
         <div className="led-cell p-10" style={{ borderColor: "rgba(245, 158, 11, 0.35)" }}>
           <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.readyToBuild")}</h2>
           <p className="led-mono text-sm mb-8" style={{ color: "var(--led-text-dim)" }}>

@@ -852,20 +852,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* About page — scroll-entrance reveal (/looks-expensive trial, 2026-09-24).
-   Scoped to .about-reveal so it can't collide with any other page's own
+   Scoped to .scroll-reveal so it can't collide with any other page's own
    animation. JS (about/page.tsx) toggles .is-visible via IntersectionObserver;
    under reduced motion the element is simply always in its final state. */
-.about-reveal {
+.scroll-reveal {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.about-reveal.is-visible {
+.scroll-reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
 }
 @media (prefers-reduced-motion: reduce) {
-  .about-reveal {
+  .scroll-reveal {
     opacity: 1;
     transform: none;
     transition: none;
@@ -887,7 +887,7 @@ h1, h2, h3, h4, h5, h6 {
   transform-origin: center;
   transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s;
 }
-.about-reveal.is-visible .about-rule-underline {
+.scroll-reveal.is-visible .about-rule-underline {
   transform: scaleX(1);
 }
 @media (prefers-reduced-motion: reduce) {

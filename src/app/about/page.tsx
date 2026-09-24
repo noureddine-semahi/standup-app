@@ -80,11 +80,11 @@ export default function AboutPage() {
   // IntersectionObserver rather than a library, matching this app's
   // existing "no new dependency for a small effect" convention (see
   // notificationsBus.ts's window-event pattern for the same reasoning).
-  // Reduced motion is handled purely in CSS (.about-reveal has no
+  // Reduced motion is handled purely in CSS (.scroll-reveal has no
   // transform/opacity under prefers-reduced-motion), so this observer
   // still runs but has nothing visible to animate.
   useEffect(() => {
-    const els = document.querySelectorAll(".about-reveal");
+    const els = document.querySelectorAll(".scroll-reveal");
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -103,15 +103,15 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen">
       {/* Without JS, the IntersectionObserver above never runs, so
-          .about-reveal would sit at its rest state (opacity: 0) forever —
+          .scroll-reveal would sit at its rest state (opacity: 0) forever —
           content the page depends on would simply never appear. This
           forces it visible whenever JS hasn't executed. */}
       <noscript>
-        <style>{`.about-reveal { opacity: 1 !important; transform: none !important; } .about-rule-underline { transform: scaleX(1) !important; }`}</style>
+        <style>{`.scroll-reveal { opacity: 1 !important; transform: none !important; } .about-rule-underline { transform: scaleX(1) !important; }`}</style>
       </noscript>
       <div className="max-w-6xl mx-auto px-4 py-12">
         {/* Hero */}
-        <div className="about-reveal text-center mb-20">
+        <div className="scroll-reveal text-center mb-20">
           <h1 className="text-5xl font-bold mb-4">{t("about.title")}</h1>
           <p className="text-xl text-page-secondary max-w-2xl mx-auto">
             {t("about.heroP1")}
@@ -123,7 +123,7 @@ export default function AboutPage() {
 
         {/* Philosophy + Vision — editorial-rule containment (a top hairline,
             no card chrome) instead of two bordered boxes side by side. */}
-        <div className="about-reveal border-t border-white/10 pt-10 grid gap-10 grid-cols-1 sm:grid-cols-2">
+        <div className="scroll-reveal border-t border-white/10 pt-10 grid gap-10 grid-cols-1 sm:grid-cols-2">
           <div>
             <h2 className="text-2xl text-amber-300 mb-4">{t("about.philosophyTitle")}</h2>
             <p className="text-sm text-white/70">
@@ -190,7 +190,7 @@ export default function AboutPage() {
             all-dark page, and the one place this page earns an animation
             tied to its actual mechanism rather than a generic fade. */}
         <div
-          className="about-reveal about-rule-panel mt-16 px-6 py-12 sm:px-16 sm:py-16 text-center"
+          className="scroll-reveal about-rule-panel mt-16 px-6 py-12 sm:px-16 sm:py-16 text-center"
         >
           {/* Plain-case lead-in, not an uppercase eyebrow -- this is a full
               sentence, and forcing a whole sentence into tracked uppercase
@@ -205,11 +205,11 @@ export default function AboutPage() {
         {/* Bigger Picture + Growing Together — definition lists, not card
             grids: 12 facts across two related lists rather than 12 boxes. */}
         <div className="mt-16 grid gap-10 grid-cols-1 sm:grid-cols-2">
-          <div className="about-reveal">
+          <div className="scroll-reveal">
             <h2 className="text-2xl text-amber-300 mb-2">{t("about.biggerPictureTitle")}</h2>
             <DefinitionList items={BIGGER_PICTURE_ITEMS} t={t} />
           </div>
-          <div className="about-reveal">
+          <div className="scroll-reveal">
             <h2 className="text-2xl text-amber-300 mb-2">{t("about.connectTitle")}</h2>
             <DefinitionList items={GROWING_TOGETHER_ITEMS} t={t} />
           </div>
@@ -218,7 +218,7 @@ export default function AboutPage() {
         {/* The Story + How It Works — the two sections that keep card
             chrome (budget: at most 2 per page). */}
         <div className="mt-16 grid gap-3 grid-cols-1 sm:grid-cols-2">
-          <div className="about-reveal card card-highlight">
+          <div className="scroll-reveal card card-highlight">
             <div className="p-0 sm:p-6">
               <h2 className="text-2xl text-amber-300 mb-4">{t("about.storyTitle")}</h2>
               <p className="text-white/80 mb-4">{t("about.storyP1")}</p>
@@ -231,7 +231,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="about-reveal card card-highlight">
+          <div className="scroll-reveal card card-highlight">
             <div className="p-0 sm:p-6">
               <h2 className="text-2xl text-amber-300 mb-6">{t("about.howItWorksTitle")}</h2>
               <div className="space-y-8">
@@ -253,7 +253,7 @@ export default function AboutPage() {
         </div>
 
         {/* CTA — the signup push only makes sense for a signed-out visitor */}
-        <div className="about-reveal text-center mt-16">
+        <div className="scroll-reveal text-center mt-16">
           {!signedIn && (
             <>
               <Link href="/signup" className="btn btn-primary text-lg px-8 py-4">

@@ -335,12 +335,24 @@ export default function DashboardPage() {
 
   // Today stats
   const todayP1 = todayGoals.find((g) => g.priority === 1);
-  const todayPending = todayGoals.filter((g) => !g.reviewed_at).length;
+  // An exclusive-and-accepted assigned-out goal is excluded from THIS
+  // user's own review requirement on Today's own page (see
+  // src/app/standup/today/page.tsx's reviewableGoals) -- its reviewed_at
+  // never gets set on the assigner's own frozen copy, since it's the
+  // recipient's to review now. Without the same exclusion here, the
+  // Quick Actions "Review N Pending Goal" button (and this banner) could
+  // point at a day that's already fully closed, with nothing left to
+  // actually review -- exactly the mismatch that got reported.
+  const todayReviewableGoals = todayGoals.filter((g) => {
+    const a = assignedOutByGoalId.get(g.id);
+    return !(a?.assignmentType === "exclusive" && a.status === "accepted");
+  });
+  const todayPending = todayReviewableGoals.filter((g) => !g.reviewed_at).length;
   // "Attempted" = reviewed, full stop — the outcome status (completed,
   // blocked, postponed, etc.) never factors into this. Closing the day
   // itself works the same way: it only ever checks reviewed_at, never
   // status, so this mirrors the actual gating rule.
-  const todayReviewed = todayGoals.filter((g) => !!g.reviewed_at).length;
+  const todayReviewed = todayReviewableGoals.filter((g) => !!g.reviewed_at).length;
   const todayTotal = todayGoals.length;
   const todayCompleted = todayGoals.filter((g) => g.status === "completed").length;
   const todayPostponed = todayGoals.filter((g) => g.status === "postponed").length;

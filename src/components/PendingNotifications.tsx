@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   respondToConnectionRequest,
   respondToGoalAssignment,
   markConnectionSeen,
   markGoalAssignmentSeen,
+  markMentionSeen,
   connectionDisplayName,
   type Connection,
   type GoalAssignment,
+  type Mention,
 } from "@/lib/supabase/db";
 import { computeNotificationBuckets } from "@/lib/notificationBuckets";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -30,10 +33,12 @@ const ACTION_BTN_STYLE = { padding: "0.25rem 0.6rem", fontSize: "0.7rem" } as co
 export default function PendingNotifications({
   connections,
   goalAssignments,
+  mentions = [],
   onChange,
 }: {
   connections: Connection[];
   goalAssignments: GoalAssignment[];
+  mentions?: Mention[];
   onChange: () => void;
 }) {
   const { t } = useLanguage();
@@ -55,14 +60,16 @@ export default function PendingNotifications({
     pendingAssignedByYou,
     resolvedConnections,
     resolvedAssignments,
-  } = computeNotificationBuckets(connections, goalAssignments);
+    unseenMentions,
+  } = computeNotificationBuckets(connections, goalAssignments, mentions);
 
   const total =
     pendingConnections.length +
     pendingAssignments.length +
     pendingAssignedByYou.length +
     resolvedConnections.length +
-    resolvedAssignments.length;
+    resolvedAssignments.length +
+    unseenMentions.length;
   if (total === 0) return null;
 
   async function run(id: string, action: () => Promise<void>) {
@@ -207,6 +214,31 @@ export default function PendingNotifications({
             >
               {t("dashboard.acknowledge")}
             </button>
+          </div>
+        ))}
+
+        {unseenMentions.map((m) => (
+          <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-sm text-white/85 truncate">
+                {t("dashboard.mentionLabel", { name: m.mentionedByDisplayName ?? t("social.anonymousUser") })}
+              </div>
+              {m.preview && <div className="text-[11px] text-white/50 truncate">{m.preview}</div>}
+            </div>
+            <div className="flex gap-1.5 flex-shrink-0">
+              <Link href="/standup/social" className="btn" style={ACTION_BTN_STYLE}>
+                {t("dashboard.viewLabel")}
+              </Link>
+              <button
+                type="button"
+                onClick={() => run(m.id, () => markMentionSeen(m.id))}
+                disabled={busyIds.has(m.id)}
+                className="btn"
+                style={ACTION_BTN_STYLE}
+              >
+                {t("dashboard.acknowledge")}
+              </button>
+            </div>
           </div>
         ))}
       </div>

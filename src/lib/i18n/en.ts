@@ -121,6 +121,8 @@ export const en = {
   "dashboard.accepted": "Accepted",
   "dashboard.acknowledge": "Got it",
   "dashboard.assignmentWaitingStatus": "Waiting for {name} to respond",
+  "dashboard.mentionLabel": "{name} mentioned you",
+  "dashboard.viewLabel": "View",
   "dashboard.reviewedCheck": "Reviewed ✓",
   "dashboard.statusLabel": "Status",
   "dashboard.todaysGoals": "Today's Goals",

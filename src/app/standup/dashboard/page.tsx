@@ -16,6 +16,7 @@ import {
   getStreakPassBalance,
   listConnections,
   getMyGoalAssignments,
+  getMyMentions,
   type Goal,
   type Profile,
   type DailyPlan,
@@ -24,6 +25,7 @@ import {
   type StreakPassBalance,
   type Connection,
   type GoalAssignment,
+  type Mention,
 } from "@/lib/supabase/db";
 import PendingNotifications from "@/components/PendingNotifications";
 import { supabase } from "@/lib/supabase/client";
@@ -124,6 +126,7 @@ export default function DashboardPage() {
   const [pointsView, setPointsView] = useState<"total" | "today">("total");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
+  const [mentions, setMentions] = useState<Mention[]>([]);
 
   // Cycles to a new (different) random quote every ~10s — see the effect
   // below, which reschedules itself off motivationIndex the same way the
@@ -211,7 +214,7 @@ export default function DashboardPage() {
         // query can't sink the whole dashboard load via Promise.all's
         // fail-fast behavior — the achievement popup or notifications
         // section just gets skipped for this load, same as before.
-        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments] = await Promise.all([
+        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments, myMentions] = await Promise.all([
           getOrCreateProfile(),
           getStreak(),
           getPlanWithGoals(todayISO),
@@ -220,6 +223,7 @@ export default function DashboardPage() {
           u ? getStreakPassBalance().catch(() => null) : Promise.resolve(null),
           u ? listConnections().catch(() => []) : Promise.resolve([]),
           u ? getMyGoalAssignments().catch(() => []) : Promise.resolve([]),
+          u ? getMyMentions().catch(() => []) : Promise.resolve([]),
         ]);
         setProfile(p);
         setStreak(s);
@@ -229,6 +233,7 @@ export default function DashboardPage() {
         setTomorrowGoals(tomorrowResult.goals);
         setConnections(conns);
         setGoalAssignments(assignments);
+        setMentions(myMentions);
         setPassBalance(passes);
 
         getOverdueSummary(todayISO)
@@ -738,6 +743,7 @@ export default function DashboardPage() {
         <PendingNotifications
           connections={connections}
           goalAssignments={goalAssignments}
+          mentions={mentions}
           onChange={() => setRefreshKey((k) => k + 1)}
         />
 

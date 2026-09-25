@@ -121,6 +121,8 @@ export const es: Record<keyof typeof en, string> = {
   "dashboard.accepted": "Aceptado",
   "dashboard.acknowledge": "Entendido",
   "dashboard.assignmentWaitingStatus": "Esperando la respuesta de {name}",
+  "dashboard.mentionLabel": "{name} te mencionó",
+  "dashboard.viewLabel": "Ver",
   "dashboard.reviewedCheck": "Revisado ✓",
   "dashboard.statusLabel": "Estado",
   "dashboard.todaysGoals": "Objetivos de Hoy",

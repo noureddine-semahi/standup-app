@@ -30,13 +30,13 @@ import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X, ClipboardList } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, X, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
 const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 
-type SocialTab = "myFeed" | "global" | "circle" | "friends" | "goals";
+type SocialTab = "myFeed" | "global" | "circle" | "myPosts" | "friends" | "goals";
 
 export default function SocialPage() {
   const { t } = useLanguage();
@@ -291,12 +291,15 @@ export default function SocialPage() {
   // the rows RLS allows (own + everyone + connections-visible).
   const globalPosts = feed.filter((p) => p.visibility === "everyone");
   const circlePosts = feed.filter((p) => p.visibility === "connections" && p.userId !== currentUserId);
-  const visiblePosts = activeTab === "global" ? globalPosts : activeTab === "circle" ? circlePosts : feed;
+  const myPosts = feed.filter((p) => p.userId === currentUserId);
+  const visiblePosts =
+    activeTab === "global" ? globalPosts : activeTab === "circle" ? circlePosts : activeTab === "myPosts" ? myPosts : feed;
 
   const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users }[] = [
     { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid },
     { key: "global", labelKey: "social.tabGlobal", icon: Globe },
     { key: "circle", labelKey: "social.tabCircle", icon: Users },
+    { key: "myPosts", labelKey: "social.tabMyPosts", icon: UserCircle },
     { key: "friends", labelKey: "social.tabFriends", icon: UserPlus },
     { key: "goals", labelKey: "social.tabGoals", icon: ClipboardList },
   ];

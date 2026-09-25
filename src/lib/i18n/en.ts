@@ -1015,6 +1015,7 @@ export const en = {
   "social.tabMyFeed": "My Feed",
   "social.tabGlobal": "Global",
   "social.tabCircle": "My Circle",
+  "social.tabMyPosts": "My Posts",
   "social.tabFriends": "Friends",
   "social.tabGoals": "Goals",
   "social.guidelinesTitle": "Community Guidelines",

@@ -1012,6 +1012,7 @@ export const es: Record<keyof typeof en, string> = {
   "social.tabMyFeed": "Mi Muro",
   "social.tabGlobal": "Global",
   "social.tabCircle": "Mi Círculo",
+  "social.tabMyPosts": "Mis Publicaciones",
   "social.tabFriends": "Amigos",
   "social.tabGoals": "Objetivos",
   "social.guidelinesTitle": "Normas de la Comunidad",

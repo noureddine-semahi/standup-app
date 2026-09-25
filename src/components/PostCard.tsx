@@ -128,7 +128,7 @@ export default function PostCard({
             <SharePostButton postId={post.id} connections={shareableConnections} />
           )}
         </div>
-        <CommentThread postId={post.id} initialCommentCount={post.commentCount || commentCount} />
+        <CommentThread postId={post.id} initialCommentCount={post.commentCount || commentCount} connections={shareableConnections} />
       </div>
     </div>
   );

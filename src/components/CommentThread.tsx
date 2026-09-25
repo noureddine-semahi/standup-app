@@ -9,10 +9,12 @@ import {
   getPostComments,
   addPostComment,
   deletePostComment,
+  addMention,
   getCurrentUserId,
   formatDateTimeDisplay,
   type PostComment,
 } from "@/lib/supabase/db";
+import MentionInput from "@/components/MentionInput";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -26,7 +28,18 @@ const COMMENT_MAX_LENGTH = 500;
  * RPC return has no profiles join (displayName/avatarUrl would be null
  * until a real fetch resolves them anyway).
  */
-export default function CommentThread({ postId, initialCommentCount }: { postId: string; initialCommentCount: number }) {
+export default function CommentThread({
+  postId,
+  initialCommentCount,
+  connections = [],
+}: {
+  postId: string;
+  initialCommentCount: number;
+  // Accepted connections the current viewer can @mention here — omitted
+  // simply disables mention autocomplete, matching SharePostButton's
+  // optional-prop convention.
+  connections?: { id: string; displayName: string | null }[];
+}) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -35,9 +48,11 @@ export default function CommentThread({ postId, initialCommentCount }: { postId:
   const [count, setCount] = useState(initialCommentCount);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [draftMentionedIds, setDraftMentionedIds] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
+  const [replyMentionedIds, setReplyMentionedIds] = useState<string[]>([]);
   const [postingReply, setPostingReply] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
@@ -64,14 +79,27 @@ export default function CommentThread({ postId, initialCommentCount }: { postId:
     if (next && !loaded) await loadComments();
   }
 
-  async function handlePost(body: string, parentCommentId: string | null, clearDraft: () => void, setBusy: (v: boolean) => void) {
+  async function handlePost(
+    body: string,
+    parentCommentId: string | null,
+    mentionedIds: string[],
+    clearDraft: () => void,
+    clearMentionedIds: () => void,
+    setBusy: (v: boolean) => void
+  ) {
     const trimmed = body.trim();
     if (!trimmed || trimmed.length > COMMENT_MAX_LENGTH) return;
     setBusy(true);
     setError(null);
     try {
-      await addPostComment(postId, trimmed, parentCommentId);
+      const newComment = await addPostComment(postId, trimmed, parentCommentId);
+      // Best-effort, same reasoning as the post composer's own mentions:
+      // a mention failing shouldn't undo a comment that already posted.
+      if (mentionedIds.length > 0) {
+        await Promise.allSettled(mentionedIds.map((id) => addMention(postId, id, newComment.id)));
+      }
       clearDraft();
+      clearMentionedIds();
       setReplyingToId(null);
       const rows = await getPostComments(postId);
       setComments(rows);
@@ -141,8 +169,12 @@ export default function CommentThread({ postId, initialCommentCount }: { postId:
               replying={replyingToId === comment.id}
               replyDraft={replyDraft}
               onReplyDraftChange={setReplyDraft}
-              onSubmitReply={() => handlePost(replyDraft, comment.id, () => setReplyDraft(""), setPostingReply)}
+              onReplyMentionedIdsChange={setReplyMentionedIds}
+              onSubmitReply={() =>
+                handlePost(replyDraft, comment.id, replyMentionedIds, () => setReplyDraft(""), () => setReplyMentionedIds([]), setPostingReply)
+              }
               postingReply={postingReply}
+              connections={connections}
               t={t}
             >
               {repliesFor(comment.id).map((reply) => (
@@ -153,6 +185,7 @@ export default function CommentThread({ postId, initialCommentCount }: { postId:
                   busy={busyIds.has(reply.id)}
                   onDelete={() => handleDelete(reply.id)}
                   isReply
+                  connections={connections}
                   t={t}
                 />
               ))}
@@ -160,14 +193,15 @@ export default function CommentThread({ postId, initialCommentCount }: { postId:
           ))}
 
           <div className="flex items-center gap-2">
-            <input
-              type="text"
+            <MentionInput
               value={draft}
-              onChange={(e) => setDraft(e.target.value.slice(0, COMMENT_MAX_LENGTH))}
+              onChange={(v) => setDraft(v.slice(0, COMMENT_MAX_LENGTH))}
+              connections={connections}
+              onMentionedIdsChange={setDraftMentionedIds}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  handlePost(draft, null, () => setDraft(""), setPosting);
+                  handlePost(draft, null, draftMentionedIds, () => setDraft(""), () => setDraftMentionedIds([]), setPosting);
                 }
               }}
               placeholder={t("comments.placeholder")}
@@ -176,7 +210,7 @@ export default function CommentThread({ postId, initialCommentCount }: { postId:
             />
             <button
               type="button"
-              onClick={() => handlePost(draft, null, () => setDraft(""), setPosting)}
+              onClick={() => handlePost(draft, null, draftMentionedIds, () => setDraft(""), () => setDraftMentionedIds([]), setPosting)}
               disabled={posting || !draft.trim()}
               className="btn"
               style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
@@ -200,8 +234,10 @@ function CommentRow({
   replying,
   replyDraft,
   onReplyDraftChange,
+  onReplyMentionedIdsChange,
   onSubmitReply,
   postingReply,
+  connections = [],
   children,
   t,
 }: {
@@ -214,8 +250,10 @@ function CommentRow({
   replying?: boolean;
   replyDraft?: string;
   onReplyDraftChange?: (v: string) => void;
+  onReplyMentionedIdsChange?: (ids: string[]) => void;
   onSubmitReply?: () => void;
   postingReply?: boolean;
+  connections?: { id: string; displayName: string | null }[];
   children?: React.ReactNode;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
@@ -248,10 +286,11 @@ function CommentRow({
 
           {replying && (
             <div className="mt-2 flex items-center gap-2">
-              <input
-                type="text"
-                value={replyDraft}
-                onChange={(e) => onReplyDraftChange?.(e.target.value.slice(0, COMMENT_MAX_LENGTH))}
+              <MentionInput
+                value={replyDraft ?? ""}
+                onChange={(v) => onReplyDraftChange?.(v.slice(0, COMMENT_MAX_LENGTH))}
+                connections={connections}
+                onMentionedIdsChange={onReplyMentionedIdsChange}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

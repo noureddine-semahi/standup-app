@@ -2402,17 +2402,20 @@ export async function createAchievementPost(achievementId: string, visibility: P
 
 const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 
+/** Returns the new post's id so a caller can immediately follow up with addMention() for any @mentions typed into the composer. */
 export async function createMotivationalPost(
   body: string,
   visibility: PostVisibility,
   imagePath?: string | null
-): Promise<void> {
+): Promise<string | null> {
   const userId = await getCurrentUserId();
   const trimmed = body.trim().slice(0, MOTIVATIONAL_POST_MAX_LENGTH);
-  if (!trimmed) return;
-  const { error } = await supabase
+  if (!trimmed) return null;
+  const { data, error } = await supabase
     .from("posts")
-    .insert({ user_id: userId, type: "motivational", body: trimmed, visibility, image_path: imagePath ?? null });
+    .insert({ user_id: userId, type: "motivational", body: trimmed, visibility, image_path: imagePath ?? null })
+    .select("id")
+    .single();
   if (error) {
     // Mirrors uploadGoalAttachment's orphan cleanup: the image was already
     // uploaded successfully, so a failed post insert must not leave it
@@ -2420,6 +2423,7 @@ export async function createMotivationalPost(
     if (imagePath) await deleteOrphanedPostImage(imagePath);
     throw error;
   }
+  return data?.id ?? null;
 }
 
 type FeedRow = {
@@ -2478,6 +2482,65 @@ export async function getFeed(before?: string): Promise<Post[]> {
 /** Share a post you can see with one of your own accepted connections — even one who couldn't otherwise see it (extends visibility within your own network, doesn't leak beyond it). */
 export async function sharePost(postId: string, recipientId: string): Promise<void> {
   const { error } = await supabase.rpc("share_post", { p_post_id: postId, p_recipient_id: recipientId });
+  if (error) throw error;
+}
+
+// ── @mentions ────────────────────────────────────────────────────────
+// Scoped the same way sharePost is: only ever an accepted connection,
+// re-validated server-side regardless of what the composer's autocomplete
+// already restricted to.
+
+/** Tags an accepted connection on a post (commentId omitted) or a specific comment (commentId set) — they'll see it as a notification. */
+export async function addMention(postId: string, mentionedUserId: string, commentId?: string | null): Promise<void> {
+  const { error } = await supabase.rpc("add_mention", {
+    p_post_id: postId,
+    p_mentioned_user_id: mentionedUserId,
+    p_comment_id: commentId ?? null,
+  });
+  if (error) throw error;
+}
+
+export type Mention = {
+  id: string;
+  postId: string;
+  commentId: string | null;
+  mentionedBy: string;
+  mentionedByDisplayName: string | null;
+  preview: string | null;
+  createdAt: string;
+  seenAt: string | null;
+};
+
+type MentionRow = {
+  mention_id: string;
+  post_id: string;
+  comment_id: string | null;
+  mentioned_by: string;
+  mentioned_by_display_name: string | null;
+  preview: string | null;
+  created_at: string;
+  seen_at: string | null;
+};
+
+/** Every mention of the current user, newest first — powers the Dashboard notifications section and the header bell count. */
+export async function getMyMentions(): Promise<Mention[]> {
+  const { data, error } = await supabase.rpc("get_my_mentions");
+  if (error) throw error;
+  return ((data ?? []) as MentionRow[]).map((r) => ({
+    id: r.mention_id,
+    postId: r.post_id,
+    commentId: r.comment_id,
+    mentionedBy: r.mentioned_by,
+    mentionedByDisplayName: r.mentioned_by_display_name,
+    preview: r.preview,
+    createdAt: r.created_at,
+    seenAt: r.seen_at,
+  }));
+}
+
+/** Acknowledges a mention on the Dashboard's notifications section — never deletes it, same "Got it" pattern connections/assignments already use. */
+export async function markMentionSeen(mentionId: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_mention_seen", { p_mention_id: mentionId });
   if (error) throw error;
 }
 

@@ -15,6 +15,7 @@ import {
   getDiscoverableUsers,
   sendConnectionRequestToUser,
   uploadPostImage,
+  addMention,
   POST_IMAGE_ALLOWED_TYPES,
   POST_IMAGE_MAX_BYTES,
   type Connection,
@@ -27,6 +28,7 @@ import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
+import MentionInput from "@/components/MentionInput";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -66,6 +68,7 @@ export default function SocialPage() {
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
 
   const [postBody, setPostBody] = useState("");
+  const [postMentionedIds, setPostMentionedIds] = useState<string[]>([]);
   const [postVisibility, setPostVisibility] = useState<PostVisibility>("connections");
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
@@ -256,8 +259,15 @@ export default function SocialPage() {
     try {
       let imagePath: string | null = null;
       if (postImageFile) imagePath = await uploadPostImage(postImageFile);
-      await createMotivationalPost(trimmed, postVisibility, imagePath);
+      const newPostId = await createMotivationalPost(trimmed, postVisibility, imagePath);
+      // Best-effort: a mention failing (e.g. the connection was removed
+      // mid-composition) shouldn't undo the post itself, which already
+      // succeeded by this point.
+      if (newPostId) {
+        await Promise.allSettled(postMentionedIds.map((id) => addMention(newPostId, id)));
+      }
       setPostBody("");
+      setPostMentionedIds([]);
       clearPostImage();
       await refreshFeed();
     } catch (e: any) {
@@ -329,9 +339,12 @@ export default function SocialPage() {
               writes themselves; goal glimpses come from Today's Publish
               buttons, achievements auto-post on unlock. */}
           <div className="card card-highlight">
-            <textarea
+            <MentionInput
+              multiline
               value={postBody}
-              onChange={(e) => setPostBody(e.target.value.slice(0, MOTIVATIONAL_POST_MAX_LENGTH))}
+              onChange={(v) => setPostBody(v.slice(0, MOTIVATIONAL_POST_MAX_LENGTH))}
+              connections={shareableConnections}
+              onMentionedIdsChange={setPostMentionedIds}
               placeholder={t("social.composerPlaceholder")}
               disabled={posting}
               rows={3}

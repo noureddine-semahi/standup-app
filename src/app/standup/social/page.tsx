@@ -15,9 +15,13 @@ import {
   getDiscoverableUsers,
   sendConnectionRequestToUser,
   uploadPostImage,
+  uploadPostVideo,
   addMention,
   POST_IMAGE_ALLOWED_TYPES,
   POST_IMAGE_MAX_BYTES,
+  POST_VIDEO_ALLOWED_TYPES,
+  POST_VIDEO_MAX_BYTES,
+  POST_VIDEO_MAX_DURATION_SECONDS,
   type Connection,
   type Post,
   type PostVisibility,
@@ -30,7 +34,7 @@ import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, X, ClipboardList } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -75,6 +79,13 @@ export default function SocialPage() {
   const [postImageFile, setPostImageFile] = useState<File | null>(null);
   const [postImagePreviewUrl, setPostImagePreviewUrl] = useState<string | null>(null);
   const postImageInputRef = useRef<HTMLInputElement | null>(null);
+  // A post carries at most one attachment (image XOR video) -- selecting a
+  // video while an image preview is showing isn't reachable through the UI
+  // (the Add buttons are hidden once either is set), so no extra mutual-
+  // exclusion handling is needed beyond that.
+  const [postVideoFile, setPostVideoFile] = useState<File | null>(null);
+  const [postVideoPreviewUrl, setPostVideoPreviewUrl] = useState<string | null>(null);
+  const postVideoInputRef = useRef<HTMLInputElement | null>(null);
 
   function refreshConnections() {
     return listConnections()
@@ -251,6 +262,52 @@ export default function SocialPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postImagePreviewUrl]);
 
+  async function handlePostVideoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPostError(null);
+    if (!POST_VIDEO_ALLOWED_TYPES.includes(file.type)) {
+      setPostError(t("social.videoTypeInvalid"));
+      return;
+    }
+    if (file.size > POST_VIDEO_MAX_BYTES) {
+      setPostError(t("social.videoTooLarge"));
+      return;
+    }
+    // Duration needs the file's metadata loaded, so this check is async —
+    // uploadPostVideo re-checks it too at actual upload time regardless.
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    const objectUrl = URL.createObjectURL(file);
+    const durationOk = await new Promise<boolean>((resolve) => {
+      video.onloadedmetadata = () => resolve(video.duration <= POST_VIDEO_MAX_DURATION_SECONDS);
+      video.onerror = () => resolve(true); // unreadable — don't block, uploadPostVideo will re-check
+      video.src = objectUrl;
+    });
+    if (!durationOk) {
+      URL.revokeObjectURL(objectUrl);
+      setPostError(t("social.videoTooLong"));
+      return;
+    }
+    if (postVideoPreviewUrl) URL.revokeObjectURL(postVideoPreviewUrl);
+    setPostVideoFile(file);
+    setPostVideoPreviewUrl(objectUrl);
+  }
+
+  function clearPostVideo() {
+    if (postVideoPreviewUrl) URL.revokeObjectURL(postVideoPreviewUrl);
+    setPostVideoFile(null);
+    setPostVideoPreviewUrl(null);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (postVideoPreviewUrl) URL.revokeObjectURL(postVideoPreviewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postVideoPreviewUrl]);
+
   async function handlePost() {
     const trimmed = postBody.trim();
     if (!trimmed || posting) return;
@@ -258,8 +315,10 @@ export default function SocialPage() {
     setPostError(null);
     try {
       let imagePath: string | null = null;
+      let videoPath: string | null = null;
       if (postImageFile) imagePath = await uploadPostImage(postImageFile);
-      const newPostId = await createMotivationalPost(trimmed, postVisibility, imagePath);
+      if (postVideoFile) videoPath = await uploadPostVideo(postVideoFile);
+      const newPostId = await createMotivationalPost(trimmed, postVisibility, imagePath, videoPath);
       // Best-effort: a mention failing (e.g. the connection was removed
       // mid-composition) shouldn't undo the post itself, which already
       // succeeded by this point.
@@ -269,6 +328,7 @@ export default function SocialPage() {
       setPostBody("");
       setPostMentionedIds([]);
       clearPostImage();
+      clearPostVideo();
       await refreshFeed();
     } catch (e: any) {
       setPostError(e?.message ?? t("social.failedPost"));
@@ -362,6 +422,16 @@ export default function SocialPage() {
               disabled={posting}
               className="hidden"
             />
+            <input
+              ref={postVideoInputRef}
+              type="file"
+              accept={POST_VIDEO_ALLOWED_TYPES.join(",")}
+              onChange={handlePostVideoSelected}
+              disabled={posting}
+              className="hidden"
+            />
+            {/* A post carries at most one attachment — image XOR video —
+                so the two "Add" buttons only show while neither is set. */}
             {postImagePreviewUrl ? (
               <div className="mt-2 relative inline-block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -381,16 +451,41 @@ export default function SocialPage() {
                   <X size={12} />
                 </button>
               </div>
+            ) : postVideoPreviewUrl ? (
+              <div className="mt-2 relative inline-block">
+                <video src={postVideoPreviewUrl} controls muted className="max-h-40 rounded-lg border border-white/10" />
+                <button
+                  type="button"
+                  onClick={clearPostVideo}
+                  disabled={posting}
+                  className="absolute -top-2 -right-2 flex items-center justify-center rounded-full"
+                  style={{ width: "22px", height: "22px", background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.2)" }}
+                  title={t("social.removeVideo")}
+                >
+                  <X size={12} />
+                </button>
+              </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => postImageInputRef.current?.click()}
-                disabled={posting}
-                className="btn mt-2 inline-flex items-center gap-1.5"
-                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
-              >
-                <ImagePlus size={13} /> {t("social.addPhoto")}
-              </button>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => postImageInputRef.current?.click()}
+                  disabled={posting}
+                  className="btn inline-flex items-center gap-1.5"
+                  style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                >
+                  <ImagePlus size={13} /> {t("social.addPhoto")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => postVideoInputRef.current?.click()}
+                  disabled={posting}
+                  className="btn inline-flex items-center gap-1.5"
+                  style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                >
+                  <Video size={13} /> {t("social.addVideo")}
+                </button>
+              </div>
             )}
 
             <div className="flex items-center justify-between gap-2 mt-2">

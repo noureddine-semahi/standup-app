@@ -8,6 +8,7 @@ import { usePostReaction } from "@/lib/glimpseReactions";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
 import CommentThread from "@/components/CommentThread";
 import PostImage from "@/components/PostImage";
+import PostVideo from "@/components/PostVideo";
 import SharePostButton from "@/components/SharePostButton";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import type { Post } from "@/lib/supabase/db";
@@ -121,6 +122,7 @@ export default function PostCard({
           <p className="text-sm text-white/80 mb-3 whitespace-pre-wrap">{post.body}</p>
         )}
         {post.type === "motivational" && post.imagePath && <PostImage imagePath={post.imagePath} />}
+        {post.type === "motivational" && post.videoPath && <PostVideo videoPath={post.videoPath} />}
 
         <div className="flex items-center gap-2 flex-wrap">
           <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} counts={post.reactionCounts} />

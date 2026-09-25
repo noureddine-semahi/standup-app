@@ -152,6 +152,7 @@ export type Post = {
   targetUserId: string | null;
   targetDisplayName: string | null;
   imagePath: string | null;
+  videoPath: string | null;
   // Set only when THIS viewer reached the post via a share rather than
   // its own visibility rules — null for the owner's own view, or for
   // anyone who could already see it normally.
@@ -1469,6 +1470,83 @@ async function deleteOrphanedPostImage(storagePath: string) {
   await supabase.storage.from(POST_IMAGE_BUCKET).remove([storagePath]);
 }
 
+const POST_VIDEO_BUCKET = "post-videos";
+export const POST_VIDEO_MAX_BYTES = 25 * 1024 * 1024;
+// mp4/webm only -- unlike photos, an unplayable video renders as nothing
+// at all in a viewer's feed, so format breadth matters less than every
+// major browser being able to actually play what's allowed.
+export const POST_VIDEO_ALLOWED_TYPES = ["video/mp4", "video/webm"];
+export const POST_VIDEO_MAX_DURATION_SECONDS = 60;
+
+// Reads a video's duration client-side (no server-side transcoding
+// pipeline exists to enforce this otherwise) by loading it into an
+// off-DOM <video> element just for its metadata. Resolves null rather
+// than rejecting on any failure -- an unreadable duration shouldn't by
+// itself block an otherwise-valid upload.
+function readVideoDurationSeconds(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    try {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      const url = URL.createObjectURL(file);
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        resolve(Number.isFinite(video.duration) ? video.duration : null);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      video.src = url;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Uploads to the private "post-videos" bucket and returns the storage
+ * path (not a URL — see getPostVideoUrl). Does not touch the posts
+ * table; the caller wires the returned path into createMotivationalPost's
+ * videoPath. Mirrors uploadPostImage, plus a duration check images don't
+ * need.
+ */
+export async function uploadPostVideo(file: File): Promise<string> {
+  if (!POST_VIDEO_ALLOWED_TYPES.includes(file.type)) {
+    throw new Error("Only MP4 or WEBM videos are supported.");
+  }
+  if (file.size > POST_VIDEO_MAX_BYTES) {
+    throw new Error(`Video too large — max ${Math.round(POST_VIDEO_MAX_BYTES / (1024 * 1024))}MB.`);
+  }
+  const duration = await readVideoDurationSeconds(file);
+  if (duration !== null && duration > POST_VIDEO_MAX_DURATION_SECONDS) {
+    throw new Error(`Video too long — max ${POST_VIDEO_MAX_DURATION_SECONDS}s.`);
+  }
+
+  const userId = await getCurrentUserId();
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")) : "";
+  const storagePath = `${userId}/${crypto.randomUUID()}${ext}`;
+
+  const { error } = await supabase.storage
+    .from(POST_VIDEO_BUCKET)
+    .upload(storagePath, file, { contentType: file.type });
+  if (error) throw error;
+  return storagePath;
+}
+
+/** Signed URL, 1 hour — same reasoning as getPostImageUrl. */
+export async function getPostVideoUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(POST_VIDEO_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function deleteOrphanedPostVideo(storagePath: string) {
+  await supabase.storage.from(POST_VIDEO_BUCKET).remove([storagePath]);
+}
+
 export type GoalEventKind = "status_change" | "priority_change" | "reviewed" | "rescheduled";
 
 /**
@@ -2417,20 +2495,30 @@ const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 export async function createMotivationalPost(
   body: string,
   visibility: PostVisibility,
-  imagePath?: string | null
+  imagePath?: string | null,
+  videoPath?: string | null
 ): Promise<string | null> {
   const userId = await getCurrentUserId();
   const trimmed = body.trim().slice(0, MOTIVATIONAL_POST_MAX_LENGTH);
   if (!trimmed) return null;
   const id = crypto.randomUUID();
-  const { error } = await supabase
-    .from("posts")
-    .insert({ id, user_id: userId, type: "motivational", body: trimmed, visibility, image_path: imagePath ?? null });
+  const { error } = await supabase.from("posts").insert({
+    id,
+    user_id: userId,
+    type: "motivational",
+    body: trimmed,
+    visibility,
+    image_path: imagePath ?? null,
+    video_path: videoPath ?? null,
+  });
   if (error) {
-    // Mirrors uploadGoalAttachment's orphan cleanup: the image was already
-    // uploaded successfully, so a failed post insert must not leave it
-    // stranded with no row and no way for the user to ever delete it.
+    // Mirrors uploadGoalAttachment's orphan cleanup: the image/video was
+    // already uploaded successfully, so a failed post insert must not
+    // leave it stranded with no row and no way for the user to ever
+    // delete it. Only one of the two is ever actually set (the composer
+    // enforces image XOR video), but cleaning up both is harmless.
     if (imagePath) await deleteOrphanedPostImage(imagePath);
+    if (videoPath) await deleteOrphanedPostVideo(videoPath);
     throw error;
   }
   return id;
@@ -2452,6 +2540,7 @@ type FeedRow = {
   target_user_id: string | null;
   target_display_name: string | null;
   image_path: string | null;
+  video_path: string | null;
   shared_by_id: string | null;
   shared_by_display_name: string | null;
   reaction_counts: Record<string, number> | null;
@@ -2482,6 +2571,7 @@ export async function getFeed(before?: string): Promise<Post[]> {
     targetUserId: r.target_user_id,
     targetDisplayName: r.target_display_name,
     imagePath: r.image_path,
+    videoPath: r.video_path,
     sharedById: r.shared_by_id,
     sharedByDisplayName: r.shared_by_display_name,
     reactionCounts: r.reaction_counts ?? {},
@@ -2641,6 +2731,7 @@ export async function getAdminFeed(before?: string): Promise<AdminFeedPost[]> {
     targetUserId: r.target_user_id,
     targetDisplayName: r.target_display_name,
     imagePath: r.image_path,
+    videoPath: r.video_path,
     sharedById: null,
     sharedByDisplayName: null,
     reactionCounts: {},

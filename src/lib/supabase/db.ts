@@ -328,35 +328,6 @@ export async function getCurrentUserId() {
   return data.session.user.id;
 }
 
-/**
- * TEMPORARY diagnostic for the "new row violates row-level security
- * policy for table posts" investigation -- compares the session's own
- * user id against the "sub" claim actually encoded in its access token
- * (what auth.uid() resolves to server-side). If these ever disagree,
- * that's the smoking gun for a stale/cross-tab session. Remove once the
- * cause is confirmed.
- */
-export async function debugAuthState() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  const session = data.session;
-  let jwtSub: string | null = null;
-  let jwtExp: string | null = null;
-  try {
-    const payload = JSON.parse(atob(session?.access_token.split(".")[1] ?? ""));
-    jwtSub = payload.sub ?? null;
-    jwtExp = payload.exp ? new Date(payload.exp * 1000).toISOString() : null;
-  } catch {
-    // ignore decode failure, fields stay null
-  }
-  return {
-    sessionUserId: session?.user?.id ?? null,
-    jwtSub,
-    jwtExp,
-    now: new Date().toISOString(),
-  };
-}
-
 /** Free-tier assistant usage for the current user — see src/lib/assistant/usage.ts for the cap/reset logic this feeds. Read-only; the actual increment/reset happens server-side in src/app/api/assistant/route.ts. */
 export async function getAssistantUsage(): Promise<{ uses: number; resetAt: string }> {
   const userId = await getCurrentUserId();
@@ -2431,7 +2402,18 @@ export async function createAchievementPost(achievementId: string, visibility: P
 
 const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 
-/** Returns the new post's id so a caller can immediately follow up with addMention() for any @mentions typed into the composer. */
+/**
+ * Returns the new post's id so a caller can immediately follow up with
+ * addMention() for any @mentions typed into the composer. The id is
+ * generated client-side (same pattern uploadPostImage already uses for
+ * its storage path) and inserted explicitly rather than requested back
+ * via .select() -- an INSERT ... RETURNING makes Postgres also enforce
+ * the table's SELECT policy (posts_select_visible/can_view_post) on the
+ * brand-new row before it's returned, on top of the INSERT policy, and
+ * that combination was intermittently failing with "new row violates
+ * row-level security policy" even for the poster's own row. Knowing the
+ * id upfront sidesteps needing RETURNING at all.
+ */
 export async function createMotivationalPost(
   body: string,
   visibility: PostVisibility,
@@ -2440,11 +2422,10 @@ export async function createMotivationalPost(
   const userId = await getCurrentUserId();
   const trimmed = body.trim().slice(0, MOTIVATIONAL_POST_MAX_LENGTH);
   if (!trimmed) return null;
-  const { data, error } = await supabase
+  const id = crypto.randomUUID();
+  const { error } = await supabase
     .from("posts")
-    .insert({ user_id: userId, type: "motivational", body: trimmed, visibility, image_path: imagePath ?? null })
-    .select("id")
-    .single();
+    .insert({ id, user_id: userId, type: "motivational", body: trimmed, visibility, image_path: imagePath ?? null });
   if (error) {
     // Mirrors uploadGoalAttachment's orphan cleanup: the image was already
     // uploaded successfully, so a failed post insert must not leave it
@@ -2452,7 +2433,7 @@ export async function createMotivationalPost(
     if (imagePath) await deleteOrphanedPostImage(imagePath);
     throw error;
   }
-  return data?.id ?? null;
+  return id;
 }
 
 type FeedRow = {

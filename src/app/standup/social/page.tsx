@@ -9,6 +9,8 @@ import {
   getFeed,
   getPostCommentCounts,
   getCurrentUserId,
+  getOrCreateProfile,
+  acceptCommunityGuidelines,
   createMotivationalPost,
   getDiscoverableUsers,
   sendConnectionRequestToUser,
@@ -20,9 +22,11 @@ import {
   type PostVisibility,
   type DiscoverableUser,
 } from "@/lib/supabase/db";
+import { useRouter } from "next/navigation";
 import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
+import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, ImagePlus, X, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -34,7 +38,14 @@ type SocialTab = "myFeed" | "global" | "circle" | "friends" | "goals";
 
 export default function SocialPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
+  // null = not checked yet (render nothing rather than flash the feed
+  // before we know). false = must acknowledge before anything below is
+  // usable. See CommunityGuidelinesModal.
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState<boolean | null>(null);
+  const [guidelinesSaving, setGuidelinesSaving] = useState(false);
+  const [guidelinesError, setGuidelinesError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SocialTab>("myFeed");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -138,8 +149,27 @@ export default function SocialPage() {
     refreshConnections().finally(() => setLoading(false));
     refreshFeed();
     refreshDiscover();
+    // Fail open on a transient error here rather than locking the user
+    // out of Community entirely — this is a rules acknowledgment, not a
+    // legal gate, so the safer failure mode is "let them in."
+    getOrCreateProfile()
+      .then((p) => setGuidelinesAccepted(!!p.community_guidelines_accepted_at))
+      .catch(() => setGuidelinesAccepted(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleAgreeToGuidelines() {
+    setGuidelinesSaving(true);
+    setGuidelinesError(null);
+    try {
+      await acceptCommunityGuidelines();
+      setGuidelinesAccepted(true);
+    } catch (e: any) {
+      setGuidelinesError(e?.message ?? t("social.guidelinesFailed"));
+    } finally {
+      setGuidelinesSaving(false);
+    }
+  }
 
   function setConnectionBusy(id: string, busy: boolean) {
     setBusyConnectionIds((prev) => {
@@ -262,6 +292,14 @@ export default function SocialPage() {
 
   return (
     <div className="space-y-6">
+      {guidelinesAccepted === false && (
+        <CommunityGuidelinesModal
+          saving={guidelinesSaving}
+          error={guidelinesError}
+          onAgree={handleAgreeToGuidelines}
+          onDecline={() => router.push("/standup/dashboard")}
+        />
+      )}
       <div className="card card-highlight">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("social.title")}</h1>
         <p className="text-white/70">{t("social.subtitle")}</p>

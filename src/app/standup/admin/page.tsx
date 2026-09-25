@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardList, CheckCircle2 } from "lucide-react";
+import { ClipboardList, CheckCircle2, ShieldAlert } from "lucide-react";
 import {
   isCurrentUserAdmin,
   isCurrentUserSysAdmin,
@@ -257,9 +257,14 @@ export default function AdminPage() {
               {loading ? "Loading members…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
             </p>
           </div>
-          <Link href="/standup/admin/product-log" className="btn btn-ghost whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-            <ClipboardList size={15} /> Product Log
-          </Link>
+          <div className="flex gap-2 flex-wrap">
+            <Link href="/standup/admin/moderation" className="btn btn-ghost whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+              <ShieldAlert size={15} /> Moderation
+            </Link>
+            <Link href="/standup/admin/product-log" className="btn btn-ghost whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+              <ClipboardList size={15} /> Product Log
+            </Link>
+          </div>
         </div>
         {msg && <p className="mt-3 text-sm text-amber-300">{msg}</p>}
       </div>

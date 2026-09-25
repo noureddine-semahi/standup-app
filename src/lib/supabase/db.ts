@@ -58,7 +58,18 @@ export type Profile = {
   shared_at?: string | null;
   is_admin?: boolean;
   privacy_accepted_at?: string | null;
+  community_guidelines_accepted_at?: string | null;
 };
+
+/** Set once, the first time the user opens Community and clicks past the guidelines gate. No versioning — same limitation as privacy_accepted_at. */
+export async function acceptCommunityGuidelines(): Promise<void> {
+  const userId = await getCurrentUserId();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ community_guidelines_accepted_at: new Date().toISOString() })
+    .eq("id", userId);
+  if (error) throw error;
+}
 
 export type ConnectionStatus = "pending" | "accepted" | "declined";
 
@@ -2496,6 +2507,73 @@ export async function getPostComments(postId: string): Promise<PostComment[]> {
   const { data, error } = await supabase.rpc("get_post_comments", { p_post_id: postId });
   if (error) throw error;
   return ((data ?? []) as CommentRow[]).map(commentRowToComment);
+}
+
+// ── Admin moderation ─────────────────────────────────────────────────
+// Full visibility into Community regardless of a post's own visibility
+// setting, plus removal — for enforcing the community guidelines, not for
+// everyday feed browsing (see getFeed for that). Every RPC these call
+// throws server-side if the caller isn't an admin.
+
+export type AdminFeedPost = Post & { reactionCount: number; commentCount: number };
+
+type AdminFeedRow = FeedRow & { reaction_count: number; comment_count: number };
+
+/** Every post ever published, any visibility, newest first — admin-only. */
+export async function getAdminFeed(before?: string): Promise<AdminFeedPost[]> {
+  const { data, error } = await supabase.rpc("admin_get_feed", {
+    p_limit: 50,
+    p_before: before ?? null,
+  });
+  if (error) throw error;
+  return ((data ?? []) as AdminFeedRow[]).map((r) => ({
+    id: r.post_id,
+    userId: r.user_id,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url,
+    type: r.type,
+    visibility: r.visibility,
+    createdAt: r.created_at,
+    planDate: r.plan_date,
+    achievementId: r.achievement_id,
+    body: r.body,
+    myReaction: null,
+    goals: r.goals,
+    targetUserId: r.target_user_id,
+    targetDisplayName: r.target_display_name,
+    imagePath: r.image_path,
+    reactionCount: r.reaction_count,
+    commentCount: r.comment_count,
+  }));
+}
+
+/** Removes any post (not just your own) and logs it to the admin audit log — admin-only. */
+export async function adminDeletePost(postId: string): Promise<void> {
+  const { error } = await supabase.rpc("admin_delete_post", { p_post_id: postId });
+  if (error) throw error;
+}
+
+/** Every comment on one post regardless of the post's own visibility — admin-only. */
+export async function getAdminPostComments(postId: string): Promise<PostComment[]> {
+  const { data, error } = await supabase.rpc("admin_get_post_comments", { p_post_id: postId });
+  if (error) throw error;
+  return ((data ?? []) as Omit<CommentRow, "my_reaction">[]).map((r) => ({
+    id: r.comment_id,
+    postId: r.post_id,
+    userId: r.user_id,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url,
+    parentCommentId: r.parent_comment_id,
+    body: r.body,
+    createdAt: r.created_at,
+    myReaction: null,
+  }));
+}
+
+/** Removes any comment (not just your own) and logs it to the admin audit log — admin-only. */
+export async function adminDeleteComment(commentId: string): Promise<void> {
+  const { error } = await supabase.rpc("admin_delete_comment", { p_comment_id: commentId });
+  if (error) throw error;
 }
 
 /** Batched comment counts for a page of posts, keyed by post id — powers the collapsed "Comments (N)" toggle without a query per post. */

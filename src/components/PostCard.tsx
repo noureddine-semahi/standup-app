@@ -2,7 +2,7 @@
 
 import Avatar from "@/components/Avatar";
 import { Lock } from "lucide-react";
-import { statusLabel } from "@/lib/goalStatus";
+import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import { usePostReaction } from "@/lib/glimpseReactions";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
@@ -48,12 +48,27 @@ export default function PostCard({ post, commentCount = 0 }: { post: Post; comme
               </div>
             )}
             <div className="space-y-1 mb-3">
-              {post.goals.map((g) => (
-                <div key={g.goal_id} className="flex items-center gap-2 text-xs">
-                  <span title={statusLabel(g.status, t)} className="inline-flex"><StatusIcon status={g.status} /></span>
-                  <span className="truncate text-white/80">{g.title}</span>
-                </div>
-              ))}
+              {post.goals.map((g) => {
+                const color = statusChipColors(g.status).color;
+                return (
+                  <div key={g.goal_id} className="flex items-center gap-2 text-xs">
+                    {/* Each goal's real status color, not inherited text
+                        color — this list previously rendered every icon
+                        the same flat tone regardless of completed/blocked/
+                        rescheduled/etc. A small glow (matching the app's
+                        LED motif — see .led-dot's own glow) makes the
+                        color read as genuinely "lit," not just tinted. */}
+                    <span
+                      title={statusLabel(g.status, t)}
+                      className="inline-flex flex-shrink-0"
+                      style={{ color, filter: `drop-shadow(0 0 3px ${color})` }}
+                    >
+                      <StatusIcon status={g.status} />
+                    </span>
+                    <span className="truncate text-white/80">{g.title}</span>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}

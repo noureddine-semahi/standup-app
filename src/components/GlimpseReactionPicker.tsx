@@ -34,6 +34,11 @@ export default function GlimpseReactionPicker({
             color: myReaction === r.value ? r.color : hexToRgba(r.color, 0.75),
             background: myReaction === r.value ? hexToRgba(r.color, 0.18) : undefined,
             borderColor: myReaction === r.value ? hexToRgba(r.color, 0.55) : undefined,
+            // A glow, not just a tint — matches the app's LED motif (see
+            // .led-dot's own box-shadow glow). Picked (lit) gets the full
+            // glow; unpicked (ghost) gets a faint one, still enough to read
+            // as that reaction's real color rather than a flat outline.
+            filter: `drop-shadow(0 0 ${myReaction === r.value ? 4 : 2}px ${hexToRgba(r.color, myReaction === r.value ? 0.6 : 0.35)})`,
           }}
         >
           <r.icon size={15} strokeWidth={2.25} />

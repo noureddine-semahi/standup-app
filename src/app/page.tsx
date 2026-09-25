@@ -195,6 +195,26 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* Promo video — the hero's static digits tell the story in one
+          frozen frame; this shows it in motion right below, before a
+          visitor has to read anything else to get it. Muted+loop so it
+          autoplays across browsers; controls stay on so sound (voiceover-
+          free, just sound design + score per how it was produced) is a
+          visitor's choice, not forced on them. */}
+      <div className="scroll-reveal max-w-3xl mx-auto px-4 pb-20">
+        <div className="led-cell p-3 sm:p-4">
+          <video
+            className="w-full rounded-lg block"
+            src="/videos/standup-promo.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+          />
+        </div>
+      </div>
+
       {/* Features — ledger rows, not 6 identical led-cell boxes. A single
           column keeps the divider logic simple (Tailwind's divide-y) rather
           than fighting a 2-column grid's row-pairing; the process sequence

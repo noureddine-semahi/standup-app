@@ -152,6 +152,15 @@ export type Post = {
   targetUserId: string | null;
   targetDisplayName: string | null;
   imagePath: string | null;
+  // Set only when THIS viewer reached the post via a share rather than
+  // its own visibility rules — null for the owner's own view, or for
+  // anyone who could already see it normally.
+  sharedById: string | null;
+  sharedByDisplayName: string | null;
+  // Per-reaction-type counts (e.g. { like: 2, fire: 1 }) — a type with
+  // zero reactions is simply absent, not present at 0.
+  reactionCounts: Record<string, number>;
+  commentCount: number;
 };
 
 export type GoalNote = {
@@ -2429,6 +2438,10 @@ type FeedRow = {
   target_user_id: string | null;
   target_display_name: string | null;
   image_path: string | null;
+  shared_by_id: string | null;
+  shared_by_display_name: string | null;
+  reaction_counts: Record<string, number> | null;
+  comment_count: number;
 };
 
 /** The visibility-filtered feed (own posts + everyone + connections-visible), newest first. */
@@ -2455,7 +2468,17 @@ export async function getFeed(before?: string): Promise<Post[]> {
     targetUserId: r.target_user_id,
     targetDisplayName: r.target_display_name,
     imagePath: r.image_path,
+    sharedById: r.shared_by_id,
+    sharedByDisplayName: r.shared_by_display_name,
+    reactionCounts: r.reaction_counts ?? {},
+    commentCount: r.comment_count,
   }));
+}
+
+/** Share a post you can see with one of your own accepted connections — even one who couldn't otherwise see it (extends visibility within your own network, doesn't leak beyond it). */
+export async function sharePost(postId: string, recipientId: string): Promise<void> {
+  const { error } = await supabase.rpc("share_post", { p_post_id: postId, p_recipient_id: recipientId });
+  if (error) throw error;
 }
 
 /** Pass reaction: null to remove the viewer's current reaction. */
@@ -2474,6 +2497,7 @@ export type PostComment = {
   body: string;
   createdAt: string;
   myReaction: GlimpseReaction | null;
+  reactionCounts: Record<string, number>;
 };
 
 type CommentRow = {
@@ -2486,6 +2510,7 @@ type CommentRow = {
   body: string;
   created_at: string;
   my_reaction: GlimpseReaction | null;
+  reaction_counts: Record<string, number> | null;
 };
 
 function commentRowToComment(r: CommentRow): PostComment {
@@ -2499,6 +2524,7 @@ function commentRowToComment(r: CommentRow): PostComment {
     body: r.body,
     createdAt: r.created_at,
     myReaction: r.my_reaction,
+    reactionCounts: r.reaction_counts ?? {},
   };
 }
 
@@ -2542,6 +2568,9 @@ export async function getAdminFeed(before?: string): Promise<AdminFeedPost[]> {
     targetUserId: r.target_user_id,
     targetDisplayName: r.target_display_name,
     imagePath: r.image_path,
+    sharedById: null,
+    sharedByDisplayName: null,
+    reactionCounts: {},
     reactionCount: r.reaction_count,
     commentCount: r.comment_count,
   }));
@@ -2567,6 +2596,7 @@ export async function getAdminPostComments(postId: string): Promise<PostComment[
     body: r.body,
     createdAt: r.created_at,
     myReaction: null,
+    reactionCounts: {},
   }));
 }
 
@@ -2620,6 +2650,7 @@ export async function addPostComment(postId: string, body: string, parentComment
     body: row.body,
     createdAt: row.created_at,
     myReaction: null,
+    reactionCounts: {},
   };
 }
 

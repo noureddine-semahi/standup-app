@@ -1,13 +1,14 @@
 "use client";
 
 import Avatar from "@/components/Avatar";
-import { Lock } from "lucide-react";
+import { Lock, Forward } from "lucide-react";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import { usePostReaction } from "@/lib/glimpseReactions";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
 import CommentThread from "@/components/CommentThread";
 import PostImage from "@/components/PostImage";
+import SharePostButton from "@/components/SharePostButton";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import type { Post } from "@/lib/supabase/db";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
@@ -18,7 +19,18 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
  * split now that every post (goal glimpse, achievement, motivational) goes
  * through one getFeed() call and one reaction system. Purely presentational.
  */
-export default function PostCard({ post, commentCount = 0 }: { post: Post; commentCount?: number }) {
+export default function PostCard({
+  post,
+  commentCount = 0,
+  shareableConnections = [],
+}: {
+  post: Post;
+  commentCount?: number;
+  // Accepted connections the current viewer can share this post with —
+  // omitted (or empty) simply hides the Share button rather than erroring,
+  // so a caller that hasn't wired connections through yet still renders.
+  shareableConnections?: { id: string; displayName: string | null }[];
+}) {
   const { t } = useLanguage();
   const { myReaction, reacting, pickReaction } = usePostReaction(post.id, post.myReaction);
   const displayName = post.displayName ?? t("social.anonymousUser");
@@ -33,6 +45,12 @@ export default function PostCard({ post, commentCount = 0 }: { post: Post; comme
             <div className="text-[10px] text-white/40">{formatDateTimeDisplay(post.createdAt)}</div>
           </div>
         </div>
+
+        {post.sharedByDisplayName && (
+          <div className="mb-2 inline-flex items-center gap-1 text-xs text-white/50">
+            <Forward size={11} /> {t("social.sharedByLabel", { name: post.sharedByDisplayName })}
+          </div>
+        )}
 
         {post.type === "goal_glimpse" && post.goals && (
           <>
@@ -104,8 +122,13 @@ export default function PostCard({ post, commentCount = 0 }: { post: Post; comme
         )}
         {post.type === "motivational" && post.imagePath && <PostImage imagePath={post.imagePath} />}
 
-        <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} />
-        <CommentThread postId={post.id} initialCommentCount={commentCount} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} counts={post.reactionCounts} />
+          {shareableConnections.length > 0 && (
+            <SharePostButton postId={post.id} connections={shareableConnections} />
+          )}
+        </div>
+        <CommentThread postId={post.id} initialCommentCount={post.commentCount || commentCount} />
       </div>
     </div>
   );

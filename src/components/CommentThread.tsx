@@ -233,7 +233,7 @@ function CommentRow({
           </div>
           <div className="text-sm text-white/80 whitespace-pre-wrap">{comment.body}</div>
           <div className="mt-1 flex items-center gap-3">
-            <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} />
+            <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} counts={comment.reactionCounts} />
             {!isReply && onReply && (
               <button type="button" onClick={onReply} className="inline-flex items-center gap-1 text-[11px] text-white/50 hover:text-white/80">
                 <ReplyIcon size={11} /> {t("comments.replyButton")}

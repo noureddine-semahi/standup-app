@@ -274,6 +274,7 @@ export default function SocialPage() {
   const incoming = connections.filter((c) => c.status === "pending" && c.direction === "incoming");
   const outgoing = connections.filter((c) => c.status === "pending" && c.direction === "outgoing");
   const accepted = connections.filter((c) => c.status === "accepted");
+  const shareableConnections = accepted.map((c) => ({ id: c.otherUserId, displayName: c.otherDisplayName }));
 
   // Tabs are a plain client-side filter over the one already-fetched feed
   // page — no extra query per tab, since getFeed() already returns exactly
@@ -436,7 +437,7 @@ export default function SocialPage() {
             ) : (
               <div className="space-y-3">
                 {visiblePosts.map((post) => (
-                  <PostCard key={post.id} post={post} commentCount={commentCounts[post.id] ?? 0} />
+                  <PostCard key={post.id} post={post} commentCount={commentCounts[post.id] ?? 0} shareableConnections={shareableConnections} />
                 ))}
               </div>
             )}

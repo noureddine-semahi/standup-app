@@ -12,6 +12,7 @@ import {
   getOrCreateProfile,
   acceptCommunityGuidelines,
   createMotivationalPost,
+  debugAuthState,
   getDiscoverableUsers,
   sendConnectionRequestToUser,
   uploadPostImage,
@@ -257,6 +258,8 @@ export default function SocialPage() {
     setPosting(true);
     setPostError(null);
     try {
+      // TEMPORARY — see debugAuthState's doc comment in db.ts.
+      console.log("[rls-debug]", await debugAuthState());
       let imagePath: string | null = null;
       if (postImageFile) imagePath = await uploadPostImage(postImageFile);
       const newPostId = await createMotivationalPost(trimmed, postVisibility, imagePath);

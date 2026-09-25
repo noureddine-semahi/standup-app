@@ -328,6 +328,35 @@ export async function getCurrentUserId() {
   return data.session.user.id;
 }
 
+/**
+ * TEMPORARY diagnostic for the "new row violates row-level security
+ * policy for table posts" investigation -- compares the session's own
+ * user id against the "sub" claim actually encoded in its access token
+ * (what auth.uid() resolves to server-side). If these ever disagree,
+ * that's the smoking gun for a stale/cross-tab session. Remove once the
+ * cause is confirmed.
+ */
+export async function debugAuthState() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const session = data.session;
+  let jwtSub: string | null = null;
+  let jwtExp: string | null = null;
+  try {
+    const payload = JSON.parse(atob(session?.access_token.split(".")[1] ?? ""));
+    jwtSub = payload.sub ?? null;
+    jwtExp = payload.exp ? new Date(payload.exp * 1000).toISOString() : null;
+  } catch {
+    // ignore decode failure, fields stay null
+  }
+  return {
+    sessionUserId: session?.user?.id ?? null,
+    jwtSub,
+    jwtExp,
+    now: new Date().toISOString(),
+  };
+}
+
 /** Free-tier assistant usage for the current user — see src/lib/assistant/usage.ts for the cap/reset logic this feeds. Read-only; the actual increment/reset happens server-side in src/app/api/assistant/route.ts. */
 export async function getAssistantUsage(): Promise<{ uses: number; resetAt: string }> {
   const userId = await getCurrentUserId();

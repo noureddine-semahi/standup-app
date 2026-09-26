@@ -1404,16 +1404,24 @@ export async function deleteGoalAttachment(attachmentId: string, storagePath: st
 
   // Only remove the underlying file once nothing else still references it —
   // a rescheduled goal's attachment row points at the same storage object as
-  // its original (see materializeReschedules), so deleting one shouldn't
-  // pull the file out from under the other.
-  const { data: stillReferenced, error: checkErr } = await supabase
-    .from("goal_attachments")
-    .select("id")
-    .eq("storage_path", storagePath)
-    .limit(1);
+  // its original (see materializeReschedules), and an accepted goal
+  // assignment's copy does too (see respond_to_goal_assignment), so
+  // deleting one shouldn't pull the file out from under the other. A
+  // plain RLS-scoped select on goal_attachments would only ever see the
+  // CALLING user's own rows, which misses the assignment case entirely
+  // (the other reference belongs to a different user) — this RPC checks
+  // across all users instead, returning only a boolean.
+  const { data: stillReferenced, error: checkErr } = await supabase.rpc("is_attachment_path_referenced", {
+    p_storage_path: storagePath,
+  });
 
   if (checkErr) return; // non-fatal — the row is gone either way; skip storage cleanup
-  if (!stillReferenced || stillReferenced.length === 0) {
+  if (!stillReferenced) {
+    // Fails silently (unchecked) if this caller doesn't own the file's
+    // storage folder — e.g. the last reference to a goal-assignment's
+    // copied attachment being removed by the recipient rather than the
+    // original uploader. Leaves a harmless orphaned file behind rather
+    // than surfacing an error for a delete that otherwise fully succeeded.
     await supabase.storage.from(ATTACHMENT_BUCKET).remove([storagePath]);
   }
 }

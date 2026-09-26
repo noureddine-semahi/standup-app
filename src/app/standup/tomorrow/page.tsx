@@ -144,7 +144,7 @@ export default function TomorrowGoalsPage() {
   const assignedOutByGoalId = useMemo(() => {
     const map = new Map<string, GoalAssignment>();
     for (const a of goalAssignments) {
-      if (a.direction === "assigned" && a.status !== "declined" && a.assignerGoalId) {
+      if (a.direction === "assigned" && a.status !== "declined" && a.status !== "canceled" && a.assignerGoalId) {
         map.set(a.assignerGoalId, a);
       }
     }

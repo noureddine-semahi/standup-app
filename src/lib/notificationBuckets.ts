@@ -1,7 +1,7 @@
 import type { Connection, GoalAssignment, Mention } from "@/lib/supabase/db";
 
 /**
- * The six "needs your attention" buckets shared by Dashboard's
+ * The seven "needs your attention" buckets shared by Dashboard's
  * PendingNotifications section and the header's notification bell count,
  * so the two never drift apart. See PendingNotifications.tsx for what
  * each bucket means and how it's dismissed/acknowledged.
@@ -21,6 +21,18 @@ export function computeNotificationBuckets(
     resolvedAssignments: goalAssignments.filter(
       (a) => a.direction === "assigned" && a.status !== "pending" && !a.assignerSeenAt
     ),
+    // Scoped to "canceled" specifically (not every non-pending status,
+    // the way resolvedAssignments is) -- recipientSeenAt only started
+    // getting set once cancellation shipped, so a broader filter would
+    // flood every existing accepted/declined row as a fresh notification.
+    // Only the ASSIGNER can cause a "canceled" status on a received
+    // assignment (the recipient backing out of their own accepted one
+    // sets recipientSeenAt immediately, self-caused, same convention
+    // assignerSeenAt already uses) -- so this bucket only ever fires for
+    // exactly the case its name describes.
+    canceledForRecipient: goalAssignments.filter(
+      (a) => a.direction === "received" && a.status === "canceled" && !a.recipientSeenAt
+    ),
     unseenMentions: mentions.filter((m) => !m.seenAt),
   };
 }
@@ -37,6 +49,7 @@ export function countNotifications(
     b.pendingAssignedByYou.length +
     b.resolvedConnections.length +
     b.resolvedAssignments.length +
+    b.canceledForRecipient.length +
     b.unseenMentions.length
   );
 }

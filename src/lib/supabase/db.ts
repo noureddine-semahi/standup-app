@@ -2260,7 +2260,7 @@ export async function removeConnection(id: string): Promise<void> {
 
 // ── Goal assignments ──────────────────────────────────────────────────
 
-export type GoalAssignmentStatus = "pending" | "accepted" | "declined";
+export type GoalAssignmentStatus = "pending" | "accepted" | "declined" | "canceled";
 export type GoalAssignmentType = "shared" | "exclusive";
 
 /**
@@ -2315,6 +2315,17 @@ export type GoalAssignment = {
   // date it's actually due now, not just its original date. Null before
   // acceptance or if that goal was since deleted.
   recipientPlanDate: string | null;
+  // Who canceled it (assignerId or recipientId) -- null unless status is
+  // "canceled". Lets the UI tell "the assigner retracted/canceled this"
+  // apart from "the recipient backed out after accepting" without a
+  // separate status value for each.
+  canceledBy: string | null;
+  // Optional note attached at cancel time, shown to the other party.
+  cancelReason: string | null;
+  // Mirrors assignerSeenAt, for the opposite direction: set once the
+  // RECIPIENT has acknowledged a cancellation the ASSIGNER caused. Only
+  // ever meaningful when status is "canceled" and canceledBy === assignerId.
+  recipientSeenAt: string | null;
 };
 
 /** Assigns one of the caller's own already-saved goals to an accepted connection. Only works on a goal that already has a real id (post-autosave), same constraint the Reschedule/Checklist/Attachments/Link controls already enforce on these pages. */
@@ -2375,6 +2386,9 @@ type GoalAssignmentRow = {
   assignment_type: GoalAssignmentType;
   recipient_goal_id: string | null;
   recipient_plan_date: string | null;
+  canceled_by: string | null;
+  cancel_reason: string | null;
+  recipient_seen_at: string | null;
 };
 
 /** Every goal assignment the caller is either party to — the Friends tab's, Dashboard's, and Today/Tomorrow's shared source of assignment state. */
@@ -2403,12 +2417,39 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     assignmentType: r.assignment_type,
     recipientGoalId: r.recipient_goal_id,
     recipientPlanDate: r.recipient_plan_date,
+    canceledBy: r.canceled_by,
+    cancelReason: r.cancel_reason,
+    recipientSeenAt: r.recipient_seen_at,
   }));
 }
 
 /** Acknowledges a resolved goal assignment on the assigner's side (see GoalAssignment.assignerSeenAt) — a security definer RPC, same reasoning as markConnectionSeen. */
 export async function markGoalAssignmentSeen(id: string): Promise<void> {
   const { error } = await supabase.rpc("mark_goal_assignment_seen", { p_assignment_id: id });
+  if (error) throw error;
+}
+
+/** Acknowledges a canceled goal assignment on the recipient's side (see GoalAssignment.recipientSeenAt) — the mirror of markGoalAssignmentSeen for the opposite direction. */
+export async function markGoalAssignmentSeenByRecipient(id: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_goal_assignment_seen_by_recipient", { p_assignment_id: id });
+  if (error) throw error;
+}
+
+/**
+ * Retracts (if still pending) or cancels (if already accepted) a goal
+ * assignment — callable by either the assigner or the recipient. Pulls
+ * the goal from both sides: an accepted assignment's recipient_goal_id is
+ * deleted outright (checklist/attachments cascade with it), and the
+ * assigner's own original goal automatically reverts to fully normal
+ * since "assigned out" locking everywhere in the app excludes canceled
+ * the same way it already excludes declined. An optional reason is shown
+ * to whichever party didn't trigger the cancellation.
+ */
+export async function cancelGoalAssignment(id: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc("cancel_goal_assignment", {
+    p_assignment_id: id,
+    p_reason: reason?.trim() || null,
+  });
   if (error) throw error;
 }
 

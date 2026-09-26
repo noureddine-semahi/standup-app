@@ -7,6 +7,7 @@ import {
   respondToGoalAssignment,
   markConnectionSeen,
   markGoalAssignmentSeen,
+  markGoalAssignmentSeenByRecipient,
   markMentionSeen,
   connectionDisplayName,
   type Connection,
@@ -60,6 +61,7 @@ export default function PendingNotifications({
     pendingAssignedByYou,
     resolvedConnections,
     resolvedAssignments,
+    canceledForRecipient,
     unseenMentions,
   } = computeNotificationBuckets(connections, goalAssignments, mentions);
 
@@ -69,6 +71,7 @@ export default function PendingNotifications({
     pendingAssignedByYou.length +
     resolvedConnections.length +
     resolvedAssignments.length +
+    canceledForRecipient.length +
     unseenMentions.length;
   if (total === 0) return null;
 
@@ -196,6 +199,8 @@ export default function PendingNotifications({
                 {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
                 {a.status === "declined" ? (
                   <span>· {t("social.assignmentDeclined")}</span>
+                ) : a.status === "canceled" ? (
+                  <span>· {t("social.assignmentCanceledByRecipient")}</span>
                 ) : a.recipientGoalStatus ? (
                   <span className="inline-flex items-center gap-1">
                     · <StatusIcon status={a.recipientGoalStatus} size={12} /> {statusLabel(a.recipientGoalStatus, t)}
@@ -204,10 +209,36 @@ export default function PendingNotifications({
                   <span>· {t("dashboard.accepted")}</span>
                 )}
               </div>
+              {a.status === "canceled" && a.cancelReason && (
+                <div className="text-[11px] text-white/40 italic truncate">"{a.cancelReason}"</div>
+              )}
             </div>
             <button
               type="button"
               onClick={() => run(a.id, () => markGoalAssignmentSeen(a.id))}
+              disabled={busyIds.has(a.id)}
+              className="btn flex-shrink-0"
+              style={ACTION_BTN_STYLE}
+            >
+              {t("dashboard.acknowledge")}
+            </button>
+          </div>
+        ))}
+
+        {canceledForRecipient.map((a) => (
+          <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
+            <div className="min-w-0">
+              <div className="text-sm text-white/85 truncate">{a.snapshotTitle}</div>
+              <div className="text-[11px] text-white/50 truncate">
+                {t("dashboard.assignmentCanceledForYouLabel", {
+                  name: a.assignerDisplayName ?? t("social.anonymousUser"),
+                })}
+              </div>
+              {a.cancelReason && <div className="text-[11px] text-white/40 italic truncate">"{a.cancelReason}"</div>}
+            </div>
+            <button
+              type="button"
+              onClick={() => run(a.id, () => markGoalAssignmentSeenByRecipient(a.id))}
               disabled={busyIds.has(a.id)}
               className="btn flex-shrink-0"
               style={ACTION_BTN_STYLE}

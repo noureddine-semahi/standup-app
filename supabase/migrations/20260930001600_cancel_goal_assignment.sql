@@ -26,7 +26,27 @@
 --
 -- Run in Supabase Dashboard -> SQL Editor -> New query.
 
-alter table public.goal_assignments drop constraint if exists goal_assignments_status_check;
+-- Finds and drops whatever the status check constraint is actually named
+-- (rather than assuming Postgres's default auto-generated name) --  this
+-- app has been bitten more than once this session by assuming a name/
+-- shape instead of checking it, and a wrong guess here wouldn't error,
+-- it would just silently leave the OLD constraint in place alongside a
+-- new one, permanently blocking every 'canceled' insert with a check
+-- violation.
+do $$
+declare
+  r record;
+begin
+  for r in
+    select conname from pg_constraint
+    where conrelid = 'public.goal_assignments'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%status%'
+  loop
+    execute format('alter table public.goal_assignments drop constraint %I', r.conname);
+  end loop;
+end $$;
+
 alter table public.goal_assignments add constraint goal_assignments_status_check
   check (status in ('pending', 'accepted', 'declined', 'canceled'));
 

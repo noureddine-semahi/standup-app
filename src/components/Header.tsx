@@ -22,7 +22,7 @@ import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell } from "lucide-react";
+import { MoreHorizontal, Bell, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -52,13 +52,15 @@ const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> 
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 // Same space-saving trick as the About/FAQ/Contact rotation above, applied
-// to Calendar/Backlog/Assignments — a three-page loop, each showing the
-// next one in the cycle and linking there. Off all three, defaults to
-// "Calendar" (first in the loop).
+// to Calendar/Backlog — a two-page loop, each showing the other and
+// linking there. Off both, defaults to "Calendar". Assignments used to be
+// a third stop in this loop, but that made it too easy to miss entirely
+// (you'd only ever see the word "Assignments" while already on Backlog) —
+// it now gets its own persistent icon shortcut instead (see
+// assignmentsShortcut below), next to the notification bell.
 const CALENDAR_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
   "/standup/calendar": { labelKey: "nav.backlog", href: "/standup/backlog" },
-  "/standup/backlog": { labelKey: "nav.assignments", href: "/standup/assignments" },
-  "/standup/assignments": { labelKey: "nav.calendar", href: "/standup/calendar" },
+  "/standup/backlog": { labelKey: "nav.calendar", href: "/standup/calendar" },
 };
 const CALENDAR_PAGES = Object.keys(CALENDAR_ROTATION);
 
@@ -270,12 +272,6 @@ export default function Header() {
         >
           {t("nav.backlog")}
         </Link>
-        <Link
-          href="/standup/assignments"
-          className={pathname === "/standup/assignments" ? "nav-link font-semibold" : "nav-link"}
-        >
-          {t("nav.assignments")}
-        </Link>
       </>
     );
   }
@@ -409,6 +405,29 @@ export default function Header() {
     );
   }
 
+  // Always visible next to the bell, same reasoning: Assignments used to
+  // only be reachable via the Calendar/Backlog rotation (see above) or
+  // Social's Goals tab, and a user reported genuinely not being able to
+  // find it. Reuses .nav-bell-btn's plain icon-button styling rather than
+  // introducing a new class for one more icon of the same shape.
+  function assignmentsShortcut() {
+    if (!user) return null;
+    return (
+      <Link
+        href="/standup/assignments"
+        className="nav-bell-btn"
+        aria-label={t("nav.assignments")}
+        style={
+          pathname === "/standup/assignments"
+            ? { borderColor: "rgba(245, 158, 11, 0.4)", color: "rgb(252, 211, 77)" }
+            : undefined
+        }
+      >
+        <ClipboardList size={18} />
+      </Link>
+    );
+  }
+
   if (isRecoveryPage) {
     return (
       <header className="app-header">
@@ -443,13 +462,15 @@ export default function Header() {
             doesn't fit a phone-width row next to the hamburger). */}
         {profileLink()}
 
-        {/* Bell + More button grouped tightly together (their own small
-            gap, not the header's wider one) so they read as one utility
-            cluster on desktop. Hidden entirely on true mobile — the bell
-            re-appears there instead grouped with the hamburger/avatar in
-            nav-mobile-trigger below, since a name-less icon pair fits a
-            phone-width row better than floating on its own mid-header. */}
+        {/* Assignments shortcut + Bell + More button grouped tightly
+            together (their own small gap, not the header's wider one) so
+            they read as one utility cluster on desktop. Hidden entirely on
+            true mobile — the same icons re-appear there instead grouped
+            with the hamburger/avatar in nav-mobile-trigger below, since a
+            name-less icon row fits a phone-width row better than floating
+            on its own mid-header. */}
         <div className="nav-utility-cluster nav-utility-cluster-desktop">
+          {assignmentsShortcut()}
           {notificationBell()}
 
           {/* Secondary links (About/FAQ/Contact, Theme/Language) live
@@ -489,6 +510,7 @@ export default function Header() {
             breakpoint — see .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
           {!loading && avatar()}
+          {assignmentsShortcut()}
           {notificationBell()}
           <button
             type="button"

@@ -455,13 +455,6 @@ export default function Header() {
             there's room for the logo plus these — see .nav-primary. */}
         <nav className="nav nav-primary">{primaryLinks()}</nav>
 
-        {/* Profile (avatar + name) sits before the bell/More cluster
-            whenever nav-primary has room — hidden on true mobile, same as
-            before this whole restructure, where nav-mobile-trigger's
-            compact avatar-only icon takes over instead (a name label
-            doesn't fit a phone-width row next to the hamburger). */}
-        {profileLink()}
-
         {/* Assignments shortcut + Bell + More button grouped tightly
             together (their own small gap, not the header's wider one) so
             they read as one utility cluster on desktop. Hidden entirely on
@@ -504,12 +497,20 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile: logo stays on the left (above), avatar + hamburger stay
-            visible here, and every link (primary and secondary) lives in
-            the full-width dropdown panel below. Hidden above the mobile
-            breakpoint — see .nav-mobile-trigger. */}
+        {/* Profile (avatar + name) — the rightmost item in the row, past
+            the bell/Assignments/More cluster. Hidden on true mobile, same
+            as before this whole restructure, where nav-mobile-trigger's
+            compact avatar-only icon takes over instead (a name label
+            doesn't fit a phone-width row next to the hamburger). */}
+        {profileLink()}
+
+        {/* Mobile: logo stays on the left (above); Assignments/bell/
+            hamburger/avatar live here, avatar last so it's the rightmost
+            item, same as profileLink() above on desktop. Every link
+            (primary and secondary) lives in the full-width dropdown panel
+            below. Hidden above the mobile breakpoint — see
+            .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
-          {!loading && avatar()}
           {assignmentsShortcut()}
           {notificationBell()}
           <button
@@ -523,6 +524,7 @@ export default function Header() {
             <span className="hamburger-line" />
             <span className="hamburger-line" />
           </button>
+          {!loading && avatar()}
         </div>
       </div>
 

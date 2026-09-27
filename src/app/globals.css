@@ -364,9 +364,10 @@ h1, h2, h3, h4, h5, h6 {
      narrower desktop widths where the nav's own content nearly fills the
      row — gap enforces a floor so Dashboard never sits flush against the
      logo, while still allowing space-between to grow it further on wide
-     screens. This is now a *per-pair* gap across 5 direct children (brand,
-     nav-primary, bell, nav-profile, nav-more-wrap) rather than the 2 it
-     was tuned for, so it's deliberately smaller than earlier attempts
+     screens. This is now a *per-pair* gap across 4 direct children (brand,
+     nav-primary, the bell/Assignments/More utility cluster, then nav-
+     profile last of all) rather than the 2 it was tuned for, so it's
+     deliberately smaller than earlier attempts
      (56px × 4 gaps would itself eat ~224px) — .nav-primary's own 10px gap
      already handles spacing between the primary links themselves. */
   gap: 18px;

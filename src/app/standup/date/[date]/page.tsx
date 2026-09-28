@@ -628,7 +628,7 @@ export default function DynamicDatePage() {
       pastGoals.length > 0 && pastGoals.every((g) => (g.status ?? "not_started") === "not_started");
 
     return (
-      <div className="card card-highlight card-swap-fade">
+      <div className="card card-highlight">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">{t("datePage.goalsFor", { date: formatDateDisplay(dateISO) })}</h1>
@@ -834,7 +834,7 @@ export default function DynamicDatePage() {
 
   return (
     <div
-      className="card card-highlight card-swap-fade"
+      className="card card-highlight"
     >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div className="flex-1">

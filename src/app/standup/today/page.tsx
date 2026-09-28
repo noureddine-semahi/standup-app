@@ -891,7 +891,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="card-swap-fade">
+    <div>
       <div
         className="card card-highlight"
       >

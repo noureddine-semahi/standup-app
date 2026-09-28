@@ -409,7 +409,7 @@ export default function DashboardPage() {
   const showEndOfDayReminder = !todayClosed && todayTotal > 0 && todayPending > 0 && hoursLeftToday <= 6;
 
   return (
-    <div className="space-y-6 card-swap-fade">
+    <div className="space-y-6">
       {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
         <div
           className="card card-highlight dashboard-shell"

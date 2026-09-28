@@ -225,7 +225,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="card card-swap-fade">
+    <div className="card">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-3xl font-bold">{t("nav.calendar")}</h1>
           <div className="flex items-center gap-2 flex-wrap">

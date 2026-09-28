@@ -135,7 +135,7 @@ export default function ProfilePage() {
     : 0;
 
   return (
-    <div className="card card-swap-fade">
+    <div className="card">
       <div className="flex flex-col sm:flex-row sm:items-center gap-6">
         <div className="flex flex-col items-center text-center flex-shrink-0">
           <div

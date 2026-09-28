@@ -722,7 +722,7 @@ export default function TomorrowGoalsPage() {
 
   return (
     <div
-      className="card card-highlight card-swap-fade"
+      className="card card-highlight"
     >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div className="flex-1">

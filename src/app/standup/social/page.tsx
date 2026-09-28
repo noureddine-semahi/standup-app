@@ -366,7 +366,7 @@ export default function SocialPage() {
   ];
 
   return (
-    <div className="space-y-6 card-swap-fade">
+    <div className="space-y-6">
       {guidelinesAccepted === false && (
         <CommunityGuidelinesModal
           saving={guidelinesSaving}

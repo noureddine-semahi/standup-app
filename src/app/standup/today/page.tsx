@@ -7,6 +7,7 @@ import BlockedReasonModal from "@/components/BlockedReasonModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
+import PageLoadingState from "@/components/PageLoadingState";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -886,11 +887,11 @@ export default function TodayPage() {
   }
 
   if (loading) {
-    return <div className="card">{t("today.loading")}</div>;
+    return <PageLoadingState label={t("today.loading")} />;
   }
 
   return (
-    <>
+    <div className="card-swap-fade">
       <div
         className="card card-highlight"
       >
@@ -1873,6 +1874,6 @@ export default function TodayPage() {
           onConfirm={confirmBlocked}
         />
       )}
-    </>
+    </div>
   );
 }

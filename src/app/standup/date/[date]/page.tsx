@@ -51,6 +51,7 @@ import RescheduleModal from "@/components/RescheduleModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
+import PageLoadingState from "@/components/PageLoadingState";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { Clock, Link2, Plus, Sun, Redo2, X, Ticket } from "lucide-react";
@@ -612,7 +613,7 @@ export default function DynamicDatePage() {
   }
 
   if (dateISO === todayISO || loading) {
-    return <div className="card">{t("tomorrow.loading")}</div>;
+    return <PageLoadingState label={t("tomorrow.loading")} />;
   }
 
   if (isPastDate) {
@@ -627,7 +628,7 @@ export default function DynamicDatePage() {
       pastGoals.length > 0 && pastGoals.every((g) => (g.status ?? "not_started") === "not_started");
 
     return (
-      <div className="card card-highlight">
+      <div className="card card-highlight card-swap-fade">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">{t("datePage.goalsFor", { date: formatDateDisplay(dateISO) })}</h1>
@@ -833,7 +834,7 @@ export default function DynamicDatePage() {
 
   return (
     <div
-      className="card card-highlight"
+      className="card card-highlight card-swap-fade"
     >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div className="flex-1">

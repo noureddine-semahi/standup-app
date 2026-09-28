@@ -28,6 +28,7 @@ import {
   type Mention,
 } from "@/lib/supabase/db";
 import PendingNotifications from "@/components/PendingNotifications";
+import PageLoadingState from "@/components/PageLoadingState";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
@@ -335,7 +336,7 @@ export default function DashboardPage() {
   }, [goalAssignments]);
 
   if (loading) {
-    return <div className="card">{t("dashboard.loading")}</div>;
+    return <PageLoadingState label={t("dashboard.loading")} />;
   }
 
   // Today stats
@@ -408,7 +409,7 @@ export default function DashboardPage() {
   const showEndOfDayReminder = !todayClosed && todayTotal > 0 && todayPending > 0 && hoursLeftToday <= 6;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 card-swap-fade">
       {/* ✅ Header + widgets INSIDE one "main card" (Tomorrow-style) */}
         <div
           className="card card-highlight dashboard-shell"

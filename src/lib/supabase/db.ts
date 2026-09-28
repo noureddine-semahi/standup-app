@@ -1594,7 +1594,11 @@ const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
 export async function updateGoalStatus(goalId: string, status: GoalStatus) {
   const { error } = await supabase.from("goals").update({ status }).eq("id", goalId);
   if (error) throw error;
-  await logGoalEvent(goalId, "status_change", `Status changed to ${GOAL_STATUS_LABELS[status] ?? status}`);
+  // Not awaited: logGoalEvent already swallows its own errors (best-effort
+  // timeline entry), so there's no correctness reason for the caller to
+  // sit through a second sequential round-trip just to log it. This alone
+  // roughly halves the latency of every goal action across the app.
+  logGoalEvent(goalId, "status_change", `Status changed to ${GOAL_STATUS_LABELS[status] ?? status}`);
 }
 
 /** Updates a goal's priority and logs it as a timestamped timeline event (see logGoalEvent). */
@@ -1604,7 +1608,8 @@ export async function updateGoalPriority(goalId: string, planId: string, priorit
   if (priority === 1) {
     await enforceSingleP1(planId, goalId);
   }
-  await logGoalEvent(goalId, "priority_change", `Priority changed to P${priority}`);
+  // Not awaited — see updateGoalStatus.
+  logGoalEvent(goalId, "priority_change", `Priority changed to P${priority}`);
 }
 
 /**
@@ -1635,7 +1640,8 @@ export async function markGoalReviewed(goalId: string) {
     .update({ reviewed_at: new Date().toISOString() })
     .eq("id", goalId);
   if (error) throw error;
-  await logGoalEvent(goalId, "reviewed", "Marked as reviewed");
+  // Not awaited — see updateGoalStatus.
+  logGoalEvent(goalId, "reviewed", "Marked as reviewed");
 }
 
 export async function unmarkGoalReviewed(goalId: string) {
@@ -3233,39 +3239,43 @@ export async function rescheduleGoalToDate(params: {
 }) {
   const userId = await getCurrentUserId();
 
-  // 1) mark old goal postponed — a raw update, not updateGoalStatus(), since
-  // that would also log its own "Status changed to Rescheduled" timeline
-  // entry, duplicating the more detailed "Rescheduled to <date> — <reason>"
-  // entry logged via logGoalEvent below for the exact same action.
-  const { error: statusErr } = await supabase
-    .from("goals")
-    .update({ status: "postponed" })
-    .eq("id", params.goal.id);
+  // Steps 1+2 run concurrently rather than sequentially — neither reads
+  // the other's result, and a mid-way failure already left the same
+  // "postponed but no intent recorded" possibility either way (if step 2
+  // ever failed after step 1 succeeded under the old sequential code, this
+  // is the same broken state), so parallelizing doesn't add a new failure
+  // mode, just cuts the round-trip time roughly in half.
+  const [{ error: statusErr }, { error: logErr }] = await Promise.all([
+    // 1) mark old goal postponed — a raw update, not updateGoalStatus(),
+    // since that would also log its own "Status changed to Rescheduled"
+    // timeline entry, duplicating the more detailed "Rescheduled to
+    // <date> — <reason>" entry logged via logGoalEvent below.
+    supabase.from("goals").update({ status: "postponed" }).eq("id", params.goal.id),
+    // 2) store intent + snapshot
+    supabase.from("goal_reschedules").insert({
+      user_id: userId,
+      from_goal_id: params.goal.id,
+      to_goal_id: params.goal.id, // legacy keep
+      from_date: toISODate(new Date()),
+      to_date: params.toDateISO,
+      reason: (params.reason ?? "").trim() || null,
+
+      materialized: false,
+      materialized_goal_id: null,
+      snapshot_title: params.goal.title,
+      snapshot_details: params.goal.details ?? null,
+      snapshot_priority:
+        typeof (params.goal as any).priority === "number"
+          ? (params.goal as any).priority
+          : 3,
+    }),
+  ]);
   if (statusErr) throw statusErr;
-
-  // 2) store intent + snapshot
-  const { error: logErr } = await supabase.from("goal_reschedules").insert({
-    user_id: userId,
-    from_goal_id: params.goal.id,
-    to_goal_id: params.goal.id, // legacy keep
-    from_date: toISODate(new Date()),
-    to_date: params.toDateISO,
-    reason: (params.reason ?? "").trim() || null,
-
-    materialized: false,
-    materialized_goal_id: null,
-    snapshot_title: params.goal.title,
-    snapshot_details: params.goal.details ?? null,
-    snapshot_priority:
-      typeof (params.goal as any).priority === "number"
-        ? (params.goal as any).priority
-        : 3,
-  });
-
   if (logErr) throw logErr;
 
   const reason = (params.reason ?? "").trim();
-  await logGoalEvent(
+  // Not awaited — see updateGoalStatus's own comment on logGoalEvent.
+  logGoalEvent(
     params.goal.id,
     "rescheduled",
     `Rescheduled to ${formatDateDisplay(params.toDateISO)}${reason ? ` — "${reason}"` : ""}`

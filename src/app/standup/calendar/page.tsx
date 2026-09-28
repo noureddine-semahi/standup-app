@@ -16,6 +16,7 @@ import {
   type StreakPassBalance,
 } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import PageLoadingState from "@/components/PageLoadingState";
 
 type DayData = {
   date: string;
@@ -220,11 +221,11 @@ export default function CalendarPage() {
   }, [monthStart, monthEnd, currentDate]);
 
   if (loading) {
-    return <div className="card">{t("calendar.loading")}</div>;
+    return <PageLoadingState label={t("calendar.loading")} />;
   }
 
   return (
-    <div className="card">
+    <div className="card card-swap-fade">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-3xl font-bold">{t("nav.calendar")}</h1>
           <div className="flex items-center gap-2 flex-wrap">

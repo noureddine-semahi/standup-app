@@ -19,6 +19,7 @@ import {
   type ArchivedGoal,
 } from "@/lib/supabase/db";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import PageLoadingState from "@/components/PageLoadingState";
 import GoalTimeline from "@/components/GoalTimeline";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -109,7 +110,7 @@ export default function HistoryPage() {
   }, [period]);
 
   if (loading) {
-    return <div className="card">{t("history.loading")}</div>;
+    return <PageLoadingState label={t("history.loading")} />;
   }
 
   const checkedInDays = activity.filter((d) => d.checkedIn).length;
@@ -118,7 +119,7 @@ export default function HistoryPage() {
   const maxCompleted = Math.max(1, ...activity.map((d) => d.goalsCompleted));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 card-swap-fade">
       <div className="card">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

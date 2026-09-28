@@ -20,6 +20,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { hexToRgba } from "@/lib/color";
+import PageLoadingState from "@/components/PageLoadingState";
 
 export default function ProfilePage() {
   const { t } = useLanguage();
@@ -113,7 +114,7 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return <div className="card">{t("profile.loading")}</div>;
+    return <PageLoadingState label={t("profile.loading")} />;
   }
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
@@ -134,7 +135,7 @@ export default function ProfilePage() {
     : 0;
 
   return (
-    <div className="card">
+    <div className="card card-swap-fade">
       <div className="flex flex-col sm:flex-row sm:items-center gap-6">
         <div className="flex flex-col items-center text-center flex-shrink-0">
           <div

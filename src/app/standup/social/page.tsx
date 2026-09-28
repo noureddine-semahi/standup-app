@@ -33,6 +33,7 @@ import Avatar from "@/components/Avatar";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
+import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -338,7 +339,7 @@ export default function SocialPage() {
   }
 
   if (loading) {
-    return <div className="card">{t("dashboard.loading")}</div>;
+    return <PageLoadingState label={t("dashboard.loading")} />;
   }
 
   const incoming = connections.filter((c) => c.status === "pending" && c.direction === "incoming");
@@ -365,7 +366,7 @@ export default function SocialPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 card-swap-fade">
       {guidelinesAccepted === false && (
         <CommunityGuidelinesModal
           saving={guidelinesSaving}

@@ -15,6 +15,7 @@ import {
 import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
 import { Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import PageLoadingState from "@/components/PageLoadingState";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
 // Error instances — `err instanceof Error` is false for those, so checking
@@ -292,7 +293,7 @@ export default function SettingsPage() {
   }
 
   if (loading) {
-    return <div className="card">{t("settings.loading")}</div>;
+    return <PageLoadingState label={t("settings.loading")} />;
   }
 
   const inputClass =
@@ -302,7 +303,7 @@ export default function SettingsPage() {
   const successClass = "rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 card-swap-fade">
       <div className="card">
         <h1 className="text-3xl font-bold mb-2">{t("settings.title")}</h1>
         <p className="text-white/70">{t("settings.subtitle")}</p>

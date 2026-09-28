@@ -54,6 +54,7 @@ import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import RescheduleModal from "@/components/RescheduleModal";
+import PageLoadingState from "@/components/PageLoadingState";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
@@ -688,7 +689,7 @@ export default function TomorrowGoalsPage() {
   }
 
   if (loading) {
-    return <div className="card">{t("tomorrow.loading")}</div>;
+    return <PageLoadingState label={t("tomorrow.loading")} />;
   }
 
   const locked = planStatus === "locked";
@@ -721,7 +722,7 @@ export default function TomorrowGoalsPage() {
 
   return (
     <div
-      className="card card-highlight"
+      className="card card-highlight card-swap-fade"
     >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div className="flex-1">

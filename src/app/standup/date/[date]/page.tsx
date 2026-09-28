@@ -217,11 +217,16 @@ export default function DynamicDatePage() {
     // for dates further out, so those just stay draft-only indefinitely
     // until their eve arrives. Independent of the plan fetch, so they run
     // together.
+    // Pass balance/coverage is fetched for both past AND future dates now
+    // -- a streak pass can cover a future day in advance (before it's ever
+    // missed), not just retroactively fix an already-missed past one. Only
+    // "today" itself has no use for this (and is unreachable here anyway --
+    // see the redirect above), so there's no third case to exclude.
     const [eligible, { plan, goals: dbGoals }, balance, coveredDates] = await Promise.all([
       dateISO === tomorrowISO ? isPrevDayReviewedForPlan(dateISO) : Promise.resolve(false),
       getPlanWithGoals(dateISO),
-      isPastDate ? getStreakPassBalance() : Promise.resolve(null),
-      isPastDate ? getStreakPassCoveredDates(dateISO, dateISO) : Promise.resolve(new Set<string>()),
+      getStreakPassBalance(),
+      getStreakPassCoveredDates(dateISO, dateISO),
     ]);
     setSubmitEligible(eligible);
     setPlanId(plan.id);
@@ -553,11 +558,11 @@ export default function DynamicDatePage() {
 
   async function handleUseStreakPass() {
     if (!planId || usingPass || coveredByPass) return;
-    if (
-      !window.confirm(
-        t("datePage.confirmUseStreakPass", { count: passBalance?.available ?? 0 })
-      )
-    ) {
+    // Same RPC either way (use_streak_pass no longer restricts plan_date to
+    // the past) -- only the confirm copy differs, since covering a future
+    // day is a proactive choice rather than fixing an already-missed one.
+    const confirmKey = isPastDate ? "datePage.confirmUseStreakPass" : "datePage.confirmUseStreakPassAdvance";
+    if (!window.confirm(t(confirmKey, { count: passBalance?.available ?? 0, date: formatDateDisplay(dateISO) }))) {
       return;
     }
 
@@ -840,12 +845,28 @@ export default function DynamicDatePage() {
             {t("tomorrow.currentPriorityGoals")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
             {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
           </p>
+          {coveredByPass && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-teal-400">
+              <Ticket size={13} /> {t("datePage.streakPassCoveredAdvance")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-row items-center gap-3">
           <button className="btn" onClick={() => router.push("/standup/calendar")}>
             ← {t("nav.calendar")}
           </button>
+          {!coveredByPass && (
+            <button
+              className="btn inline-flex items-center gap-1.5"
+              onClick={handleUseStreakPass}
+              disabled={usingPass || (passBalance?.available ?? 0) <= 0}
+              title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+            >
+              <Ticket size={14} />
+              {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPassAdvance", { count: passBalance?.available ?? 0 })}
+            </button>
+          )}
           {!locked && (
           <button
             onClick={() => setEditMode(!editMode)}

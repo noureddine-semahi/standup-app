@@ -1849,6 +1849,7 @@ export type LifetimeStats = {
  */
 export async function getLifetimeStats(): Promise<LifetimeStats> {
   const userId = await getCurrentUserId();
+  const todayISO = toISODate(new Date());
 
   // The seven queries below don't depend on each other's results, so they
   // run as one batch instead of seven sequential round-trips.
@@ -1883,8 +1884,12 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
     // completed — closing the loop on something you were following up on.
     supabase.from("goal_notes").select("goal_id").eq("user_id", userId),
     supabase.from("goals").select("id", { count: "exact", head: true }).eq("user_id", userId),
-    // Unbounded, matching this function's own unbounded daily_plans query.
-    getStreakPassCoveredDates("0001-01-01", "9999-12-31"),
+    // Bounded to today, unlike this function's own unbounded daily_plans
+    // query -- a streak pass can now cover a FUTURE day in advance (see
+    // use_streak_pass), and that day must not count toward longestStreak
+    // (computeLongestStreak below) until it's actually arrived, or the
+    // record would read as already-achieved before it's happened.
+    getStreakPassCoveredDates("0001-01-01", todayISO),
   ]);
   if (referralsError) throw referralsError;
   if (plansError) throw plansError;

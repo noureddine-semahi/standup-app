@@ -24,12 +24,17 @@ import {
   connectionDisplayName,
   createGoalAssignment,
   getMyGoalAssignments,
+  getStreakPassBalance,
+  getStreakPassCoveredDates,
+  useStreakPass,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
   type Connection,
   type GoalAssignment,
   type GoalAssignmentType,
+  type Goal,
+  type StreakPassBalance,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -48,11 +53,12 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
+import RescheduleModal from "@/components/RescheduleModal";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -67,6 +73,14 @@ export default function TomorrowGoalsPage() {
 
   const [planId, setPlanId] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<string>("draft");
+  const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
+  const [coveredByPass, setCoveredByPass] = useState(false);
+  const [usingPass, setUsingPass] = useState(false);
+  // Goals that need to be moved elsewhere before a pass can cover
+  // tomorrow -- set (opening RescheduleModal) only when the draft still
+  // has content at the moment "Cover this day in advance" is clicked; see
+  // handleUseStreakPass.
+  const [rescheduleBeforeCoverGoals, setRescheduleBeforeCoverGoals] = useState<Goal[] | null>(null);
 
   const [goals, setGoals] = useState<DraftGoal[]>([
     { title: "", sort_order: 0, priority: DEFAULT_PRIORITY },
@@ -249,13 +263,17 @@ export default function TomorrowGoalsPage() {
     if (!silent) setMsg(null);
 
     // Independent of each other, so they run together.
-    const [eligible, { plan, goals: dbGoals }] = await Promise.all([
+    const [eligible, { plan, goals: dbGoals }, balance, coveredDates] = await Promise.all([
       isYesterdayReviewed(),
       getPlanWithGoals(tomorrowISO),
+      getStreakPassBalance(),
+      getStreakPassCoveredDates(tomorrowISO, tomorrowISO),
     ]);
     setSubmitEligible(eligible);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
+    setPassBalance(balance);
+    setCoveredByPass(coveredDates.has(tomorrowISO));
 
     // Fetch reschedule origin data, previous actions/comments, checklist
     // items, and attachments for all goals together — none of these four
@@ -355,6 +373,47 @@ export default function TomorrowGoalsPage() {
     }
   }
 
+  /**
+   * "Cover this day in advance" — same use_streak_pass RPC as the past-day
+   * flow on /standup/date/[date], but tomorrow's draft may still have
+   * goals sitting on it. Covering the day means it'll never actually be
+   * reviewed, so anything already drafted needs a new home first — flush
+   * any pending autosave, and if content remains, force a whole-day
+   * reschedule (RescheduleModal) before the pass itself can be spent.
+   */
+  async function handleUseStreakPass() {
+    if (!planId || usingPass || coveredByPass) return;
+
+    const savedRows = await persistGoals(true);
+    const draftGoalsWithContent = savedRows.filter(
+      (g): g is DraftGoal & { id: string } => !!g.id && (g.title ?? "").trim().length > 0
+    );
+    if (draftGoalsWithContent.length > 0) {
+      setRescheduleBeforeCoverGoals(draftGoalsWithContent as Goal[]);
+      return;
+    }
+
+    if (
+      !window.confirm(
+        t("datePage.confirmUseStreakPassAdvance", { count: passBalance?.available ?? 0, date: formatDateDisplay(tomorrowISO) })
+      )
+    ) {
+      return;
+    }
+
+    setUsingPass(true);
+    setMsg(null);
+    try {
+      await useStreakPass(planId);
+      await refresh({ silent: true });
+      setMsg(t("datePage.streakPassUsed"));
+    } catch (e: any) {
+      setMsg(e?.message ?? t("datePage.failedUseStreakPass"));
+    } finally {
+      setUsingPass(false);
+    }
+  }
+
   async function handleAssignGoal(goalId: string, recipientId: string) {
     if (assigningGoalIds.has(goalId)) return;
     setAssigningGoalIds((prev) => new Set(prev).add(goalId));
@@ -417,17 +476,22 @@ export default function TomorrowGoalsPage() {
     }
   }
 
-  async function persistGoals(silent?: boolean) {
-    if (!planId) return;
-    if (planStatus === "locked") return;
-    if (autosaveInFlightRef.current) return;
+  // Returns the authoritative, id-bearing goal rows -- callers that need to
+  // know for certain every typed title has a real id (e.g. before deciding
+  // whether a whole-day reschedule is needed) should use this return value
+  // rather than the `goals` state var, which may still be a render behind
+  // regardless of the await above it.
+  async function persistGoals(silent?: boolean): Promise<DraftGoal[]> {
+    if (!planId) return goalsRef.current;
+    if (planStatus === "locked") return goalsRef.current;
+    if (autosaveInFlightRef.current) return goalsRef.current;
 
     const compacted = compactForSave(goalsRef.current);
 
     const currentHash = computeHashForSave(compacted);
     if (currentHash === lastSavedHashRef.current) {
       if (!silent) setMsg(t("tomorrow.noChanges"));
-      return;
+      return goalsRef.current;
     }
 
     autosaveInFlightRef.current = true;
@@ -484,8 +548,10 @@ export default function TomorrowGoalsPage() {
           900
         );
       }
+      return rows;
     } catch (e: any) {
       setMsg(e?.message ?? t("tomorrow.saveFailed"));
+      return goalsRef.current;
     } finally {
       autosaveInFlightRef.current = false;
       if (!silent) setSubmitting(false);
@@ -667,9 +733,25 @@ export default function TomorrowGoalsPage() {
               {t("tomorrow.currentPriorityGoals")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
               {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
             </p>
+            {coveredByPass && (
+              <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-teal-400">
+                <Ticket size={13} /> {t("datePage.streakPassCoveredAdvance")}
+              </p>
+            )}
           </div>
-          
+
           <div className="flex flex-row items-center gap-3">
+            {!coveredByPass && (
+              <button
+                className="btn inline-flex items-center gap-1.5"
+                onClick={handleUseStreakPass}
+                disabled={usingPass || (passBalance?.available ?? 0) <= 0}
+                title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+              >
+                <Ticket size={14} />
+                {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPassAdvance", { count: passBalance?.available ?? 0 })}
+              </button>
+            )}
             {!locked && (
               <button
                 onClick={() => setEditMode(!editMode)}
@@ -1204,6 +1286,18 @@ export default function TomorrowGoalsPage() {
           <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(var(--tint-rgb),0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(var(--tint-rgb),0.2)" }}>
             {msg}
           </div>
+        )}
+
+        {rescheduleBeforeCoverGoals && (
+          <RescheduleModal
+            goals={rescheduleBeforeCoverGoals}
+            onClose={() => setRescheduleBeforeCoverGoals(null)}
+            onSuccess={async () => {
+              setRescheduleBeforeCoverGoals(null);
+              await refresh({ silent: true });
+              setMsg(t("tomorrow.draftReadyToCover"));
+            }}
+          />
         )}
       </div>
   );

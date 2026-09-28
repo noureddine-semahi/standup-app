@@ -179,6 +179,7 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.changesSaved": "Cambios guardados ✅",
   "tomorrow.saved": "Guardado ✅",
   "tomorrow.savedCheck": "Guardado ✓",
+  "tomorrow.draftReadyToCover": "Borrador reprogramado — ahora puedes cubrir mañana con un pase de racha.",
   "tomorrow.saveFailed": "Error al guardar",
   "tomorrow.missingPlanId": "Falta el id del plan — actualiza la página e intenta de nuevo.",
   "tomorrow.alreadySubmitted": "Este plan ya fue enviado.",

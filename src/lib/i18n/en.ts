@@ -181,6 +181,7 @@ export const en = {
   "tomorrow.changesSaved": "Changes saved ✅",
   "tomorrow.saved": "Saved ✅",
   "tomorrow.savedCheck": "Saved ✓",
+  "tomorrow.draftReadyToCover": "Draft rescheduled — you can now cover tomorrow with a streak pass.",
   "tomorrow.saveFailed": "Save failed",
   "tomorrow.missingPlanId": "Missing plan id — refresh and try again.",
   "tomorrow.alreadySubmitted": "This plan is already submitted.",

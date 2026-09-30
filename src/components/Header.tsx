@@ -52,15 +52,18 @@ const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> 
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 // Same space-saving trick as the About/FAQ/Contact rotation above, applied
-// to Calendar/Backlog — a two-page loop, each showing the other and
-// linking there. Off both, defaults to "Calendar". Assignments used to be
-// a third stop in this loop, but that made it too easy to miss entirely
-// (you'd only ever see the word "Assignments" while already on Backlog) —
-// it now gets its own persistent icon shortcut instead (see
-// assignmentsShortcut below), next to the notification bell.
+// to Calendar/Tools — a two-page loop, each showing the other and linking
+// there. Off both, defaults to "Calendar". Tools was named "Backlog" until
+// it grew a tabbed sub-header (Backlog/Long-Term/Recurring/Lists/Assigned
+// Goals) and got renamed to reflect that it's a hub, not just one list.
+// Assignments used to be a third stop in this loop, but that made it too
+// easy to miss entirely (you'd only ever see the word "Assignments" while
+// already on this page) — it now gets its own persistent icon shortcut
+// instead (see assignmentsShortcut below), next to the notification bell,
+// as well as its own tab inside Tools.
 const CALENDAR_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
-  "/standup/calendar": { labelKey: "nav.backlog", href: "/standup/backlog" },
-  "/standup/backlog": { labelKey: "nav.calendar", href: "/standup/calendar" },
+  "/standup/calendar": { labelKey: "nav.tools", href: "/standup/tools" },
+  "/standup/tools": { labelKey: "nav.calendar", href: "/standup/calendar" },
 };
 const CALENDAR_PAGES = Object.keys(CALENDAR_ROTATION);
 
@@ -267,10 +270,10 @@ export default function Header() {
           {t("nav.calendar")}
         </Link>
         <Link
-          href="/standup/backlog"
-          className={pathname === "/standup/backlog" ? "nav-link font-semibold" : "nav-link"}
+          href="/standup/tools"
+          className={pathname === "/standup/tools" ? "nav-link font-semibold" : "nav-link"}
         >
-          {t("nav.backlog")}
+          {t("nav.tools")}
         </Link>
       </>
     );

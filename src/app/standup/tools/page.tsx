@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList } from "lucide-react";
+import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import {
   addBacklogGoal,
   addLongTermGoal,
@@ -42,18 +43,19 @@ const WEEKDAY_KEYS: TranslationKey[] = [
   "calendar.daySat",
 ];
 
-type BacklogTab = "backlog" | "longTerm" | "recurring" | "lists";
+type ToolsTab = "backlog" | "longTerm" | "recurring" | "lists" | "assignments";
 
-const TABS: { key: BacklogTab; labelKey: TranslationKey; icon: typeof Archive }[] = [
+const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive }[] = [
   { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive },
   { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock },
   { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat },
   { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks },
+  { key: "assignments", labelKey: "backlog.tabAssignments", icon: ClipboardList },
 ];
 
-export default function BacklogPage() {
+export default function ToolsPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<BacklogTab>("backlog");
+  const [activeTab, setActiveTab] = useState<ToolsTab>("backlog");
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -431,9 +433,9 @@ export default function BacklogPage() {
     <div className="space-y-6">
     <div className="card card-highlight">
       <div className="mb-4">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.backlog")}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
         <p className="text-white/70">
-          {t("backlog.subtitle")}
+          {t("tools.subtitle")}
         </p>
       </div>
 
@@ -1020,6 +1022,8 @@ export default function BacklogPage() {
       )}
     </div>
     )}
+
+    {activeTab === "assignments" && <GoalAssignmentsPanel />}
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">

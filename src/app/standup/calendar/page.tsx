@@ -455,7 +455,7 @@ export default function CalendarPage() {
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
             {t("nav.planTomorrow")}
           </Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog">
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tools">
             {t("calendar.storeInBacklog")}
           </Link>
         </div>

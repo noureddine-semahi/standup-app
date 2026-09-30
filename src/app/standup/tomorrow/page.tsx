@@ -1291,7 +1291,7 @@ export default function TomorrowGoalsPage() {
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/backlog" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.backlog")}</Link>
+          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tools" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.tools")}</Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
         </div>
 

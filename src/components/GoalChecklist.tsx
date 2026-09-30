@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronDown, ChevronRight } from "lucide-react";
+import { X, ChevronDown, ChevronRight, ListPlus } from "lucide-react";
 import {
   addChecklistItem,
   deleteChecklistItem,
   toggleChecklistItem,
+  getLists,
+  getListItemsForLists,
+  attachListToGoal,
   type ChecklistItem,
+  type ShoppingList,
+  type ShoppingListItem,
 } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -33,6 +38,16 @@ export default function GoalChecklist({
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState(false);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  // Standing lists (Backlog page) can be attached here to bulk-load their
+  // items into this goal's checklist -- "select it directly from the
+  // actual goal", the other half of Lists' push/attach pair. Fetched
+  // lazily on first open rather than passed as a prop, so every caller
+  // (Today/Tomorrow/date detail) gets this for free.
+  const [showListPicker, setShowListPicker] = useState(false);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerLists, setPickerLists] = useState<ShoppingList[] | null>(null);
+  const [pickerItemsByListId, setPickerItemsByListId] = useState<Record<string, ShoppingListItem[]>>({});
+  const [attachingListId, setAttachingListId] = useState<string | null>(null);
 
   const sorted = [...items].sort((a, b) => a.position - b.position);
   const checkedCount = items.filter((i) => i.is_checked).length;
@@ -64,6 +79,38 @@ export default function GoalChecklist({
       // Non-fatal — the input just keeps its draft so the user can retry.
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function toggleListPicker() {
+    const next = !showListPicker;
+    setShowListPicker(next);
+    if (next && pickerLists === null) {
+      setPickerLoading(true);
+      try {
+        const ls = await getLists();
+        setPickerLists(ls);
+        setPickerItemsByListId(await getListItemsForLists(ls.map((l) => l.id)));
+      } catch {
+        setPickerLists([]);
+      } finally {
+        setPickerLoading(false);
+      }
+    }
+  }
+
+  async function handleAttachList(list: ShoppingList) {
+    if (attachingListId) return;
+    setAttachingListId(list.id);
+    try {
+      const listItems = pickerItemsByListId[list.id] ?? [];
+      const created = await attachListToGoal(goalId, listItems);
+      if (created.length > 0) onItemsChange([...items, ...created]);
+      setShowListPicker(false);
+    } catch {
+      // Non-fatal — the picker just stays open so the user can retry.
+    } finally {
+      setAttachingListId(null);
     }
   }
 
@@ -179,6 +226,46 @@ export default function GoalChecklist({
               >
                 {adding ? t("checklist.adding") : t("checklist.add")}
               </button>
+            </div>
+          )}
+
+          {!readOnly && (
+            <div className="relative mt-1.5">
+              <button
+                type="button"
+                onClick={toggleListPicker}
+                className="inline-flex items-center gap-1 text-xs text-white/50 hover:text-white/80 transition"
+              >
+                <ListPlus size={12} /> {t("checklist.loadFromList")}
+              </button>
+
+              {showListPicker && (
+                <div
+                  className="card"
+                  style={{ position: "absolute", top: "calc(100% + 0.25rem)", left: 0, width: "220px", zIndex: 30, padding: "0.35rem" }}
+                >
+                  {pickerLoading ? (
+                    <div className="px-2 py-1.5 text-xs text-white/50">{t("checklist.loadingLists")}</div>
+                  ) : !pickerLists || pickerLists.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-white/50 italic">{t("checklist.noListsToLoad")}</div>
+                  ) : (
+                    pickerLists.map((list) => {
+                      const count = (pickerItemsByListId[list.id] ?? []).length;
+                      return (
+                        <button
+                          key={list.id}
+                          type="button"
+                          onClick={() => handleAttachList(list)}
+                          disabled={attachingListId !== null}
+                          className="w-full text-left rounded-lg px-2 py-1.5 text-sm text-white/85 hover:bg-white/5 transition truncate disabled:opacity-50"
+                        >
+                          {attachingListId === list.id ? t("checklist.loadingLists") : `${list.name} (${count})`}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -432,6 +432,26 @@ export const en = {
   "backlog.failedUpdateTemplate": "Failed to update template",
   "backlog.failedDeleteTemplate": "Failed to delete template",
 
+  // Standing lists (Backlog page)
+  "backlog.listsTitle": "Lists",
+  "backlog.listsSubtitle": "Grocery lists, packing lists, anything you add to over time. Pushing or attaching a list to a goal copies its items — the list itself stays put, ready to fill again.",
+  "backlog.newListPlaceholder": "e.g. HEB, Costco, Packing",
+  "backlog.addList": "+ Add List",
+  "backlog.noListsYet": "No lists yet.",
+  "backlog.listItemCount.one": "{count} item",
+  "backlog.listItemCount.other": "{count} items",
+  "backlog.newListItemPlaceholder": "Add an item…",
+  "backlog.addItem": "+ Add",
+  "backlog.deleteList": "Delete list",
+  "backlog.removeListItem": "Remove item",
+  "backlog.listPushed": "\"{name}\" pushed to {date} as a new goal.",
+  "backlog.failedLoadLists": "Failed to load lists",
+  "backlog.failedAddList": "Failed to add list",
+  "backlog.failedDeleteList": "Failed to delete list",
+  "backlog.failedAddListItem": "Failed to add item",
+  "backlog.failedDeleteListItem": "Failed to remove item",
+  "backlog.failedPushList": "Failed to push list",
+
   // History (Data & Metrics)
   "history.loading": "Loading history…",
   "history.title": "Data & Metrics",
@@ -899,6 +919,9 @@ export const en = {
   "checklist.adding": "Adding…",
   "checklist.add": "Add",
   "checklist.removeItem": "Remove item",
+  "checklist.loadFromList": "Load from a list",
+  "checklist.loadingLists": "Loading…",
+  "checklist.noListsToLoad": "No lists yet — add one in Backlog.",
 
   // GoalAttachments (shared component)
   "attachments.toggleCompact": "+ Files",

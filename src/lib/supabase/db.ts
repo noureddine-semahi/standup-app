@@ -1207,6 +1207,135 @@ export async function addGoalFromTemplate(template: RecurringGoalTemplate, planD
   return created as Goal;
 }
 
+// ── Standing lists (grocery lists, packing lists, etc.) ─────────────────
+// Deliberately separate from goals/backlog -- a list has no date and no
+// priority, just a name and an ordered set of items you add to whenever
+// something comes to mind. Pushing or attaching a list to a goal always
+// COPIES its items; the list itself is never cleared, so a recurring
+// store list ("Costco") stays ready to fill again right after you use it.
+
+export type ShoppingList = { id: string; name: string; createdAt: string };
+export type ShoppingListItem = { id: string; listId: string; text: string; position: number };
+
+export async function getLists(): Promise<ShoppingList[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("lists")
+    .select("id, name, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ id: r.id, name: r.name, createdAt: r.created_at }));
+}
+
+export async function createList(name: string): Promise<ShoppingList> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("lists")
+    .insert({ user_id: userId, name: name.trim() })
+    .select("id, name, created_at")
+    .single();
+  if (error) throw error;
+  return { id: data.id, name: data.name, createdAt: data.created_at };
+}
+
+export async function deleteList(listId: string): Promise<void> {
+  const { error } = await supabase.from("lists").delete().eq("id", listId);
+  if (error) throw error;
+}
+
+/** Batched, not per-list -- same N+1-avoidance idiom getChecklistItemsForGoals already uses. */
+export async function getListItemsForLists(listIds: string[]): Promise<Record<string, ShoppingListItem[]>> {
+  if (listIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("list_items")
+    .select("id, list_id, text, position")
+    .in("list_id", listIds)
+    .order("position", { ascending: true });
+  if (error) throw error;
+  const map: Record<string, ShoppingListItem[]> = {};
+  (data ?? []).forEach((r) => {
+    (map[r.list_id] ??= []).push({ id: r.id, listId: r.list_id, text: r.text, position: r.position });
+  });
+  return map;
+}
+
+export async function addListItem(listId: string, text: string, position: number): Promise<ShoppingListItem> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("list_items")
+    .insert({ user_id: userId, list_id: listId, text: text.trim(), position })
+    .select("id, list_id, text, position")
+    .single();
+  if (error) throw error;
+  return { id: data.id, listId: data.list_id, text: data.text, position: data.position };
+}
+
+export async function deleteListItem(itemId: string): Promise<void> {
+  const { error } = await supabase.from("list_items").delete().eq("id", itemId);
+  if (error) throw error;
+}
+
+/** Creates a new goal (title = list name) on planDateISO and copies the list's items into that goal's checklist. Same append-one-goal idiom as addGoalFromTemplate. */
+export async function pushListToGoal(listName: string, items: ShoppingListItem[], planDateISO: string): Promise<Goal> {
+  const plan = await getOrCreatePlan(planDateISO);
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("goals")
+    .select("sort_order")
+    .eq("plan_id", plan.id)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  if (existingErr) throw existingErr;
+  const nextSortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const userId = await getCurrentUserId();
+  const { data: created, error: insertErr } = await supabase
+    .from("goals")
+    .insert({
+      user_id: userId,
+      plan_id: plan.id,
+      title: listName,
+      status: "not_started",
+      sort_order: nextSortOrder,
+      priority: 3, // matches DEFAULT_PRIORITY in goalLogic.ts -- not imported here to avoid a cross-module dependency for one constant
+    })
+    .select()
+    .single();
+  if (insertErr) throw insertErr;
+
+  if (items.length > 0) {
+    const { error: itemsErr } = await supabase.from("goal_checklist_items").insert(
+      items.map((it, idx) => ({ user_id: userId, goal_id: created.id, text: it.text, is_checked: false, position: idx }))
+    );
+    if (itemsErr) throw itemsErr;
+  }
+
+  return created as Goal;
+}
+
+/** Copies a list's items onto an EXISTING goal's checklist, appended after whatever's already there. Returns the newly-created checklist rows so the caller can merge them into its own state without a re-fetch. */
+export async function attachListToGoal(goalId: string, items: ShoppingListItem[]): Promise<ChecklistItem[]> {
+  if (items.length === 0) return [];
+  const userId = await getCurrentUserId();
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("goal_checklist_items")
+    .select("position")
+    .eq("goal_id", goalId)
+    .order("position", { ascending: false })
+    .limit(1);
+  if (existingErr) throw existingErr;
+  const startPos = existing && existing.length > 0 ? existing[0].position + 1 : 0;
+
+  const { data, error } = await supabase
+    .from("goal_checklist_items")
+    .insert(items.map((it, idx) => ({ user_id: userId, goal_id: goalId, text: it.text, is_checked: false, position: startPos + idx })))
+    .select();
+  if (error) throw error;
+  return (data ?? []) as ChecklistItem[];
+}
+
 export async function submitPlan(planId: string) {
   const { data: goals, error: gErr } = await supabase
     .from("goals")

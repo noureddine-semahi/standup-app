@@ -430,6 +430,26 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.failedUpdateTemplate": "Error al actualizar la plantilla",
   "backlog.failedDeleteTemplate": "Error al eliminar la plantilla",
 
+  // Standing lists (Backlog page)
+  "backlog.listsTitle": "Listas",
+  "backlog.listsSubtitle": "Listas de compras, de equipaje, cualquier cosa a la que agregues con el tiempo. Enviar o adjuntar una lista a una meta copia sus artículos — la lista en sí se mantiene, lista para llenarse de nuevo.",
+  "backlog.newListPlaceholder": "ej. HEB, Costco, Equipaje",
+  "backlog.addList": "+ Agregar Lista",
+  "backlog.noListsYet": "Aún no hay listas.",
+  "backlog.listItemCount.one": "{count} artículo",
+  "backlog.listItemCount.other": "{count} artículos",
+  "backlog.newListItemPlaceholder": "Agregar un artículo…",
+  "backlog.addItem": "+ Agregar",
+  "backlog.deleteList": "Eliminar lista",
+  "backlog.removeListItem": "Quitar artículo",
+  "backlog.listPushed": "\"{name}\" enviado a {date} como una nueva meta.",
+  "backlog.failedLoadLists": "Error al cargar las listas",
+  "backlog.failedAddList": "Error al agregar la lista",
+  "backlog.failedDeleteList": "Error al eliminar la lista",
+  "backlog.failedAddListItem": "Error al agregar el artículo",
+  "backlog.failedDeleteListItem": "Error al quitar el artículo",
+  "backlog.failedPushList": "Error al enviar la lista",
+
   // History (Data & Metrics)
   "history.loading": "Cargando historial…",
   "history.title": "Datos y Métricas",
@@ -897,6 +917,9 @@ export const es: Record<keyof typeof en, string> = {
   "checklist.adding": "Agregando…",
   "checklist.add": "Agregar",
   "checklist.removeItem": "Eliminar elemento",
+  "checklist.loadFromList": "Cargar desde una lista",
+  "checklist.loadingLists": "Cargando…",
+  "checklist.noListsToLoad": "Aún no hay listas — agrega una en Backlog.",
 
   // GoalAttachments (shared component)
   "attachments.toggleCompact": "+ Archivos",

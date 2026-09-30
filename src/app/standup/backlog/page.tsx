@@ -16,8 +16,17 @@ import {
   setRecurringGoalTemplateActive,
   deleteRecurringGoalTemplate,
   formatDateDisplay,
+  getLists,
+  createList,
+  deleteList,
+  getListItemsForLists,
+  addListItem,
+  deleteListItem,
+  pushListToGoal,
   type BacklogGoal,
   type RecurringGoalTemplate,
+  type ShoppingList,
+  type ShoppingListItem,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -65,12 +74,28 @@ export default function BacklogPage() {
   const [ltPushDate, setLtPushDate] = useState<Record<string, string>>({});
   const [busyLongTermIds, setBusyLongTermIds] = useState<Set<string>>(new Set());
 
+  // Standing lists (grocery lists, packing lists) — separate from the
+  // backlog/long-term goals above, no date or priority, just a name and an
+  // ordered set of items added to whenever something comes to mind.
+  const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [listItemsByListId, setListItemsByListId] = useState<Record<string, ShoppingListItem[]>>({});
+  const [listsLoading, setListsLoading] = useState(true);
+  const [listsMsg, setListsMsg] = useState<string | null>(null);
+  const [newListName, setNewListName] = useState("");
+  const [addingList, setAddingList] = useState(false);
+  const [newListItemDraft, setNewListItemDraft] = useState<Record<string, string>>({});
+  const [addingItemListId, setAddingItemListId] = useState<string | null>(null);
+  const [busyListIds, setBusyListIds] = useState<Set<string>>(new Set());
+  const [busyListItemIds, setBusyListItemIds] = useState<Set<string>>(new Set());
+  const [listPushDate, setListPushDate] = useState<Record<string, string>>({});
+
   const todayISO = toISODate(new Date());
   const tomorrowISO = toISODate(addDays(new Date(), 1));
 
   useEffect(() => {
     refresh();
     refreshTemplates();
+    refreshLists();
   }, []);
 
   async function refreshTemplates() {
@@ -276,6 +301,116 @@ export default function BacklogPage() {
       setLongTermMsg(e?.message ?? t("backlog.failedSchedule"));
     } finally {
       setLongTermBusy(item.id, false);
+    }
+  }
+
+  async function refreshLists() {
+    setListsLoading(true);
+    setListsMsg(null);
+    try {
+      const ls = await getLists();
+      setLists(ls);
+      setListItemsByListId(await getListItemsForLists(ls.map((l) => l.id)));
+    } catch (e: any) {
+      setListsMsg(e?.message ?? t("backlog.failedLoadLists"));
+    } finally {
+      setListsLoading(false);
+    }
+  }
+
+  async function handleAddList() {
+    const name = newListName.trim();
+    if (!name || addingList) return;
+    setAddingList(true);
+    setListsMsg(null);
+    try {
+      const created = await createList(name);
+      setLists((prev) => [...prev, created]);
+      setListItemsByListId((prev) => ({ ...prev, [created.id]: [] }));
+      setNewListName("");
+    } catch (e: any) {
+      setListsMsg(e?.message ?? t("backlog.failedAddList"));
+    } finally {
+      setAddingList(false);
+    }
+  }
+
+  function setListBusy(id: string, busy: boolean) {
+    setBusyListIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleDeleteList(list: ShoppingList) {
+    if (busyListIds.has(list.id)) return;
+    setListBusy(list.id, true);
+    setListsMsg(null);
+    try {
+      await deleteList(list.id);
+      setLists((prev) => prev.filter((l) => l.id !== list.id));
+      setListItemsByListId((prev) => {
+        const next = { ...prev };
+        delete next[list.id];
+        return next;
+      });
+    } catch (e: any) {
+      setListsMsg(e?.message ?? t("backlog.failedDeleteList"));
+      setListBusy(list.id, false);
+    }
+  }
+
+  async function handleAddListItem(listId: string) {
+    const text = (newListItemDraft[listId] ?? "").trim();
+    if (!text || addingItemListId === listId) return;
+    setAddingItemListId(listId);
+    setListsMsg(null);
+    try {
+      const existingItems = listItemsByListId[listId] ?? [];
+      const nextPosition = existingItems.length > 0 ? Math.max(...existingItems.map((i) => i.position)) + 1 : 0;
+      const created = await addListItem(listId, text, nextPosition);
+      setListItemsByListId((prev) => ({ ...prev, [listId]: [...(prev[listId] ?? []), created] }));
+      setNewListItemDraft((prev) => ({ ...prev, [listId]: "" }));
+    } catch (e: any) {
+      setListsMsg(e?.message ?? t("backlog.failedAddListItem"));
+    } finally {
+      setAddingItemListId(null);
+    }
+  }
+
+  async function handleDeleteListItem(listId: string, item: ShoppingListItem) {
+    if (busyListItemIds.has(item.id)) return;
+    setBusyListItemIds((prev) => new Set(prev).add(item.id));
+    setListsMsg(null);
+    try {
+      await deleteListItem(item.id);
+      setListItemsByListId((prev) => ({ ...prev, [listId]: (prev[listId] ?? []).filter((i) => i.id !== item.id) }));
+    } catch (e: any) {
+      setListsMsg(e?.message ?? t("backlog.failedDeleteListItem"));
+    } finally {
+      setBusyListItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
+  async function handlePushList(list: ShoppingList, explicitDate?: string) {
+    const date = explicitDate ?? listPushDate[list.id];
+    if (!date || busyListIds.has(list.id)) return;
+    setListBusy(list.id, true);
+    setListsMsg(null);
+    try {
+      const listItems = listItemsByListId[list.id] ?? [];
+      await pushListToGoal(list.name, listItems, date);
+      setListsMsg(t("backlog.listPushed", { name: list.name, date }));
+    } catch (e: any) {
+      setListsMsg(e?.message ?? t("backlog.failedPushList"));
+    } finally {
+      setListBusy(list.id, false);
     }
   }
 
@@ -693,6 +828,153 @@ export default function BacklogPage() {
                     style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                   >
                     {t("backlog.deleteTemplate")}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+
+    <div className="card card-highlight">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-1">{t("backlog.listsTitle")}</h2>
+        <p className="text-sm text-white/70">{t("backlog.listsSubtitle")}</p>
+      </div>
+
+      {listsMsg && (
+        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+          {listsMsg}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <input
+          type="text"
+          value={newListName}
+          onChange={(e) => setNewListName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleAddList();
+          }}
+          placeholder={t("backlog.newListPlaceholder")}
+          disabled={addingList}
+          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={handleAddList}
+          disabled={addingList || !newListName.trim()}
+          className="btn btn-primary"
+        >
+          {addingList ? t("backlog.adding") : t("backlog.addList")}
+        </button>
+      </div>
+
+      {listsLoading ? (
+        <div className="text-white/60 text-center py-6">{t("backlog.loading")}</div>
+      ) : lists.length === 0 ? (
+        <p className="text-sm text-white/50 italic">{t("backlog.noListsYet")}</p>
+      ) : (
+        <div className="space-y-4">
+          {lists.map((list) => {
+            const listItems = listItemsByListId[list.id] ?? [];
+            const busy = busyListIds.has(list.id);
+            return (
+              <div key={list.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
+                  <div className="text-white font-medium">
+                    {list.name}
+                    <span className="ml-2 text-xs text-white/40">
+                      {t(listItems.length === 1 ? "backlog.listItemCount.one" : "backlog.listItemCount.other", { count: listItems.length })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handlePushList(list, tomorrowISO)}
+                      disabled={busy}
+                      className="btn"
+                      style={{ padding: "0.3rem 0.7rem", fontSize: "0.75rem" }}
+                      title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
+                    >
+                      {t("backlog.pushToTomorrow")}
+                    </button>
+                    <input
+                      type="date"
+                      value={listPushDate[list.id] ?? ""}
+                      min={todayISO}
+                      disabled={busy}
+                      onChange={(e) => setListPushDate((prev) => ({ ...prev, [list.id]: e.target.value }))}
+                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handlePushList(list)}
+                      disabled={busy || !listPushDate[list.id]}
+                      className="btn"
+                      style={{ padding: "0.3rem 0.7rem", fontSize: "0.75rem" }}
+                    >
+                      {t("backlog.push")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteList(list)}
+                      disabled={busy}
+                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "8px",
+                        background: "rgba(var(--tint-rgb), 0.06)",
+                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
+                      }}
+                      title={t("backlog.deleteList")}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {listItems.length > 0 && (
+                  <div className="space-y-1.5 mb-3">
+                    {listItems.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <span className="flex-1 min-w-0 text-sm text-white/80">{item.text}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteListItem(list.id, item)}
+                          disabled={busyListItemIds.has(item.id)}
+                          className="flex-shrink-0 text-white/30 hover:text-white/70"
+                          title={t("backlog.removeListItem")}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newListItemDraft[list.id] ?? ""}
+                    onChange={(e) => setNewListItemDraft((prev) => ({ ...prev, [list.id]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddListItem(list.id);
+                    }}
+                    placeholder={t("backlog.newListItemPlaceholder")}
+                    disabled={addingItemListId === list.id}
+                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddListItem(list.id)}
+                    disabled={addingItemListId === list.id || !(newListItemDraft[list.id] ?? "").trim()}
+                    className="btn"
+                    style={{ padding: "0.3rem 0.75rem", fontSize: "0.75rem" }}
+                  >
+                    {addingItemListId === list.id ? t("backlog.adding") : t("backlog.addItem")}
                   </button>
                 </div>
               </div>

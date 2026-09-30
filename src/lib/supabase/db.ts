@@ -1336,6 +1336,152 @@ export async function attachListToGoal(goalId: string, items: ShoppingListItem[]
   return (data ?? []) as ChecklistItem[];
 }
 
+// ── Payment reminders (credit cards, bills) ──────────────────────────────
+// Tracks an account's balance/minimum/due-day so nothing gets missed.
+// Next due date is never stored -- computeNextDueDate derives it on read
+// from due_day + today, same philosophy streaks/points already use, so it
+// can't drift and never needs a background job to advance it. Reminders
+// surface as a tap-to-add suggestion chip (Plan Tomorrow / date detail),
+// same slot recurring templates already use -- never a silently
+// auto-created goal, matching this app's "awareness is a gate" principle.
+
+export type PaymentAccount = {
+  id: string;
+  name: string;
+  balance: number;
+  minimumPayment: number;
+  dueDay: number;
+  remindDaysBefore: number;
+  lastReminderDueDate: string | null;
+  createdAt: string;
+};
+
+function rowToPaymentAccount(r: any): PaymentAccount {
+  return {
+    id: r.id,
+    name: r.name,
+    balance: Number(r.balance),
+    minimumPayment: Number(r.minimum_payment),
+    dueDay: r.due_day,
+    remindDaysBefore: r.remind_days_before,
+    lastReminderDueDate: r.last_reminder_due_date,
+    createdAt: r.created_at,
+  };
+}
+
+export async function getPaymentAccounts(): Promise<PaymentAccount[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("payment_accounts")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(rowToPaymentAccount);
+}
+
+export async function createPaymentAccount(params: {
+  name: string;
+  balance: number;
+  minimumPayment: number;
+  dueDay: number;
+  remindDaysBefore: number;
+}): Promise<PaymentAccount> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("payment_accounts")
+    .insert({
+      user_id: userId,
+      name: params.name.trim(),
+      balance: params.balance,
+      minimum_payment: params.minimumPayment,
+      due_day: params.dueDay,
+      remind_days_before: params.remindDaysBefore,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToPaymentAccount(data);
+}
+
+export async function updatePaymentAccount(
+  id: string,
+  params: Partial<{ name: string; balance: number; minimumPayment: number; dueDay: number; remindDaysBefore: number }>
+): Promise<PaymentAccount> {
+  const patch: Record<string, unknown> = {};
+  if (params.name !== undefined) patch.name = params.name.trim();
+  if (params.balance !== undefined) patch.balance = params.balance;
+  if (params.minimumPayment !== undefined) patch.minimum_payment = params.minimumPayment;
+  if (params.dueDay !== undefined) patch.due_day = params.dueDay;
+  if (params.remindDaysBefore !== undefined) patch.remind_days_before = params.remindDaysBefore;
+
+  const { data, error } = await supabase.from("payment_accounts").update(patch).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToPaymentAccount(data);
+}
+
+export async function deletePaymentAccount(id: string): Promise<void> {
+  const { error } = await supabase.from("payment_accounts").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Pure: the next occurrence of dueDay on/after fromISO, clamped to each month's real length (e.g. due_day 31 lands on Feb 28/29). Never stored -- computed fresh every time. */
+export function computeNextDueDate(dueDay: number, fromISO: string): string {
+  const from = new Date(`${fromISO}T00:00:00`);
+  const year = from.getFullYear();
+  const month = from.getMonth();
+
+  const daysInThisMonth = new Date(year, month + 1, 0).getDate();
+  const thisMonthDue = toISODate(new Date(year, month, Math.min(dueDay, daysInThisMonth)));
+  if (thisMonthDue >= fromISO) return thisMonthDue;
+
+  const daysInNextMonth = new Date(year, month + 2, 0).getDate();
+  return toISODate(new Date(year, month + 1, Math.min(dueDay, daysInNextMonth)));
+}
+
+/** Accounts whose next due date falls within their own reminder window for dateISO, and haven't already had a goal made for this specific cycle. */
+export async function getSuggestedPaymentReminders(dateISO: string): Promise<PaymentAccount[]> {
+  const accounts = await getPaymentAccounts();
+  return accounts.filter((a) => {
+    const dueDate = computeNextDueDate(a.dueDay, dateISO);
+    if (a.lastReminderDueDate === dueDate) return false;
+    const windowStart = toISODate(addDays(new Date(`${dueDate}T00:00:00`), -a.remindDaysBefore));
+    return dateISO >= windowStart && dateISO <= dueDate;
+  });
+}
+
+/** Creates a goal reminding you to pay, and marks this cycle as reminded so the suggestion chip stops reoffering it until next cycle's due date differs. */
+export async function addGoalFromPaymentReminder(account: PaymentAccount, planDateISO: string): Promise<Goal> {
+  const dueDate = computeNextDueDate(account.dueDay, planDateISO);
+  const plan = await getOrCreatePlan(planDateISO);
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("goals")
+    .select("sort_order")
+    .eq("plan_id", plan.id)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  if (existingErr) throw existingErr;
+  const nextSortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const userId = await getCurrentUserId();
+  const title = `Pay ${account.name} — $${account.minimumPayment.toFixed(2)} min due ${formatDateDisplay(dueDate)}`;
+  const { data: created, error: insertErr } = await supabase
+    .from("goals")
+    .insert({ user_id: userId, plan_id: plan.id, title, status: "not_started", sort_order: nextSortOrder, priority: 2 })
+    .select()
+    .single();
+  if (insertErr) throw insertErr;
+
+  const { error: updateErr } = await supabase
+    .from("payment_accounts")
+    .update({ last_reminder_due_date: dueDate })
+    .eq("id", account.id);
+  if (updateErr) throw updateErr;
+
+  return created as Goal;
+}
+
 export async function submitPlan(planId: string) {
   const { data: goals, error: gErr } = await supabase
     .from("goals")

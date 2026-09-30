@@ -235,6 +235,9 @@ export const en = {
   "tomorrow.suggestedTitle": "Suggested",
   "tomorrow.addingSuggested": "Adding…",
   "tomorrow.failedAddSuggested": "Failed to add suggested goal",
+  "tomorrow.suggestedPaymentsTitle": "Payments Due Soon",
+  "tomorrow.paySuggestion": "Pay {name}",
+  "tomorrow.failedAddSuggestedPayment": "Failed to add payment reminder",
 
   // Review Today
   "today.failedLoad": "Failed to load",
@@ -400,6 +403,7 @@ export const en = {
   "backlog.tabRecurring": "Recurring",
   "backlog.tabLists": "Lists",
   "backlog.tabAssignments": "Assigned Goals",
+  "backlog.tabPayments": "Payments",
   "backlog.newGoalPlaceholder": "New backlog goal...",
   "backlog.detailsPlaceholder": "Details (optional)...",
   "backlog.adding": "Adding…",
@@ -457,6 +461,28 @@ export const en = {
   "backlog.failedAddListItem": "Failed to add item",
   "backlog.failedDeleteListItem": "Failed to remove item",
   "backlog.failedPushList": "Failed to push list",
+
+  // Payment reminders (Backlog/Tools page)
+  "backlog.paymentsTitle": "Payment Reminders",
+  "backlog.paymentsSubtitle": "Credit cards and bills — track balance, minimum payment, and due date so nothing gets missed. A suggestion to pay shows up on Plan Tomorrow as the due date nears; it's never added as a goal automatically.",
+  "backlog.paymentNamePlaceholder": "Account name (e.g. Chase Sapphire)",
+  "backlog.paymentBalancePlaceholder": "Balance",
+  "backlog.paymentMinimumPlaceholder": "Minimum",
+  "backlog.paymentDueDayPlaceholder": "Due day",
+  "backlog.paymentRemindPlaceholder": "Remind (days)",
+  "backlog.addPayment": "+ Add Account",
+  "backlog.noPaymentsYet": "No payment accounts yet.",
+  "backlog.paymentDueOn": "Due {date}",
+  "backlog.paymentDueToday": "Due today",
+  "backlog.deletePayment": "Delete account",
+  "backlog.paymentBalanceLabel": "Balance",
+  "backlog.paymentMinimumLabel": "Minimum payment",
+  "backlog.paymentDueDayLabel": "Due day of month",
+  "backlog.paymentRemindLabel": "Remind (days before)",
+  "backlog.failedLoadPayments": "Failed to load payment accounts",
+  "backlog.failedAddPayment": "Failed to add payment account",
+  "backlog.failedUpdatePayment": "Failed to update payment account",
+  "backlog.failedDeletePayment": "Failed to delete payment account",
 
   // History (Data & Metrics)
   "history.loading": "Loading history…",

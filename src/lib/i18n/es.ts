@@ -233,6 +233,9 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.suggestedTitle": "Sugeridos",
   "tomorrow.addingSuggested": "Agregando…",
   "tomorrow.failedAddSuggested": "Error al agregar el objetivo sugerido",
+  "tomorrow.suggestedPaymentsTitle": "Pagos Próximos a Vencer",
+  "tomorrow.paySuggestion": "Pagar {name}",
+  "tomorrow.failedAddSuggestedPayment": "Error al agregar el recordatorio de pago",
 
   // Review Today
   "today.failedLoad": "Error al cargar",
@@ -398,6 +401,7 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.tabRecurring": "Recurrentes",
   "backlog.tabLists": "Listas",
   "backlog.tabAssignments": "Metas Asignadas",
+  "backlog.tabPayments": "Pagos",
   "backlog.newGoalPlaceholder": "Nuevo objetivo pendiente...",
   "backlog.detailsPlaceholder": "Detalles (opcional)...",
   "backlog.adding": "Agregando…",
@@ -455,6 +459,28 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.failedAddListItem": "Error al agregar el artículo",
   "backlog.failedDeleteListItem": "Error al quitar el artículo",
   "backlog.failedPushList": "Error al enviar la lista",
+
+  // Payment reminders (Backlog/Tools page)
+  "backlog.paymentsTitle": "Recordatorios de Pago",
+  "backlog.paymentsSubtitle": "Tarjetas de crédito y facturas — controla el saldo, el pago mínimo y la fecha de vencimiento para que nada se te pase. Una sugerencia para pagar aparece en Planear Mañana cuando se acerca la fecha; nunca se agrega como meta automáticamente.",
+  "backlog.paymentNamePlaceholder": "Nombre de la cuenta (ej. Chase Sapphire)",
+  "backlog.paymentBalancePlaceholder": "Saldo",
+  "backlog.paymentMinimumPlaceholder": "Mínimo",
+  "backlog.paymentDueDayPlaceholder": "Día de vencimiento",
+  "backlog.paymentRemindPlaceholder": "Recordar (días)",
+  "backlog.addPayment": "+ Agregar Cuenta",
+  "backlog.noPaymentsYet": "Aún no hay cuentas de pago.",
+  "backlog.paymentDueOn": "Vence {date}",
+  "backlog.paymentDueToday": "Vence hoy",
+  "backlog.deletePayment": "Eliminar cuenta",
+  "backlog.paymentBalanceLabel": "Saldo",
+  "backlog.paymentMinimumLabel": "Pago mínimo",
+  "backlog.paymentDueDayLabel": "Día de vencimiento del mes",
+  "backlog.paymentRemindLabel": "Recordar (días antes)",
+  "backlog.failedLoadPayments": "Error al cargar las cuentas de pago",
+  "backlog.failedAddPayment": "Error al agregar la cuenta de pago",
+  "backlog.failedUpdatePayment": "Error al actualizar la cuenta de pago",
+  "backlog.failedDeletePayment": "Error al eliminar la cuenta de pago",
 
   // History (Data & Metrics)
   "history.loading": "Cargando historial…",

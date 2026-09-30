@@ -20,6 +20,8 @@ import {
   deleteGoal,
   getSuggestedTemplatesForDate,
   addGoalFromTemplate,
+  getSuggestedPaymentReminders,
+  addGoalFromPaymentReminder,
   listConnections,
   connectionDisplayName,
   createGoalAssignment,
@@ -36,6 +38,7 @@ import {
   type GoalAssignmentType,
   type Goal,
   type StreakPassBalance,
+  type PaymentAccount,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -59,7 +62,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CreditCard } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -88,6 +91,8 @@ export default function TomorrowGoalsPage() {
   const [editMode, setEditMode] = useState(false);
   const [suggestedTemplates, setSuggestedTemplates] = useState<RecurringGoalTemplate[]>([]);
   const [addingTemplateId, setAddingTemplateId] = useState<string | null>(null);
+  const [suggestedPayments, setSuggestedPayments] = useState<PaymentAccount[]>([]);
+  const [addingPaymentReminderId, setAddingPaymentReminderId] = useState<string | null>(null);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
@@ -353,6 +358,9 @@ export default function TomorrowGoalsPage() {
     getSuggestedTemplatesForDate(tomorrowISO)
       .then(setSuggestedTemplates)
       .catch(() => {});
+    getSuggestedPaymentReminders(tomorrowISO)
+      .then(setSuggestedPayments)
+      .catch(() => {});
   }, [tomorrowISO]);
 
   async function handleAddSuggestedTemplate(template: RecurringGoalTemplate) {
@@ -366,6 +374,20 @@ export default function TomorrowGoalsPage() {
       setMsg(e?.message ?? t("tomorrow.failedAddSuggested"));
     } finally {
       setAddingTemplateId(null);
+    }
+  }
+
+  async function handleAddSuggestedPayment(account: PaymentAccount) {
+    if (addingPaymentReminderId) return;
+    setAddingPaymentReminderId(account.id);
+    try {
+      await addGoalFromPaymentReminder(account, tomorrowISO);
+      setSuggestedPayments((prev) => prev.filter((a) => a.id !== account.id));
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setMsg(e?.message ?? t("tomorrow.failedAddSuggestedPayment"));
+    } finally {
+      setAddingPaymentReminderId(null);
     }
   }
 
@@ -797,6 +819,34 @@ export default function TomorrowGoalsPage() {
                   style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
                 >
                   {addingTemplateId === template.id ? t("tomorrow.addingSuggested") : `+ ${template.title}`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {suggestedPayments.length > 0 && (
+          <div className="mb-6">
+            <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
+              {t("tomorrow.suggestedPaymentsTitle")}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {suggestedPayments.map((account) => (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => handleAddSuggestedPayment(account)}
+                  disabled={addingPaymentReminderId === account.id}
+                  className="btn inline-flex items-center gap-1.5"
+                  style={{
+                    padding: "0.35rem 0.75rem",
+                    fontSize: "0.8rem",
+                    background: "rgba(245, 158, 11, 0.1)",
+                    borderColor: "rgba(245, 158, 11, 0.35)",
+                  }}
+                >
+                  <CreditCard size={13} />
+                  {addingPaymentReminderId === account.id ? t("tomorrow.addingSuggested") : `+ ${t("tomorrow.paySuggestion", { name: account.name })}`}
                 </button>
               ))}
             </div>

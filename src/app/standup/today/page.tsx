@@ -21,6 +21,7 @@ import {
   getNotesForGoals,
   getPlanWithGoals,
   getStreak,
+  getStreakPassCoveredDates,
   hoursUntilMidnight,
   markGoalReviewed,
   markPlanReviewed,
@@ -57,7 +58,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
-  AlarmClock, Hourglass, Lock, Unlock,
+  AlarmClock, Hourglass, Lock, Unlock, Ticket,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -134,6 +135,13 @@ export default function TodayPage() {
 
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<DailyPlan | null>(null);
+  // Set once a streak pass has covered TODAY in advance (see the Plan
+  // Tomorrow / date-detail "cover this day in advance" flows) -- treated
+  // as equivalent to plan.reviewed_at for the "is today closed" gate
+  // everywhere below, so a pre-covered day closes itself the instant its
+  // date rolls over into "today", with no reviewing and no waiting on a
+  // scheduled job -- purely a consequence of todayISO itself changing.
+  const [coveredByPassToday, setCoveredByPassToday] = useState(false);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   // Per-goal busy tracking (a Set, not a single id) — goals are reviewed
@@ -236,7 +244,10 @@ export default function TodayPage() {
   }
 
   const locked = plan?.status === "locked";
-  const dayClosed = !!plan?.reviewed_at;
+  // A pass-covered day closes itself the moment its date becomes "today" —
+  // no review needed, no waiting on anything, since coveredByPassToday is
+  // just a plain date-range query re-evaluated on every load.
+  const dayClosed = !!plan?.reviewed_at || coveredByPassToday;
   const published = !!myGlimpsePost;
 
   function refreshGlimpsePost() {
@@ -456,13 +467,17 @@ export default function TodayPage() {
     if (!silent) setMsg(null);
 
     try {
-      const { plan: p, goals: gs } = await getPlanWithGoals(todayISO);
+      const [{ plan: p, goals: gs }, coveredDates] = await Promise.all([
+        getPlanWithGoals(todayISO),
+        getStreakPassCoveredDates(todayISO, todayISO),
+      ]);
 
       // A newer refresh() was issued after this one — its result is more
       // current, so drop this stale response instead of overwriting state.
       if (mySeq !== refreshSeqRef.current) return;
 
       setPlan(p);
+      setCoveredByPassToday(coveredDates.has(todayISO));
 
       // Fetch reschedule info, notes, checklist items, and attachments for
       // all goals together — none of these four depend on each other, only
@@ -916,7 +931,13 @@ export default function TodayPage() {
                 </div>
               </div>
             )}
-            {dayClosed && (
+            {dayClosed && !plan?.reviewed_at && coveredByPassToday && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 inline-flex">
+                <Ticket className="text-teal-400" size={20} />
+                <div className="text-sm text-teal-300">{t("today.dayClosedByPass")}</div>
+              </div>
+            )}
+            {dayClosed && plan?.reviewed_at && (
               <p className="mt-3 text-xs text-white/50">
                 {t("today.reopenPrompt")}
               </p>
@@ -992,7 +1013,7 @@ export default function TodayPage() {
                 </div>
               </div>
             )}
-            {dayClosed && (
+            {dayClosed && plan?.reviewed_at && (
               <div className="flex flex-row gap-2">
                 <button
                   onClick={reopenDay}

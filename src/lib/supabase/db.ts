@@ -3183,7 +3183,11 @@ export async function getOverdueSummary(todayISO: string): Promise<OverdueSummar
  * Allow planning if:
  * 1. No plan exists for prev day (first time use), OR
  * 2. Prev day plan has no goals (nothing to review), OR
- * 3. Prev day plan is reviewed (reviewed_at is set)
+ * 3. Prev day plan is reviewed (reviewed_at is set), OR
+ * 4. Prev day was covered by a streak pass applied in advance -- a
+ *    pass-covered day closes itself the moment it becomes "today" (see
+ *    Today page's dayClosed), so planning ahead must unlock the same way
+ *    a genuine review would.
  */
 export async function isPrevDayReviewedForPlan(planDateISO: string) {
   const userId = await getCurrentUserId();
@@ -3202,6 +3206,10 @@ export async function isPrevDayReviewedForPlan(planDateISO: string) {
 
   // If no plan existed on prev day, allow (no gating)
   if (!plan) return true;
+  if (plan.reviewed_at) return true;
+
+  const coveredDates = await getStreakPassCoveredDates(prevDateISO, prevDateISO);
+  if (coveredDates.has(prevDateISO)) return true;
 
   // Check if prev day has any goals
   const { data: goals, error: goalsErr } = await supabase
@@ -3215,8 +3223,8 @@ export async function isPrevDayReviewedForPlan(planDateISO: string) {
   // If no goals exist for prev day, allow (nothing to review)
   if (!goals || goals.length === 0) return true;
 
-  // If goals exist, require reviewed_at to be set
-  return !!plan.reviewed_at;
+  // If goals exist and none of the above applied, require reviewed_at.
+  return false;
 }
 
 /**

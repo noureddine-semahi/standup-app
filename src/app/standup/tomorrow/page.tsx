@@ -27,6 +27,7 @@ import {
   getStreakPassBalance,
   getStreakPassCoveredDates,
   useStreakPass,
+  rescheduleGoalToDate,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
@@ -53,7 +54,6 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
-import RescheduleModal from "@/components/RescheduleModal";
 import PageLoadingState from "@/components/PageLoadingState";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -77,11 +77,6 @@ export default function TomorrowGoalsPage() {
   const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
   const [coveredByPass, setCoveredByPass] = useState(false);
   const [usingPass, setUsingPass] = useState(false);
-  // Goals that need to be moved elsewhere before a pass can cover
-  // tomorrow -- set (opening RescheduleModal) only when the draft still
-  // has content at the moment "Cover this day in advance" is clicked; see
-  // handleUseStreakPass.
-  const [rescheduleBeforeCoverGoals, setRescheduleBeforeCoverGoals] = useState<Goal[] | null>(null);
 
   const [goals, setGoals] = useState<DraftGoal[]>([
     { title: "", sort_order: 0, priority: DEFAULT_PRIORITY },
@@ -376,11 +371,12 @@ export default function TomorrowGoalsPage() {
 
   /**
    * "Cover this day in advance" — same use_streak_pass RPC as the past-day
-   * flow on /standup/date/[date], but tomorrow's draft may still have
-   * goals sitting on it. Covering the day means it'll never actually be
-   * reviewed, so anything already drafted needs a new home first — flush
-   * any pending autosave, and if content remains, force a whole-day
-   * reschedule (RescheduleModal) before the pass itself can be spent.
+   * flow on /standup/date/[date]. Covering the day means it'll never
+   * actually be reviewed, so any content already drafted for it is
+   * automatically rescheduled to the day after (via the same
+   * rescheduleGoalToDate/goal_reschedules mechanism a manual reschedule
+   * uses) before the pass itself is spent — nothing is left silently
+   * stranded on a day that'll auto-close with no review.
    */
   async function handleUseStreakPass() {
     if (!planId || usingPass || coveredByPass) return;
@@ -389,14 +385,18 @@ export default function TomorrowGoalsPage() {
     const draftGoalsWithContent = savedRows.filter(
       (g): g is DraftGoal & { id: string } => !!g.id && (g.title ?? "").trim().length > 0
     );
-    if (draftGoalsWithContent.length > 0) {
-      setRescheduleBeforeCoverGoals(draftGoalsWithContent as Goal[]);
-      return;
-    }
+    const dayAfterISO = toISODate(addDays(new Date(`${tomorrowISO}T00:00:00`), 1));
 
+    const confirmKey =
+      draftGoalsWithContent.length > 0 ? "datePage.confirmUseStreakPassAdvanceWithDrafts" : "datePage.confirmUseStreakPassAdvance";
     if (
       !window.confirm(
-        t("datePage.confirmUseStreakPassAdvance", { count: passBalance?.available ?? 0, date: formatDateDisplay(tomorrowISO) })
+        t(confirmKey, {
+          count: passBalance?.available ?? 0,
+          date: formatDateDisplay(tomorrowISO),
+          goalCount: draftGoalsWithContent.length,
+          nextDate: formatDateDisplay(dayAfterISO),
+        })
       )
     ) {
       return;
@@ -405,6 +405,18 @@ export default function TomorrowGoalsPage() {
     setUsingPass(true);
     setMsg(null);
     try {
+      // Sequential, not Promise.all — each call inserts into
+      // goal_reschedules and can trigger materialization (see
+      // rescheduleGoalToDate), so keeping these one-at-a-time avoids
+      // racing that against itself for more than one drafted goal.
+      for (const g of draftGoalsWithContent) {
+        await rescheduleGoalToDate({
+          goal: g as unknown as Goal,
+          toDateISO: dayAfterISO,
+          reason: t("tomorrow.autoRescheduledForPassReason"),
+        });
+      }
+
       await useStreakPass(planId);
       await refresh({ silent: true });
       setMsg(t("datePage.streakPassUsed"));
@@ -1287,18 +1299,6 @@ export default function TomorrowGoalsPage() {
           <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(var(--tint-rgb),0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(var(--tint-rgb),0.2)" }}>
             {msg}
           </div>
-        )}
-
-        {rescheduleBeforeCoverGoals && (
-          <RescheduleModal
-            goals={rescheduleBeforeCoverGoals}
-            onClose={() => setRescheduleBeforeCoverGoals(null)}
-            onSuccess={async () => {
-              setRescheduleBeforeCoverGoals(null);
-              await refresh({ silent: true });
-              setMsg(t("tomorrow.draftReadyToCover"));
-            }}
-          />
         )}
       </div>
   );

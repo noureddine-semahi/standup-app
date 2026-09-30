@@ -14,6 +14,7 @@ import {
   hoursUntilMidnight,
   createAchievementPost,
   getStreakPassBalance,
+  getStreakPassCoveredDates,
   listConnections,
   getMyGoalAssignments,
   getMyMentions,
@@ -124,6 +125,12 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [streak, setStreak] = useState(0);
   const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
+  // Mirrors Today page's own coveredByPassToday -- a pass-covered day
+  // closes itself the moment its date becomes "today", so Dashboard's own
+  // todayClosed (the "Tomorrow Unlocked" banner, end-of-day reminder, etc.)
+  // needs the same treatment rather than duplicating Today's derivation
+  // incorrectly.
+  const [coveredByPassToday, setCoveredByPassToday] = useState(false);
   const [pointsView, setPointsView] = useState<"total" | "today">("total");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
@@ -215,7 +222,7 @@ export default function DashboardPage() {
         // query can't sink the whole dashboard load via Promise.all's
         // fail-fast behavior — the achievement popup or notifications
         // section just gets skipped for this load, same as before.
-        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments, myMentions] = await Promise.all([
+        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments, myMentions, coveredDates] = await Promise.all([
           getOrCreateProfile(),
           getStreak(),
           getPlanWithGoals(todayISO),
@@ -225,6 +232,7 @@ export default function DashboardPage() {
           u ? listConnections().catch(() => []) : Promise.resolve([]),
           u ? getMyGoalAssignments().catch(() => []) : Promise.resolve([]),
           u ? getMyMentions().catch(() => []) : Promise.resolve([]),
+          u ? getStreakPassCoveredDates(todayISO, todayISO).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
         ]);
         setProfile(p);
         setStreak(s);
@@ -236,6 +244,7 @@ export default function DashboardPage() {
         setGoalAssignments(assignments);
         setMentions(myMentions);
         setPassBalance(passes);
+        setCoveredByPassToday(coveredDates.has(todayISO));
 
         getOverdueSummary(todayISO)
           .then(setOverdue)
@@ -373,7 +382,7 @@ export default function DashboardPage() {
     todayAttemptedStatus > 0 ? t("dashboard.outcomeAttempted", { count: todayAttemptedStatus }) : null,
     todayInProgress > 0 ? t("dashboard.outcomeInProgress", { count: todayInProgress }) : null,
   ].filter(Boolean) as string[];
-  const todayClosed = !!todayPlan?.reviewed_at;
+  const todayClosed = !!todayPlan?.reviewed_at || coveredByPassToday;
   const todayPointsEarned = (todayPlan?.awareness_points ?? 0) + (todayPlan?.closure_points ?? 0);
 
   // Tomorrow stats

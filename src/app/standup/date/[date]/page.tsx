@@ -27,6 +27,7 @@ import {
   getStreakPassBalance,
   getStreakPassCoveredDates,
   useStreakPass,
+  rescheduleGoalToDate,
   type ChecklistItem,
   type Goal,
   type GoalAttachment,
@@ -380,17 +381,21 @@ export default function DynamicDatePage() {
     }
   }
 
-  async function persistGoals(silent?: boolean) {
-    if (!planId) return;
-    if (planStatus === "locked") return;
-    if (autosaveInFlightRef.current) return;
+  // Returns the authoritative, id-bearing goal rows -- see Tomorrow page's
+  // identical persistGoals for why callers that need real ids (e.g. before
+  // auto-rescheduling draft content) should use this return value rather
+  // than the `goals` state var.
+  async function persistGoals(silent?: boolean): Promise<DraftGoal[]> {
+    if (!planId) return goalsRef.current;
+    if (planStatus === "locked") return goalsRef.current;
+    if (autosaveInFlightRef.current) return goalsRef.current;
 
     const compacted = compactForSave(goalsRef.current);
 
     const currentHash = computeHashForSave(compacted);
     if (currentHash === lastSavedHashRef.current) {
       if (!silent) setMsg(t("tomorrow.noChanges"));
-      return;
+      return goalsRef.current;
     }
 
     autosaveInFlightRef.current = true;
@@ -447,8 +452,10 @@ export default function DynamicDatePage() {
           900
         );
       }
+      return rows;
     } catch (e: any) {
       setMsg(e?.message ?? t("tomorrow.saveFailed"));
+      return goalsRef.current;
     } finally {
       autosaveInFlightRef.current = false;
       if (!silent) setSubmitting(false);
@@ -559,17 +566,58 @@ export default function DynamicDatePage() {
 
   async function handleUseStreakPass() {
     if (!planId || usingPass || coveredByPass) return;
+
+    // Only a FUTURE day can still have untouched draft content worth
+    // moving -- a past day's goals are already done one way or another,
+    // and already have their own dedicated "Re-attempt whole day" flow
+    // for exactly that case, unrelated to streak passes.
+    let draftGoalsWithContent: (DraftGoal & { id: string })[] = [];
+    let dayAfterISO = "";
+    if (!isPastDate) {
+      const savedRows = await persistGoals(true);
+      draftGoalsWithContent = savedRows.filter(
+        (g): g is DraftGoal & { id: string } => !!g.id && (g.title ?? "").trim().length > 0
+      );
+      dayAfterISO = toISODate(addDays(new Date(`${dateISO}T00:00:00`), 1));
+    }
+
     // Same RPC either way (use_streak_pass no longer restricts plan_date to
     // the past) -- only the confirm copy differs, since covering a future
     // day is a proactive choice rather than fixing an already-missed one.
-    const confirmKey = isPastDate ? "datePage.confirmUseStreakPass" : "datePage.confirmUseStreakPassAdvance";
-    if (!window.confirm(t(confirmKey, { count: passBalance?.available ?? 0, date: formatDateDisplay(dateISO) }))) {
+    const confirmKey =
+      isPastDate
+        ? "datePage.confirmUseStreakPass"
+        : draftGoalsWithContent.length > 0
+        ? "datePage.confirmUseStreakPassAdvanceWithDrafts"
+        : "datePage.confirmUseStreakPassAdvance";
+    if (
+      !window.confirm(
+        t(confirmKey, {
+          count: passBalance?.available ?? 0,
+          date: formatDateDisplay(dateISO),
+          goalCount: draftGoalsWithContent.length,
+          nextDate: formatDateDisplay(dayAfterISO),
+        })
+      )
+    ) {
       return;
     }
 
     setUsingPass(true);
     setMsg(null);
     try {
+      // Sequential, not Promise.all — each call inserts into
+      // goal_reschedules and can trigger materialization (see
+      // rescheduleGoalToDate), so keeping these one-at-a-time avoids
+      // racing that against itself for more than one drafted goal.
+      for (const g of draftGoalsWithContent) {
+        await rescheduleGoalToDate({
+          goal: g as unknown as Goal,
+          toDateISO: dayAfterISO,
+          reason: t("tomorrow.autoRescheduledForPassReason"),
+        });
+      }
+
       await useStreakPass(planId);
       await refresh({ silent: true });
       setMsg(t("datePage.streakPassUsed"));

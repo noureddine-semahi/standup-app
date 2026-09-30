@@ -261,3 +261,12 @@ real reason to, not just because the list exists.
   assistant's free usage cap (see Release Notes above) is the first concrete
   candidate for a paid tier — "unlimited assistant" — once this gets picked
   back up.
+- **Google Calendar integration** — an opt-in, on-demand "Sync Now" button
+  rather than automatic real-time sync: polling on click means neither
+  direction needs Google's push-notification channels (which expire and
+  need a renewal cron) or a public webhook endpoint, collapsing what would
+  otherwise be a two-phase build into one. Still needs a one-time OAuth
+  connect flow per user (a new `google_calendar_connections` table storing
+  a refresh token, plus a `goals.google_event_id` column) — accepted as the
+  cost of an optional convenience feature, not something every user is
+  routed through. Scoped but not started.

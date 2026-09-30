@@ -138,6 +138,11 @@ const PARKED: { title: string; detail: string }[] = [
     detail:
       "Subscriptions or advertising. Advertising would conflict with the Privacy Policy's no-third-party-tracking commitment, so that tension needs resolving before either path is chosen. The Dashboard assistant's free usage cap is the first concrete candidate for a paid tier -- \"unlimited assistant\" -- once this gets picked back up.",
   },
+  {
+    title: "Google Calendar integration",
+    detail:
+      "An opt-in, on-demand \"Sync Now\" button rather than automatic real-time sync -- polling on click means neither direction needs Google's push-notification channels (which expire and need a renewal cron) or a public webhook endpoint, collapsing what would otherwise be a two-phase build into one. Still needs a one-time OAuth connect flow per user (a new google_calendar_connections table storing a refresh token, plus a goals.google_event_id column) -- accepted as the cost of an optional convenience feature, not something every user is routed through. Scoped but not started.",
+  },
 ];
 
 export default function ProductLogPage() {

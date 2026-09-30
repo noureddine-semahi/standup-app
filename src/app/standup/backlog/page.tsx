@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks } from "lucide-react";
 import {
   addBacklogGoal,
   addLongTermGoal,
@@ -42,8 +42,18 @@ const WEEKDAY_KEYS: TranslationKey[] = [
   "calendar.daySat",
 ];
 
+type BacklogTab = "backlog" | "longTerm" | "recurring" | "lists";
+
+const TABS: { key: BacklogTab; labelKey: TranslationKey; icon: typeof Archive }[] = [
+  { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive },
+  { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock },
+  { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat },
+  { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks },
+];
+
 export default function BacklogPage() {
   const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<BacklogTab>("backlog");
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -420,13 +430,33 @@ export default function BacklogPage() {
   return (
     <div className="space-y-6">
     <div className="card card-highlight">
-      <div className="mb-8">
+      <div className="mb-4">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.backlog")}</h1>
         <p className="text-white/70">
           {t("backlog.subtitle")}
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className="btn inline-flex items-center gap-1.5"
+            style={{
+              background: activeTab === tab.key ? "rgba(245, 158, 11, 0.2)" : undefined,
+              borderColor: activeTab === tab.key ? "rgba(245, 158, 11, 0.6)" : undefined,
+            }}
+          >
+            <tab.icon size={14} /> {t(tab.labelKey)}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {activeTab === "backlog" && (
+    <div className="card card-highlight">
       {msg && (
         <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
           {msg}
@@ -569,7 +599,9 @@ export default function BacklogPage() {
       )}
 
     </div>
+    )}
 
+    {activeTab === "longTerm" && (
     <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.longTermTitle")}</h2>
@@ -736,7 +768,9 @@ export default function BacklogPage() {
         </div>
       )}
     </div>
+    )}
 
+    {activeTab === "recurring" && (
     <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.recurringTitle")}</h2>
@@ -836,7 +870,9 @@ export default function BacklogPage() {
         </div>
       )}
     </div>
+    )}
 
+    {activeTab === "lists" && (
     <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.listsTitle")}</h2>
@@ -983,6 +1019,7 @@ export default function BacklogPage() {
         </div>
       )}
     </div>
+    )}
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">

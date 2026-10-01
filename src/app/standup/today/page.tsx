@@ -14,6 +14,7 @@ import {
   addDays,
   addGoalNote,
   awardAwarenessPoints,
+  deleteGoal,
   awardClosurePoints,
   computeClosurePoints,
   enforceSingleP1,
@@ -63,7 +64,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
-  AlarmClock, Hourglass, Lock, Unlock, Ticket,
+  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -257,6 +258,23 @@ export default function TodayPage() {
       else next.add(id);
       return next;
     });
+  }
+
+  // Permanent delete — explicit user call: Today previously only offered
+  // status changes (completed/blocked/canceled/postponed/reschedule),
+  // never outright removal, same as Tomorrow/date-detail's own
+  // deleteGoal() use. No confirmation step, no undo.
+  async function handleDeleteGoal(goal: Goal) {
+    if (busyGoalIds.has(goal.id)) return;
+    markGoalBusy(goal.id);
+    try {
+      await deleteGoal(goal.id);
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setMsg(e?.message ?? t("today.failedDeleteGoal"));
+    } finally {
+      clearGoalBusy(goal.id);
+    }
   }
 
   const locked = plan?.status === "locked";
@@ -1605,14 +1623,29 @@ export default function TodayPage() {
               >
                 {isCelebrating && <div className="goal-complete-badge"><Check size={14} strokeWidth={3} /></div>}
                 {isCollapsible && (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpandedDone(g.id)}
-                    className="goal-done-collapse-btn"
-                    title={t("today.collapseTitle")}
-                  >
-                    {t("today.collapse")}
-                  </button>
+                  <>
+                    {/* Top-right corner tag, mirrors goal-number-badge's
+                        shape — now a delete action (was the old text
+                        "Collapse" button) since collapsing moved to its
+                        own half-circle tab on the top border, below. */}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGoal(g)}
+                      disabled={busyGoalIds.has(g.id)}
+                      className="goal-delete-corner-btn"
+                      title={t("today.deleteGoal")}
+                    >
+                      <X size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandedDone(g.id)}
+                      className="goal-collapse-top-btn"
+                      title={t("today.collapseTitle")}
+                    >
+                      <ChevronUp size={12} />
+                    </button>
+                  </>
                 )}
                 {/* Number badge — a small corner tag flush with the card's
                     own top-left border/radius. */}

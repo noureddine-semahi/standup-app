@@ -1189,26 +1189,59 @@ select:focus {
   pointer-events: none;
 }
 
-/* Flush with the card's own top-right corner/border, mirroring the number
-   badge's top-left corner tag — its top and right edges are the card's own
-   border rather than a second border floating just inside it. */
-.goal-done-collapse-btn {
+/* Flush with the card's own top-right corner, mirroring goal-number-badge's
+   top-left corner tag (same cut-corner shape, flipped) — a delete action
+   now, not the old "Collapse" text button (that moved to the half-circle
+   tab below, goal-collapse-top-btn). */
+.goal-delete-corner-btn {
   position: absolute;
   top: 0;
   right: 0;
-  font-size: 0.72rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: rgba(var(--tint-rgb), 0.5);
-  background: rgba(var(--tint-rgb), 0.06);
-  border: 1px solid rgba(var(--tint-rgb), 0.15);
-  border-top: none;
-  border-right: none;
+  background: rgba(var(--tint-rgb), 0.07);
+  border-left: 1px solid rgba(var(--tint-rgb), 0.12);
+  border-bottom: 1px solid rgba(var(--tint-rgb), 0.12);
   border-top-right-radius: 16px;
   border-bottom-left-radius: 8px;
-  padding: 0.3rem 0.9rem 0.25rem 0.75rem;
   z-index: 3;
+  cursor: pointer;
 }
 
-.goal-done-collapse-btn:hover {
+.goal-delete-corner-btn:hover {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* Centered on the top border rather than a corner — a half-circle tab
+   (flat edge down, flush with the border; rounded top poking above the
+   card) instead of the corner tags' quarter-circle cut. Collapses an
+   already-resolved goal back to its compact summary row. */
+.goal-collapse-top-btn {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  width: 34px;
+  height: 17px;
+  border-radius: 17px 17px 0 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 2px;
+  color: rgba(var(--tint-rgb), 0.5);
+  background: rgba(var(--tint-rgb), 0.07);
+  border: 1px solid rgba(var(--tint-rgb), 0.15);
+  border-bottom: none;
+  z-index: 3;
+  cursor: pointer;
+}
+
+.goal-collapse-top-btn:hover {
   color: rgba(var(--tint-rgb), 0.9);
   background: rgba(var(--tint-rgb), 0.12);
 }

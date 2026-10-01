@@ -1316,58 +1316,66 @@ export default function ToolsPage() {
                   style={{ overflow: "hidden", lineHeight: 1.3 }}
                 />
 
-                <div className="flex flex-wrap gap-2">
-                  <label className="text-xs text-white/50">
-                    {t("backlog.paymentBalanceLabel")}
-                    <input
-                      type="number"
-                      defaultValue={account.balance}
-                      key={`${account.id}-balance-${account.balance}`}
-                      onBlur={(e) => handleUpdatePaymentField(account, "balance", e.target.value)}
-                      disabled={busy}
-                      className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "92px" }}
-                    />
-                  </label>
-                  <label className="text-xs text-white/50">
-                    {t("backlog.paymentMinimumLabel")}
-                    <input
-                      type="number"
-                      defaultValue={account.minimumPayment}
-                      key={`${account.id}-min-${account.minimumPayment}`}
-                      onBlur={(e) => handleUpdatePaymentField(account, "minimumPayment", e.target.value)}
-                      disabled={busy}
-                      className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "92px" }}
-                    />
-                  </label>
-                  <label className="text-xs text-white/50">
-                    {t("backlog.paymentDueDayLabel")}
-                    <input
-                      type="number"
-                      min={1}
-                      max={31}
-                      defaultValue={account.dueDay}
-                      key={`${account.id}-due-${account.dueDay}`}
-                      onBlur={(e) => handleUpdatePaymentField(account, "dueDay", e.target.value)}
-                      disabled={busy}
-                      className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "68px" }}
-                    />
-                  </label>
-                  <label className="text-xs text-white/50">
-                    {t("backlog.paymentRemindLabel")}
-                    <input
-                      type="number"
-                      min={0}
-                      defaultValue={account.remindDaysBefore}
-                      key={`${account.id}-remind-${account.remindDaysBefore}`}
-                      onBlur={(e) => handleUpdatePaymentField(account, "remindDaysBefore", e.target.value)}
-                      disabled={busy}
-                      className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "68px" }}
-                    />
-                  </label>
+                {/* Two sub-rows (not one flex-wrap pool) so Due Day and
+                    Remind stay paired together on their own line instead
+                    of wherever the wrap happens to split the full set of
+                    four fields. */}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <label className="text-xs text-white/50">
+                      {t("backlog.paymentBalanceLabel")}
+                      <input
+                        type="number"
+                        defaultValue={account.balance}
+                        key={`${account.id}-balance-${account.balance}`}
+                        onBlur={(e) => handleUpdatePaymentField(account, "balance", e.target.value)}
+                        disabled={busy}
+                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                        style={{ width: "92px" }}
+                      />
+                    </label>
+                    <label className="text-xs text-white/50">
+                      {t("backlog.paymentMinimumLabel")}
+                      <input
+                        type="number"
+                        defaultValue={account.minimumPayment}
+                        key={`${account.id}-min-${account.minimumPayment}`}
+                        onBlur={(e) => handleUpdatePaymentField(account, "minimumPayment", e.target.value)}
+                        disabled={busy}
+                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                        style={{ width: "92px" }}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="text-xs text-white/50">
+                      {t("backlog.paymentDueDayLabel")}
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        defaultValue={account.dueDay}
+                        key={`${account.id}-due-${account.dueDay}`}
+                        onBlur={(e) => handleUpdatePaymentField(account, "dueDay", e.target.value)}
+                        disabled={busy}
+                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                        style={{ width: "68px" }}
+                      />
+                    </label>
+                    <label className="text-xs text-white/50">
+                      {t("backlog.paymentRemindLabel")}
+                      <input
+                        type="number"
+                        min={0}
+                        defaultValue={account.remindDaysBefore}
+                        key={`${account.id}-remind-${account.remindDaysBefore}`}
+                        onBlur={(e) => handleUpdatePaymentField(account, "remindDaysBefore", e.target.value)}
+                        disabled={busy}
+                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                        style={{ width: "68px" }}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {expandedPaymentHistoryId === account.id && (

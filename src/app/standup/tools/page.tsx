@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History, ChevronDown, ChevronRight } from "lucide-react";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import {
   addBacklogGoal,
@@ -54,18 +54,23 @@ const WEEKDAY_KEYS: TranslationKey[] = [
 
 type ToolsTab = "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "assignments";
 
-const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive }[] = [
-  { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive },
-  { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock },
-  { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat },
-  { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks },
-  { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard },
-  { key: "assignments", labelKey: "backlog.tabAssignments", icon: ClipboardList },
+const TABS: { key: ToolsTab; labelKey: TranslationKey; descriptionKey: TranslationKey; icon: typeof Archive }[] = [
+  { key: "backlog", labelKey: "backlog.tabBacklog", descriptionKey: "backlog.tabBacklogDescription", icon: Archive },
+  { key: "longTerm", labelKey: "backlog.tabLongTerm", descriptionKey: "backlog.tabLongTermDescription", icon: CalendarClock },
+  { key: "recurring", labelKey: "backlog.tabRecurring", descriptionKey: "backlog.tabRecurringDescription", icon: Repeat },
+  { key: "lists", labelKey: "backlog.tabLists", descriptionKey: "backlog.tabListsDescription", icon: ListChecks },
+  { key: "payments", labelKey: "backlog.tabPayments", descriptionKey: "backlog.tabPaymentsDescription", icon: CreditCard },
+  { key: "assignments", labelKey: "backlog.tabAssignments", descriptionKey: "backlog.tabAssignmentsDescription", icon: ClipboardList },
 ];
 
 export default function ToolsPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<ToolsTab>("backlog");
+  // Collapsed by default: just the active tool's own large card shows,
+  // highlighted. Tapping it (or any card while expanded) re-collapses to
+  // whichever tool was just picked, instead of staying a persistent list
+  // of 6 cards the user has to scroll past every time.
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -570,22 +575,72 @@ export default function ToolsPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setActiveTab(tab.key)}
-            className="btn inline-flex items-center gap-1.5"
-            style={{
-              background: activeTab === tab.key ? "rgba(245, 158, 11, 0.2)" : undefined,
-              borderColor: activeTab === tab.key ? "rgba(245, 158, 11, 0.6)" : undefined,
-            }}
-          >
-            <tab.icon size={14} /> {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      {/* Full-width tool picker, same on mobile and desktop. Collapsed:
+          just the active tool's own card, highlighted, with a chevron
+          inviting a switch. Expanded: every tool as its own large
+          name+description+access row; picking one re-collapses to it. */}
+      {!pickerOpen ? (
+        (() => {
+          const active = TABS.find((tab) => tab.key === activeTab)!;
+          return (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="w-full flex items-center gap-4 rounded-xl p-4 text-left transition"
+              style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.5)" }}
+            >
+              <div
+                className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                style={{ width: "44px", height: "44px", background: "rgba(245, 158, 11, 0.18)" }}
+              >
+                <active.icon size={20} color="#fcd34d" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-white">{t(active.labelKey)}</div>
+                <div className="text-xs text-white/60 mt-0.5">{t(active.descriptionKey)}</div>
+              </div>
+              <div className="flex-shrink-0 flex items-center gap-1 text-xs text-white/50">
+                {t("tools.switchLabel")} <ChevronDown size={14} />
+              </div>
+            </button>
+          );
+        })()
+      ) : (
+        <div className="space-y-2">
+          {TABS.map((tab) => {
+            const isActive = tab.key === activeTab;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setPickerOpen(false);
+                }}
+                className="w-full flex items-center gap-4 rounded-xl p-4 text-left transition"
+                style={{
+                  background: isActive ? "rgba(245, 158, 11, 0.12)" : "rgba(var(--tint-rgb), 0.04)",
+                  border: isActive ? "1px solid rgba(245, 158, 11, 0.5)" : "1px solid rgba(var(--tint-rgb), 0.12)",
+                }}
+              >
+                <div
+                  className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                  style={{ width: "44px", height: "44px", background: isActive ? "rgba(245, 158, 11, 0.18)" : "rgba(var(--tint-rgb), 0.08)" }}
+                >
+                  <tab.icon size={20} color={isActive ? "#fcd34d" : undefined} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-white">{t(tab.labelKey)}</div>
+                  <div className="text-xs text-white/60 mt-0.5">{t(tab.descriptionKey)}</div>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-1 text-xs text-white/50">
+                  {t("tools.openLabel")} <ChevronRight size={14} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
 
     {activeTab === "backlog" && (

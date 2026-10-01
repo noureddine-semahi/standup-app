@@ -1349,10 +1349,17 @@ export default function ToolsPage() {
                       />
                     </label>
                   </div>
+                  {/* No maxWidth cap here — "Due day of month"/"Remind
+                      (days before)" render on one line each at their
+                      natural width (there's ample room; the card is much
+                      wider than these two short labels need), instead of
+                      wrapping into a cramped column with empty space
+                      sitting unused to the right. flex-wrap stays as a
+                      fallback for a viewport too narrow for that. */}
                   <div className="flex flex-wrap items-start gap-1.5">
                     <label
-                      className="text-xs text-white/50 pr-1.5"
-                      style={{ maxWidth: "132px", borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
+                      className="text-xs text-white/50 pr-1.5 whitespace-nowrap"
+                      style={{ borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
                     >
                       {t("backlog.paymentDueDayLabel")}
                       <input
@@ -1367,7 +1374,7 @@ export default function ToolsPage() {
                         style={{ width: "68px" }}
                       />
                     </label>
-                    <label className="text-xs text-white/50" style={{ maxWidth: "132px" }}>
+                    <label className="text-xs text-white/50 whitespace-nowrap">
                       {t("backlog.paymentRemindLabel")}
                       <input
                         type="number"

@@ -1063,58 +1063,57 @@ export default function ToolsPage() {
                       {t(listItems.length === 1 ? "backlog.listItemCount.one" : "backlog.listItemCount.other", { count: listItems.length })}
                     </span>
                   </div>
-                  {/* flex-wrap (not flex-shrink-0) so this cluster breaks
-                      onto its own lines on a narrow viewport instead of
-                      overflowing past the card edge; every control here is
-                      also sized down from the desktop defaults so the full
-                      row has a real chance of fitting on one line first. */}
-                  <div className="flex items-center flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handlePushList(list, tomorrowISO)}
-                      disabled={busy}
-                      className="btn"
-                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem" }}
-                      title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
-                    >
-                      {t("backlog.pushToTomorrow")}
-                    </button>
-                    <input
-                      type="date"
-                      value={listPushDate[list.id] ?? ""}
-                      min={todayISO}
-                      disabled={busy}
-                      onChange={(e) => setListPushDate((prev) => ({ ...prev, [list.id]: e.target.value }))}
-                      className="rounded-lg border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none focus:border-white/40 disabled:opacity-50"
-                      style={{ width: "118px" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handlePushList(list)}
-                      disabled={busy || !listPushDate[list.id]}
-                      className="btn"
-                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
-                    >
-                      {t("backlog.push")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteList(list)}
-                      disabled={busy}
-                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
-                      style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "8px",
-                        background: "rgba(var(--tint-rgb), 0.06)",
-                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                      }}
-                      title={t("backlog.deleteList")}
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteList(list)}
+                    disabled={busy}
+                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "8px",
+                      background: "rgba(var(--tint-rgb), 0.06)",
+                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
+                    }}
+                    title={t("backlog.deleteList")}
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
+
+                {/* Same layout as the Backlog cards: Push to Tomorrow +
+                    date picker share a line, Push sits full-width below
+                    spanning that same combined width, colored (btn-primary)
+                    as the one actual commit action in the card. */}
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePushList(list, tomorrowISO)}
+                    disabled={busy}
+                    className="btn flex-1"
+                    style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                    title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
+                  >
+                    {t("backlog.pushToTomorrow")}
+                  </button>
+                  <input
+                    type="date"
+                    value={listPushDate[list.id] ?? ""}
+                    min={todayISO}
+                    disabled={busy}
+                    onChange={(e) => setListPushDate((prev) => ({ ...prev, [list.id]: e.target.value }))}
+                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePushList(list)}
+                  disabled={busy || !listPushDate[list.id]}
+                  className="btn btn-primary w-full mb-3"
+                  style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                >
+                  {t("backlog.push")}
+                </button>
 
                 {listItems.length > 0 && (
                   <div className="space-y-1.5 mb-3">

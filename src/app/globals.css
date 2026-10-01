@@ -1114,14 +1114,17 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   /* Large, even, omnidirectional halo BEHIND the whole tab -- 0 0 (no
      directional offset) so it spreads equally above/below/sides rather
-     than favoring one edge, reaching ~25-35px out via spread+blur
-     stacked across 3 layers (crisp ring, inner halo, outer diffuse
-     falloff) -- explicit "spotlight behind it, not just a glowing
-     border" call. */
+     than favoring one edge, reaching ~15-20px out via spread+blur
+     stacked across 3 layers. Ring layer toned down (was 60%, acted as
+     an unwanted bright "underline" along the bottom edge since
+     box-shadow draws on all 4 sides regardless of border-bottom-color
+     being dimmed to merge into the panel) in favor of a brighter,
+     more prominent diffuse halo carrying the "softly illuminated from
+     behind" read instead. */
   box-shadow:
-    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 60%, transparent),
-    0 0 18px 6px color-mix(in srgb, var(--tab-color) 45%, transparent),
-    0 0 34px 10px color-mix(in srgb, var(--tab-color) 24%, transparent);
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 45%, transparent),
+    0 0 15px 5px color-mix(in srgb, var(--tab-color) 52%, transparent),
+    0 0 24px 9px color-mix(in srgb, var(--tab-color) 30%, transparent);
 }
 
 .folder-tab-active::before {
@@ -1262,9 +1265,9 @@ h1, h2, h3, h4, h5, h6 {
   /* Large, even, omnidirectional halo BEHIND the whole tab -- mirrors
      .folder-tab-active's layers exactly. */
   box-shadow:
-    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 60%, transparent),
-    0 0 18px 6px color-mix(in srgb, var(--tab-color) 45%, transparent),
-    0 0 34px 10px color-mix(in srgb, var(--tab-color) 24%, transparent);
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 45%, transparent),
+    0 0 15px 5px color-mix(in srgb, var(--tab-color) 52%, transparent),
+    0 0 24px 9px color-mix(in srgb, var(--tab-color) 30%, transparent);
 }
 
 /* Thin brighter accent along the active tab's upper edge -- paired with
@@ -1288,9 +1291,12 @@ h1, h2, h3, h4, h5, h6 {
   bottom: -1px;
   left: 10px;
   right: 10px;
-  height: 2px;
+  height: 1.5px;
   border-radius: 2px;
-  background: var(--tab-color);
+  /* Dimmed slightly (was solid var(--tab-color)) -- explicit user call
+     to pull the bottom underline back a touch in favor of the
+     diffused glow carrying the active state instead. */
+  background: color-mix(in srgb, var(--tab-color) 72%, transparent);
 }
 
 /* Combined About/FAQ/Contact stand-in tab — hidden by default (desktop

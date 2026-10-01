@@ -1052,9 +1052,22 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--tab-color);
 }
 
+/* Combined About/FAQ/Contact stand-in tab — hidden by default (desktop
+   keeps the three individual tabs, see the mobile override below). */
+.folder-tab-hanging-info-combined {
+  display: none;
+}
+
 /* Mobile: icon-only, active tab unwraps its label — same mechanism as
-   the "up" tab bars' own 640px rule. */
+   the "up" tab bars' own 640px rule. Also where About/FAQ/Contact
+   collapse into the single combined tab. */
 @media (max-width: 640px) {
+  .folder-tab-hanging-info-individual {
+    display: none;
+  }
+  .folder-tab-hanging-info-combined {
+    display: inline-flex;
+  }
   .folder-tabbar-hanging {
     gap: 2px;
     padding: 0 10px 2px;

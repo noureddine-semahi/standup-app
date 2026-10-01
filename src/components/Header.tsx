@@ -22,7 +22,7 @@ import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, ClipboardList, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench } from "lucide-react";
+import { MoreHorizontal, Bell, ClipboardList, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, Info, HelpCircle, Mail } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -41,9 +41,11 @@ function applyAccountTheme(p: Profile) {
   }
 }
 
-// One nav slot cycles through these three instead of showing all of them at
-// once: on each page, the button shows the NEXT one in the loop and links
-// there. Off all three (Dashboard, Today, etc.), it defaults to "About".
+// Still used by infoLinks() below for logged-out visitors only — they
+// never see NAV_TABS (none of its routes work without an account), so
+// this space-saving rotation is their only way to reach About/FAQ/
+// Contact from the header row. A logged-in user reaches the same three
+// pages via NAV_TABS instead.
 const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
   "/about": { labelKey: "nav.faq", href: "/faq" },
   "/faq": { labelKey: "nav.contact", href: "/contact" },
@@ -51,15 +53,15 @@ const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> 
 };
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
-// The six primary destinations — previously squeezed into one inline row
-// next to the logo (Calendar/Tools sharing a rotating slot to save width,
-// see the git history for CALENDAR_ROTATION). Now a dedicated hanging tab
-// row below the header (navTabs() below) with room for all six as their
-// own tab, each with its own accent color, same folder-tab theme as
-// Social/Tools' own tab bars but inverted (hangs down, rounded-bottom,
-// merges upward into the header instead of downward into a content
-// panel) — explicit user call, applies to every breakpoint (icon-only
-// below 640px, same as the other two folder-tab bars).
+// Every destination the header used to split across the primary row, the
+// Assignments icon shortcut, and the About/FAQ/Contact rotation hidden
+// behind "More" — all ten now live as their own tab in the hanging row
+// below the header (navTabs()), each with its own accent color, same
+// folder-tab theme as Social/Tools' own tab bars but inverted (hangs
+// down, rounded-bottom, merges upward into the header instead of
+// downward into a content panel) — explicit user call, applies to every
+// breakpoint (icon-only below 640px, same as the other two folder-tab
+// bars, which is what makes ten tabs fit at all on a phone width).
 const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string }[] = [
   { href: "/standup/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, color: "#60a5fa" },
   { href: "/standup/social", labelKey: "nav.social", icon: Users, color: "#a78bfa" },
@@ -67,6 +69,10 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   { href: "/standup/tomorrow", labelKey: "nav.planTomorrow", icon: Sun, color: "#f59e0b" },
   { href: "/standup/calendar", labelKey: "nav.calendar", icon: Calendar, color: "#22d3ee" },
   { href: "/standup/tools", labelKey: "nav.tools", icon: Wrench, color: "#f43f5e" },
+  { href: "/standup/assignments", labelKey: "nav.assignments", icon: ClipboardList, color: "#fb923c" },
+  { href: "/about", labelKey: "nav.about", icon: Info, color: "#94a3b8" },
+  { href: "/faq", labelKey: "nav.faq", icon: HelpCircle, color: "#38bdf8" },
+  { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#f472b6" },
 ];
 
 export default function Header() {
@@ -297,26 +303,21 @@ export default function Header() {
     );
   }
 
-  // Everything besides the six NAV_TABS destinations, the always-visible
-  // bell, and the always-visible Profile chip (About/FAQ/Contact plus the
-  // Theme/Language toggles) — behind the More button/panel on desktop, or
-  // the mobile hamburger's dropdown — rather than competing with them for
-  // header space.
+  // For a logged-in user there's nothing left here but Theme/Language —
+  // every nav destination (including About/FAQ/Contact, which used to
+  // live in this panel via infoLinks) now lives in navTabs() instead.
+  // Logged-out visitors don't get navTabs() at all (none of those routes
+  // work without an account), so they still get infoLinks() here, same
+  // as before this change.
   function secondaryLinks(expanded: boolean) {
     if (loading) return null;
 
     if (user) {
       return (
-        <>
-          {infoLinks(expanded)}
-          {/* Profile itself is always visible now (see profileLink below)
-              — this is just the settings row that used to live tucked
-              inside the Profile chip in the expanded dropdown. */}
-          <div className="flex items-center gap-2 px-3 py-1.5">
-            <ThemeToggle size="sm" />
-            <LanguageToggle size="sm" />
-          </div>
-        </>
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <ThemeToggle size="sm" />
+          <LanguageToggle size="sm" />
+        </div>
       );
     }
 
@@ -358,7 +359,8 @@ export default function Header() {
   // that shouldn't disappear into a menu. Links straight to the Dashboard,
   // where PendingNotifications (the same five buckets, via
   // notificationBuckets.ts) actually lives, rather than duplicating that
-  // list in a header dropdown.
+  // list in a header dropdown. Rendered right next to profileLink()/
+  // avatar() now rather than in the utility cluster — explicit user call.
   function notificationBell() {
     if (!user) return null;
     return (
@@ -371,28 +373,9 @@ export default function Header() {
     );
   }
 
-  // Always visible next to the bell, same reasoning: Assignments used to
-  // only be reachable via the Calendar/Backlog rotation (see above) or
-  // Social's Goals tab, and a user reported genuinely not being able to
-  // find it. Reuses .nav-bell-btn's plain icon-button styling rather than
-  // introducing a new class for one more icon of the same shape.
-  function assignmentsShortcut() {
-    if (!user) return null;
-    return (
-      <Link
-        href="/standup/assignments"
-        className="nav-bell-btn"
-        aria-label={t("nav.assignments")}
-        style={
-          pathname === "/standup/assignments"
-            ? { borderColor: "rgba(245, 158, 11, 0.4)", color: "rgb(252, 211, 77)" }
-            : undefined
-        }
-      >
-        <ClipboardList size={18} />
-      </Link>
-    );
-  }
+  // Assignments used to need its own persistent shortcut here because the
+  // Calendar/Backlog rotation made it too easy to miss entirely — it's now
+  // just another NAV_TABS tab, so that workaround is gone too.
 
   if (isRecoveryPage) {
     return (
@@ -421,20 +404,15 @@ export default function Header() {
             destinations via navTabs()'s hanging row below instead. */}
         {authLinks()}
 
-        {/* Assignments shortcut + Bell + More button grouped tightly
-            together (their own small gap, not the header's wider one) so
-            they read as one utility cluster on desktop. Hidden entirely on
-            true mobile — the same icons re-appear there instead grouped
-            with the hamburger/avatar in nav-mobile-trigger below, since a
-            name-less icon row fits a phone-width row better than floating
-            on its own mid-header. */}
+        {/* Just the More button now — Assignments moved to navTabs() and
+            the bell moved next to Profile (see below), explicit user
+            calls. Still its own cluster div (not folded into the row's
+            plain flow) so the 760px hide rule below still has one thing
+            to target. */}
         <div className="nav-utility-cluster nav-utility-cluster-desktop">
-          {assignmentsShortcut()}
-          {notificationBell()}
-
-          {/* Secondary links (About/FAQ/Contact, Theme/Language) live
-              behind this button rather than inline, so only five items
-              ever compete with the logo for space. */}
+          {/* Secondary links (Theme/Language for a logged-in user; About/
+              FAQ/Contact too for a logged-out one, who never sees
+              navTabs()) live behind this button rather than inline. */}
           <div className="nav-more-wrap" ref={moreRef}>
             <button
               type="button"
@@ -463,24 +441,31 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Profile (avatar + name) — the rightmost item in the row, past
-            the bell/Assignments/More cluster. Hidden on true mobile, same
-            as before this whole restructure, where nav-mobile-trigger's
-            compact avatar-only icon takes over instead (a name label
-            doesn't fit a phone-width row next to the hamburger). */}
+        {/* Bell + Profile (avatar + name) grouped together at the very end
+            of the row — explicit user call to move the bell here rather
+            than the utility cluster. Both hidden on true mobile, same as
+            before this whole restructure, where nav-mobile-trigger's
+            compact bell + avatar-only icons take over instead (a name
+            label doesn't fit a phone-width row next to the hamburger).
+            The bell needs nav-utility-cluster-desktop's own existing hide
+            rule explicitly (it has no hide behavior of its own, unlike
+            profileLink's .nav-profile) now that it's no longer nested
+            inside that cluster's div. */}
+        <div className="nav-utility-cluster nav-utility-cluster-desktop">
+          {notificationBell()}
+        </div>
         {profileLink()}
 
-        {/* Mobile: logo stays on the left (above); Assignments/bell/
-            hamburger/avatar live here, avatar last so it's the rightmost
-            item, same as profileLink() above on desktop. Secondary links
-            (About/FAQ/Contact, Theme/Language, Logout) live in the
-            full-width dropdown panel below — the six primary destinations
-            don't, since navTabs()'s hanging row is already visible at
-            every breakpoint. Hidden above the mobile breakpoint — see
+        {/* Mobile: logo stays on the left (above); hamburger/bell/avatar
+            live here, bell placed directly next to avatar (mirroring the
+            desktop bell-next-to-Profile grouping) rather than next to the
+            hamburger. Assignments no longer needs its own icon here —
+            it's a navTabs() tab now, visible at every breakpoint already.
+            Secondary links (Theme/Language, Logout, and About/FAQ/Contact
+            for a logged-out visitor) live in the full-width dropdown
+            panel below. Hidden above the mobile breakpoint — see
             .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
-          {assignmentsShortcut()}
-          {notificationBell()}
           <button
             type="button"
             className="hamburger-btn"
@@ -492,6 +477,7 @@ export default function Header() {
             <span className="hamburger-line" />
             <span className="hamburger-line" />
           </button>
+          {notificationBell()}
           {!loading && avatar()}
         </div>
       </div>

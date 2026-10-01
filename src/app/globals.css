@@ -38,6 +38,14 @@ a {
   --chrome-alpha: 0.7;
   --chrome-alpha-hover: 0.85;
 
+  /* .app-header is position:fixed (not sticky) so it and navTabs()'s
+     hanging row beneath it truly never scroll, per explicit request —
+     .app-main's own padding-top uses this to clear the now-removed-from-
+     flow header instead of overlapping it. Estimated from the header's
+     own padding/content, not measured live — the one thing in this
+     change worth a visual check after shipping. */
+  --header-height: 100px;
+
   /* Priority (P1-P5) and goal-status colors — bright, saturated pastels
      that pop on the dark canvas. goalStatus.ts / priorityStyles.ts return
      var(--priority-N) / var(--status-X) instead of a literal hex for their
@@ -339,8 +347,15 @@ h1, h2, h3, h4, h5, h6 {
    so it turns into a light glass bar in light mode instead of staying a
    permanently dark title bar. */
 .app-header {
-  position: sticky;
+  /* fixed, not sticky -- explicit user call so the header (and navTabs()'s
+     hanging row inside it) truly never scrolls under any circumstance,
+     rather than sticky's "stays put once scrolled to the top" behavior.
+     Removed from document flow, so .app-main's padding-top (via
+     --header-height) is what keeps page content from sliding under it. */
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
   backdrop-filter: blur(12px) saturate(180%);
   background: rgba(var(--panel-rgb), var(--chrome-alpha));
@@ -667,12 +682,16 @@ h1, h2, h3, h4, h5, h6 {
 .app-main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 28px 18px 64px;
+  /* calc(--header-height + original top padding) -- .app-header is now
+     position:fixed (removed from flow), so this is what actually clears
+     it instead of the browser doing it automatically the way it did
+     under position:sticky. */
+  padding: calc(var(--header-height) + 28px) 18px 64px;
 }
 
 @media (max-width: 480px) {
   .app-main {
-    padding: 18px 12px 48px;
+    padding: calc(var(--header-height) + 18px) 12px 48px;
   }
   .card {
     padding: 16px;

@@ -1257,19 +1257,20 @@ export default function ToolsPage() {
                 {/* Buttons get their own row at the top, separate from the
                     name — sharing a line meant a long name pushed them
                     around (or vice versa) instead of each having its own
-                    predictable spot. flex-wrap still breaks this onto two
-                    lines on a very narrow viewport rather than overflowing. */}
-                <div className="flex items-center flex-wrap justify-end gap-1.5 mb-2">
-                  <span className="status-chip-sm" style={chipStyle as React.CSSProperties}>
+                    predictable spot. All three are equal-width flex-1
+                    columns spanning the full row (not a right-aligned
+                    cluster), each centering its own content, so they share
+                    the space evenly instead of sizing to their own content. */}
+                <div className="flex items-stretch gap-1.5 mb-2">
+                  <span className="status-chip-sm" style={{ ...chipStyle, flex: 1, width: "auto" } as React.CSSProperties}>
                     {isDueToday ? t("backlog.paymentDueToday") : t("backlog.paymentDueOn", { date: formatDateDisplay(dueDate) })}
                   </span>
                   <button
                     type="button"
                     onClick={() => toggleHistory(account)}
-                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                    className="flex items-center justify-center text-white/50 hover:text-white/90"
                     style={{
-                      width: "28px",
-                      height: "28px",
+                      flex: 1,
                       borderRadius: "8px",
                       background: expandedPaymentHistoryId === account.id ? "rgba(245, 158, 11, 0.15)" : "rgba(var(--tint-rgb), 0.06)",
                       border: "1px solid rgba(var(--tint-rgb), 0.15)",
@@ -1282,10 +1283,9 @@ export default function ToolsPage() {
                     type="button"
                     onClick={() => handleDeletePayment(account)}
                     disabled={busy}
-                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                    className="flex items-center justify-center text-white/50 hover:text-white/90"
                     style={{
-                      width: "28px",
-                      height: "28px",
+                      flex: 1,
                       borderRadius: "8px",
                       background: "rgba(var(--tint-rgb), 0.06)",
                       border: "1px solid rgba(var(--tint-rgb), 0.15)",

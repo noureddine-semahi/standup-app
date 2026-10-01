@@ -1254,67 +1254,67 @@ export default function ToolsPage() {
             const busy = busyPaymentIds.has(account.id);
             return (
               <div key={account.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
-                  <textarea
-                    rows={1}
-                    defaultValue={account.name}
-                    key={`${account.id}-name-${account.name}`}
-                    ref={(el) => {
-                      if (!el) return;
-                      el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight}px`;
+                {/* Buttons get their own row at the top, separate from the
+                    name — sharing a line meant a long name pushed them
+                    around (or vice versa) instead of each having its own
+                    predictable spot. flex-wrap still breaks this onto two
+                    lines on a very narrow viewport rather than overflowing. */}
+                <div className="flex items-center flex-wrap justify-end gap-1.5 mb-2">
+                  <span className="status-chip-sm" style={chipStyle as React.CSSProperties}>
+                    {isDueToday ? t("backlog.paymentDueToday") : t("backlog.paymentDueOn", { date: formatDateDisplay(dueDate) })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleHistory(account)}
+                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "8px",
+                      background: expandedPaymentHistoryId === account.id ? "rgba(245, 158, 11, 0.15)" : "rgba(var(--tint-rgb), 0.06)",
+                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
                     }}
-                    onInput={(e) => {
-                      const el = e.currentTarget;
-                      el.style.height = "auto";
-                      el.style.height = `${el.scrollHeight}px`;
-                    }}
-                    onBlur={(e) => handleUpdatePaymentField(account, "name", e.target.value)}
+                    title={t("backlog.paymentHistoryToggle")}
+                  >
+                    <History size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePayment(account)}
                     disabled={busy}
-                    className="flex-1 min-w-0 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-white font-medium outline-none focus:border-white/25 focus:bg-white/5 disabled:opacity-50 resize-none"
-                    style={{ maxWidth: "240px", overflow: "hidden", lineHeight: 1.3 }}
-                  />
-                  {/* flex-wrap (not flex-shrink-0) so this cluster breaks
-                      onto its own lines on a narrow viewport instead of
-                      overflowing past the card edge — same fix as the
-                      Lists row above, same underlying bug. */}
-                  <div className="flex items-center flex-wrap gap-1.5">
-                    <span className="status-chip-sm" style={chipStyle as React.CSSProperties}>
-                      {isDueToday ? t("backlog.paymentDueToday") : t("backlog.paymentDueOn", { date: formatDateDisplay(dueDate) })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleHistory(account)}
-                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
-                      style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "8px",
-                        background: expandedPaymentHistoryId === account.id ? "rgba(245, 158, 11, 0.15)" : "rgba(var(--tint-rgb), 0.06)",
-                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                      }}
-                      title={t("backlog.paymentHistoryToggle")}
-                    >
-                      <History size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePayment(account)}
-                      disabled={busy}
-                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
-                      style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "8px",
-                        background: "rgba(var(--tint-rgb), 0.06)",
-                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                      }}
-                      title={t("backlog.deletePayment")}
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
+                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "8px",
+                      background: "rgba(var(--tint-rgb), 0.06)",
+                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
+                    }}
+                    title={t("backlog.deletePayment")}
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
+
+                <textarea
+                  rows={1}
+                  defaultValue={account.name}
+                  key={`${account.id}-name-${account.name}`}
+                  ref={(el) => {
+                    if (!el) return;
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                  }}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                  }}
+                  onBlur={(e) => handleUpdatePaymentField(account, "name", e.target.value)}
+                  disabled={busy}
+                  className="w-full mb-3 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-white font-medium outline-none focus:border-white/25 focus:bg-white/5 disabled:opacity-50 resize-none"
+                  style={{ overflow: "hidden", lineHeight: 1.3 }}
+                />
 
                 <div className="flex flex-wrap gap-2">
                   <label className="text-xs text-white/50">

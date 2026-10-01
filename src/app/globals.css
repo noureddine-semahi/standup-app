@@ -919,10 +919,17 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* ✨ Buttons with Ripple Effect */
+/* ✨ Buttons with Ripple Effect -- the shared reusable "physical 3D
+   button" design token this whole app's buttons get through just
+   these two classes (.btn, .btn-primary) plus their hover/active/
+   disabled states, rather than any button styling its own depth by
+   hand. Size/layout/label/icon/position are untouched throughout --
+   purely the surface treatment: a top-lit-to-bottom-darker gradient,
+   a thin inset top highlight, a darker inset bottom bevel, and a soft
+   shadow underneath so it reads as slightly raised off the page. */
 .btn {
-  border: 1px solid rgba(var(--tint-rgb), 0.18);
-  background: rgba(var(--tint-rgb), 0.06);
+  border: 1px solid rgba(var(--tint-rgb), 0.22);
+  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.1), rgba(var(--tint-rgb), 0.04));
   color: rgba(var(--tint-rgb), 0.92);
   padding: 9px 14px;
   border-radius: 6px;
@@ -932,6 +939,10 @@ h1, h2, h3, h4, h5, h6 {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
+    0 2px 5px -2px rgba(0, 0, 0, 0.35);
 }
 
 .btn::before {
@@ -951,15 +962,53 @@ h1, h2, h3, h4, h5, h6 {
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* Hover: rises ~1.5px, glow/shadow both strengthen a step. */
 .btn:hover {
-  background: rgba(var(--tint-rgb), 0.12);
-  border-color: rgba(var(--tint-rgb), 0.3);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.16), rgba(var(--tint-rgb), 0.07));
+  border-color: rgba(var(--tint-rgb), 0.35);
+  transform: translateY(-1.5px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
+    0 5px 12px -3px rgba(0, 0, 0, 0.45);
 }
 
+/* Pressed: drops below rest (not just back to 0), shadow shrinks, and
+   an inset shadow replaces the raised highlight -- reads as physically
+   pushed in rather than merely "not hovering anymore." */
 .btn:active {
-  transform: translateY(0);
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 3px 0 rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px -1px rgba(0, 0, 0, 0.3);
+}
+
+/* Flat/dim, almost no glow or shadow -- explicit "clearly unavailable"
+   call. Overrides hover/active too so a disabled button can't be made
+   to look interactive by hovering it. */
+.btn:disabled,
+.btn:disabled:hover,
+.btn:disabled:active {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: rgba(var(--tint-rgb), 0.04);
+  border-color: rgba(var(--tint-rgb), 0.12);
+  box-shadow: none;
+  transform: none;
+}
+
+/* Stronger accent-colored glow + inset highlight for an already-
+   selected/toggled button -- a reusable modifier (compose with .btn or
+   .btn-primary), keyed off currentColor so it picks up whatever accent
+   color the button already has rather than hardcoding one. */
+.btn-selected {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
+    0 0 0 1px currentColor,
+    0 0 14px -2px currentColor,
+    0 3px 8px -3px rgba(0, 0, 0, 0.4);
 }
 
 .btn-ghost {
@@ -970,14 +1019,20 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(var(--tint-rgb), 0.08);
 }
 
-/* Flat lit-amber cell, not a gradient fill — the primary action reads as a
-   switch that's on, matching the landing page's .led-switch-primary. */
+/* Same depth treatment as .btn, amber-tinted -- the primary action
+   still reads as a switch that's on (matching the landing page's
+   .led-switch-primary), just with real dimension now instead of a
+   flat lit cell. */
 .btn-primary {
   border: 1px solid rgba(245, 158, 11, 0.5);
-  background: rgba(245, 158, 11, 0.12);
+  background: linear-gradient(to bottom, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
   color: var(--accent-amber);
   font-weight: 700;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 0 rgba(120, 53, 15, 0.4),
+    0 3px 8px -3px rgba(0, 0, 0, 0.4),
+    0 0 12px rgba(245, 158, 11, 0.15);
 }
 
 .btn-primary::before {
@@ -985,10 +1040,22 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary:hover {
-  background: rgba(245, 158, 11, 0.2);
+  background: linear-gradient(to bottom, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.12));
   border-color: rgba(245, 158, 11, 0.75);
-  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.75), 0 0 22px rgba(245, 158, 11, 0.4);
-  transform: translateY(-1px);
+  transform: translateY(-1.5px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 0 rgba(120, 53, 15, 0.45),
+    0 6px 14px -3px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(245, 158, 11, 0.75), 0 0 22px rgba(245, 158, 11, 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 3px 0 rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
+    0 1px 3px -1px rgba(0, 0, 0, 0.35);
 }
 
 /* ✨ Cards with Glow Effect — a glass panel using --panel-rgb/--panel-alpha*,

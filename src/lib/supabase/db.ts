@@ -1450,7 +1450,13 @@ export async function getSuggestedPaymentReminders(dateISO: string): Promise<Pay
   });
 }
 
-/** Creates a goal reminding you to pay, and marks this cycle as reminded so the suggestion chip stops reoffering it until next cycle's due date differs. */
+/**
+ * Creates a goal reminding you to pay, and marks this cycle as reminded so
+ * it doesn't get created again until the next cycle's due date differs.
+ * Explicit user call: payment reminders are auto-created, not a tap-to-add
+ * suggestion like recurring templates -- the one deliberate exception to
+ * this app's usual "awareness is a gate" default.
+ */
 export async function addGoalFromPaymentReminder(account: PaymentAccount, planDateISO: string): Promise<Goal> {
   const dueDate = computeNextDueDate(account.dueDay, planDateISO);
   const plan = await getOrCreatePlan(planDateISO);
@@ -1480,6 +1486,28 @@ export async function addGoalFromPaymentReminder(account: PaymentAccount, planDa
   if (updateErr) throw updateErr;
 
   return created as Goal;
+}
+
+/**
+ * Checks for due payment reminders on planDateISO and silently creates a
+ * goal for each one found, returning the accounts it just acted on (so the
+ * caller can show a one-line "added X" notice). Meant to be called from
+ * every page that loads a plan for a given date (Dashboard/Today for
+ * today, Plan Tomorrow for tomorrow, the Calendar date-detail page for any
+ * future date) -- there's no scheduled job behind this, so "automatic"
+ * means "created the next time a page happens to check," not truly in the
+ * background while the app is closed. last_reminder_due_date (set inside
+ * addGoalFromPaymentReminder) is what keeps this idempotent across however
+ * many of those pages the user happens to visit for the same cycle.
+ */
+export async function ensurePaymentReminderGoals(planDateISO: string): Promise<PaymentAccount[]> {
+  const due = await getSuggestedPaymentReminders(planDateISO);
+  const created: PaymentAccount[] = [];
+  for (const account of due) {
+    await addGoalFromPaymentReminder(account, planDateISO);
+    created.push(account);
+  }
+  return created;
 }
 
 export async function submitPlan(planId: string) {

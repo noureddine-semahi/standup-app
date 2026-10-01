@@ -18,6 +18,7 @@ import {
   listConnections,
   getMyGoalAssignments,
   getMyMentions,
+  ensurePaymentReminderGoals,
   type Goal,
   type Profile,
   type DailyPlan,
@@ -135,6 +136,7 @@ export default function DashboardPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
   const [mentions, setMentions] = useState<Mention[]>([]);
+  const [paymentGoalsAddedMsg, setPaymentGoalsAddedMsg] = useState<string | null>(null);
 
   // Cycles to a new (different) random quote every ~10s — see the effect
   // below, which reschedules itself off motivationIndex the same way the
@@ -249,6 +251,24 @@ export default function DashboardPage() {
         getOverdueSummary(todayISO)
           .then(setOverdue)
           .catch(() => {});
+
+        // Payment reminders are auto-created (not a tap-to-add suggestion
+        // like recurring templates) -- explicit user call. Dashboard is
+        // usually the first page visited after sign-in, so checking here
+        // too (alongside Today/Tomorrow/the date-detail page) gives this
+        // the best chance of catching a due reminder close to real time.
+        if (u) {
+          ensurePaymentReminderGoals(todayISO)
+            .then((created) => {
+              if (created.length > 0) {
+                getPlanWithGoals(todayISO)
+                  .then((r) => setTodayGoals(r.goals))
+                  .catch(() => {});
+                setPaymentGoalsAddedMsg(t("tomorrow.paymentGoalsAdded", { names: created.map((a) => a.name).join(", ") }));
+              }
+            })
+            .catch(() => {});
+        }
 
         // Achievement "just unlocked" popup — compares the current unlocked
         // set against what this device has already been shown. First run
@@ -500,6 +520,23 @@ export default function DashboardPage() {
               >
                 {t("dashboard.planTomorrowArrow")}
               </Link>
+            </div>
+          )}
+
+          {paymentGoalsAddedMsg && (
+            <div
+              className="mt-6 rounded-2xl p-4 flex items-center justify-between gap-4"
+              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
+            >
+              <span className="text-sm text-white/80">{paymentGoalsAddedMsg}</span>
+              <button
+                type="button"
+                onClick={() => setPaymentGoalsAddedMsg(null)}
+                aria-label={t("dashboard.dismissWelcome")}
+                className="flex-shrink-0 text-white/50 hover:text-white/80 transition text-lg leading-none"
+              >
+                ×
+              </button>
             </div>
           )}
 

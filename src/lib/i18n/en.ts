@@ -235,9 +235,7 @@ export const en = {
   "tomorrow.suggestedTitle": "Suggested",
   "tomorrow.addingSuggested": "Adding…",
   "tomorrow.failedAddSuggested": "Failed to add suggested goal",
-  "tomorrow.suggestedPaymentsTitle": "Payments Due Soon",
-  "tomorrow.paySuggestion": "Pay {name}",
-  "tomorrow.failedAddSuggestedPayment": "Failed to add payment reminder",
+  "tomorrow.paymentGoalsAdded": "Added to your plan: {names}",
 
   // Review Today
   "today.failedLoad": "Failed to load",

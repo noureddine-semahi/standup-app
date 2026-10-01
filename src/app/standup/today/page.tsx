@@ -41,6 +41,7 @@ import {
   createGoalAssignment,
   getMyGoalAssignments,
   respondToGoalAssignment,
+  ensurePaymentReminderGoals,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
@@ -586,6 +587,19 @@ export default function TodayPage() {
 
   useEffect(() => {
     refresh();
+    // Payment reminders are auto-created (not a tap-to-add suggestion like
+    // recurring templates) -- explicit user call. Silently creates whatever's
+    // due for today, then refreshes so it shows up in the goal list, with a
+    // one-line notice so a goal appearing unprompted doesn't look like a bug.
+    ensurePaymentReminderGoals(todayISO)
+      .then((created) => {
+        if (created.length > 0) {
+          refresh({ silent: true });
+          setMsg(t("tomorrow.paymentGoalsAdded", { names: created.map((a) => a.name).join(", ") }));
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayISO]);
 
   // One click from the quick-action dropdown does three things at once:

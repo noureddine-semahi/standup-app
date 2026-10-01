@@ -233,9 +233,7 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.suggestedTitle": "Sugeridos",
   "tomorrow.addingSuggested": "Agregando…",
   "tomorrow.failedAddSuggested": "Error al agregar el objetivo sugerido",
-  "tomorrow.suggestedPaymentsTitle": "Pagos Próximos a Vencer",
-  "tomorrow.paySuggestion": "Pagar {name}",
-  "tomorrow.failedAddSuggestedPayment": "Error al agregar el recordatorio de pago",
+  "tomorrow.paymentGoalsAdded": "Agregado a tu plan: {names}",
 
   // Review Today
   "today.failedLoad": "Error al cargar",

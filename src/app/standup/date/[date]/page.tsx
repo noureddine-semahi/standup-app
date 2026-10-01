@@ -24,8 +24,7 @@ import {
   deleteGoal,
   getSuggestedTemplatesForDate,
   addGoalFromTemplate,
-  getSuggestedPaymentReminders,
-  addGoalFromPaymentReminder,
+  ensurePaymentReminderGoals,
   getStreakPassBalance,
   getStreakPassCoveredDates,
   useStreakPass,
@@ -35,7 +34,6 @@ import {
   type GoalAttachment,
   type RecurringGoalTemplate,
   type StreakPassBalance,
-  type PaymentAccount,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -58,7 +56,7 @@ import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { Clock, Link2, Plus, Sun, Redo2, X, Ticket, CreditCard } from "lucide-react";
+import { Clock, Link2, Plus, Sun, Redo2, X, Ticket } from "lucide-react";
 
 export default function DynamicDatePage() {
   const { t } = useLanguage();
@@ -101,8 +99,6 @@ export default function DynamicDatePage() {
   const [editMode, setEditMode] = useState(false);
   const [suggestedTemplates, setSuggestedTemplates] = useState<RecurringGoalTemplate[]>([]);
   const [addingTemplateId, setAddingTemplateId] = useState<string | null>(null);
-  const [suggestedPayments, setSuggestedPayments] = useState<PaymentAccount[]>([]);
-  const [addingPaymentReminderId, setAddingPaymentReminderId] = useState<string | null>(null);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
@@ -322,12 +318,19 @@ export default function DynamicDatePage() {
   }, [dateISO]);
 
   useEffect(() => {
-    if (isPastDate) return; // read-only view — no suggestions to add
+    if (isPastDate) return; // read-only view — no suggestions/reminders to add
     getSuggestedTemplatesForDate(dateISO)
       .then(setSuggestedTemplates)
       .catch(() => {});
-    getSuggestedPaymentReminders(dateISO)
-      .then(setSuggestedPayments)
+    // Payment reminders are auto-created (not a tap-to-add suggestion like
+    // templates) -- explicit user call. See Tomorrow page's identical effect.
+    ensurePaymentReminderGoals(dateISO)
+      .then((created) => {
+        if (created.length > 0) {
+          refresh({ silent: true });
+          setMsg(t("tomorrow.paymentGoalsAdded", { names: created.map((a) => a.name).join(", ") }));
+        }
+      })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateISO, isPastDate]);
@@ -343,20 +346,6 @@ export default function DynamicDatePage() {
       setMsg(e?.message ?? t("tomorrow.failedAddSuggested"));
     } finally {
       setAddingTemplateId(null);
-    }
-  }
-
-  async function handleAddSuggestedPayment(account: PaymentAccount) {
-    if (addingPaymentReminderId) return;
-    setAddingPaymentReminderId(account.id);
-    try {
-      await addGoalFromPaymentReminder(account, dateISO);
-      setSuggestedPayments((prev) => prev.filter((a) => a.id !== account.id));
-      await refresh({ silent: true });
-    } catch (e: any) {
-      setMsg(e?.message ?? t("tomorrow.failedAddSuggestedPayment"));
-    } finally {
-      setAddingPaymentReminderId(null);
     }
   }
 
@@ -970,34 +959,6 @@ export default function DynamicDatePage() {
                 style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
               >
                 {addingTemplateId === template.id ? t("tomorrow.addingSuggested") : `+ ${template.title}`}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {suggestedPayments.length > 0 && (
-        <div className="mb-6">
-          <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
-            {t("tomorrow.suggestedPaymentsTitle")}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {suggestedPayments.map((account) => (
-              <button
-                key={account.id}
-                type="button"
-                onClick={() => handleAddSuggestedPayment(account)}
-                disabled={addingPaymentReminderId === account.id}
-                className="btn inline-flex items-center gap-1.5"
-                style={{
-                  padding: "0.35rem 0.75rem",
-                  fontSize: "0.8rem",
-                  background: "rgba(245, 158, 11, 0.1)",
-                  borderColor: "rgba(245, 158, 11, 0.35)",
-                }}
-              >
-                <CreditCard size={13} />
-                {addingPaymentReminderId === account.id ? t("tomorrow.addingSuggested") : `+ ${t("tomorrow.paySuggestion", { name: account.name })}`}
               </button>
             ))}
           </div>

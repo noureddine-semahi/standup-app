@@ -387,6 +387,16 @@ export default function SocialPage() {
   const myPosts = feed.filter((p) => p.userId === currentUserId);
   const visiblePosts =
     activeTab === "global" ? globalPosts : activeTab === "circle" ? circlePosts : activeTab === "myPosts" ? myPosts : feed;
+  // Names the feed card after whichever tab is actually showing it, so the
+  // card itself (not just the tab bar above) says what you're looking at.
+  const feedTitleKey: TranslationKey =
+    activeTab === "global"
+      ? "social.feedTitleGlobal"
+      : activeTab === "circle"
+      ? "social.feedTitleCircle"
+      : activeTab === "myPosts"
+      ? "social.feedTitleMyPosts"
+      : "social.feedTitleMyFeed";
 
   const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users }[] = [
     { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid },
@@ -716,7 +726,7 @@ export default function SocialPage() {
               the viewer is allowed to see for the active tab, newest first. */}
           <div className="card card-highlight">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold">{t("social.publicFeedTitle")}</h2>
+              <h2 className="text-lg font-semibold">{t(feedTitleKey)}</h2>
               <p className="mt-1 text-sm text-white/60">{t("social.publicFeedSubtitle")}</p>
             </div>
             {feedError && <p className="mb-3 text-xs text-red-300">{feedError}</p>}

@@ -1182,7 +1182,10 @@ export const en = {
   "dashboard.glimpseProgress": "{completed}/{total} done",
 
   // Glimpse sharing — Social page's Public Feed section (Everyone tier)
-  "social.publicFeedTitle": "Feed",
+  "social.feedTitleMyFeed": "My Feed",
+  "social.feedTitleGlobal": "Global Feed",
+  "social.feedTitleCircle": "My Circle Feed",
+  "social.feedTitleMyPosts": "My Posts Feed",
   "social.publicFeedSubtitle": "Goals, achievements, and updates from your connections and beyond.",
   "social.noPublicPostsToday": "No one has shared publicly today yet.",
   "social.anonymousUser": "A StandUp user",

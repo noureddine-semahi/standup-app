@@ -1179,7 +1179,10 @@ export const es: Record<keyof typeof en, string> = {
   "dashboard.glimpseProgress": "{completed}/{total} completados",
 
   // Glimpse sharing — Social page's Public Feed section (Everyone tier)
-  "social.publicFeedTitle": "Muro",
+  "social.feedTitleMyFeed": "Mi Muro",
+  "social.feedTitleGlobal": "Muro Global",
+  "social.feedTitleCircle": "Muro de Mi Círculo",
+  "social.feedTitleMyPosts": "Muro de Mis Publicaciones",
   "social.publicFeedSubtitle": "Objetivos, logros, y novedades de tus conexiones y más allá.",
   "social.noPublicPostsToday": "Nadie ha compartido públicamente hoy todavía.",
   "social.anonymousUser": "Un usuario de StandUp",

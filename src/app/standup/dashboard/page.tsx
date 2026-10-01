@@ -612,40 +612,40 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Welcome / Motivation — one full-length card on its own row */}
+          {/* Welcome / Motivation — one full-length card on its own row.
+              Padding overridden down from .card's own 24px default to
+              keep the text close to the border, per explicit request. */}
           <div
             className="mt-6 card card-highlight"
+            style={{ padding: "8px 10px" }}
           >
-            <div className="p-4">
-              <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
-              {/* The new message pushes the old one up and off, rather
-                  than a crossfade — see .motivation-slide-in/out in
-                  globals.css. Only clips/absolutely-positions its children
-                  WHILE the two messages overlap mid-transition
-                  (is-transitioning); at rest (the vast majority of the
-                  time) it's a plain block sized to its own content, so a
-                  long message is never cut off and the card uses exactly
-                  as much height as the full text actually needs. */}
-              <div className={`motivation-ticker-window mt-2${prevMotivationIndex !== null ? " is-transitioning" : ""}`}>
-                {prevMotivationIndex !== null && (
-                  <div
-                    key={`prev-${prevMotivationIndex}`}
-                    className="motivation-slide motivation-slide-out text-lg font-semibold text-white leading-snug"
-                  >
-                    {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
-                      name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
-                    })}
-                  </div>
-                )}
+            <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
+            {/* The new message pushes the old one up and off, rather than
+                a crossfade — see .motivation-slide-in/out in globals.css.
+                Only clips/absolutely-positions its children WHILE the two
+                messages overlap mid-transition (is-transitioning); at rest
+                (the vast majority of the time) it's a plain block sized to
+                its own content, so a long message is never cut off and the
+                card uses exactly as much height as the full text needs. */}
+            <div className={`motivation-ticker-window mt-2${prevMotivationIndex !== null ? " is-transitioning" : ""}`}>
+              {prevMotivationIndex !== null && (
                 <div
-                  key={`cur-${motivationIndex}`}
-                  className={`text-lg font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide motivation-slide-in" : ""}`}
-                  onAnimationEnd={() => setPrevMotivationIndex(null)}
+                  key={`prev-${prevMotivationIndex}`}
+                  className="motivation-slide motivation-slide-out text-lg font-semibold text-white leading-snug"
                 >
-                  {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                  {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
                     name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
                   })}
                 </div>
+              )}
+              <div
+                key={`cur-${motivationIndex}`}
+                className={`text-lg font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide motivation-slide-in" : ""}`}
+                onAnimationEnd={() => setPrevMotivationIndex(null)}
+              >
+                {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                  name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+                })}
               </div>
             </div>
           </div>

@@ -434,47 +434,54 @@ export default function Header() {
         {authLinks()}
 
         {/* Bell + More(⋯) + Profile grouped together at the very end of
-            the row, all three right next to each other — explicit user
-            call (previously bell and More were two separate groups).
-            Hidden on true mobile, same as before this whole restructure,
-            where nav-mobile-trigger's compact bell + avatar-only icons
-            take over instead (a name label doesn't fit a phone-width row
-            next to the hamburger, and the hamburger itself takes over
-            More's "everything else" role there). */}
-        <div className="nav-utility-cluster nav-utility-cluster-desktop">
-          {notificationBell()}
+            the row, all three right next to each other, flush against one
+            another with no daylight between the cluster and the profile
+            chip — explicit user call. A shared wrapper (.nav-end-cluster)
+            is what makes this actually attached: as two separate
+            .app-header-inner children, space-between spaced the cluster
+            and profileLink() apart like any other two items in the row
+            instead of treating them as one unit. Hidden on true mobile,
+            same as before this whole restructure, where nav-mobile-
+            trigger's compact bell + avatar-only icons take over instead
+            (a name label doesn't fit a phone-width row next to the
+            hamburger, and the hamburger itself takes over More's
+            "everything else" role there). */}
+        <div className="nav-end-cluster">
+          <div className="nav-utility-cluster nav-utility-cluster-desktop">
+            {notificationBell()}
 
-          {/* Secondary links (Theme/Language for a logged-in user; About/
-              FAQ/Contact too for a logged-out one, who never sees
-              navTabs()) live behind this button rather than inline. */}
-          <div className="nav-more-wrap" ref={moreRef}>
-            <button
-              type="button"
-              className="nav-more-btn"
-              aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-              aria-expanded={moreOpen}
-              onClick={() => setMoreOpen((v) => !v)}
-            >
-              <MoreHorizontal size={18} />
-            </button>
-            {moreOpen && (
-              <div className="nav-more-panel">
-                {secondaryLinks(true)}
-                {user && (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="nav-link nav-link-logout"
-                  >
-                    {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
-                  </button>
-                )}
-              </div>
-            )}
+            {/* Secondary links (Theme/Language for a logged-in user; About/
+                FAQ/Contact too for a logged-out one, who never sees
+                navTabs()) live behind this button rather than inline. */}
+            <div className="nav-more-wrap" ref={moreRef}>
+              <button
+                type="button"
+                className="nav-more-btn"
+                aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((v) => !v)}
+              >
+                <MoreHorizontal size={18} />
+              </button>
+              {moreOpen && (
+                <div className="nav-more-panel">
+                  {secondaryLinks(true)}
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={loggingOut}
+                      className="nav-link nav-link-logout"
+                    >
+                      {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+          {profileLink()}
         </div>
-        {profileLink()}
 
         {/* Mobile: logo stays on the left (above); hamburger/bell/avatar
             live here, bell placed directly next to avatar (mirroring the

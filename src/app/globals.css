@@ -609,6 +609,17 @@ h1, h2, h3, h4, h5, h6 {
   gap: 6px;
 }
 
+/* Wraps .nav-utility-cluster (bell + More) AND the profile chip as one
+   single flex item of .app-header-inner — without this, space-between
+   on three children (brand, cluster, profile) spaces the cluster and
+   profile apart from each other too, not just from the brand. This
+   keeps them flush as one attached group pinned to the right edge. */
+.nav-end-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Secondary nav (About/FAQ/Contact, Theme/Language) always lives behind
    this button rather than inline — the six primary destinations live in
    their own hanging tab row now (navTabs()) instead of this header row,

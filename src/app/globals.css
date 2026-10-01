@@ -931,6 +931,43 @@ h1, h2, h3, h4, h5, h6 {
   border-top-left-radius: 0;
 }
 
+/* Mobile: all 6 tabs fit on screen icon-only (no horizontal scroll needed
+   at this width); the active tab alone "unwraps" to show its label,
+   animated via max-width/opacity on the label span rather than
+   display:none so it can transition instead of popping in/out. The
+   active tab also lifts slightly (translateY) for the "pulls up" motion
+   requested alongside the unwrap. */
+@media (max-width: 640px) {
+  .social-tabbar {
+    gap: 2px;
+  }
+  .social-tab {
+    gap: 0;
+    padding: 0.6rem 0.65rem;
+    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
+      box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  }
+  .social-tab-active {
+    padding: 0.6rem 0.85rem;
+    transform: translateY(-2px);
+  }
+  .social-tab span {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.2s ease 0.05s;
+  }
+  .social-tab-active span {
+    max-width: 120px;
+    margin-left: 0.4rem;
+    opacity: 1;
+  }
+}
+
 /* About page — scroll-entrance reveal (/looks-expensive trial, 2026-09-24).
    Scoped to .scroll-reveal so it can't collide with any other page's own
    animation. JS (about/page.tsx) toggles .is-visible via IntersectionObserver;

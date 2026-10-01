@@ -920,16 +920,12 @@ export default function TodayPage() {
         .eq("id", plan.id);
       if (planErr) throw planErr;
 
-      // Also clear every goal's reviewed_at, so reopening the day means
-      // actually re-reviewing it rather than leaving every goal already
-      // marked reviewed (which would make "Close Day" immediately available
-      // again with nothing left to reconsider).
-      const { error: goalsErr } = await supabase
-        .from("goals")
-        .update({ reviewed_at: null })
-        .eq("plan_id", plan.id);
-      if (goalsErr) throw goalsErr;
-
+      // Deliberately NOT clearing every goal's reviewed_at here — reopening
+      // is for fixing or adding to one or two specific goals, not redoing
+      // the whole day's review from scratch. Goals you don't touch stay
+      // reviewed, so Close Day is immediately available again; only a goal
+      // you actually act on (selectQuickAction) gets a fresh reviewed_at,
+      // same as any other status change.
       setMsg(t("today.dayReopened"));
       await refresh({ silent: true });
     } catch (e: any) {

@@ -620,14 +620,17 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
               {/* The new message pushes the old one up and off, rather
                   than a crossfade — see .motivation-slide-in/out in
-                  globals.css. Both are absolutely positioned inside this
-                  fixed-min-height window so the layout doesn't jump
-                  between a 1-line and 3-line message mid-swap. */}
-              <div className="motivation-ticker-window mt-2">
+                  globals.css. Only clips/absolutely-positions its children
+                  WHILE the two messages overlap mid-transition
+                  (is-transitioning); at rest (the vast majority of the
+                  time) it's a plain block sized to its own content, so a
+                  long message is never cut off and the card uses exactly
+                  as much height as the full text actually needs. */}
+              <div className={`motivation-ticker-window mt-2${prevMotivationIndex !== null ? " is-transitioning" : ""}`}>
                 {prevMotivationIndex !== null && (
                   <div
                     key={`prev-${prevMotivationIndex}`}
-                    className="motivation-slide motivation-slide-out text-base font-semibold text-white leading-snug"
+                    className="motivation-slide motivation-slide-out text-lg font-semibold text-white leading-snug"
                   >
                     {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
                       name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
@@ -636,7 +639,7 @@ export default function DashboardPage() {
                 )}
                 <div
                   key={`cur-${motivationIndex}`}
-                  className={`motivation-slide text-base font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide-in" : ""}`}
+                  className={`text-lg font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide motivation-slide-in" : ""}`}
                   onAnimationEnd={() => setPrevMotivationIndex(null)}
                 >
                   {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {

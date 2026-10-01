@@ -925,11 +925,15 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dashboard motivational message swap — the new message pushes the old
    one up and off (both absolutely positioned, animating in lockstep) in
-   place of a crossfade. Fixed min-height (not auto, sized off whichever
-   message happens to be in normal flow) keeps the card from jumping
-   between a 1-line and 3-line message mid-swap. */
+   place of a crossfade. At rest this is a plain block sized to its own
+   content — no clipping, no imposed min-height — so a long message is
+   always shown in full. is-transitioning only applies while both
+   messages briefly overlap, with just enough min-height to cover that
+   half-second without clipping either one. */
 .motivation-ticker-window {
   position: relative;
+}
+.motivation-ticker-window.is-transitioning {
   overflow: hidden;
   min-height: 4.2em;
 }

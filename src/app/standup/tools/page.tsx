@@ -698,13 +698,20 @@ export default function ToolsPage() {
                     and is the one colored (btn-primary) control in this
                     card, since it's the actual commit action — the other
                     two are just setting up what/when. */}
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-stretch gap-2 mb-2">
                   <button
                     type="button"
                     onClick={() => handlePush(item, tomorrowISO)}
                     disabled={busy}
-                    className="btn flex-1 min-w-0"
-                    style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    className="btn flex-1 min-w-0 flex items-center justify-center"
+                    style={{
+                      height: "36px",
+                      padding: "0 0.9rem",
+                      fontSize: "0.8rem",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
                     {t("backlog.pushToTomorrow")}
@@ -717,7 +724,8 @@ export default function ToolsPage() {
                     onChange={(e) =>
                       setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
                     }
-                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    style={{ height: "36px" }}
                   />
                 </div>
                 <button
@@ -1085,13 +1093,20 @@ export default function ToolsPage() {
                     date picker share a line, Push sits full-width below
                     spanning that same combined width, colored (btn-primary)
                     as the one actual commit action in the card. */}
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-stretch gap-2 mb-2">
                   <button
                     type="button"
                     onClick={() => handlePushList(list, tomorrowISO)}
                     disabled={busy}
-                    className="btn flex-1 min-w-0"
-                    style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    className="btn flex-1 min-w-0 flex items-center justify-center"
+                    style={{
+                      height: "36px",
+                      padding: "0 0.6rem",
+                      fontSize: "0.75rem",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
                     {t("backlog.pushToTomorrow")}
@@ -1102,7 +1117,8 @@ export default function ToolsPage() {
                     min={todayISO}
                     disabled={busy}
                     onChange={(e) => setListPushDate((prev) => ({ ...prev, [list.id]: e.target.value }))}
-                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    style={{ height: "36px" }}
                   />
                 </div>
                 <button

@@ -852,6 +852,82 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
 }
 
+/* Social page tab bar — browser-tab / hanging-folder navigation, replacing
+   the earlier large-card picker. The active tab shares the exact
+   background of the .card content panel sitting beneath it (not an amber
+   fill) so it reads as the same surface continuing upward, not a
+   highlighted button; "active" is instead carried by its amber icon/text
+   and a thin amber top accent. Inactive tabs get a visibly darker,
+   recessed fill so they read as closed folders sitting behind the active
+   one. overflow-x (not shrinking labels) handles narrow viewports per
+   explicit request. */
+.social-tabbar {
+  display: flex;
+  align-items: flex-end;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 3px;
+  margin-bottom: -1px;
+  padding: 0 2px;
+}
+.social-tabbar::-webkit-scrollbar {
+  display: none;
+}
+
+.social-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(var(--tint-rgb), 0.5);
+  background: rgba(var(--tint-rgb), 0.035);
+  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  border-radius: 10px 10px 0 0;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease;
+}
+
+.social-tab:hover:not(.social-tab-active) {
+  color: rgba(var(--tint-rgb), 0.85);
+  background: rgba(var(--tint-rgb), 0.07);
+}
+
+.social-tab-active {
+  color: #fbbf24;
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
+  border-color: rgba(245, 158, 11, 0.4);
+  border-bottom-color: rgba(var(--panel-rgb), var(--panel-alpha));
+  z-index: 2;
+  box-shadow: 0 -4px 12px -4px rgba(0, 0, 0, 0.3);
+}
+
+.social-tab-active::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.9), rgba(252, 211, 77, 0.9));
+}
+
+/* The content panel directly beneath the tab bar — its flat top-left
+   corner (no radius) plus the amber top border is what makes the active
+   tab above look like it's physically attached to this surface. */
+.social-tabbar-panel {
+  position: relative;
+  z-index: 1;
+  border-top-left-radius: 0;
+}
+
 /* About page — scroll-entrance reveal (/looks-expensive trial, 2026-09-24).
    Scoped to .scroll-reveal so it can't collide with any other page's own
    animation. JS (about/page.tsx) toggles .is-visible via IntersectionObserver;

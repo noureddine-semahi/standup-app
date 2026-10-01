@@ -36,7 +36,7 @@ import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2 } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -55,6 +55,9 @@ export default function SocialPage() {
   const [guidelinesSaving, setGuidelinesSaving] = useState(false);
   const [guidelinesError, setGuidelinesError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SocialTab>("myFeed");
+  // Same collapse-to-active picker as the Tools page: just the active
+  // tab's own large card shows until tapped, then expands to all 6.
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connError, setConnError] = useState<string | null>(null);
@@ -388,13 +391,13 @@ export default function SocialPage() {
   const visiblePosts =
     activeTab === "global" ? globalPosts : activeTab === "circle" ? circlePosts : activeTab === "myPosts" ? myPosts : feed;
 
-  const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users }[] = [
-    { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid },
-    { key: "global", labelKey: "social.tabGlobal", icon: Globe },
-    { key: "circle", labelKey: "social.tabCircle", icon: Users },
-    { key: "myPosts", labelKey: "social.tabMyPosts", icon: UserCircle },
-    { key: "friends", labelKey: "social.tabFriends", icon: UserPlus },
-    { key: "goals", labelKey: "social.tabGoals", icon: ClipboardList },
+  const TABS: { key: SocialTab; labelKey: TranslationKey; descriptionKey: TranslationKey; icon: typeof Users }[] = [
+    { key: "myFeed", labelKey: "social.tabMyFeed", descriptionKey: "social.tabMyFeedDescription", icon: LayoutGrid },
+    { key: "global", labelKey: "social.tabGlobal", descriptionKey: "social.tabGlobalDescription", icon: Globe },
+    { key: "circle", labelKey: "social.tabCircle", descriptionKey: "social.tabCircleDescription", icon: Users },
+    { key: "myPosts", labelKey: "social.tabMyPosts", descriptionKey: "social.tabMyPostsDescription", icon: UserCircle },
+    { key: "friends", labelKey: "social.tabFriends", descriptionKey: "social.tabFriendsDescription", icon: UserPlus },
+    { key: "goals", labelKey: "social.tabGoals", descriptionKey: "social.tabGoalsDescription", icon: ClipboardList },
   ];
 
   return (
@@ -411,22 +414,71 @@ export default function SocialPage() {
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("social.title")}</h1>
         <p className="text-white/70">{t("social.subtitle")}</p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className="btn inline-flex items-center gap-1.5"
-              style={{
-                background: activeTab === tab.key ? "rgba(245, 158, 11, 0.2)" : undefined,
-                borderColor: activeTab === tab.key ? "rgba(245, 158, 11, 0.6)" : undefined,
-              }}
-            >
-              <tab.icon size={14} /> {t(tab.labelKey)}
-            </button>
-          ))}
-        </div>
+        {/* Same large self-describing picker as the Tools page: collapsed
+            to just the active tab's card, expands to all 6 when tapped,
+            and re-collapses to whichever one is picked. */}
+        {!pickerOpen ? (
+          (() => {
+            const active = TABS.find((tab) => tab.key === activeTab)!;
+            return (
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="mt-4 w-full flex items-center gap-4 rounded-xl p-4 text-left transition"
+                style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.5)" }}
+              >
+                <div
+                  className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                  style={{ width: "44px", height: "44px", background: "rgba(245, 158, 11, 0.18)" }}
+                >
+                  <active.icon size={20} color="#fcd34d" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-white">{t(active.labelKey)}</div>
+                  <div className="text-xs text-white/60 mt-0.5">{t(active.descriptionKey)}</div>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-1 text-xs text-white/50">
+                  {t("tools.switchLabel")} <ChevronDown size={14} />
+                </div>
+              </button>
+            );
+          })()
+        ) : (
+          <div className="mt-4 space-y-2">
+            {TABS.map((tab) => {
+              const isActive = tab.key === activeTab;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    setPickerOpen(false);
+                  }}
+                  className="w-full flex items-center gap-4 rounded-xl p-4 text-left transition"
+                  style={{
+                    background: isActive ? "rgba(245, 158, 11, 0.12)" : "rgba(var(--tint-rgb), 0.04)",
+                    border: isActive ? "1px solid rgba(245, 158, 11, 0.5)" : "1px solid rgba(var(--tint-rgb), 0.12)",
+                  }}
+                >
+                  <div
+                    className="flex-shrink-0 flex items-center justify-center rounded-lg"
+                    style={{ width: "44px", height: "44px", background: isActive ? "rgba(245, 158, 11, 0.18)" : "rgba(var(--tint-rgb), 0.08)" }}
+                  >
+                    <tab.icon size={20} color={isActive ? "#fcd34d" : undefined} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-white">{t(tab.labelKey)}</div>
+                    <div className="text-xs text-white/60 mt-0.5">{t(tab.descriptionKey)}</div>
+                  </div>
+                  <div className="flex-shrink-0 flex items-center gap-1 text-xs text-white/50">
+                    {t("tools.openLabel")} <ChevronRight size={14} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {activeTab !== "friends" && (

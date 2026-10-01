@@ -22,7 +22,7 @@ import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, ClipboardList, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, Info, HelpCircle, Mail } from "lucide-react";
+import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, Info, HelpCircle, Mail } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -69,7 +69,9 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   { href: "/standup/tomorrow", labelKey: "nav.planTomorrow", icon: Sun, color: "#f59e0b" },
   { href: "/standup/calendar", labelKey: "nav.calendar", icon: Calendar, color: "#22d3ee" },
   { href: "/standup/tools", labelKey: "nav.tools", icon: Wrench, color: "#f43f5e" },
-  { href: "/standup/assignments", labelKey: "nav.assignments", icon: ClipboardList, color: "#fb923c" },
+  // Goal Assignments removed from here per explicit follow-up — still
+  // reachable via Social's Goals tab and Tools' Assignments tab, same as
+  // before this whole nav restructure ever started.
   { href: "/about", labelKey: "nav.about", icon: Info, color: "#94a3b8" },
   { href: "/faq", labelKey: "nav.faq", icon: HelpCircle, color: "#38bdf8" },
   { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#f472b6" },
@@ -404,12 +406,17 @@ export default function Header() {
             destinations via navTabs()'s hanging row below instead. */}
         {authLinks()}
 
-        {/* Just the More button now — Assignments moved to navTabs() and
-            the bell moved next to Profile (see below), explicit user
-            calls. Still its own cluster div (not folded into the row's
-            plain flow) so the 760px hide rule below still has one thing
-            to target. */}
+        {/* Bell + More(⋯) + Profile grouped together at the very end of
+            the row, all three right next to each other — explicit user
+            call (previously bell and More were two separate groups).
+            Hidden on true mobile, same as before this whole restructure,
+            where nav-mobile-trigger's compact bell + avatar-only icons
+            take over instead (a name label doesn't fit a phone-width row
+            next to the hamburger, and the hamburger itself takes over
+            More's "everything else" role there). */}
         <div className="nav-utility-cluster nav-utility-cluster-desktop">
+          {notificationBell()}
+
           {/* Secondary links (Theme/Language for a logged-in user; About/
               FAQ/Contact too for a logged-out one, who never sees
               navTabs()) live behind this button rather than inline. */}
@@ -439,20 +446,6 @@ export default function Header() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Bell + Profile (avatar + name) grouped together at the very end
-            of the row — explicit user call to move the bell here rather
-            than the utility cluster. Both hidden on true mobile, same as
-            before this whole restructure, where nav-mobile-trigger's
-            compact bell + avatar-only icons take over instead (a name
-            label doesn't fit a phone-width row next to the hamburger).
-            The bell needs nav-utility-cluster-desktop's own existing hide
-            rule explicitly (it has no hide behavior of its own, unlike
-            profileLink's .nav-profile) now that it's no longer nested
-            inside that cluster's div. */}
-        <div className="nav-utility-cluster nav-utility-cluster-desktop">
-          {notificationBell()}
         </div>
         {profileLink()}
 

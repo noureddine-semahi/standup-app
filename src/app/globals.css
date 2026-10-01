@@ -369,8 +369,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .app-header-inner {
-  max-width: 1100px;
-  margin: 0 auto;
+  /* No max-width/centering here (unlike .app-main) -- explicit user call:
+     the brand sits flush at the literal top-left corner of the viewport
+     and the bell/More/Profile cluster at the literal top-right corner,
+     at any screen width, rather than both being inset within a centered
+     1100px column with dead space past it on wide monitors. */
   padding: 14px 18px;
   display: flex;
   align-items: center;
@@ -381,8 +384,8 @@ h1, h2, h3, h4, h5, h6 {
      space-between to grow it further on wide screens. The six primary
      destinations used to be a direct child here (nav-primary) before
      moving to the hanging tab row below (navTabs(), .folder-tabbar-
-     hanging) — this row's remaining children are just brand, the bell/
-     Assignments/More utility cluster, and the profile chip. */
+     hanging) — this row's remaining children are just brand and the
+     bell/More/Profile cluster. */
   gap: 18px;
 }
 

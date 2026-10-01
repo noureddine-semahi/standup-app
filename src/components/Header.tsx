@@ -12,6 +12,11 @@ import {
   getMyGoalAssignments,
   getMyMentions,
   getMyPostActivityNotifications,
+  markConnectionSeen,
+  markGoalAssignmentSeen,
+  markGoalAssignmentSeenByRecipient,
+  markMentionSeen,
+  markPostActivityNotificationSeen,
   connectionDisplayName,
   type Profile,
   type Connection,
@@ -20,7 +25,7 @@ import {
   type PostActivityNotification,
 } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
-import { onNotificationsUpdated } from "@/lib/notificationsBus";
+import { onNotificationsUpdated, notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { countNotifications, computeNotificationBuckets } from "@/lib/notificationBuckets";
 import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -104,6 +109,17 @@ export default function Header() {
   const [mentions, setMentions] = useState<Mention[]>([]);
   const [postActivity, setPostActivity] = useState<PostActivityNotification[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
+  // Entries clicked from the bell dropdown this session, hidden from it
+  // immediately rather than waiting on a refetch round-trip -- for the
+  // four bucket types with a real seen_at (mentions, post activity,
+  // resolved connections/assignments, canceled-for-recipient) the click
+  // also calls the matching mark-seen RPC, so the dismissal is real and
+  // persists; for the three still-pending/actionable buckets (a
+  // connection request, a received/sent goal assignment awaiting a
+  // decision) there's no "seen" concept to persist -- those stay on
+  // Dashboard and in the badge count until actually resolved, this only
+  // stops the dropdown itself from re-showing something already looked at.
+  const [dismissedEntryIds, setDismissedEntryIds] = useState<Set<string>>(new Set());
   const moreRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
@@ -269,11 +285,24 @@ export default function Header() {
     setBellOpen(false);
   }, [pathname]);
 
+  type NotificationEntry = {
+    id: string;
+    label: string;
+    sublabel?: string;
+    href: string;
+    // null for the three still-pending/actionable buckets, which have no
+    // seen_at to persist -- see the dismissedEntryIds comment above.
+    markSeen: (() => Promise<void>) | null;
+  };
+
   // Flattens the same eight "needs your attention" buckets Dashboard's
   // PendingNotifications renders into one read-only, click-to-jump list
   // for the bell dropdown -- no accept/decline/acknowledge actions here
   // (that stays Dashboard's job), just "what's new" + where to see it.
-  function buildNotificationEntries(): { id: string; label: string; sublabel?: string; href: string }[] {
+  // Clicking a row still acknowledges it (see handleEntryClick below),
+  // it just does so via the same mark-seen RPC Dashboard's "Got it"
+  // button calls, not a dedicated dropdown action.
+  function buildNotificationEntries(): NotificationEntry[] {
     const {
       pendingConnections,
       pendingAssignments,
@@ -285,7 +314,7 @@ export default function Header() {
       unseenPostActivity,
     } = computeNotificationBuckets(connections, goalAssignments, mentions, postActivity);
 
-    const entries: { id: string; label: string; sublabel?: string; href: string }[] = [];
+    const entries: NotificationEntry[] = [];
 
     pendingConnections.forEach((c) =>
       entries.push({
@@ -293,6 +322,7 @@ export default function Header() {
         label: connectionDisplayName(c, t),
         sublabel: t("dashboard.connectionRequestLabel"),
         href: "/standup/social?tab=friends",
+        markSeen: null,
       })
     );
     pendingAssignments.forEach((a) =>
@@ -301,6 +331,7 @@ export default function Header() {
         label: a.snapshotTitle,
         sublabel: t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") }),
         href: "/standup/assignments",
+        markSeen: null,
       })
     );
     pendingAssignedByYou.forEach((a) =>
@@ -309,6 +340,7 @@ export default function Header() {
         label: a.snapshotTitle,
         sublabel: t("dashboard.assignmentWaitingStatus", { name: a.recipientDisplayName ?? t("social.anonymousUser") }),
         href: "/standup/assignments",
+        markSeen: null,
       })
     );
     resolvedConnections.forEach((c) =>
@@ -317,6 +349,7 @@ export default function Header() {
         label: connectionDisplayName(c, t),
         sublabel: c.status === "accepted" ? t("dashboard.connectionAcceptedStatus") : t("dashboard.connectionDeclinedStatus"),
         href: "/standup/social?tab=friends",
+        markSeen: () => markConnectionSeen(c.id),
       })
     );
     resolvedAssignments.forEach((a) =>
@@ -325,6 +358,7 @@ export default function Header() {
         label: a.snapshotTitle,
         sublabel: t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") }),
         href: "/standup/assignments",
+        markSeen: () => markGoalAssignmentSeen(a.id),
       })
     );
     canceledForRecipient.forEach((a) =>
@@ -333,6 +367,7 @@ export default function Header() {
         label: a.snapshotTitle,
         sublabel: t("dashboard.assignmentCanceledForYouLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") }),
         href: "/standup/assignments",
+        markSeen: () => markGoalAssignmentSeenByRecipient(a.id),
       })
     );
     unseenMentions.forEach((m) =>
@@ -341,6 +376,7 @@ export default function Header() {
         label: t("dashboard.mentionLabel", { name: m.mentionedByDisplayName ?? t("social.anonymousUser") }),
         sublabel: m.preview ?? undefined,
         href: `/standup/social?tab=myFeed&post=${m.postId}${m.commentId ? `&comment=${m.commentId}` : ""}`,
+        markSeen: () => markMentionSeen(m.id),
       })
     );
     unseenPostActivity.forEach((p) => {
@@ -357,10 +393,33 @@ export default function Header() {
         label: t(labelKey, { name: p.actorDisplayName ?? t("social.anonymousUser") }),
         sublabel: p.preview ?? undefined,
         href: `/standup/social?tab=myFeed&post=${p.postId}${p.commentId ? `&comment=${p.commentId}` : ""}`,
+        markSeen: () => markPostActivityNotificationSeen(p.id),
       });
     });
 
     return entries;
+  }
+
+  // Clicking a row acknowledges it immediately (hidden from this
+  // dropdown right away, not waiting on a refetch) and, for the four
+  // bucket types that have one, persists that via the real mark-seen
+  // RPC -- the same action Dashboard's "Got it" button performs, just
+  // triggered by following the link instead of a dedicated button.
+  function handleEntryClick(entry: NotificationEntry) {
+    setDismissedEntryIds((prev) => new Set(prev).add(entry.id));
+    setBellOpen(false);
+    if (entry.markSeen) {
+      entry
+        .markSeen()
+        .then(() => {
+          notifyNotificationsUpdated();
+        })
+        .catch(() => {
+          // Best-effort -- worst case it just reappears next refresh,
+          // same fallback every other mark-seen call site in this app
+          // already accepts.
+        });
+    }
   }
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
@@ -544,7 +603,7 @@ export default function Header() {
         </Link>
       );
     }
-    const entries = bellOpen ? buildNotificationEntries() : [];
+    const entries = bellOpen ? buildNotificationEntries().filter((e) => !dismissedEntryIds.has(e.id)) : [];
     return (
       <div className="nav-bell-wrap" ref={bellRef}>
         <button
@@ -570,7 +629,7 @@ export default function Header() {
             ) : (
               <div className="nav-bell-list">
                 {entries.map((entry) => (
-                  <Link key={entry.id} href={entry.href} className="nav-bell-row" onClick={() => setBellOpen(false)}>
+                  <Link key={entry.id} href={entry.href} className="nav-bell-row" onClick={() => handleEntryClick(entry)}>
                     <div className="min-w-0">
                       <div className="nav-bell-row-label">{entry.label}</div>
                       {entry.sublabel && <div className="nav-bell-row-sublabel">{entry.sublabel}</div>}

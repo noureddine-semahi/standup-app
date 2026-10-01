@@ -278,10 +278,16 @@ export default function Header() {
     if (loading || user || isAuthPage) return null;
     return (
       <>
-        <Link href="/login" className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}>
+        <Link
+          href="/login"
+          className={pathname === "/login" ? "nav-link nav-link-auth font-semibold" : "nav-link nav-link-auth"}
+        >
           {t("nav.signIn")}
         </Link>
-        <Link href="/signup" className={pathname === "/signup" ? "nav-link font-semibold" : "nav-link"}>
+        <Link
+          href="/signup"
+          className={pathname === "/signup" ? "nav-link nav-link-auth font-semibold" : "nav-link nav-link-auth"}
+        >
           {t("nav.signUp")}
         </Link>
       </>

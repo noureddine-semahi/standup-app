@@ -670,6 +670,19 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
   }
 
+  /* Logged-out Sign In/Sign Up -- unlike the logged-in header's children,
+     these two never got a mobile-specific shrink, so .nav-link's
+     flex:1 1 130px/min-width:128px sizing (tuned for a full-width label
+     like "Plan Tomorrow") pushed them off the right edge of a phone
+     screen instead of fitting next to the brand. Shrinks to just
+     content width here instead of reserving that floor. */
+  .nav-link-auth {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
+
   .mobile-menu-panel {
     display: flex;
     flex-direction: column;
@@ -685,6 +698,13 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     justify-content: flex-start;
     text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .nav-link-auth {
+    padding: 5px 8px;
+    font-size: 0.72rem;
   }
 }
 

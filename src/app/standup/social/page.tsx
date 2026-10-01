@@ -459,7 +459,7 @@ export default function SocialPage() {
           .folder-tabbar's negative margin-bottom in globals.css for the
           actual overlap that erases the seam under the active tab. */}
       <div>
-        <div className="folder-tabbar" role="tablist">
+        <div className="folder-tabbar folder-tabbar-community" role="tablist">
           {TABS.map((tab) => {
             const isActive = tab.key === activeTab;
             return (

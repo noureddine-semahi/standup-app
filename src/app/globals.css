@@ -1140,6 +1140,23 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
+/* Community/Social-only: fully unclipped glow, explicit user call
+   scoped to "only the Community sub-tabs" (not Tools, which keeps its
+   own overflow-x:auto + 10px padding-top as shipped). overflow-x and
+   overflow-y can't independently be "scrollable" and "visible" on the
+   same box -- the spec forces the visible axis to compute as auto too,
+   which still clips box-shadow/glow exactly like hidden does, just
+   with a conditional scrollbar. Dropping the shorthand to `visible`
+   instead removes the clipping boundary entirely; horizontal scroll
+   isn't needed in practice since all 6 tabs already collapse to
+   icon-only well before running out of room (see the 640px media
+   query below). Generous 28px top clearance covers the halo's full
+   reach with room to spare. */
+.folder-tabbar.folder-tabbar-community {
+  overflow: visible;
+  padding-top: 28px;
+}
+
 /* Rounded browser-tab shape -- explicit user call reverting the
    previous clip-path trapezoid experiment entirely ("no sharp
    triangular/pointed sides"). Plain border-radius on the top two

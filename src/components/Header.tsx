@@ -12,13 +12,16 @@ import {
   getMyGoalAssignments,
   getMyMentions,
   getMyPostActivityNotifications,
+  connectionDisplayName,
   type Profile,
   type Connection,
   type GoalAssignment,
+  type Mention,
+  type PostActivityNotification,
 } from "@/lib/supabase/db";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import { onNotificationsUpdated } from "@/lib/notificationsBus";
-import { countNotifications } from "@/lib/notificationBuckets";
+import { countNotifications, computeNotificationBuckets } from "@/lib/notificationBuckets";
 import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
@@ -93,7 +96,16 @@ export default function Header() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+  // Raw data behind notificationCount -- kept around (not just the
+  // tally) so the bell's own dropdown can render actual rows instead of
+  // re-fetching everything again on open.
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
+  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [postActivity, setPostActivity] = useState<PostActivityNotification[]>([]);
+  const [bellOpen, setBellOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLDivElement>(null);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -198,9 +210,13 @@ export default function Header() {
       getMyMentions().catch(() => []),
       getMyPostActivityNotifications().catch(() => []),
     ])
-      .then(([conns, assignments, mentions, postActivity]) =>
-        setNotificationCount(countNotifications(conns, assignments, mentions, postActivity))
-      )
+      .then(([conns, assignments, newMentions, newPostActivity]) => {
+        setConnections(conns);
+        setGoalAssignments(assignments);
+        setMentions(newMentions);
+        setPostActivity(newPostActivity);
+        setNotificationCount(countNotifications(conns, assignments, newMentions, newPostActivity));
+      })
       .catch(() => {});
   }
 
@@ -233,6 +249,119 @@ export default function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [moreOpen]);
+
+  // Same click-outside treatment as the More panel above.
+  useEffect(() => {
+    if (!bellOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [bellOpen]);
+
+  // Closes the bell dropdown on route change -- without this, navigating
+  // via one of its own rows would leave it rendered (just invisible
+  // behind the new page) until the next outside click.
+  useEffect(() => {
+    setBellOpen(false);
+  }, [pathname]);
+
+  // Flattens the same eight "needs your attention" buckets Dashboard's
+  // PendingNotifications renders into one read-only, click-to-jump list
+  // for the bell dropdown -- no accept/decline/acknowledge actions here
+  // (that stays Dashboard's job), just "what's new" + where to see it.
+  function buildNotificationEntries(): { id: string; label: string; sublabel?: string; href: string }[] {
+    const {
+      pendingConnections,
+      pendingAssignments,
+      pendingAssignedByYou,
+      resolvedConnections,
+      resolvedAssignments,
+      canceledForRecipient,
+      unseenMentions,
+      unseenPostActivity,
+    } = computeNotificationBuckets(connections, goalAssignments, mentions, postActivity);
+
+    const entries: { id: string; label: string; sublabel?: string; href: string }[] = [];
+
+    pendingConnections.forEach((c) =>
+      entries.push({
+        id: `pconn-${c.id}`,
+        label: connectionDisplayName(c, t),
+        sublabel: t("dashboard.connectionRequestLabel"),
+        href: "/standup/social?tab=friends",
+      })
+    );
+    pendingAssignments.forEach((a) =>
+      entries.push({
+        id: `pasg-${a.id}`,
+        label: a.snapshotTitle,
+        sublabel: t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") }),
+        href: "/standup/assignments",
+      })
+    );
+    pendingAssignedByYou.forEach((a) =>
+      entries.push({
+        id: `pasgby-${a.id}`,
+        label: a.snapshotTitle,
+        sublabel: t("dashboard.assignmentWaitingStatus", { name: a.recipientDisplayName ?? t("social.anonymousUser") }),
+        href: "/standup/assignments",
+      })
+    );
+    resolvedConnections.forEach((c) =>
+      entries.push({
+        id: `rconn-${c.id}`,
+        label: connectionDisplayName(c, t),
+        sublabel: c.status === "accepted" ? t("dashboard.connectionAcceptedStatus") : t("dashboard.connectionDeclinedStatus"),
+        href: "/standup/social?tab=friends",
+      })
+    );
+    resolvedAssignments.forEach((a) =>
+      entries.push({
+        id: `rasg-${a.id}`,
+        label: a.snapshotTitle,
+        sublabel: t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") }),
+        href: "/standup/assignments",
+      })
+    );
+    canceledForRecipient.forEach((a) =>
+      entries.push({
+        id: `casg-${a.id}`,
+        label: a.snapshotTitle,
+        sublabel: t("dashboard.assignmentCanceledForYouLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") }),
+        href: "/standup/assignments",
+      })
+    );
+    unseenMentions.forEach((m) =>
+      entries.push({
+        id: `men-${m.id}`,
+        label: t("dashboard.mentionLabel", { name: m.mentionedByDisplayName ?? t("social.anonymousUser") }),
+        sublabel: m.preview ?? undefined,
+        href: `/standup/social?tab=myFeed&post=${m.postId}${m.commentId ? `&comment=${m.commentId}` : ""}`,
+      })
+    );
+    unseenPostActivity.forEach((p) => {
+      const labelKey: TranslationKey =
+        p.activityType === "comment"
+          ? "dashboard.postCommentLabel"
+          : p.activityType === "reply"
+          ? "dashboard.postReplyLabel"
+          : p.activityType === "post_reaction"
+          ? "dashboard.postReactionLabel"
+          : "dashboard.commentReactionLabel";
+      entries.push({
+        id: `pa-${p.id}`,
+        label: t(labelKey, { name: p.actorDisplayName ?? t("social.anonymousUser") }),
+        sublabel: p.preview ?? undefined,
+        href: `/standup/social?tab=myFeed&post=${p.postId}${p.commentId ? `&comment=${p.commentId}` : ""}`,
+      });
+    });
+
+    return entries;
+  }
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isRecoveryPage = pathname === "/reset-password";
@@ -391,20 +520,71 @@ export default function Header() {
 
   // Always visible regardless of breakpoint (unlike the primary/secondary
   // split) — a pending-notification indicator is exactly the kind of thing
-  // that shouldn't disappear into a menu. Links straight to the Dashboard,
-  // where PendingNotifications (the same five buckets, via
-  // notificationBuckets.ts) actually lives, rather than duplicating that
-  // list in a header dropdown. Rendered right next to profileLink()/
-  // avatar() now rather than in the utility cluster — explicit user call.
-  function notificationBell() {
+  // that shouldn't disappear into a menu. Rendered right next to
+  // profileLink()/avatar() now rather than in the utility cluster —
+  // explicit user call.
+  //
+  // Desktop click opens an attached dropdown listing the actual
+  // notifications (buildNotificationEntries() above) — explicit user
+  // call, each row links straight to the goal/post/comment it's about.
+  // Mobile keeps the old plain Link-to-Dashboard behavior instead of also
+  // getting the dropdown: Dashboard's PendingNotifications already shows
+  // the identical list (plus Accept/Decline/Got it, which this read-only
+  // dropdown deliberately doesn't have), and a floating panel has much
+  // less room to work with on a phone-width header.
+  function notificationBell(variant: "desktop" | "mobile") {
     if (!user) return null;
+    if (variant === "mobile") {
+      return (
+        <Link href="/standup/dashboard" className="nav-bell-btn" aria-label={t("nav.notificationsAriaLabel")}>
+          <Bell size={18} />
+          {notificationCount > 0 && (
+            <span className="nav-bell-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
+          )}
+        </Link>
+      );
+    }
+    const entries = bellOpen ? buildNotificationEntries() : [];
     return (
-      <Link href="/standup/dashboard" className="nav-bell-btn" aria-label={t("nav.notificationsAriaLabel")}>
-        <Bell size={18} />
-        {notificationCount > 0 && (
-          <span className="nav-bell-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
+      <div className="nav-bell-wrap" ref={bellRef}>
+        <button
+          type="button"
+          className="nav-bell-btn"
+          aria-label={bellOpen ? t("nav.closeMenu") : t("nav.notificationsAriaLabel")}
+          aria-expanded={bellOpen}
+          onClick={() => {
+            setBellOpen((v) => !v);
+            setMoreOpen(false);
+          }}
+        >
+          <Bell size={18} />
+          {notificationCount > 0 && (
+            <span className="nav-bell-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
+          )}
+        </button>
+        {bellOpen && (
+          <div className="nav-bell-panel">
+            <div className="nav-bell-panel-title">{t("dashboard.notificationsTitle")}</div>
+            {entries.length === 0 ? (
+              <div className="nav-bell-empty">{t("nav.noNotifications")}</div>
+            ) : (
+              <div className="nav-bell-list">
+                {entries.map((entry) => (
+                  <Link key={entry.id} href={entry.href} className="nav-bell-row" onClick={() => setBellOpen(false)}>
+                    <div className="min-w-0">
+                      <div className="nav-bell-row-label">{entry.label}</div>
+                      {entry.sublabel && <div className="nav-bell-row-sublabel">{entry.sublabel}</div>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            <Link href="/standup/dashboard" className="nav-bell-view-all" onClick={() => setBellOpen(false)}>
+              {t("nav.viewAllNotifications")}
+            </Link>
+          </div>
         )}
-      </Link>
+      </div>
     );
   }
 
@@ -454,7 +634,7 @@ export default function Header() {
             "everything else" role there). */}
         <div className="nav-end-cluster">
           <div className="nav-utility-cluster nav-utility-cluster-desktop">
-            {notificationBell()}
+            {notificationBell("desktop")}
 
             {/* Secondary links (Theme/Language for a logged-in user; About/
                 FAQ/Contact too for a logged-out one, who never sees
@@ -510,7 +690,7 @@ export default function Header() {
             <span className="hamburger-line" />
             <span className="hamburger-line" />
           </button>
-          {notificationBell()}
+          {notificationBell("mobile")}
           {!loading && avatar()}
         </div>
       </div>

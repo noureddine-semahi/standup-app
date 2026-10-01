@@ -28,7 +28,7 @@ import {
   type PostVisibility,
   type DiscoverableUser,
 } from "@/lib/supabase/db";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import PostCard from "@/components/PostCard";
 import Avatar from "@/components/Avatar";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
@@ -43,10 +43,21 @@ import type { TranslationKey } from "@/lib/i18n/en";
 const MOTIVATIONAL_POST_MAX_LENGTH = 280;
 
 type SocialTab = "myFeed" | "global" | "circle" | "myPosts" | "friends" | "goals";
+const SOCIAL_TAB_VALUES: SocialTab[] = ["myFeed", "global", "circle", "myPosts", "friends", "goals"];
 
 export default function SocialPage() {
   const { t } = useLanguage();
   const router = useRouter();
+  // Deep-linking in from the notification bell/Dashboard — ?tab= picks
+  // the starting tab, ?post=/&comment= are which post/comment to scroll
+  // to and highlight once the feed loads (see the scroll effect below).
+  // Read once on mount; Social never writes these back to the URL itself
+  // (tab clicks are plain setActiveTab, not router.push), so there's no
+  // risk of this fighting with later in-page navigation.
+  const searchParams = useSearchParams();
+  const highlightPostId = searchParams.get("post");
+  const highlightCommentId = searchParams.get("comment");
+  const scrolledToHighlightRef = useRef(false);
   const [loading, setLoading] = useState(true);
   // null = not checked yet (render nothing rather than flash the feed
   // before we know). false = must acknowledge before anything below is
@@ -54,7 +65,10 @@ export default function SocialPage() {
   const [guidelinesAccepted, setGuidelinesAccepted] = useState<boolean | null>(null);
   const [guidelinesSaving, setGuidelinesSaving] = useState(false);
   const [guidelinesError, setGuidelinesError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<SocialTab>("myFeed");
+  const [activeTab, setActiveTab] = useState<SocialTab>(() => {
+    const tabParam = searchParams.get("tab");
+    return SOCIAL_TAB_VALUES.includes(tabParam as SocialTab) ? (tabParam as SocialTab) : "myFeed";
+  });
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connError, setConnError] = useState<string | null>(null);
@@ -185,6 +199,20 @@ export default function SocialPage() {
       .catch(() => setGuidelinesAccepted(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // One-shot scroll-to-and-highlight for a deep link from the bell
+  // dropdown/a mention/a post-activity notification — guarded by a ref
+  // so it only fires once per page load, not on every feed refresh
+  // afterward (e.g. after reacting to something).
+  useEffect(() => {
+    if (scrolledToHighlightRef.current || feedLoading || !highlightPostId) return;
+    const el = document.querySelector(`[data-post-id="${highlightPostId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledToHighlightRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedLoading, feed, highlightPostId]);
 
   async function handleAgreeToGuidelines() {
     setGuidelinesSaving(true);
@@ -742,7 +770,15 @@ export default function SocialPage() {
             ) : (
               <div className="space-y-3">
                 {visiblePosts.map((post) => (
-                  <PostCard key={post.id} post={post} commentCount={commentCounts[post.id] ?? 0} shareableConnections={shareableConnections} />
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    commentCount={commentCounts[post.id] ?? 0}
+                    shareableConnections={shareableConnections}
+                    highlighted={post.id === highlightPostId}
+                    autoExpandComments={post.id === highlightPostId && !!highlightCommentId}
+                    highlightCommentId={post.id === highlightPostId ? highlightCommentId : null}
+                  />
                 ))}
               </div>
             )}

@@ -25,6 +25,9 @@ export default function PostCard({
   post,
   commentCount = 0,
   shareableConnections = [],
+  highlighted = false,
+  autoExpandComments = false,
+  highlightCommentId = null,
 }: {
   post: Post;
   commentCount?: number;
@@ -32,13 +35,19 @@ export default function PostCard({
   // omitted (or empty) simply hides the Share button rather than erroring,
   // so a caller that hasn't wired connections through yet still renders.
   shareableConnections?: { id: string; displayName: string | null }[];
+  // Deep-link support (notification bell/Dashboard -> a specific post,
+  // optionally a specific comment) — see Social page's scroll-to effect,
+  // which locates this card via the data-post-id attribute below.
+  highlighted?: boolean;
+  autoExpandComments?: boolean;
+  highlightCommentId?: string | null;
 }) {
   const { t } = useLanguage();
   const { myReaction, reacting, pickReaction } = usePostReaction(post.id, post.myReaction);
   const displayName = post.displayName ?? t("social.anonymousUser");
 
   return (
-    <div className="goal-row-compact">
+    <div className={`goal-row-compact${highlighted ? " post-card-highlight" : ""}`} data-post-id={post.id}>
       <div className="goal-row-compact-body p-3">
         <div className="flex items-center gap-2 mb-2">
           <Avatar avatarUrl={post.avatarUrl} label={displayName} size={28} />
@@ -133,7 +142,13 @@ export default function PostCard({
             <SharePostButton postId={post.id} connections={shareableConnections} />
           )}
         </div>
-        <CommentThread postId={post.id} initialCommentCount={post.commentCount || commentCount} connections={shareableConnections} />
+        <CommentThread
+          postId={post.id}
+          initialCommentCount={post.commentCount || commentCount}
+          connections={shareableConnections}
+          autoExpand={autoExpandComments}
+          highlightCommentId={highlightCommentId}
+        />
       </div>
     </div>
   );

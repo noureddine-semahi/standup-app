@@ -654,6 +654,137 @@ h1, h2, h3, h4, h5, h6 {
   text-align: left;
 }
 
+/* Bell dropdown — desktop only (see notificationBell()'s "mobile" variant,
+   which stays a plain Link to Dashboard). Same floating-panel chrome as
+   .nav-more-panel, just wider to fit a notification row's two lines of
+   text and anchored under the bell instead of the More button. */
+.nav-bell-wrap {
+  position: relative;
+}
+
+.nav-bell-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 320px;
+  max-width: calc(100vw - 36px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  background: rgba(var(--panel-rgb), 0.98);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.nav-bell-panel-title {
+  padding: 10px 14px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--tint-rgb), 0.5);
+}
+
+.nav-bell-empty {
+  padding: 4px 14px 16px;
+  font-size: 0.82rem;
+  color: rgba(var(--tint-rgb), 0.5);
+}
+
+.nav-bell-list {
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-bell-row {
+  display: block;
+  padding: 8px 14px;
+  text-decoration: none;
+  border-top: 1px solid rgba(var(--tint-rgb), 0.06);
+  transition: background 0.15s ease;
+}
+
+.nav-bell-row:first-child {
+  border-top: none;
+}
+
+.nav-bell-row:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.nav-bell-row-label {
+  font-size: 0.82rem;
+  color: rgba(var(--tint-rgb), 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-bell-row-sublabel {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: rgba(var(--tint-rgb), 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-bell-view-all {
+  display: block;
+  padding: 9px 14px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-amber);
+  text-decoration: none;
+  border-top: 1px solid rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.04);
+  transition: background 0.15s ease;
+}
+
+.nav-bell-view-all:hover {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* Deep-link landing highlight — a notification bell row (or a mention/
+   post-activity notification) scrolls Social to the exact post/comment
+   and briefly pulses it, so the thing you clicked for is obvious at a
+   glance instead of just "somewhere on this page now." Runs once (no
+   infinite loop) and settles back to the card's normal appearance. */
+@keyframes post-highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.9), 0 0 24px rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    background: transparent;
+  }
+}
+.post-card-highlight {
+  animation: post-highlight-pulse 2.5s ease-out;
+  border-radius: 12px;
+}
+@keyframes comment-highlight-pulse {
+  0% { background: rgba(245, 158, 11, 0.16); }
+  100% { background: transparent; }
+}
+.comment-row-highlight {
+  animation: comment-highlight-pulse 2.5s ease-out;
+  border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .post-card-highlight,
+  .comment-row-highlight {
+    animation: none;
+  }
+}
+
 /* Only ever in the DOM while open (see Header.tsx), but default to hidden
    too in case the viewport is resized past the breakpoint while it's open. */
 .mobile-menu-panel {
@@ -1203,17 +1334,20 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Dashboard motivational message swap — the new message pushes the old
    one up and off (both absolutely positioned, animating in lockstep) in
-   place of a crossfade. At rest this is a plain block sized to its own
-   content — no clipping, no imposed min-height — so a long message is
-   always shown in full. is-transitioning only applies while both
-   messages briefly overlap, with just enough min-height to cover that
-   half-second without clipping either one. */
+   place of a crossfade. Reserves room for a 3-line message (today's
+   line plus two more) at rest, not just while transitioning — explicit
+   user call: a short message used to leave the card visibly shorter
+   than a long one, so the card itself grew/shrank every time the
+   message rotated. A short message now just leaves blank space below
+   it instead; a message past 3 lines still grows the card (rare, and
+   still shown in full — no clipping). */
 .motivation-ticker-window {
   position: relative;
+  min-height: 4.65rem;
 }
 .motivation-ticker-window.is-transitioning {
   overflow: hidden;
-  min-height: 4.2em;
+  min-height: 4.65rem;
 }
 .motivation-slide {
   position: absolute;

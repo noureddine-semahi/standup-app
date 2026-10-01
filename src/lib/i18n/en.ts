@@ -20,6 +20,8 @@ export const en = {
   "nav.signUp": "Sign Up",
   "nav.profileAriaLabel": "Profile",
   "nav.notificationsAriaLabel": "Notifications",
+  "nav.noNotifications": "You're all caught up",
+  "nav.viewAllNotifications": "View all",
   "nav.openMenu": "Open menu",
   "nav.closeMenu": "Close menu",
   "nav.logout": "Logout",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquare, ChevronDown, ChevronRight, Trash2, Reply as ReplyIcon } from "lucide-react";
 import Avatar from "@/components/Avatar";
 import GlimpseReactionPicker from "@/components/GlimpseReactionPicker";
@@ -32,6 +32,8 @@ export default function CommentThread({
   postId,
   initialCommentCount,
   connections = [],
+  autoExpand = false,
+  highlightCommentId = null,
 }: {
   postId: string;
   initialCommentCount: number;
@@ -39,6 +41,11 @@ export default function CommentThread({
   // simply disables mention autocomplete, matching SharePostButton's
   // optional-prop convention.
   connections?: { id: string; displayName: string | null }[];
+  // Deep-link support — a notification pointing at a specific comment
+  // opens the thread automatically instead of leaving it collapsed, and
+  // highlights that one row once loaded.
+  autoExpand?: boolean;
+  highlightCommentId?: string | null;
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
@@ -78,6 +85,16 @@ export default function CommentThread({
     setExpanded(next);
     if (next && !loaded) await loadComments();
   }
+
+  // Deep link landed on this exact post with a comment to show — open and
+  // load immediately instead of leaving it behind the collapsed toggle.
+  useEffect(() => {
+    if (autoExpand && !expanded) {
+      setExpanded(true);
+      loadComments();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoExpand]);
 
   async function handlePost(
     body: string,
@@ -175,6 +192,7 @@ export default function CommentThread({
               }
               postingReply={postingReply}
               connections={connections}
+              highlighted={comment.id === highlightCommentId}
               t={t}
             >
               {repliesFor(comment.id).map((reply) => (
@@ -186,6 +204,7 @@ export default function CommentThread({
                   onDelete={() => handleDelete(reply.id)}
                   isReply
                   connections={connections}
+                  highlighted={reply.id === highlightCommentId}
                   t={t}
                 />
               ))}
@@ -238,6 +257,7 @@ function CommentRow({
   onSubmitReply,
   postingReply,
   connections = [],
+  highlighted = false,
   children,
   t,
 }: {
@@ -254,6 +274,7 @@ function CommentRow({
   onSubmitReply?: () => void;
   postingReply?: boolean;
   connections?: { id: string; displayName: string | null }[];
+  highlighted?: boolean;
   children?: React.ReactNode;
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }) {
@@ -261,7 +282,9 @@ function CommentRow({
   const displayName = comment.displayName ?? t("social.anonymousUser");
 
   return (
-    <div className={isReply ? "ml-6 pl-3 border-l border-white/10" : ""}>
+    <div
+      className={`${isReply ? "ml-6 pl-3 border-l border-white/10" : ""}${highlighted ? " comment-row-highlight" : ""}`}
+    >
       <div className="flex items-start gap-2">
         <Avatar avatarUrl={comment.avatarUrl} label={displayName} size={22} />
         <div className="flex-1 min-w-0">

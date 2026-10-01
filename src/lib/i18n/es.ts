@@ -20,6 +20,8 @@ export const es: Record<keyof typeof en, string> = {
   "nav.signUp": "Registrarse",
   "nav.profileAriaLabel": "Perfil",
   "nav.notificationsAriaLabel": "Notificaciones",
+  "nav.noNotifications": "Estás al día",
+  "nav.viewAllNotifications": "Ver todas",
   "nav.openMenu": "Abrir menú",
   "nav.closeMenu": "Cerrar menú",
   "nav.logout": "Cerrar Sesión",

@@ -703,8 +703,8 @@ export default function ToolsPage() {
                     type="button"
                     onClick={() => handlePush(item, tomorrowISO)}
                     disabled={busy}
-                    className="btn flex-1"
-                    style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
+                    className="btn flex-1 min-w-0"
+                    style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
                     {t("backlog.pushToTomorrow")}
@@ -1090,8 +1090,8 @@ export default function ToolsPage() {
                     type="button"
                     onClick={() => handlePushList(list, tomorrowISO)}
                     disabled={busy}
-                    className="btn flex-1"
-                    style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                    className="btn flex-1 min-w-0"
+                    style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
                     {t("backlog.pushToTomorrow")}

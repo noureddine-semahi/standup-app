@@ -1349,10 +1349,10 @@ export default function ToolsPage() {
                       />
                     </label>
                   </div>
-                  <div className="flex flex-wrap items-start gap-2">
+                  <div className="flex flex-wrap items-start gap-1.5">
                     <label
-                      className="text-xs text-white/50 pr-3"
-                      style={{ maxWidth: "84px", borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
+                      className="text-xs text-white/50 pr-1.5"
+                      style={{ maxWidth: "132px", borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
                     >
                       {t("backlog.paymentDueDayLabel")}
                       <input
@@ -1367,7 +1367,7 @@ export default function ToolsPage() {
                         style={{ width: "68px" }}
                       />
                     </label>
-                    <label className="text-xs text-white/50" style={{ maxWidth: "84px" }}>
+                    <label className="text-xs text-white/50" style={{ maxWidth: "132px" }}>
                       {t("backlog.paymentRemindLabel")}
                       <input
                         type="number"

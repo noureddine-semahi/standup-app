@@ -144,6 +144,14 @@ export default function DashboardPage() {
   const [motivationIndex, setMotivationIndex] = useState(() =>
     Math.floor(Math.random() * MOTIVATIONAL_MESSAGE_KEYS.length)
   );
+  // Holds the OUTGOING index only during the brief transition, so the old
+  // message can render (absolutely positioned) sliding up and out while
+  // the new one slides up into place underneath it. Cleared by the
+  // incoming element's onAnimationEnd, not a timer, so it can never
+  // outlive the animation it's there for — except under prefers-reduced-
+  // motion, where it's never set in the first place (that animation never
+  // plays, so onAnimationEnd would never fire to clear it).
+  const [prevMotivationIndex, setPrevMotivationIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -151,6 +159,9 @@ export default function DashboardPage() {
         if (MOTIVATIONAL_MESSAGE_KEYS.length <= 1) return prev;
         let next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGE_KEYS.length);
         while (next === prev) next = Math.floor(Math.random() * MOTIVATIONAL_MESSAGE_KEYS.length);
+        const prefersReducedMotion =
+          typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if (!prefersReducedMotion) setPrevMotivationIndex(prev);
         return next;
       });
     }, 10000);
@@ -615,12 +626,33 @@ export default function DashboardPage() {
                   <img src={profile.avatar_url} alt={t("common.profilePhotoAlt")} className="w-full h-full object-cover" />
                 </div>
               )}
-              <div key={motivationIndex} className="card-swap-fade">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
-                <div className="mt-2 text-base font-semibold text-white leading-snug">
-                  {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
-                    name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
-                  })}
+                {/* The new message pushes the old one up and off, rather
+                    than a crossfade — see .motivation-slide-in/out in
+                    globals.css. Both are absolutely positioned inside this
+                    fixed-min-height window so the layout doesn't jump
+                    between a 1-line and 3-line message mid-swap. */}
+                <div className="motivation-ticker-window mt-2">
+                  {prevMotivationIndex !== null && (
+                    <div
+                      key={`prev-${prevMotivationIndex}`}
+                      className="motivation-slide motivation-slide-out text-base font-semibold text-white leading-snug"
+                    >
+                      {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
+                        name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+                      })}
+                    </div>
+                  )}
+                  <div
+                    key={`cur-${motivationIndex}`}
+                    className={`motivation-slide text-base font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide-in" : ""}`}
+                    onAnimationEnd={() => setPrevMotivationIndex(null)}
+                  >
+                    {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                      name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+                    })}
+                  </div>
                 </div>
               </div>
             </div>

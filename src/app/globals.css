@@ -923,6 +923,43 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Dashboard motivational message swap — the new message pushes the old
+   one up and off (both absolutely positioned, animating in lockstep) in
+   place of a crossfade. Fixed min-height (not auto, sized off whichever
+   message happens to be in normal flow) keeps the card from jumping
+   between a 1-line and 3-line message mid-swap. */
+.motivation-ticker-window {
+  position: relative;
+  overflow: hidden;
+  min-height: 4.2em;
+}
+.motivation-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.motivation-slide-out {
+  animation: motivation-slide-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.motivation-slide-in {
+  animation: motivation-slide-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes motivation-slide-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-100%); opacity: 0; }
+}
+@keyframes motivation-slide-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .motivation-slide-out,
+  .motivation-slide-in {
+    animation: none;
+  }
+}
+
 /* ✨ Animations */
 @keyframes fadeIn {
   from {

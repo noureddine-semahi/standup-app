@@ -5,7 +5,7 @@ import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
 import {
   Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar,
-  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, type LucideIcon,
+  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -34,6 +34,7 @@ const BIGGER_PICTURE_ITEMS: DefItem[] = [
 const GROWING_TOGETHER_ITEMS: DefItem[] = [
   { key: "connections", icon: Users, titleKey: "about.connections", body: (t) => t("about.connectionsBody") },
   { key: "assignments", icon: Send, titleKey: "about.goalAssignments", body: (t) => t("about.goalAssignmentsBody") },
+  { key: "teamGoals", icon: Handshake, titleKey: "about.teamGoals", body: (t) => t("about.teamGoalsBody") },
   { key: "reactions", icon: MessageCircle, titleKey: "about.reactionsComments", body: (t) => t("about.reactionsCommentsBody") },
   { key: "streakPasses", icon: Umbrella, titleKey: "about.streakPasses", body: (t) => t("about.streakPassesBody") },
 ];

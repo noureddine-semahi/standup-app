@@ -93,6 +93,31 @@ const RELEASE_NOTES: { period: string; summary: string }[] = [
     summary:
       "Goal sharing/assignment: assign one of your own goals to an accepted connection, who can accept or decline it; once accepted it materializes as a real, independent goal on their own plan. Assignments carry a shared vs. exclusive type (exclusive is the default) -- shared stays fully independent forever; exclusive locks the assigner out of their own copy only once the recipient has actually accepted, and is excluded from the assigner's own day-closure requirement. The assigner can also view the recipient's actual logged actions on a handed-off goal, merged into the same \"Actions & notes\" timeline. A dedicated /standup/assignments page holds the full assignment view. Also this day: a Privacy Policy consent gate at signup; a pending-notifications section on the Dashboard mirrored by a header notification bell; photo attachments on motivational posts; and a header navigation overhaul (small always-visible primary group plus a \"More\" panel; the Social nav tab was also renamed Community). A cluster of same-day fixes: listConnections() had been silently unable to read the other party's display name for the entire lifetime of the connections feature (profiles' RLS only allows reading your own row -- fixed with a security-definer RPC, the same class of fix later needed for posts sharing itself and for cross-user goal-note visibility); a React hooks-order crash on the Dashboard; and an assigned-out goal's status badge reading the assigner's own frozen copy instead of the recipient's live status, in four independent rendering paths before all four were fixed.",
   },
+  {
+    period: "Moderation, Sharing & @Mentions — September 24",
+    summary:
+      "An admin moderation view (see and delete any post or comment past its normal visibility, logged to an audit trail) plus a first-time Community Guidelines gate every member has to acknowledge once. Any post you can see can now be shared directly to one specific connection, extending its visibility to them even if they couldn't otherwise see it. @mention an accepted connection in a post or comment to tag them -- surfaced as a Dashboard/header-bell notification. Also: a design pass on the About page, and the docs you're reading now were brought up to date through this point.",
+  },
+  {
+    period: "Video Posts, Assignment Fixes & Cancellation — September 25-26",
+    summary:
+      "Motivational posts can now carry a short video instead of a photo (one attachment per post, either kind). Fixed: accepting an assigned goal was silently dropping its checklist and file attachments instead of copying them over. Either side of a goal assignment can now back out after the fact -- Retract a still-pending one, or Cancel one already accepted -- notifying the other party with an optional reason and pulling the goal from both plans.",
+  },
+  {
+    period: "Discoverability, Smoother Navigation & Advance Streak Passes — September 25-28",
+    summary:
+      "A Discoverable toggle in Settings: turn it off and your account becomes unfindable by email lookup for new connection requests (existing connections are unaffected). Every page-to-page navigation lost its blank flash-of-nothing, and common goal actions (complete/cancel/reschedule) got noticeably snappier. A streak pass can now be applied to a future date in advance, not just used after the fact to patch a day already missed.",
+  },
+  {
+    period: "Lists, Payment Tracking & Team Goals — September 28-30",
+    summary:
+      "The Backlog page became Tools, now a 5-tab hub: Backlog, Long-Term Goals, Lists, Payments, and Assigned Goals. Lists are standing, reusable checklists (groceries, packing, anything repeated) -- push one into a brand-new goal or merge it into an existing goal's checklist without consuming the list itself. Payments tracks a balance, minimum payment, and due day for recurring bills; a due payment now creates its own reminder goal automatically on Dashboard/Today/Tomorrow, and completing it asks you to confirm the amount actually paid, subtracted from the tracked balance (going negative on overpayment is allowed by design). Team Goals: post a goal as an open invite to Community instead of handing it to one person -- everyone who joins shares one checklist, complete once every item is checked by anyone. Also: reopening a day no longer clears every goal's review status, only the ones you actually touch.",
+  },
+  {
+    period: "Header Redesign, Deep-Linking Notifications & Card Consistency — October 1",
+    summary:
+      "The header's six primary links moved out of the top row entirely into their own always-visible hanging-tab row directly beneath it, each with its own accent color and an icon-only mobile layout; the notification bell, a \"More\" menu, and the profile chip were consolidated into one cluster pinned to the top-right corner, with the brand logo pinned top-left, both independent of scroll. Comments, replies, and reactions on your own posts now generate a notification, the same as an @mention already did. The bell itself gained a dropdown: click it to see your actual notifications, each one linking straight to the exact post (scrolled to and briefly highlighted, with its comment thread opened automatically) or the right page for a connection/assignment -- and clicking a row marks it read immediately, not just on the next refresh. Today's goal cards gained a direct delete option (already-resolved cards only, no confirmation needed since there's nothing to lose), and the same number-badge-top-left / delete-X-top-right layout now applies consistently to every goal-card page. Also: the Dashboard's motivational message card stopped visibly resizing every time the rotating message changed length, and the mobile Sign In/Sign Up buttons and landing page's Get Started/Learn More buttons were fixed to stop overflowing narrow screens.",
+  },
 ];
 
 const UP_NEXT: { phase: string; detail: string }[] = [
@@ -111,7 +136,8 @@ const PARKED: { title: string; detail: string }[] = [
   },
   {
     title: "Enterprise/team version",
-    detail: "Concluded this is a separate product, not an extension of StandUp's single-user design.",
+    detail:
+      "Concluded this is a separate product, not an extension of StandUp's single-user design. Not to be confused with Team Goals (shipped September 30) -- a single shared goal with a joint checklist, not a multi-user workspace product.",
   },
   {
     title: "Growth monitor",

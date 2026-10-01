@@ -33,6 +33,12 @@ const FAQ_KEYS: { questionKey: TranslationKey; answerKey: TranslationKey }[] = [
   { questionKey: "faq.q24.question", answerKey: "faq.q24.answer" },
   { questionKey: "faq.q25.question", answerKey: "faq.q25.answer" },
   { questionKey: "faq.q26.question", answerKey: "faq.q26.answer" },
+  { questionKey: "faq.q27.question", answerKey: "faq.q27.answer" },
+  { questionKey: "faq.q28.question", answerKey: "faq.q28.answer" },
+  { questionKey: "faq.q29.question", answerKey: "faq.q29.answer" },
+  { questionKey: "faq.q30.question", answerKey: "faq.q30.answer" },
+  { questionKey: "faq.q31.question", answerKey: "faq.q31.answer" },
+  { questionKey: "faq.q32.question", answerKey: "faq.q32.answer" },
 ];
 
 export default function FAQPage() {

@@ -584,7 +584,7 @@ export default function ToolsPage() {
               role="tab"
               aria-selected={isActive}
               onClick={() => setActiveTab(tab.key)}
-              className={`folder-tab${isActive ? " folder-tab-active" : ""}`}
+              className={`folder-tab folder-tab-tools${isActive ? " folder-tab-active" : ""}`}
               style={{ "--tab-color": tab.color } as React.CSSProperties}
             >
               <tab.icon size={15} />

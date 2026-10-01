@@ -1259,6 +1259,76 @@ h1, h2, h3, h4, h5, h6 {
   border-top-left-radius: 0;
 }
 
+/* Tools-page-only depth/lighting variant — explicit user call scoped to
+   "only the six Tools tabs," which share .folder-tab/.folder-tab-active
+   verbatim with Social's own tab bar. Composed alongside those classes
+   (same markup, shape, border-radius, gap, padding, icons, labels, and
+   per-tab --tab-color hues, all untouched) rather than editing the
+   shared rules, so Social's tab bar is completely unaffected. Position/
+   lift changes are kept inside the >640px media query further down so
+   the existing mobile icon-collapse/unwrap animation (shared, also
+   untouched) keeps working exactly as before. */
+.folder-tab-tools {
+  background: color-mix(in srgb, var(--tab-color) 3%, rgba(var(--tint-rgb), 0.015));
+  border-color: color-mix(in srgb, var(--tab-color) 26%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2),
+    0 3px 5px -3px rgba(0, 0, 0, 0.35),
+    0 0 5px 0px color-mix(in srgb, var(--tab-color) 28%, transparent);
+}
+
+.folder-tab-tools:hover:not(.folder-tab-active) {
+  background: color-mix(in srgb, var(--tab-color) 8%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 45%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+    0 4px 6px -3px rgba(0, 0, 0, 0.4),
+    0 0 9px 1px color-mix(in srgb, var(--tab-color) 40%, transparent);
+}
+
+.folder-tab-tools.folder-tab-active {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 18%, rgba(var(--panel-rgb), var(--panel-alpha))),
+    color-mix(in srgb, var(--tab-color) 8%, rgba(var(--panel-rgb), var(--panel-alpha)))
+  );
+  border-color: color-mix(in srgb, var(--tab-color) 75%, white 8%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 95%, white 28%);
+  border-right-color: color-mix(in srgb, var(--tab-color) 95%, white 28%);
+  /* Literally no bottom border, not just a color blend -- explicit
+     "remove the active tab's bottom border... one continuous open
+     folder" call. The background still color-mixes toward the panel
+     beneath it, so the seam reads as open, not just borderless. */
+  border-bottom: none;
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.3),
+    inset 1px 0 0 0 color-mix(in srgb, var(--tab-color) 40%, white 30%),
+    inset -1px 0 0 0 color-mix(in srgb, var(--tab-color) 40%, white 30%),
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 40%, transparent),
+    0 0 20px 7px color-mix(in srgb, var(--tab-color) 65%, transparent),
+    0 0 34px 13px color-mix(in srgb, var(--tab-color) 40%, transparent);
+}
+
+/* Desktop-only: inactive tabs recede ~3px up, the active tab sits at
+   its natural (unlifted) position -- together this reads as "pulled
+   forward/open" for the active tab relative to the recessed ones,
+   without touching the mobile unwrap animation's own transform. */
+@media (min-width: 641px) {
+  .folder-tab-tools {
+    transform: translateY(-3px);
+    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
+      box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .folder-tab-tools:hover:not(.folder-tab-active) {
+    transform: translateY(-2px);
+  }
+  .folder-tab-tools.folder-tab-active {
+    transform: translateY(0);
+  }
+}
+
 /* Mobile: all 6 tabs fit on screen icon-only (no horizontal scroll needed
    at this width); the active tab alone "unwraps" to show its label,
    animated via max-width/opacity on the label span rather than

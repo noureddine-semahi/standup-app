@@ -237,6 +237,17 @@ export const en = {
   "tomorrow.failedAddSuggested": "Failed to add suggested goal",
   "tomorrow.paymentGoalsAdded": "Added to your plan: {names}",
 
+  // Payment confirmation modal — gates completing a payment-reminder goal
+  // on confirming the actual amount paid, which is then logged and
+  // subtracted from the account's balance.
+  "paymentConfirm.title": "Confirm Payment",
+  "paymentConfirm.body": "How much did you pay toward {name}?",
+  "paymentConfirm.amountLabel": "Amount paid",
+  "paymentConfirm.saving": "Saving…",
+  "paymentConfirm.confirmButton": "Confirm Payment",
+  "paymentConfirm.cancel": "Cancel",
+  "paymentConfirm.failed": "Failed to confirm payment",
+
   // Review Today
   "today.failedLoad": "Failed to load",
   "today.noteSavedRefreshFailed": "Note saved, but couldn't refresh the list — reopen the tab to see it.",
@@ -481,6 +492,10 @@ export const en = {
   "backlog.failedAddPayment": "Failed to add payment account",
   "backlog.failedUpdatePayment": "Failed to update payment account",
   "backlog.failedDeletePayment": "Failed to delete payment account",
+  "backlog.paymentHistoryToggle": "Payment history",
+  "backlog.paymentHistoryLoading": "Loading history…",
+  "backlog.paymentHistoryEmpty": "No payments logged yet.",
+  "backlog.failedLoadPaymentHistory": "Failed to load payment history",
 
   // History (Data & Metrics)
   "history.loading": "Loading history…",

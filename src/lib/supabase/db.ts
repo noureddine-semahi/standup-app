@@ -243,6 +243,10 @@ export type Goal = {
   // suggestion chip — used only to dedupe "already added today" against
   // that same template, not shown anywhere in the UI.
   source_template_id?: string | null;
+  // Set when this goal was auto-created from a payment reminder — Today's
+  // quick-action dropdown checks this to route completion through the
+  // payment-confirmation modal instead of a plain status update.
+  source_payment_account_id?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;
@@ -1500,7 +1504,13 @@ export async function addGoalFromPaymentReminder(account: PaymentAccount, planDa
   const title = `Pay ${account.name} — $${account.minimumPayment.toFixed(2)} min due ${formatDateDisplay(dueDate)}`;
   const { data: created, error: insertErr } = await supabase
     .from("goals")
-    .insert({ user_id: userId, plan_id: plan.id, title, status: "not_started", sort_order: nextSortOrder, priority: 2 })
+    .insert({
+      user_id: userId, plan_id: plan.id, title, status: "not_started", sort_order: nextSortOrder, priority: 2,
+      // Links this goal back to its account so completing it can route
+      // through the payment-confirmation flow instead of a plain status
+      // update — see confirmPaymentGoalCompletion.
+      source_payment_account_id: account.id,
+    })
     .select()
     .single();
   if (insertErr) throw insertErr;
@@ -1512,6 +1522,42 @@ export async function addGoalFromPaymentReminder(account: PaymentAccount, planDa
   if (updateErr) throw updateErr;
 
   return created as Goal;
+}
+
+export type PaymentTransaction = {
+  id: string;
+  accountId: string;
+  goalId: string | null;
+  amount: number;
+  paidAt: string;
+};
+
+function rowToPaymentTransaction(r: any): PaymentTransaction {
+  return { id: r.id, accountId: r.account_id, goalId: r.goal_id, amount: Number(r.amount), paidAt: r.paid_at };
+}
+
+/** One account's payment history, newest first — powers the "History" expand on the Payments tab. */
+export async function getPaymentTransactions(accountId: string): Promise<PaymentTransaction[]> {
+  const { data, error } = await supabase
+    .from("payment_transactions")
+    .select("*")
+    .eq("account_id", accountId)
+    .order("paid_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(rowToPaymentTransaction);
+}
+
+/**
+ * Confirms a payment-reminder goal: marks it completed, logs the amount to
+ * payment_transactions, and subtracts it from the account's balance — all
+ * atomically server-side (confirm_payment_goal_completion). Overpayment is
+ * allowed to go negative (a credit), not clamped at zero, confirmed with
+ * the user. Returns the account's new balance.
+ */
+export async function confirmPaymentGoalCompletion(goalId: string, amount: number): Promise<number> {
+  const { data, error } = await supabase.rpc("confirm_payment_goal_completion", { p_goal_id: goalId, p_amount: amount });
+  if (error) throw error;
+  return Number(data);
 }
 
 /**

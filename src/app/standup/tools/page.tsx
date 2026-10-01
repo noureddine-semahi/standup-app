@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History } from "lucide-react";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import {
   addBacklogGoal,
@@ -29,11 +29,14 @@ import {
   updatePaymentAccount,
   deletePaymentAccount,
   computeNextDueDate,
+  getPaymentTransactions,
+  formatDateTimeDisplay,
   type BacklogGoal,
   type RecurringGoalTemplate,
   type ShoppingList,
   type ShoppingListItem,
   type PaymentAccount,
+  type PaymentTransaction,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -121,6 +124,13 @@ export default function ToolsPage() {
   const [newPaymentRemindDays, setNewPaymentRemindDays] = useState("3");
   const [addingPayment, setAddingPayment] = useState(false);
   const [busyPaymentIds, setBusyPaymentIds] = useState<Set<string>>(new Set());
+
+  // Payment history — collapsed by default per account, fetched lazily on
+  // first expand rather than loading every account's whole ledger up
+  // front (most accounts will never be expanded in a given visit).
+  const [expandedPaymentHistoryId, setExpandedPaymentHistoryId] = useState<string | null>(null);
+  const [paymentHistoryByAccount, setPaymentHistoryByAccount] = useState<Record<string, PaymentTransaction[]>>({});
+  const [paymentHistoryLoadingId, setPaymentHistoryLoadingId] = useState<string | null>(null);
 
   const todayISO = toISODate(new Date());
   const tomorrowISO = toISODate(addDays(new Date(), 1));
@@ -531,6 +541,20 @@ export default function ToolsPage() {
       setPaymentsMsg(e?.message ?? t("backlog.failedDeletePayment"));
       setPaymentBusy(account.id, false);
     }
+  }
+
+  function toggleHistory(account: PaymentAccount) {
+    if (expandedPaymentHistoryId === account.id) {
+      setExpandedPaymentHistoryId(null);
+      return;
+    }
+    setExpandedPaymentHistoryId(account.id);
+    if (paymentHistoryByAccount[account.id]) return; // already fetched once this visit
+    setPaymentHistoryLoadingId(account.id);
+    getPaymentTransactions(account.id)
+      .then((rows) => setPaymentHistoryByAccount((prev) => ({ ...prev, [account.id]: rows })))
+      .catch((e: any) => setPaymentsMsg(e?.message ?? t("backlog.failedLoadPaymentHistory")))
+      .finally(() => setPaymentHistoryLoadingId((cur) => (cur === account.id ? null : cur)));
   }
 
   const plainItems = items.filter((i) => !i.target_date);
@@ -1239,6 +1263,21 @@ export default function ToolsPage() {
                     </span>
                     <button
                       type="button"
+                      onClick={() => toggleHistory(account)}
+                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "8px",
+                        background: expandedPaymentHistoryId === account.id ? "rgba(245, 158, 11, 0.15)" : "rgba(var(--tint-rgb), 0.06)",
+                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
+                      }}
+                      title={t("backlog.paymentHistoryToggle")}
+                    >
+                      <History size={14} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDeletePayment(account)}
                       disabled={busy}
                       className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
@@ -1309,6 +1348,25 @@ export default function ToolsPage() {
                     />
                   </label>
                 </div>
+
+                {expandedPaymentHistoryId === account.id && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    {paymentHistoryLoadingId === account.id ? (
+                      <p className="text-xs text-white/50">{t("backlog.paymentHistoryLoading")}</p>
+                    ) : (paymentHistoryByAccount[account.id]?.length ?? 0) === 0 ? (
+                      <p className="text-xs text-white/50 italic">{t("backlog.paymentHistoryEmpty")}</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {paymentHistoryByAccount[account.id].map((txn) => (
+                          <div key={txn.id} className="flex items-center justify-between text-xs text-white/70">
+                            <span>{formatDateTimeDisplay(txn.paidAt)}</span>
+                            <span className="font-medium">${txn.amount.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

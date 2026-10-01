@@ -235,6 +235,17 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.failedAddSuggested": "Error al agregar el objetivo sugerido",
   "tomorrow.paymentGoalsAdded": "Agregado a tu plan: {names}",
 
+  // Payment confirmation modal — gates completing a payment-reminder goal
+  // on confirming the actual amount paid, which is then logged and
+  // subtracted from the account's balance.
+  "paymentConfirm.title": "Confirmar Pago",
+  "paymentConfirm.body": "¿Cuánto pagaste hacia {name}?",
+  "paymentConfirm.amountLabel": "Monto pagado",
+  "paymentConfirm.saving": "Guardando…",
+  "paymentConfirm.confirmButton": "Confirmar Pago",
+  "paymentConfirm.cancel": "Cancelar",
+  "paymentConfirm.failed": "Error al confirmar el pago",
+
   // Review Today
   "today.failedLoad": "Error al cargar",
   "today.noteSavedRefreshFailed": "Nota guardada, pero no se pudo actualizar la lista — vuelve a abrir la pestaña para verla.",
@@ -479,6 +490,10 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.failedAddPayment": "Error al agregar la cuenta de pago",
   "backlog.failedUpdatePayment": "Error al actualizar la cuenta de pago",
   "backlog.failedDeletePayment": "Error al eliminar la cuenta de pago",
+  "backlog.paymentHistoryToggle": "Historial de pagos",
+  "backlog.paymentHistoryLoading": "Cargando historial…",
+  "backlog.paymentHistoryEmpty": "Aún no hay pagos registrados.",
+  "backlog.failedLoadPaymentHistory": "Error al cargar el historial de pagos",
 
   // History (Data & Metrics)
   "history.loading": "Cargando historial…",

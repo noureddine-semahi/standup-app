@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
+import PaymentConfirmModal from "@/components/PaymentConfirmModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
@@ -42,6 +43,9 @@ import {
   getMyGoalAssignments,
   respondToGoalAssignment,
   ensurePaymentReminderGoals,
+  getPaymentAccounts,
+  confirmPaymentGoalCompletion,
+  type PaymentAccount,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
@@ -164,6 +168,17 @@ export default function TodayPage() {
   const [blockingGoal, setBlockingGoal] = useState<Goal | null>(null);
   const [blockingSaving, setBlockingSaving] = useState(false);
   const [blockingError, setBlockingError] = useState<string | null>(null);
+  // A payment-reminder goal (source_payment_account_id set) requires
+  // confirming the actual amount paid before it's marked complete — same
+  // intercept-before-anything-else shape as blockingGoal above.
+  // payingAccount holds the linked account's current name/minimum payment
+  // (fetched lazily, only when this specific goal is being completed) so
+  // the modal can prefill an amount without Today's page loading every
+  // payment account up front.
+  const [payingGoal, setPayingGoal] = useState<Goal | null>(null);
+  const [payingAccount, setPayingAccount] = useState<PaymentAccount | null>(null);
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [reopening, setReopening] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
@@ -621,6 +636,28 @@ export default function TodayPage() {
       return;
     }
 
+    // A payment-reminder goal needs the actual amount confirmed before it
+    // completes — hand off to confirmPaymentCompletion() instead of
+    // applying anything here, same intercept-before-anything-else shape
+    // as blocked above.
+    if (action === "completed" && goal.source_payment_account_id) {
+      setShowActions((prev) => ({ ...prev, [goal.id]: false }));
+      setPaymentError(null);
+      setPayingAccount(null);
+      setPayingGoal(goal);
+      getPaymentAccounts()
+        .then((accounts) => {
+          const account = accounts.find((a) => a.id === goal.source_payment_account_id) ?? null;
+          setPayingAccount(account);
+        })
+        .catch(() => {
+          // Account fetch failing just leaves the modal's amount blank
+          // (suggestedAmount falls back to 0) — the user can still type
+          // one in manually rather than being blocked entirely.
+        });
+      return;
+    }
+
     markGoalBusy(goal.id);
     setMsg(null);
     setShowActions((prev) => ({ ...prev, [goal.id]: false }));
@@ -749,6 +786,80 @@ export default function TodayPage() {
     if (blockingSaving) return;
     setBlockingGoal(null);
     setBlockingError(null);
+  }
+
+  // Mirrors the non-reschedule branch of selectQuickAction (mark reviewed
+  // + award awareness if needed), but swaps the plain updateGoalStatus for
+  // confirmPaymentGoalCompletion so the confirmed amount is logged to the
+  // ledger and subtracted from the account's balance atomically.
+  async function confirmPaymentCompletion(amount: number) {
+    const goal = payingGoal;
+    if (!goal || paymentSaving) return;
+
+    setPaymentSaving(true);
+    setPaymentError(null);
+    markGoalBusy(goal.id);
+
+    try {
+      const wasReviewed = !!goal.reviewed_at;
+
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goal.id
+            ? { ...g, reviewed_at: g.reviewed_at ?? new Date().toISOString(), status: "completed" }
+            : g
+        )
+      );
+
+      if (!wasReviewed) {
+        await markGoalReviewed(goal.id);
+
+        if (plan?.id && !plan.reviewed_at && !plan.awareness_awarded && !awarenessInFlightRef.current) {
+          awarenessInFlightRef.current = true;
+          try {
+            const result = await awardAwarenessPoints(plan.id, 5);
+            if (result?.success) notifyPointsUpdated();
+          } catch {
+            // Non-fatal — retried automatically on the next review action.
+          } finally {
+            awarenessInFlightRef.current = false;
+          }
+        }
+      }
+
+      await confirmPaymentGoalCompletion(goal.id, amount);
+
+      const markedMsg = t("today.markedStatus", { status: statusLabel("completed", t) });
+      setMsg(markedMsg);
+      window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
+
+      setCelebratingGoalIds((prev) => new Set(prev).add(goal.id));
+      window.setTimeout(() => {
+        setCelebratingGoalIds((prev) => {
+          if (!prev.has(goal.id)) return prev;
+          const next = new Set(prev);
+          next.delete(goal.id);
+          return next;
+        });
+      }, 900);
+
+      setPayingGoal(null);
+      setPayingAccount(null);
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setPaymentError(e?.message ?? t("paymentConfirm.failed"));
+      await refresh({ silent: true });
+    } finally {
+      setPaymentSaving(false);
+      clearGoalBusy(goal.id);
+    }
+  }
+
+  function cancelPayment() {
+    if (paymentSaving) return;
+    setPayingGoal(null);
+    setPayingAccount(null);
+    setPaymentError(null);
   }
 
   async function closeOutDay() {
@@ -1907,6 +2018,17 @@ export default function TodayPage() {
           error={blockingError}
           onCancel={cancelBlocked}
           onConfirm={confirmBlocked}
+        />
+      )}
+
+      {payingGoal && (
+        <PaymentConfirmModal
+          accountName={payingAccount?.name ?? payingGoal.title}
+          suggestedAmount={payingAccount?.minimumPayment ?? 0}
+          saving={paymentSaving}
+          error={paymentError}
+          onCancel={cancelPayment}
+          onConfirm={confirmPaymentCompletion}
         />
       )}
     </div>

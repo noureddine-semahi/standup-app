@@ -616,43 +616,32 @@ export default function DashboardPage() {
           <div
             className="mt-6 card card-highlight"
           >
-            <div className="p-4 flex items-center gap-4">
-              {profile?.avatar_url && (
-                <div
-                  className="flex-shrink-0 rounded-full overflow-hidden"
-                  style={{ width: "48px", height: "48px" }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={profile.avatar_url} alt={t("common.profilePhotoAlt")} className="w-full h-full object-cover" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
-                {/* The new message pushes the old one up and off, rather
-                    than a crossfade — see .motivation-slide-in/out in
-                    globals.css. Both are absolutely positioned inside this
-                    fixed-min-height window so the layout doesn't jump
-                    between a 1-line and 3-line message mid-swap. */}
-                <div className="motivation-ticker-window mt-2">
-                  {prevMotivationIndex !== null && (
-                    <div
-                      key={`prev-${prevMotivationIndex}`}
-                      className="motivation-slide motivation-slide-out text-base font-semibold text-white leading-snug"
-                    >
-                      {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
-                        name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
-                      })}
-                    </div>
-                  )}
+            <div className="p-4">
+              <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
+              {/* The new message pushes the old one up and off, rather
+                  than a crossfade — see .motivation-slide-in/out in
+                  globals.css. Both are absolutely positioned inside this
+                  fixed-min-height window so the layout doesn't jump
+                  between a 1-line and 3-line message mid-swap. */}
+              <div className="motivation-ticker-window mt-2">
+                {prevMotivationIndex !== null && (
                   <div
-                    key={`cur-${motivationIndex}`}
-                    className={`motivation-slide text-base font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide-in" : ""}`}
-                    onAnimationEnd={() => setPrevMotivationIndex(null)}
+                    key={`prev-${prevMotivationIndex}`}
+                    className="motivation-slide motivation-slide-out text-base font-semibold text-white leading-snug"
                   >
-                    {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                    {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
                       name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
                     })}
                   </div>
+                )}
+                <div
+                  key={`cur-${motivationIndex}`}
+                  className={`motivation-slide text-base font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide-in" : ""}`}
+                  onAnimationEnd={() => setPrevMotivationIndex(null)}
+                >
+                  {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                    name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+                  })}
                 </div>
               </div>
             </div>

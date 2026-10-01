@@ -723,7 +723,7 @@ export default function ToolsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {plainItems.map((item) => {
+          {plainItems.map((item, idx) => {
             const meta = getPriorityMeta(item.priority);
             const busy = busyIds.has(item.id);
             return (
@@ -732,28 +732,22 @@ export default function ToolsPage() {
                 className="goal-row"
                 style={{ "--p-color": meta.color } as React.CSSProperties}
               >
+                <div className="goal-number-badge">{idx + 1}</div>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  disabled={busy}
+                  className="goal-delete-corner-btn"
+                  title={t("backlog.removeFromBacklog")}
+                >
+                  <X size={12} />
+                </button>
                 <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                 <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="text-white text-lg font-medium mb-1">{item.title}</div>
                     {item.details && <div className="text-sm text-white/60">{item.details}</div>}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(item)}
-                    disabled={busy}
-                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90 text-sm"
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "8px",
-                      background: "rgba(var(--tint-rgb), 0.06)",
-                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                    }}
-                    title={t("backlog.removeFromBacklog")}
-                  >
-                    <X size={14} />
-                  </button>
                 </div>
 
                 {/* Push to Tomorrow + date picker share a line; Push sits
@@ -903,7 +897,7 @@ export default function ToolsPage() {
         <p className="text-sm text-white/50 italic">{t("backlog.noLongTermGoalsYet")}</p>
       ) : (
         <div className="space-y-4">
-          {longTermItems.map((item) => {
+          {longTermItems.map((item, idx) => {
             const meta = getPriorityMeta(item.priority);
             const busy = busyLongTermIds.has(item.id);
             const isOverdue = !!item.target_date && item.target_date < todayISO;
@@ -913,6 +907,16 @@ export default function ToolsPage() {
                 className="goal-row"
                 style={{ "--p-color": meta.color } as React.CSSProperties}
               >
+                <div className="goal-number-badge">{idx + 1}</div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteLongTerm(item)}
+                  disabled={busy}
+                  className="goal-delete-corner-btn"
+                  title={t("backlog.removeFromBacklog")}
+                >
+                  <X size={12} />
+                </button>
                 <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                 <div className="flex items-start flex-wrap gap-4">
                   <div className="flex-1" style={{ minWidth: 0 }}>
@@ -951,22 +955,6 @@ export default function ToolsPage() {
                       style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
                     >
                       {t("backlog.push")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteLongTerm(item)}
-                      disabled={busy}
-                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90 text-sm"
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "8px",
-                        background: "rgba(var(--tint-rgb), 0.06)",
-                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                      }}
-                      title={t("backlog.removeFromBacklog")}
-                    >
-                      <X size={14} />
                     </button>
                   </div>
                 </div>
@@ -1122,34 +1110,28 @@ export default function ToolsPage() {
         <p className="text-sm text-white/50 italic">{t("backlog.noListsYet")}</p>
       ) : (
         <div className="space-y-4">
-          {lists.map((list) => {
+          {lists.map((list, idx) => {
             const listItems = listItemsByListId[list.id] ?? [];
             const busy = busyListIds.has(list.id);
             return (
-              <div key={list.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
+              <div key={list.id} className="rounded-xl border border-white/10 bg-white/5 pt-6 px-4 pb-4" style={{ position: "relative" }}>
+                <div className="goal-number-badge">{idx + 1}</div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteList(list)}
+                  disabled={busy}
+                  className="goal-delete-corner-btn"
+                  title={t("backlog.deleteList")}
+                >
+                  <X size={12} />
+                </button>
+                <div className="mb-3">
                   <div className="text-white font-medium">
                     {list.name}
                     <span className="ml-2 text-xs text-white/40">
                       {t(listItems.length === 1 ? "backlog.listItemCount.one" : "backlog.listItemCount.other", { count: listItems.length })}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteList(list)}
-                    disabled={busy}
-                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
-                    style={{
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "8px",
-                      background: "rgba(var(--tint-rgb), 0.06)",
-                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                    }}
-                    title={t("backlog.deleteList")}
-                  >
-                    <X size={13} />
-                  </button>
                 </div>
 
                 {/* Same layout as the Backlog cards: Push to Tomorrow +
@@ -1323,7 +1305,7 @@ export default function ToolsPage() {
         <p className="text-sm text-white/50 italic">{t("backlog.noPaymentsYet")}</p>
       ) : (
         <div className="space-y-3">
-          {paymentAccounts.map((account) => {
+          {paymentAccounts.map((account, idx) => {
             const dueDate = computeNextDueDate(account.dueDay, todayISO);
             const daysUntilDue = Math.round(
               (new Date(`${dueDate}T00:00:00`).getTime() - new Date(`${todayISO}T00:00:00`).getTime()) / 86400000
@@ -1337,14 +1319,19 @@ export default function ToolsPage() {
               : { "--chip-bg": "rgba(var(--tint-rgb),0.06)", "--chip-border": "rgba(var(--tint-rgb),0.15)", "--chip-color": "rgba(var(--tint-rgb),0.7)" };
             const busy = busyPaymentIds.has(account.id);
             return (
-              <div key={account.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                {/* Buttons get their own row at the top, separate from the
-                    name — sharing a line meant a long name pushed them
-                    around (or vice versa) instead of each having its own
-                    predictable spot. All three are equal-width flex-1
-                    columns spanning the full row (not a right-aligned
-                    cluster), each centering its own content, so they share
-                    the space evenly instead of sizing to their own content. */}
+              <div key={account.id} className="rounded-xl border border-white/10 bg-white/5 pt-6 px-4 pb-4" style={{ position: "relative" }}>
+                <div className="goal-number-badge">{idx + 1}</div>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePayment(account)}
+                  disabled={busy}
+                  className="goal-delete-corner-btn"
+                  title={t("backlog.deletePayment")}
+                >
+                  <X size={12} />
+                </button>
+                {/* Due-date chip + History toggle share this row evenly now
+                    that delete moved to the corner. */}
                 <div className="flex items-stretch gap-1.5 mb-2">
                   <span className="status-chip-sm" style={{ ...chipStyle, flex: 1, width: "auto" } as React.CSSProperties}>
                     {isDueToday ? t("backlog.paymentDueToday") : t("backlog.paymentDueOn", { date: formatDateDisplay(dueDate) })}
@@ -1362,21 +1349,6 @@ export default function ToolsPage() {
                     title={t("backlog.paymentHistoryToggle")}
                   >
                     <History size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeletePayment(account)}
-                    disabled={busy}
-                    className="flex items-center justify-center text-white/50 hover:text-white/90"
-                    style={{
-                      flex: 1,
-                      borderRadius: "8px",
-                      background: "rgba(var(--tint-rgb), 0.06)",
-                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                    }}
-                    title={t("backlog.deletePayment")}
-                  >
-                    <X size={13} />
                   </button>
                 </div>
 

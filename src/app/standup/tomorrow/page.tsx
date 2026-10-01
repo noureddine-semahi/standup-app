@@ -894,6 +894,20 @@ export default function TomorrowGoalsPage() {
                       own top-left border/radius, instead of a free-floating
                       circle competing with the goal title for horizontal space. */}
                   <div className="goal-number-badge">{displayIdx + 1}</div>
+                  {/* Mirrors the number badge on the opposite corner —
+                      moved here from an inline button next to the priority
+                      select, same as Today's goal-delete-corner-btn. */}
+                  {!locked && !isExclusive && (
+                    <button
+                      type="button"
+                      onClick={() => removeGoal(idx)}
+                      disabled={submitting}
+                      className="goal-delete-corner-btn"
+                      title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
 
                   <div className="goal-row-body">
                   <div className="goal-row-cols">
@@ -1214,24 +1228,6 @@ export default function TomorrowGoalsPage() {
                         ))}
                       </select>
 
-                      {/* Clear/Remove button - same size/shape as the priority select */}
-                      {!locked && !isExclusive && (
-                        <button
-                          onClick={() => removeGoal(idx)}
-                          disabled={submitting}
-                          style={{
-                            width: "44px",
-                            height: "32px",
-                            borderRadius: "8px",
-                            background: "rgba(var(--tint-rgb), 0.06)",
-                            border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                          }}
-                          className="flex-shrink-0 flex items-center justify-center hover:bg-black/40 text-white/80 hover:text-white text-xs font-bold transition-all hover:border-white/40 hover:scale-105"
-                          title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
-                        >
-                          <X size={15} strokeWidth={2.5} />
-                        </button>
-                      )}
 
                       {g.id && (
                         <button

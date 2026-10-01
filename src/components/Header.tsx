@@ -22,7 +22,7 @@ import { getStoredTheme, setTheme } from "@/lib/theme";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, ClipboardList } from "lucide-react";
+import { MoreHorizontal, Bell, ClipboardList, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -51,21 +51,23 @@ const INFO_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> 
 };
 const INFO_PAGES = Object.keys(INFO_ROTATION);
 
-// Same space-saving trick as the About/FAQ/Contact rotation above, applied
-// to Calendar/Tools — a two-page loop, each showing the other and linking
-// there. Off both, defaults to "Calendar". Tools was named "Backlog" until
-// it grew a tabbed sub-header (Backlog/Long-Term/Recurring/Lists/Assigned
-// Goals) and got renamed to reflect that it's a hub, not just one list.
-// Assignments used to be a third stop in this loop, but that made it too
-// easy to miss entirely (you'd only ever see the word "Assignments" while
-// already on this page) — it now gets its own persistent icon shortcut
-// instead (see assignmentsShortcut below), next to the notification bell,
-// as well as its own tab inside Tools.
-const CALENDAR_ROTATION: Record<string, { labelKey: TranslationKey; href: string }> = {
-  "/standup/calendar": { labelKey: "nav.tools", href: "/standup/tools" },
-  "/standup/tools": { labelKey: "nav.calendar", href: "/standup/calendar" },
-};
-const CALENDAR_PAGES = Object.keys(CALENDAR_ROTATION);
+// The six primary destinations — previously squeezed into one inline row
+// next to the logo (Calendar/Tools sharing a rotating slot to save width,
+// see the git history for CALENDAR_ROTATION). Now a dedicated hanging tab
+// row below the header (navTabs() below) with room for all six as their
+// own tab, each with its own accent color, same folder-tab theme as
+// Social/Tools' own tab bars but inverted (hangs down, rounded-bottom,
+// merges upward into the header instead of downward into a content
+// panel) — explicit user call, applies to every breakpoint (icon-only
+// below 640px, same as the other two folder-tab bars).
+const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string }[] = [
+  { href: "/standup/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, color: "#60a5fa" },
+  { href: "/standup/social", labelKey: "nav.social", icon: Users, color: "#a78bfa" },
+  { href: "/standup/today", labelKey: "nav.reviewToday", icon: CheckCircle2, color: "#34d399" },
+  { href: "/standup/tomorrow", labelKey: "nav.planTomorrow", icon: Sun, color: "#f59e0b" },
+  { href: "/standup/calendar", labelKey: "nav.calendar", icon: Calendar, color: "#22d3ee" },
+  { href: "/standup/tools", labelKey: "nav.tools", icon: Wrench, color: "#f43f5e" },
+];
 
 export default function Header() {
   const pathname = usePathname();
@@ -249,79 +251,12 @@ export default function Header() {
     );
   }
 
-  function calendarLinks(expanded: boolean) {
-    if (!expanded) {
-      return (
-        <Link
-          href={CALENDAR_ROTATION[pathname]?.href ?? "/standup/calendar"}
-          className={CALENDAR_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
-        >
-          {t(CALENDAR_ROTATION[pathname]?.labelKey ?? "nav.calendar")}
-        </Link>
-      );
-    }
-
-    return (
-      <>
-        <Link
-          href="/standup/calendar"
-          className={pathname === "/standup/calendar" ? "nav-link font-semibold" : "nav-link"}
-        >
-          {t("nav.calendar")}
-        </Link>
-        <Link
-          href="/standup/tools"
-          className={pathname === "/standup/tools" ? "nav-link font-semibold" : "nav-link"}
-        >
-          {t("nav.tools")}
-        </Link>
-      </>
-    );
-  }
-
-  // The five primary, daily-use destinations — always visible inline
-  // whenever there's room for the logo plus these (see .nav-primary),
-  // never tucked behind the More button. Calendar/Backlog share one
-  // rotating slot (calendarLinks) rather than two separate links, to
-  // keep this row's width in check. Everything else (About/FAQ/Contact,
-  // Profile) lives in secondaryLinks below.
-  function primaryLinks(expanded = false) {
-    if (loading) return <div className="text-sm text-white/50">...</div>;
-
-    if (user) {
-      return (
-        <>
-          <Link
-            href="/standup/dashboard"
-            className={pathname === "/standup/dashboard" ? "nav-link font-semibold" : "nav-link"}
-          >
-            {t("nav.dashboard")}
-          </Link>
-          <Link
-            href="/standup/social"
-            className={pathname === "/standup/social" ? "nav-link font-semibold" : "nav-link"}
-          >
-            {t("nav.social")}
-          </Link>
-          <Link
-            href="/standup/today"
-            className={pathname === "/standup/today" ? "nav-link font-semibold" : "nav-link"}
-          >
-            {t("nav.reviewToday")}
-          </Link>
-          <Link
-            href="/standup/tomorrow"
-            className={pathname === "/standup/tomorrow" ? "nav-link font-semibold" : "nav-link"}
-          >
-            {t("nav.planTomorrow")}
-          </Link>
-          {calendarLinks(expanded)}
-        </>
-      );
-    }
-
-    if (isAuthPage) return null;
-
+  // Logged-out visitors never see NAV_TABS (none of those six routes are
+  // reachable without an account) — this is what used to be primaryLinks'
+  // other branch, kept as its own small function now that the
+  // authenticated case moved to navTabs() below.
+  function authLinks() {
+    if (loading || user || isAuthPage) return null;
     return (
       <>
         <Link href="/login" className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}>
@@ -334,11 +269,39 @@ export default function Header() {
     );
   }
 
-  // Everything besides the five primary links, the always-visible bell,
-  // and the always-visible Profile chip (About/FAQ/Contact plus the
-  // Theme/Language toggles) — behind the More button/panel (or, on true
-  // mobile, folded into the one full dropdown alongside primaryLinks)
-  // rather than competing with them for header space.
+  // The hanging tab row below the main header — same folder-tab theme as
+  // Social/Tools (see .folder-tab-hanging* in globals.css), inverted to
+  // hang down and merge upward into the header instead of down into a
+  // content panel. Lives inside the same sticky <header>, so it scrolls
+  // with it automatically rather than needing its own sticky offset.
+  function navTabs() {
+    if (!user) return null;
+    return (
+      <nav className="folder-tabbar-hanging" aria-label={t("nav.dashboard")}>
+        {NAV_TABS.map((tab) => {
+          const isActive = pathname === tab.href;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={isActive ? "page" : undefined}
+              className={`folder-tab-hanging${isActive ? " folder-tab-hanging-active" : ""}`}
+              style={{ "--tab-color": tab.color } as React.CSSProperties}
+            >
+              <tab.icon size={15} />
+              <span>{t(tab.labelKey)}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
+
+  // Everything besides the six NAV_TABS destinations, the always-visible
+  // bell, and the always-visible Profile chip (About/FAQ/Contact plus the
+  // Theme/Language toggles) — behind the More button/panel on desktop, or
+  // the mobile hamburger's dropdown — rather than competing with them for
+  // header space.
   function secondaryLinks(expanded: boolean) {
     if (loading) return null;
 
@@ -454,9 +417,9 @@ export default function Header() {
           StandUp
         </Link>
 
-        {/* Primary row: the five daily-use links, always visible whenever
-            there's room for the logo plus these — see .nav-primary. */}
-        <nav className="nav nav-primary">{primaryLinks()}</nav>
+        {/* Logged-out only — Sign In/Sign Up. Logged-in users get the same
+            destinations via navTabs()'s hanging row below instead. */}
+        {authLinks()}
 
         {/* Assignments shortcut + Bell + More button grouped tightly
             together (their own small gap, not the header's wider one) so
@@ -509,9 +472,11 @@ export default function Header() {
 
         {/* Mobile: logo stays on the left (above); Assignments/bell/
             hamburger/avatar live here, avatar last so it's the rightmost
-            item, same as profileLink() above on desktop. Every link
-            (primary and secondary) lives in the full-width dropdown panel
-            below. Hidden above the mobile breakpoint — see
+            item, same as profileLink() above on desktop. Secondary links
+            (About/FAQ/Contact, Theme/Language, Logout) live in the
+            full-width dropdown panel below — the six primary destinations
+            don't, since navTabs()'s hanging row is already visible at
+            every breakpoint. Hidden above the mobile breakpoint — see
             .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
           {assignmentsShortcut()}
@@ -531,9 +496,10 @@ export default function Header() {
         </div>
       </div>
 
+      {navTabs()}
+
       {menuOpen && (
         <div className="mobile-menu-panel">
-          {primaryLinks(true)}
           {secondaryLinks(true)}
           {user && (
             <button

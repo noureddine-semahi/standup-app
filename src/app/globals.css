@@ -360,16 +360,14 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* space-between alone lets the nav crowd right up against the brand on
-     narrower desktop widths where the nav's own content nearly fills the
-     row — gap enforces a floor so Dashboard never sits flush against the
-     logo, while still allowing space-between to grow it further on wide
-     screens. This is now a *per-pair* gap across 4 direct children (brand,
-     nav-primary, the bell/Assignments/More utility cluster, then nav-
-     profile last of all) rather than the 2 it was tuned for, so it's
-     deliberately smaller than earlier attempts
-     (56px × 4 gaps would itself eat ~224px) — .nav-primary's own 10px gap
-     already handles spacing between the primary links themselves. */
+  /* space-between alone lets the utility cluster crowd right up against
+     the brand on narrower desktop widths — gap enforces a floor so
+     nothing sits flush against the logo, while still allowing
+     space-between to grow it further on wide screens. The six primary
+     destinations used to be a direct child here (nav-primary) before
+     moving to the hanging tab row below (navTabs(), .folder-tabbar-
+     hanging) — this row's remaining children are just brand, the bell/
+     Assignments/More utility cluster, and the profile chip. */
   gap: 18px;
 }
 
@@ -389,15 +387,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ✨ Navigation */
-.nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 0;
-}
-
 .nav-link {
   text-decoration: none;
   color: rgba(var(--tint-rgb), 0.85);
@@ -432,11 +421,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Overrides .nav-link's own flex:1 1 130px/min-width:128px (tuned for
-   full-width labels like "Plan Tomorrow") -- the profile chip is just a
-   small avatar + short name, shouldn't reserve a full nav-link's worth
-   of space now that it's a direct .app-header-inner child (competing
-   with the bell/more-button/nav-primary for the same row) rather than
-   one of five items inside .nav-primary's own flex context. */
+   full-width labels like "Plan Tomorrow", back when that lived inline
+   here) -- the profile chip is just a small avatar + short name,
+   shouldn't reserve a full nav-link's worth of space as a direct
+   .app-header-inner child competing with the bell/more-button for the
+   same row. */
 .nav-profile {
   flex: 0 1 auto;
   min-width: 0;
@@ -517,9 +506,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Mobile header: hidden until the max-width media query below flips these
-   two — .nav-primary + .nav-more (the row of primary links plus the
-   secondary-items trigger) and .nav-mobile-trigger (avatar + hamburger
-   only) are mutually exclusive. */
+   two — the desktop utility cluster (bell/Assignments/More) and
+   .nav-mobile-trigger (avatar + hamburger only) are mutually exclusive.
+   The six primary destinations themselves aren't part of this split
+   anymore — navTabs()/.folder-tabbar-hanging is visible at every
+   breakpoint, just icon-only below 640px. */
 .nav-mobile-trigger {
   display: none;
   align-items: center;
@@ -601,9 +592,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Secondary nav (About/FAQ/Contact, Theme/Language) always lives behind
-   this button rather than inline — only Dashboard/Community/Review
-   Today/Plan Tomorrow/Calendar↔Backlog (.nav-primary) ever compete with
-   the logo for space, which is what actually fits without overflowing. */
+   this button rather than inline — the six primary destinations live in
+   their own hanging tab row now (navTabs()) instead of this header row,
+   so only the bell/Assignments/profile chip ever compete with the logo
+   for space here. */
 .nav-more-wrap {
   position: relative;
 }
@@ -640,7 +632,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 760px) {
-  .nav-primary,
   .nav-profile,
   .nav-utility-cluster-desktop {
     display: none;
@@ -966,6 +957,109 @@ h1, h2, h3, h4, h5, h6 {
   .folder-tab-active span {
     max-width: 120px;
     margin-left: 0.4rem;
+    opacity: 1;
+  }
+}
+
+/* Header's hanging tab row (navTabs() in Header.tsx) — same folder-tab
+   theme as the "up" variant above, inverted: rounded at the BOTTOM
+   (hangs down from the header instead of rising from a panel), and the
+   active tab's TOP border/background merges into the header above it
+   (--chrome-alpha, matching .app-header's own background) instead of a
+   content panel below. Lives inside .app-header, which is already
+   position:sticky, so this scrolls with the header as one unit rather
+   than needing its own sticky offset. */
+.folder-tabbar-hanging {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 3px;
+  margin-top: -1px;
+  padding: 0 18px 2px;
+}
+.folder-tabbar-hanging::-webkit-scrollbar {
+  display: none;
+}
+
+.folder-tab-hanging {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
+  background: color-mix(in srgb, var(--tab-color) 7%, rgba(var(--tint-rgb), 0.02));
+  border: 1px solid color-mix(in srgb, var(--tab-color) 20%, rgba(var(--tint-rgb), 0.08));
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
+  color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
+  background: color-mix(in srgb, var(--tab-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
+}
+
+.folder-tab-hanging-active {
+  color: color-mix(in srgb, var(--tab-color) 85%, white 15%);
+  background: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--chrome-alpha)));
+  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--chrome-alpha)));
+  z-index: 2;
+  box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--tab-color) 45%, transparent);
+}
+
+.folder-tab-hanging-active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--tab-color);
+}
+
+/* Mobile: icon-only, active tab unwraps its label — same mechanism as
+   the "up" tab bars' own 640px rule. */
+@media (max-width: 640px) {
+  .folder-tabbar-hanging {
+    gap: 2px;
+    padding: 0 10px 2px;
+  }
+  .folder-tab-hanging {
+    gap: 0;
+    padding: 0.45rem 0.6rem;
+    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
+      box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  }
+  .folder-tab-hanging-active {
+    padding: 0.45rem 0.75rem;
+    transform: translateY(2px);
+  }
+  .folder-tab-hanging span {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.2s ease 0.05s;
+  }
+  .folder-tab-hanging-active span {
+    max-width: 120px;
+    margin-left: 0.35rem;
     opacity: 1;
   }
 }

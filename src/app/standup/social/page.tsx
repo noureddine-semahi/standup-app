@@ -398,13 +398,19 @@ export default function SocialPage() {
       ? "social.feedTitleMyPosts"
       : "social.feedTitleMyFeed";
 
-  const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users }[] = [
-    { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid },
-    { key: "global", labelKey: "social.tabGlobal", icon: Globe },
-    { key: "circle", labelKey: "social.tabCircle", icon: Users },
-    { key: "myPosts", labelKey: "social.tabMyPosts", icon: UserCircle },
-    { key: "friends", labelKey: "social.tabFriends", icon: UserPlus },
-    { key: "goals", labelKey: "social.tabGoals", icon: ClipboardList },
+  // Per-tab accent colors (reusing GLIMPSE_REACTIONS' existing palette for
+  // 4 of the 6 — blue/rose/amber/emerald are already this app's established
+  // reaction colors — plus two new ones for Circle/Friends) rather than the
+  // single shared amber used everywhere else active-state color is used.
+  // Explicit user call, reference image attached: inactive tabs show a
+  // dim version of their own color instead of staying neutral/gray.
+  const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users; color: string }[] = [
+    { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid, color: "#60a5fa" },
+    { key: "global", labelKey: "social.tabGlobal", icon: Globe, color: "#34d399" },
+    { key: "circle", labelKey: "social.tabCircle", icon: Users, color: "#a78bfa" },
+    { key: "myPosts", labelKey: "social.tabMyPosts", icon: UserCircle, color: "#f43f5e" },
+    { key: "friends", labelKey: "social.tabFriends", icon: UserPlus, color: "#22d3ee" },
+    { key: "goals", labelKey: "social.tabGoals", icon: ClipboardList, color: "#f59e0b" },
   ];
 
   return (
@@ -439,6 +445,7 @@ export default function SocialPage() {
                 aria-selected={isActive}
                 onClick={() => setActiveTab(tab.key)}
                 className={`social-tab${isActive ? " social-tab-active" : ""}`}
+                style={{ "--tab-color": tab.color } as React.CSSProperties}
               >
                 <tab.icon size={15} />
                 <span>{t(tab.labelKey)}</span>

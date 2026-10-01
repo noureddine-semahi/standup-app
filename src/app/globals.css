@@ -853,14 +853,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Social page tab bar — browser-tab / hanging-folder navigation, replacing
-   the earlier large-card picker. The active tab shares the exact
-   background of the .card content panel sitting beneath it (not an amber
-   fill) so it reads as the same surface continuing upward, not a
-   highlighted button; "active" is instead carried by its amber icon/text
-   and a thin amber top accent. Inactive tabs get a visibly darker,
-   recessed fill so they read as closed folders sitting behind the active
-   one. overflow-x (not shrinking labels) handles narrow viewports per
-   explicit request. */
+   the earlier large-card picker. Each tab carries its own accent color
+   (--tab-color, set inline per tab in social/page.tsx) instead of a single
+   shared amber — explicit user call, matching a reference image of
+   per-tab colored browser tabs. Inactive tabs show a DIM wash of their
+   own color (color-mix against the page's neutral tint) so they still
+   read as recessed/closed relative to the active one, which gets a
+   fuller, brighter wash of that same color, a glow in that color, and a
+   thin solid top accent bar. overflow-x (not shrinking labels) handles
+   narrow viewports per explicit request. */
 .social-tabbar {
   display: flex;
   align-items: flex-end;
@@ -885,27 +886,28 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0.6rem 1rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(var(--tint-rgb), 0.5);
-  background: rgba(var(--tint-rgb), 0.035);
-  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
+  background: color-mix(in srgb, var(--tab-color) 7%, rgba(var(--tint-rgb), 0.02));
+  border: 1px solid color-mix(in srgb, var(--tab-color) 20%, rgba(var(--tint-rgb), 0.08));
   border-radius: 10px 10px 0 0;
   position: relative;
   cursor: pointer;
-  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .social-tab:hover:not(.social-tab-active) {
-  color: rgba(var(--tint-rgb), 0.85);
-  background: rgba(var(--tint-rgb), 0.07);
+  color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
+  background: color-mix(in srgb, var(--tab-color) 14%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
 }
 
 .social-tab-active {
-  color: #fbbf24;
-  background: rgba(var(--panel-rgb), var(--panel-alpha));
-  border-color: rgba(245, 158, 11, 0.4);
-  border-bottom-color: rgba(var(--panel-rgb), var(--panel-alpha));
+  color: color-mix(in srgb, var(--tab-color) 85%, white 15%);
+  background: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--panel-alpha)));
+  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--panel-alpha)));
   z-index: 2;
-  box-shadow: 0 -4px 12px -4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 -4px 14px -4px color-mix(in srgb, var(--tab-color) 45%, transparent);
 }
 
 .social-tab-active::before {
@@ -916,12 +918,13 @@ h1, h2, h3, h4, h5, h6 {
   right: 8px;
   height: 2px;
   border-radius: 2px;
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.9), rgba(252, 211, 77, 0.9));
+  background: var(--tab-color);
 }
 
 /* The content panel directly beneath the tab bar — its flat top-left
-   corner (no radius) plus the amber top border is what makes the active
-   tab above look like it's physically attached to this surface. */
+   corner (no radius) is what makes the active tab above look physically
+   attached to this surface, continuing the zero-gap overlap from
+   .social-tabbar's own negative margin-bottom. */
 .social-tabbar-panel {
   position: relative;
   z-index: 1;

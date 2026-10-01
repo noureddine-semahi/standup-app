@@ -1058,13 +1058,18 @@ export default function ToolsPage() {
                       {t(listItems.length === 1 ? "backlog.listItemCount.one" : "backlog.listItemCount.other", { count: listItems.length })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* flex-wrap (not flex-shrink-0) so this cluster breaks
+                      onto its own lines on a narrow viewport instead of
+                      overflowing past the card edge; every control here is
+                      also sized down from the desktop defaults so the full
+                      row has a real chance of fitting on one line first. */}
+                  <div className="flex items-center flex-wrap gap-1.5">
                     <button
                       type="button"
                       onClick={() => handlePushList(list, tomorrowISO)}
                       disabled={busy}
                       className="btn"
-                      style={{ padding: "0.3rem 0.7rem", fontSize: "0.75rem" }}
+                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem" }}
                       title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                     >
                       {t("backlog.pushToTomorrow")}
@@ -1075,14 +1080,15 @@ export default function ToolsPage() {
                       min={todayISO}
                       disabled={busy}
                       onChange={(e) => setListPushDate((prev) => ({ ...prev, [list.id]: e.target.value }))}
-                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                      className="rounded-lg border border-white/20 bg-white/10 px-1.5 py-1 text-xs text-white outline-none focus:border-white/40 disabled:opacity-50"
+                      style={{ width: "118px" }}
                     />
                     <button
                       type="button"
                       onClick={() => handlePushList(list)}
                       disabled={busy || !listPushDate[list.id]}
                       className="btn"
-                      style={{ padding: "0.3rem 0.7rem", fontSize: "0.75rem" }}
+                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {t("backlog.push")}
                     </button>
@@ -1092,15 +1098,15 @@ export default function ToolsPage() {
                       disabled={busy}
                       className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
                       style={{
-                        width: "32px",
-                        height: "32px",
+                        width: "28px",
+                        height: "28px",
                         borderRadius: "8px",
                         background: "rgba(var(--tint-rgb), 0.06)",
                         border: "1px solid rgba(var(--tint-rgb), 0.15)",
                       }}
                       title={t("backlog.deleteList")}
                     >
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   </div>
                 </div>
@@ -1167,15 +1173,15 @@ export default function ToolsPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-end gap-3 mb-6">
+      <div className="flex flex-wrap items-end gap-2 mb-6">
         <input
           type="text"
           value={newPaymentName}
           onChange={(e) => setNewPaymentName(e.target.value)}
           placeholder={t("backlog.paymentNamePlaceholder")}
           disabled={addingPayment}
-          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ minWidth: "160px" }}
+          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          style={{ minWidth: "130px" }}
         />
         <input
           type="number"
@@ -1183,8 +1189,8 @@ export default function ToolsPage() {
           onChange={(e) => setNewPaymentBalance(e.target.value)}
           placeholder={t("backlog.paymentBalancePlaceholder")}
           disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "110px" }}
+          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          style={{ width: "92px" }}
         />
         <input
           type="number"
@@ -1192,8 +1198,8 @@ export default function ToolsPage() {
           onChange={(e) => setNewPaymentMinimum(e.target.value)}
           placeholder={t("backlog.paymentMinimumPlaceholder")}
           disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "110px" }}
+          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          style={{ width: "92px" }}
         />
         <input
           type="number"
@@ -1203,8 +1209,8 @@ export default function ToolsPage() {
           onChange={(e) => setNewPaymentDueDay(e.target.value)}
           placeholder={t("backlog.paymentDueDayPlaceholder")}
           disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "90px" }}
+          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          style={{ width: "76px" }}
         />
         <input
           type="number"
@@ -1213,14 +1219,15 @@ export default function ToolsPage() {
           onChange={(e) => setNewPaymentRemindDays(e.target.value)}
           placeholder={t("backlog.paymentRemindPlaceholder")}
           disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "90px" }}
+          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          style={{ width: "76px" }}
         />
         <button
           type="button"
           onClick={handleAddPayment}
           disabled={addingPayment || !newPaymentName.trim() || !newPaymentDueDay}
           className="btn btn-primary"
+          style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
         >
           {addingPayment ? t("backlog.adding") : t("backlog.addPayment")}
         </button>
@@ -1267,7 +1274,11 @@ export default function ToolsPage() {
                     className="flex-1 min-w-0 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-white font-medium outline-none focus:border-white/25 focus:bg-white/5 disabled:opacity-50 resize-none"
                     style={{ maxWidth: "240px", overflow: "hidden", lineHeight: 1.3 }}
                   />
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* flex-wrap (not flex-shrink-0) so this cluster breaks
+                      onto its own lines on a narrow viewport instead of
+                      overflowing past the card edge — same fix as the
+                      Lists row above, same underlying bug. */}
+                  <div className="flex items-center flex-wrap gap-1.5">
                     <span className="status-chip-sm" style={chipStyle as React.CSSProperties}>
                       {isDueToday ? t("backlog.paymentDueToday") : t("backlog.paymentDueOn", { date: formatDateDisplay(dueDate) })}
                     </span>
@@ -1276,15 +1287,15 @@ export default function ToolsPage() {
                       onClick={() => toggleHistory(account)}
                       className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
                       style={{
-                        width: "32px",
-                        height: "32px",
+                        width: "28px",
+                        height: "28px",
                         borderRadius: "8px",
                         background: expandedPaymentHistoryId === account.id ? "rgba(245, 158, 11, 0.15)" : "rgba(var(--tint-rgb), 0.06)",
                         border: "1px solid rgba(var(--tint-rgb), 0.15)",
                       }}
                       title={t("backlog.paymentHistoryToggle")}
                     >
-                      <History size={14} />
+                      <History size={13} />
                     </button>
                     <button
                       type="button"
@@ -1292,20 +1303,20 @@ export default function ToolsPage() {
                       disabled={busy}
                       className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90"
                       style={{
-                        width: "32px",
-                        height: "32px",
+                        width: "28px",
+                        height: "28px",
                         borderRadius: "8px",
                         background: "rgba(var(--tint-rgb), 0.06)",
                         border: "1px solid rgba(var(--tint-rgb), 0.15)",
                       }}
                       title={t("backlog.deletePayment")}
                     >
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2">
                   <label className="text-xs text-white/50">
                     {t("backlog.paymentBalanceLabel")}
                     <input
@@ -1315,7 +1326,7 @@ export default function ToolsPage() {
                       onBlur={(e) => handleUpdatePaymentField(account, "balance", e.target.value)}
                       disabled={busy}
                       className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "110px" }}
+                      style={{ width: "92px" }}
                     />
                   </label>
                   <label className="text-xs text-white/50">
@@ -1327,7 +1338,7 @@ export default function ToolsPage() {
                       onBlur={(e) => handleUpdatePaymentField(account, "minimumPayment", e.target.value)}
                       disabled={busy}
                       className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "110px" }}
+                      style={{ width: "92px" }}
                     />
                   </label>
                   <label className="text-xs text-white/50">
@@ -1341,7 +1352,7 @@ export default function ToolsPage() {
                       onBlur={(e) => handleUpdatePaymentField(account, "dueDay", e.target.value)}
                       disabled={busy}
                       className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "80px" }}
+                      style={{ width: "68px" }}
                     />
                   </label>
                   <label className="text-xs text-white/50">
@@ -1354,7 +1365,7 @@ export default function ToolsPage() {
                       onBlur={(e) => handleUpdatePaymentField(account, "remindDaysBefore", e.target.value)}
                       disabled={busy}
                       className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                      style={{ width: "80px" }}
+                      style={{ width: "68px" }}
                     />
                   </label>
                 </div>

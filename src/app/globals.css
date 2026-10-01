@@ -1129,7 +1129,12 @@ h1, h2, h3, h4, h5, h6 {
      trapezoids. */
   gap: 3px;
   margin-bottom: -1px;
-  padding: 0 2px;
+  /* Top padding added (was 0) -- the active tab's halo/glow reaches
+     well past the tab's own box now, and overflow-y:hidden above would
+     otherwise clip it at the top. No bottom padding added (stays 0) --
+     that would push the tabs away from the panel below and break the
+     zero-gap merge from margin-bottom. */
+  padding: 10px 2px 0;
 }
 .folder-tabbar::-webkit-scrollbar {
   display: none;
@@ -1151,19 +1156,21 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
   background: color-mix(in srgb, var(--tab-color) 5%, rgba(var(--tint-rgb), 0.02));
-  border: 1.5px solid color-mix(in srgb, var(--tab-color) 35%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--tab-color) 42%, transparent);
   border-radius: 10px 10px 0 0;
   position: relative;
   cursor: pointer;
   /* Faint illuminated outline + minimal bevel + a small shadow --
      mirrors .folder-tab-hanging's inactive treatment (same universal
      top-lit/bottom-shadow convention, not tied to which edge merges
-     into the panel). */
+     into the panel). Brightened to match the subheader's own later
+     refinement pass (outline/glow bumped a step while staying clearly
+     weaker than active). */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
     0 3px 5px -3px rgba(0, 0, 0, 0.3),
-    0 0 7px 1px color-mix(in srgb, var(--tab-color) 38%, transparent);
+    0 0 8px 1px color-mix(in srgb, var(--tab-color) 46%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -1171,7 +1178,7 @@ h1, h2, h3, h4, h5, h6 {
 .folder-tab:hover:not(.folder-tab-active) {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
   background: color-mix(in srgb, var(--tab-color) 12%, transparent);
-  border-color: color-mix(in srgb, var(--tab-color) 62%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 68%, transparent);
   /* Nudges toward the active tab's own lift direction (up, for this
      rising-from-a-panel variant) -- mirrors .folder-tab-hanging's
      hover nudge, direction flipped to match. */
@@ -1180,7 +1187,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
     0 4px 6px -3px rgba(0, 0, 0, 0.35),
-    0 0 11px 2px color-mix(in srgb, var(--tab-color) 50%, transparent);
+    0 0 13px 2px color-mix(in srgb, var(--tab-color) 58%, transparent);
 }
 
 .folder-tab-active {
@@ -1197,7 +1204,10 @@ h1, h2, h3, h4, h5, h6 {
     color-mix(in srgb, var(--tab-color) 15%, rgba(var(--panel-rgb), var(--panel-alpha))),
     color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--panel-alpha)))
   );
-  border-color: color-mix(in srgb, var(--tab-color) 80%, white 10%);
+  /* Outline toned down to match the subheader's own later refinement
+     pass (was 80%/white10%) -- moves more emphasis into the diffused
+     glow below instead of the border itself. */
+  border-color: color-mix(in srgb, var(--tab-color) 68%, white 5%);
   border-left-color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
   border-right-color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 10%, rgba(var(--panel-rgb), var(--panel-alpha)));
@@ -1216,12 +1226,15 @@ h1, h2, h3, h4, h5, h6 {
      illuminated from behind" read instead. No separate "grounded
      shadow underneath" here (unlike the hanging tabs) -- this tab is
      fused to the panel at the bottom, not floating above open page
-     space, so there's no gap for an underneath-shadow to occupy. */
+     space, so there's no gap for an underneath-shadow to occupy.
+     Ring/halo brightness and the top highlight match the subheader's
+     own later refinement pass (ring toned down further, halo layers
+     brightened/widened, top highlight nudged up). */
   box-shadow:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.22),
-    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 45%, transparent),
-    0 0 15px 5px color-mix(in srgb, var(--tab-color) 52%, transparent),
-    0 0 24px 9px color-mix(in srgb, var(--tab-color) 30%, transparent);
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
+    0 0 18px 6px color-mix(in srgb, var(--tab-color) 60%, transparent),
+    0 0 30px 11px color-mix(in srgb, var(--tab-color) 36%, transparent);
 }
 
 .folder-tab-active::before {

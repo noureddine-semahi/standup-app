@@ -1086,10 +1086,10 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 10px 10px 0 0;
   position: relative;
   cursor: pointer;
-  /* Subtle illuminated outline at rest, in the tab's own accent color
-     -- explicit user call, much weaker than the active tab's spotlight
-     below (one soft layer vs. its five). */
-  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--tab-color) 35%, transparent);
+  /* Faint illuminated outline at rest, in the tab's own accent color --
+     explicit user call, a 4-8px halo via spread (not blur-only), clearly
+     weaker than the active tab's large glow below. */
+  box-shadow: 0 0 7px 1px color-mix(in srgb, var(--tab-color) 38%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
@@ -1097,8 +1097,8 @@ h1, h2, h3, h4, h5, h6 {
 .folder-tab:hover:not(.folder-tab-active) {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
   background: color-mix(in srgb, var(--tab-color) 12%, transparent);
-  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
-  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--tab-color) 50%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 62%, transparent);
+  box-shadow: 0 0 11px 2px color-mix(in srgb, var(--tab-color) 50%, transparent);
 }
 
 .folder-tab-active {
@@ -1112,15 +1112,16 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
   transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease, border-color 0.25s ease,
     box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Soft spotlight radiating from BEHIND the whole tab -- top, sides,
-     and slightly underneath -- layered shadows fading outward on their
-     own rather than one hard-edged box. */
+  /* Large, even, omnidirectional halo BEHIND the whole tab -- 0 0 (no
+     directional offset) so it spreads equally above/below/sides rather
+     than favoring one edge, reaching ~25-35px out via spread+blur
+     stacked across 3 layers (crisp ring, inner halo, outer diffuse
+     falloff) -- explicit "spotlight behind it, not just a glowing
+     border" call. */
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--tab-color) 55%, transparent),
-    0 -4px 10px -2px color-mix(in srgb, var(--tab-color) 65%, transparent),
-    0 0 24px 4px color-mix(in srgb, var(--tab-color) 28%, transparent),
-    0 -12px 26px -8px color-mix(in srgb, var(--tab-color) 55%, transparent),
-    0 8px 18px -8px color-mix(in srgb, var(--tab-color) 35%, transparent);
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 60%, transparent),
+    0 0 18px 6px color-mix(in srgb, var(--tab-color) 45%, transparent),
+    0 0 34px 10px color-mix(in srgb, var(--tab-color) 24%, transparent);
 }
 
 .folder-tab-active::before {
@@ -1233,8 +1234,8 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 0 0 10px 10px;
   position: relative;
   cursor: pointer;
-  /* Subtle illuminated outline at rest, same as .folder-tab. */
-  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--tab-color) 35%, transparent);
+  /* Faint illuminated outline at rest, same as .folder-tab. */
+  box-shadow: 0 0 7px 1px color-mix(in srgb, var(--tab-color) 38%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
@@ -1242,8 +1243,8 @@ h1, h2, h3, h4, h5, h6 {
 .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
   background: color-mix(in srgb, var(--tab-color) 12%, transparent);
-  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
-  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--tab-color) 50%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 62%, transparent);
+  box-shadow: 0 0 11px 2px color-mix(in srgb, var(--tab-color) 50%, transparent);
 }
 
 .folder-tab-hanging-active {
@@ -1258,14 +1259,12 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
   transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease, border-color 0.25s ease,
     box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Soft spotlight radiating from BEHIND the whole tab -- top, sides,
-     and slightly underneath -- mirrors .folder-tab-active's layers. */
+  /* Large, even, omnidirectional halo BEHIND the whole tab -- mirrors
+     .folder-tab-active's layers exactly. */
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--tab-color) 55%, transparent),
-    0 -4px 10px -2px color-mix(in srgb, var(--tab-color) 65%, transparent),
-    0 0 24px 4px color-mix(in srgb, var(--tab-color) 28%, transparent),
-    0 10px 24px -8px color-mix(in srgb, var(--tab-color) 55%, transparent),
-    0 -8px 18px -8px color-mix(in srgb, var(--tab-color) 35%, transparent);
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 60%, transparent),
+    0 0 18px 6px color-mix(in srgb, var(--tab-color) 45%, transparent),
+    0 0 34px 10px color-mix(in srgb, var(--tab-color) 24%, transparent);
 }
 
 /* Thin brighter accent along the active tab's upper edge -- paired with

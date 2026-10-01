@@ -1218,25 +1218,25 @@ select:focus {
 }
 
 /* Centered on the top border rather than a corner — a half-circle tab
-   (flat edge down, flush with the border; rounded top poking above the
+   (flat edge flush with the border, rounded bottom dipping down INTO the
    card) instead of the corner tags' quarter-circle cut. Collapses an
    already-resolved goal back to its compact summary row. */
 .goal-collapse-top-btn {
   position: absolute;
   top: 0;
   left: 50%;
-  transform: translate(-50%, -100%);
+  transform: translateX(-50%);
   width: 34px;
   height: 17px;
-  border-radius: 17px 17px 0 0;
+  border-radius: 0 0 17px 17px;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: center;
-  padding-top: 2px;
+  padding-bottom: 2px;
   color: rgba(var(--tint-rgb), 0.5);
   background: rgba(var(--tint-rgb), 0.07);
   border: 1px solid rgba(var(--tint-rgb), 0.15);
-  border-bottom: none;
+  border-top: none;
   z-index: 3;
   cursor: pointer;
 }

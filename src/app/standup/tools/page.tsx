@@ -1316,16 +1316,14 @@ export default function ToolsPage() {
                   style={{ overflow: "hidden", lineHeight: 1.3 }}
                 />
 
-                {/* Two groups side by side (Balance/Minimum, Due Day/
-                    Remind), separated by a thin vertical rule rather than
-                    stacked rows — flex-wrap on the outer row still drops
-                    the second group onto its own line if a narrow
-                    viewport can't fit both side by side. */}
-                <div className="flex flex-wrap gap-3">
-                  <div
-                    className="flex flex-wrap gap-2 pr-3"
-                    style={{ borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
-                  >
+                {/* Balance+Minimum on their own row; Due Day+Remind paired
+                    on a second row with a vertical rule BETWEEN the two of
+                    them specifically. Each Due Day/Remind label is capped
+                    at a narrow max-width (wrapping its own text onto a
+                    second line if needed) so the pair reliably fits on one
+                    line regardless of how wide the label text renders. */}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
                     <label className="text-xs text-white/50">
                       {t("backlog.paymentBalanceLabel")}
                       <input
@@ -1351,8 +1349,11 @@ export default function ToolsPage() {
                       />
                     </label>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <label className="text-xs text-white/50">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <label
+                      className="text-xs text-white/50 pr-3"
+                      style={{ maxWidth: "84px", borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
+                    >
                       {t("backlog.paymentDueDayLabel")}
                       <input
                         type="number"
@@ -1366,7 +1367,7 @@ export default function ToolsPage() {
                         style={{ width: "68px" }}
                       />
                     </label>
-                    <label className="text-xs text-white/50">
+                    <label className="text-xs text-white/50" style={{ maxWidth: "84px" }}>
                       {t("backlog.paymentRemindLabel")}
                       <input
                         type="number"

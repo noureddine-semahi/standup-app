@@ -670,60 +670,65 @@ export default function ToolsPage() {
                 style={{ "--p-color": meta.color } as React.CSSProperties}
               >
                 <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
-                <div className="flex items-start flex-wrap gap-4">
+                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     <div className="text-white text-lg font-medium mb-1">{item.title}</div>
                     {item.details && <div className="text-sm text-white/60">{item.details}</div>}
                   </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handlePush(item, tomorrowISO)}
-                      disabled={busy}
-                      className="btn"
-                      style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
-                      title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
-                    >
-                      {t("backlog.pushToTomorrow")}
-                    </button>
-                    <input
-                      type="date"
-                      value={pushDate[item.id] ?? ""}
-                      min={todayISO}
-                      disabled={busy}
-                      onChange={(e) =>
-                        setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
-                      className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handlePush(item)}
-                      disabled={busy || !pushDate[item.id]}
-                      className="btn"
-                      style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
-                    >
-                      {t("backlog.push")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item)}
-                      disabled={busy}
-                      className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90 text-sm"
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "8px",
-                        background: "rgba(var(--tint-rgb), 0.06)",
-                        border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                      }}
-                      title={t("backlog.removeFromBacklog")}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item)}
+                    disabled={busy}
+                    className="flex-shrink-0 flex items-center justify-center text-white/50 hover:text-white/90 text-sm"
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "8px",
+                      background: "rgba(var(--tint-rgb), 0.06)",
+                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
+                    }}
+                    title={t("backlog.removeFromBacklog")}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
+
+                {/* Push to Tomorrow + date picker share a line; Push sits
+                    full-width below them (spanning the same combined width)
+                    and is the one colored (btn-primary) control in this
+                    card, since it's the actual commit action — the other
+                    two are just setting up what/when. */}
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePush(item, tomorrowISO)}
+                    disabled={busy}
+                    className="btn flex-1"
+                    style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
+                    title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
+                  >
+                    {t("backlog.pushToTomorrow")}
+                  </button>
+                  <input
+                    type="date"
+                    value={pushDate[item.id] ?? ""}
+                    min={todayISO}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
+                    }
+                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePush(item)}
+                  disabled={busy || !pushDate[item.id]}
+                  className="btn btn-primary w-full"
+                  style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
+                >
+                  {t("backlog.push")}
+                </button>
                 </div>
               </div>
             );

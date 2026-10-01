@@ -11,6 +11,7 @@ import {
   listConnections,
   getMyGoalAssignments,
   getMyMentions,
+  getMyPostActivityNotifications,
   type Profile,
   type Connection,
   type GoalAssignment,
@@ -191,9 +192,14 @@ export default function Header() {
   // this session didn't get around to wiring up explicitly.
   function refreshNotificationCount() {
     if (!user) return;
-    Promise.all([listConnections(), getMyGoalAssignments(), getMyMentions().catch(() => [])])
-      .then(([conns, assignments, mentions]) =>
-        setNotificationCount(countNotifications(conns, assignments, mentions))
+    Promise.all([
+      listConnections(),
+      getMyGoalAssignments(),
+      getMyMentions().catch(() => []),
+      getMyPostActivityNotifications().catch(() => []),
+    ])
+      .then(([conns, assignments, mentions, postActivity]) =>
+        setNotificationCount(countNotifications(conns, assignments, mentions, postActivity))
       )
       .catch(() => {});
   }

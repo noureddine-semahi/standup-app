@@ -1,7 +1,7 @@
-import type { Connection, GoalAssignment, Mention } from "@/lib/supabase/db";
+import type { Connection, GoalAssignment, Mention, PostActivityNotification } from "@/lib/supabase/db";
 
 /**
- * The seven "needs your attention" buckets shared by Dashboard's
+ * The eight "needs your attention" buckets shared by Dashboard's
  * PendingNotifications section and the header's notification bell count,
  * so the two never drift apart. See PendingNotifications.tsx for what
  * each bucket means and how it's dismissed/acknowledged.
@@ -9,7 +9,8 @@ import type { Connection, GoalAssignment, Mention } from "@/lib/supabase/db";
 export function computeNotificationBuckets(
   connections: Connection[],
   goalAssignments: GoalAssignment[],
-  mentions: Mention[] = []
+  mentions: Mention[] = [],
+  postActivity: PostActivityNotification[] = []
 ) {
   return {
     pendingConnections: connections.filter((c) => c.direction === "incoming" && c.status === "pending"),
@@ -34,15 +35,17 @@ export function computeNotificationBuckets(
       (a) => a.direction === "received" && a.status === "canceled" && !a.recipientSeenAt
     ),
     unseenMentions: mentions.filter((m) => !m.seenAt),
+    unseenPostActivity: postActivity.filter((p) => !p.seenAt),
   };
 }
 
 export function countNotifications(
   connections: Connection[],
   goalAssignments: GoalAssignment[],
-  mentions: Mention[] = []
+  mentions: Mention[] = [],
+  postActivity: PostActivityNotification[] = []
 ): number {
-  const b = computeNotificationBuckets(connections, goalAssignments, mentions);
+  const b = computeNotificationBuckets(connections, goalAssignments, mentions, postActivity);
   return (
     b.pendingConnections.length +
     b.pendingAssignments.length +
@@ -50,6 +53,7 @@ export function countNotifications(
     b.resolvedConnections.length +
     b.resolvedAssignments.length +
     b.canceledForRecipient.length +
-    b.unseenMentions.length
+    b.unseenMentions.length +
+    b.unseenPostActivity.length
   );
 }

@@ -18,6 +18,7 @@ import {
   listConnections,
   getMyGoalAssignments,
   getMyMentions,
+  getMyPostActivityNotifications,
   ensurePaymentReminderGoals,
   type Goal,
   type Profile,
@@ -28,6 +29,7 @@ import {
   type Connection,
   type GoalAssignment,
   type Mention,
+  type PostActivityNotification,
 } from "@/lib/supabase/db";
 import PendingNotifications from "@/components/PendingNotifications";
 import PageLoadingState from "@/components/PageLoadingState";
@@ -136,6 +138,7 @@ export default function DashboardPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
   const [mentions, setMentions] = useState<Mention[]>([]);
+  const [postActivity, setPostActivity] = useState<PostActivityNotification[]>([]);
   const [paymentGoalsAddedMsg, setPaymentGoalsAddedMsg] = useState<string | null>(null);
 
   // Cycles to a new (different) random quote every ~10s — see the effect
@@ -229,13 +232,13 @@ export default function DashboardPage() {
         const u = session?.user ?? null;
         setUser(u);
 
-        // These eight don't depend on each other, so they run as one batch
+        // These nine don't depend on each other, so they run as one batch
         // instead of a serial chain of awaits. lifetimeStats/connections/
         // goalAssignments are swallowed into a null/[] on failure so one bad
         // query can't sink the whole dashboard load via Promise.all's
         // fail-fast behavior — the achievement popup or notifications
         // section just gets skipped for this load, same as before.
-        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments, myMentions, coveredDates] = await Promise.all([
+        const [p, s, todayResult, tomorrowResult, lifetimeStats, passes, conns, assignments, myMentions, myPostActivity, coveredDates] = await Promise.all([
           getOrCreateProfile(),
           getStreak(),
           getPlanWithGoals(todayISO),
@@ -245,6 +248,7 @@ export default function DashboardPage() {
           u ? listConnections().catch(() => []) : Promise.resolve([]),
           u ? getMyGoalAssignments().catch(() => []) : Promise.resolve([]),
           u ? getMyMentions().catch(() => []) : Promise.resolve([]),
+          u ? getMyPostActivityNotifications().catch(() => []) : Promise.resolve([]),
           u ? getStreakPassCoveredDates(todayISO, todayISO).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
         ]);
         setProfile(p);
@@ -256,6 +260,7 @@ export default function DashboardPage() {
         setConnections(conns);
         setGoalAssignments(assignments);
         setMentions(myMentions);
+        setPostActivity(myPostActivity);
         setPassBalance(passes);
         setCoveredByPassToday(coveredDates.has(todayISO));
 
@@ -815,6 +820,7 @@ export default function DashboardPage() {
           connections={connections}
           goalAssignments={goalAssignments}
           mentions={mentions}
+          postActivity={postActivity}
           onChange={() => setRefreshKey((k) => k + 1)}
         />
 

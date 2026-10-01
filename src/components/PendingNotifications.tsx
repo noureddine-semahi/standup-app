@@ -9,15 +9,18 @@ import {
   markGoalAssignmentSeen,
   markGoalAssignmentSeenByRecipient,
   markMentionSeen,
+  markPostActivityNotificationSeen,
   connectionDisplayName,
   type Connection,
   type GoalAssignment,
   type Mention,
+  type PostActivityNotification,
 } from "@/lib/supabase/db";
 import { computeNotificationBuckets } from "@/lib/notificationBuckets";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
+import { GLIMPSE_REACTIONS } from "@/lib/glimpseReactions";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 const ACTION_BTN_STYLE = { padding: "0.25rem 0.6rem", fontSize: "0.7rem" } as const;
@@ -35,11 +38,13 @@ export default function PendingNotifications({
   connections,
   goalAssignments,
   mentions = [],
+  postActivity = [],
   onChange,
 }: {
   connections: Connection[];
   goalAssignments: GoalAssignment[];
   mentions?: Mention[];
+  postActivity?: PostActivityNotification[];
   onChange: () => void;
 }) {
   const { t } = useLanguage();
@@ -63,7 +68,8 @@ export default function PendingNotifications({
     resolvedAssignments,
     canceledForRecipient,
     unseenMentions,
-  } = computeNotificationBuckets(connections, goalAssignments, mentions);
+    unseenPostActivity,
+  } = computeNotificationBuckets(connections, goalAssignments, mentions, postActivity);
 
   const total =
     pendingConnections.length +
@@ -72,7 +78,8 @@ export default function PendingNotifications({
     resolvedConnections.length +
     resolvedAssignments.length +
     canceledForRecipient.length +
-    unseenMentions.length;
+    unseenMentions.length +
+    unseenPostActivity.length;
   if (total === 0) return null;
 
   async function run(id: string, action: () => Promise<void>) {
@@ -272,6 +279,44 @@ export default function PendingNotifications({
             </div>
           </div>
         ))}
+
+        {unseenPostActivity.map((p) => {
+          const reactionMeta = p.reaction ? GLIMPSE_REACTIONS.find((r) => r.value === p.reaction) : null;
+          const name = p.actorDisplayName ?? t("social.anonymousUser");
+          const labelKey =
+            p.activityType === "comment"
+              ? "dashboard.postCommentLabel"
+              : p.activityType === "reply"
+              ? "dashboard.postReplyLabel"
+              : p.activityType === "post_reaction"
+              ? "dashboard.postReactionLabel"
+              : "dashboard.commentReactionLabel";
+          return (
+            <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2">
+              <div className="min-w-0">
+                <div className="text-sm text-white/85 truncate inline-flex items-center gap-1.5">
+                  {reactionMeta && <reactionMeta.icon size={13} style={{ color: reactionMeta.color }} />}
+                  {t(labelKey, { name })}
+                </div>
+                {p.preview && <div className="text-[11px] text-white/50 truncate">{p.preview}</div>}
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <Link href="/standup/social" className="btn" style={ACTION_BTN_STYLE}>
+                  {t("dashboard.viewLabel")}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => run(p.id, () => markPostActivityNotificationSeen(p.id))}
+                  disabled={busyIds.has(p.id)}
+                  className="btn"
+                  style={ACTION_BTN_STYLE}
+                >
+                  {t("dashboard.acknowledge")}
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

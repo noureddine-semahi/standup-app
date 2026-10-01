@@ -185,7 +185,7 @@ export default function LandingPage() {
           {t("landing.tagline")}
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-row flex-wrap gap-3 justify-center">
           <Link href="/signup" className="led-switch led-switch-primary">
             {t("landing.getStarted")}
           </Link>

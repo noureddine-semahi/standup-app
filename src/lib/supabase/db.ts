@@ -3131,6 +3131,63 @@ export async function markMentionSeen(mentionId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Post activity notifications (comments/replies/reactions) ──────────
+// Written server-side as a side effect of addPostComment/setPostReaction/
+// setCommentReaction — there's no client-callable "create" here, unlike
+// addMention which the composer calls directly.
+
+export type PostActivityType = "comment" | "reply" | "post_reaction" | "comment_reaction";
+
+export type PostActivityNotification = {
+  id: string;
+  postId: string;
+  commentId: string | null;
+  actorId: string;
+  actorDisplayName: string | null;
+  activityType: PostActivityType;
+  reaction: GlimpseReaction | null;
+  preview: string | null;
+  createdAt: string;
+  seenAt: string | null;
+};
+
+type PostActivityNotificationRow = {
+  notification_id: string;
+  post_id: string;
+  comment_id: string | null;
+  actor_id: string;
+  actor_display_name: string | null;
+  activity_type: string;
+  reaction: string | null;
+  preview: string | null;
+  created_at: string;
+  seen_at: string | null;
+};
+
+/** Every comment/reply/reaction notification for the current user, newest first — powers the Dashboard notifications section and the header bell count. */
+export async function getMyPostActivityNotifications(): Promise<PostActivityNotification[]> {
+  const { data, error } = await supabase.rpc("get_my_post_activity_notifications");
+  if (error) throw error;
+  return ((data ?? []) as PostActivityNotificationRow[]).map((r) => ({
+    id: r.notification_id,
+    postId: r.post_id,
+    commentId: r.comment_id,
+    actorId: r.actor_id,
+    actorDisplayName: r.actor_display_name,
+    activityType: r.activity_type as PostActivityType,
+    reaction: r.reaction as GlimpseReaction | null,
+    preview: r.preview,
+    createdAt: r.created_at,
+    seenAt: r.seen_at,
+  }));
+}
+
+/** Acknowledges a post activity notification on the Dashboard — never deletes it, same "Got it" pattern as mentions/connections/assignments. */
+export async function markPostActivityNotificationSeen(notificationId: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_post_activity_notification_seen", { p_notification_id: notificationId });
+  if (error) throw error;
+}
+
 /** Pass reaction: null to remove the viewer's current reaction. */
 export async function setPostReaction(postId: string, reaction: GlimpseReaction | null): Promise<void> {
   const { error } = await supabase.rpc("set_post_reaction", { p_post_id: postId, p_reaction: reaction });

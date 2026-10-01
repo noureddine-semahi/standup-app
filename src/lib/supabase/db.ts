@@ -124,17 +124,33 @@ export type GlimpseGoal = {
   time_of_day: string | null;
 };
 
-export type PostType = "goal_glimpse" | "achievement" | "motivational";
+export type PostType = "goal_glimpse" | "achievement" | "motivational" | "team_goal";
 export type PostVisibility = "connections" | "everyone" | "individual";
+
+/**
+ * One checklist item on a team goal, as embedded in a team_goal feed
+ * post — display names are resolved server-side (get_feed), not a
+ * separate profiles lookup.
+ */
+export type TeamGoalItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  addedByDisplayName: string | null;
+  doneByDisplayName: string | null;
+};
 
 /**
  * One feed item, as returned by get_feed() — a goal_glimpse post carries a
  * live current goal list (not a snapshot: progress keeps updating as the
  * owner works through their day), an achievement post carries just the id
  * (title/description/icon resolve client-side from achievements.ts, since
- * those are translation keys the server can't render), and a motivational
- * post carries freeform text. targetUserId/targetDisplayName are only set
- * when visibility is "individual" (shared with exactly one connection).
+ * those are translation keys the server can't render), a motivational
+ * post carries freeform text, and a team_goal post carries its own live
+ * title/details/status/participant count/checklist (same "live, not a
+ * snapshot" reasoning as goal_glimpse — the checklist keeps changing as
+ * participants work through it). targetUserId/targetDisplayName are only
+ * set when visibility is "individual" (shared with exactly one connection).
  */
 export type Post = {
   id: string;
@@ -162,6 +178,16 @@ export type Post = {
   // zero reactions is simply absent, not present at 0.
   reactionCounts: Record<string, number>;
   commentCount: number;
+  // team_goal payload — null for every other post type.
+  teamGoalId: string | null;
+  teamGoalTitle: string | null;
+  teamGoalDetails: string | null;
+  teamGoalStatus: "open" | "completed" | null;
+  teamGoalParticipantCount: number | null;
+  // Whether the CURRENT viewer has already joined — drives Join-button
+  // vs. live-checklist rendering.
+  teamGoalJoined: boolean | null;
+  teamGoalItems: TeamGoalItem[] | null;
 };
 
 export type GoalNote = {
@@ -2908,6 +2934,13 @@ type FeedRow = {
   shared_by_display_name: string | null;
   reaction_counts: Record<string, number> | null;
   comment_count: number;
+  team_goal_id: string | null;
+  team_goal_title: string | null;
+  team_goal_details: string | null;
+  team_goal_status: "open" | "completed" | null;
+  team_goal_participant_count: number | null;
+  team_goal_joined: boolean | null;
+  team_goal_items: TeamGoalItem[] | null;
 };
 
 /** The visibility-filtered feed (own posts + everyone + connections-visible), newest first. */
@@ -2939,7 +2972,52 @@ export async function getFeed(before?: string): Promise<Post[]> {
     sharedByDisplayName: r.shared_by_display_name,
     reactionCounts: r.reaction_counts ?? {},
     commentCount: r.comment_count,
+    teamGoalId: r.team_goal_id,
+    teamGoalTitle: r.team_goal_title,
+    teamGoalDetails: r.team_goal_details,
+    teamGoalStatus: r.team_goal_status,
+    teamGoalParticipantCount: r.team_goal_participant_count,
+    teamGoalJoined: r.team_goal_joined,
+    teamGoalItems: r.team_goal_items,
   }));
+}
+
+/** Creates a team goal (posted as an open invite — see createTeamGoal's doc for the model) and returns its id. The creator is auto-added as the first participant. */
+export async function createTeamGoal(
+  title: string,
+  details: string | null,
+  visibility: Exclude<PostVisibility, "individual">,
+  items: string[]
+): Promise<string> {
+  const { data, error } = await supabase.rpc("create_team_goal", {
+    p_title: title,
+    p_details: details,
+    p_visibility: visibility,
+    p_items: items,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Opts the current user into an already-posted team goal — anyone who can see the post can join. */
+export async function joinTeamGoal(teamGoalId: string): Promise<void> {
+  const { error } = await supabase.rpc("join_team_goal", { p_team_goal_id: teamGoalId });
+  if (error) throw error;
+}
+
+/** Adds one checklist item to a team goal — only a participant can add. Returns the new item, display name already resolved. */
+export async function addTeamGoalItem(teamGoalId: string, text: string): Promise<TeamGoalItem> {
+  const { data, error } = await supabase.rpc("add_team_goal_item", { p_team_goal_id: teamGoalId, p_text: text });
+  if (error) throw error;
+  const row = (data as any[])[0];
+  return { id: row.item_id, text: row.item_text, done: row.done, addedByDisplayName: row.added_by_display_name, doneByDisplayName: null };
+}
+
+/** Checks/unchecks one item — only a participant can toggle. Returns the team goal's resulting status (completed once every item is checked, by anyone). */
+export async function toggleTeamGoalItem(itemId: string, done: boolean): Promise<"open" | "completed"> {
+  const { data, error } = await supabase.rpc("toggle_team_goal_item", { p_item_id: itemId, p_done: done });
+  if (error) throw error;
+  return data as "open" | "completed";
 }
 
 /** Share a post you can see with one of your own accepted connections — even one who couldn't otherwise see it (extends visibility within your own network, doesn't leak beyond it). */
@@ -3100,6 +3178,16 @@ export async function getAdminFeed(before?: string): Promise<AdminFeedPost[]> {
     reactionCounts: {},
     reactionCount: r.reaction_count,
     commentCount: r.comment_count,
+    // admin_get_feed only resolves enough of a team_goal post to identify
+    // it for moderation (id/title/status) — the full checklist/
+    // participant data isn't needed to review or delete a post.
+    teamGoalId: r.team_goal_id,
+    teamGoalTitle: r.team_goal_title,
+    teamGoalDetails: null,
+    teamGoalStatus: r.team_goal_status,
+    teamGoalParticipantCount: null,
+    teamGoalJoined: null,
+    teamGoalItems: null,
   }));
 }
 

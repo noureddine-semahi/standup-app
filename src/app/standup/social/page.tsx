@@ -12,6 +12,7 @@ import {
   getOrCreateProfile,
   acceptCommunityGuidelines,
   createMotivationalPost,
+  createTeamGoal,
   getDiscoverableUsers,
   sendConnectionRequestToUser,
   uploadPostImage,
@@ -35,7 +36,7 @@ import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -87,6 +88,18 @@ export default function SocialPage() {
   const [postVideoFile, setPostVideoFile] = useState<File | null>(null);
   const [postVideoPreviewUrl, setPostVideoPreviewUrl] = useState<string | null>(null);
   const postVideoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Team Goal composer — collapsed by default (its own small form, not
+  // merged into the motivational composer above) since it needs a
+  // structurally different shape: a title, optional details, a dynamic
+  // list of starter checklist items, and no image/video attachment.
+  const [showTeamGoalComposer, setShowTeamGoalComposer] = useState(false);
+  const [teamGoalTitle, setTeamGoalTitle] = useState("");
+  const [teamGoalDetails, setTeamGoalDetails] = useState("");
+  const [teamGoalItemDrafts, setTeamGoalItemDrafts] = useState<string[]>(["", ""]);
+  const [teamGoalVisibility, setTeamGoalVisibility] = useState<Exclude<PostVisibility, "individual">>("connections");
+  const [creatingTeamGoal, setCreatingTeamGoal] = useState(false);
+  const [teamGoalError, setTeamGoalError] = useState<string | null>(null);
 
   function refreshConnections() {
     return listConnections()
@@ -338,6 +351,25 @@ export default function SocialPage() {
     }
   }
 
+  async function handleCreateTeamGoal() {
+    const title = teamGoalTitle.trim();
+    if (!title || creatingTeamGoal) return;
+    setCreatingTeamGoal(true);
+    setTeamGoalError(null);
+    try {
+      await createTeamGoal(title, teamGoalDetails.trim() || null, teamGoalVisibility, teamGoalItemDrafts);
+      setTeamGoalTitle("");
+      setTeamGoalDetails("");
+      setTeamGoalItemDrafts(["", ""]);
+      setShowTeamGoalComposer(false);
+      await refreshFeed();
+    } catch (e: any) {
+      setTeamGoalError(e?.message ?? t("teamGoal.failedCreate"));
+    } finally {
+      setCreatingTeamGoal(false);
+    }
+  }
+
   if (loading) {
     return <PageLoadingState label={t("dashboard.loading")} />;
   }
@@ -535,6 +567,142 @@ export default function SocialPage() {
             </div>
             {postError && <p className="mt-2 text-xs text-red-300">{postError}</p>}
           </div>
+
+          {/* Team Goal composer — a goal that needs participation from
+              several connections, not a 1:1 handoff (that's Assigned
+              Goals). Posted as an open invite: anyone who can see it can
+              join and the shared checklist completes once every item is
+              checked, by anyone. Collapsed by default, own small card
+              rather than merged into the motivational composer above
+              since the shape is different (title + items, no body/media). */}
+          {!showTeamGoalComposer ? (
+            <button
+              type="button"
+              onClick={() => setShowTeamGoalComposer(true)}
+              className="btn inline-flex items-center gap-1.5"
+            >
+              <ListChecks size={14} /> {t("teamGoal.startButton")}
+            </button>
+          ) : (
+            <div className="card card-highlight">
+              <h2 className="text-lg font-semibold mb-1">{t("teamGoal.composerTitle")}</h2>
+              <p className="text-sm text-white/60 mb-3">{t("teamGoal.composerSubtitle")}</p>
+
+              <input
+                type="text"
+                value={teamGoalTitle}
+                onChange={(e) => setTeamGoalTitle(e.target.value)}
+                disabled={creatingTeamGoal}
+                placeholder={t("teamGoal.titlePlaceholder")}
+                className="w-full mb-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+              />
+              <textarea
+                value={teamGoalDetails}
+                onChange={(e) => setTeamGoalDetails(e.target.value)}
+                disabled={creatingTeamGoal}
+                placeholder={t("teamGoal.detailsPlaceholder")}
+                rows={2}
+                className="w-full mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
+              />
+
+              <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
+                {t("teamGoal.checklistLabel")}
+              </div>
+              <div className="space-y-2 mb-2">
+                {teamGoalItemDrafts.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(e) =>
+                        setTeamGoalItemDrafts((prev) => prev.map((v, i) => (i === idx ? e.target.value : v)))
+                      }
+                      disabled={creatingTeamGoal}
+                      placeholder={t("teamGoal.itemPlaceholder", { n: idx + 1 })}
+                      className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    />
+                    {teamGoalItemDrafts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setTeamGoalItemDrafts((prev) => prev.filter((_, i) => i !== idx))}
+                        disabled={creatingTeamGoal}
+                        className="btn flex-shrink-0"
+                        style={{ padding: "0.35rem" }}
+                        title={t("teamGoal.removeItem")}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTeamGoalItemDrafts((prev) => [...prev, ""])}
+                disabled={creatingTeamGoal}
+                className="btn inline-flex items-center gap-1.5 mb-3"
+                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+              >
+                <Plus size={13} /> {t("teamGoal.addAnotherItem")}
+              </button>
+
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTeamGoalVisibility("connections")}
+                    className="btn"
+                    style={{
+                      padding: "0.3rem 0.6rem",
+                      fontSize: "0.75rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      background: teamGoalVisibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: teamGoalVisibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                    }}
+                  >
+                    <Users size={12} /> {t("today.publishConnectionsBtn")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamGoalVisibility("everyone")}
+                    className="btn"
+                    style={{
+                      padding: "0.3rem 0.6rem",
+                      fontSize: "0.75rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      background: teamGoalVisibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: teamGoalVisibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                    }}
+                  >
+                    <Globe size={12} /> {t("today.publishEveryoneBtn")}
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowTeamGoalComposer(false)}
+                    disabled={creatingTeamGoal}
+                    className="btn text-sm px-3 py-2"
+                  >
+                    {t("teamGoal.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateTeamGoal}
+                    disabled={creatingTeamGoal || !teamGoalTitle.trim()}
+                    className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
+                  >
+                    {creatingTeamGoal ? t("teamGoal.creating") : t("teamGoal.createButton")}
+                  </button>
+                </div>
+              </div>
+              {teamGoalError && <p className="mt-2 text-xs text-red-300">{teamGoalError}</p>}
+            </div>
+          )}
 
           {/* Feed — every post type (goal glimpses, achievements, motivational)
               the viewer is allowed to see for the active tab, newest first. */}

@@ -1177,6 +1177,32 @@ export const es: Record<keyof typeof en, string> = {
   "social.posting": "Publicando…",
   "social.failedPost": "Error al publicar",
 
+  // Team Goals — a goal that needs participation from several
+  // connections (open invite, shared checklist), distinct from a 1:1
+  // Assigned Goal.
+  "teamGoal.startButton": "Iniciar una Meta en Equipo",
+  "teamGoal.composerTitle": "Iniciar una Meta en Equipo",
+  "teamGoal.composerSubtitle": "Publica una invitación abierta — cualquiera que pueda verla puede unirse, y se completa cuando cada elemento de abajo esté marcado.",
+  "teamGoal.titlePlaceholder": "¿Cuál es la meta?",
+  "teamGoal.detailsPlaceholder": "Agregar detalles (opcional)",
+  "teamGoal.checklistLabel": "Lista de tareas",
+  "teamGoal.itemPlaceholder": "Elemento {n}",
+  "teamGoal.removeItem": "Quitar elemento",
+  "teamGoal.addAnotherItem": "Agregar otro elemento",
+  "teamGoal.cancel": "Cancelar",
+  "teamGoal.createButton": "Publicar Meta en Equipo",
+  "teamGoal.creating": "Publicando…",
+  "teamGoal.failedCreate": "Error al publicar la meta en equipo",
+  "teamGoal.completed": "¡Completada!",
+  "teamGoal.participantCount": "{count} unidos",
+  "teamGoal.progress": "{done}/{total} completados",
+  "teamGoal.joinToEdit": "Únete para marcar elementos",
+  "teamGoal.addItemPlaceholder": "Agregar un elemento…",
+  "teamGoal.addItemButton": "Agregar",
+  "teamGoal.adding": "Agregando…",
+  "teamGoal.joinButton": "Unirse",
+  "teamGoal.joining": "Uniéndose…",
+
   // Comments on posts, one level of replies, reactions on comments
   "comments.toggle": "Comentarios",
   "comments.loading": "Cargando comentarios…",

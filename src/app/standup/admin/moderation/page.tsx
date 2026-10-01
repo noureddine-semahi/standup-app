@@ -23,6 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   goal_glimpse: "Goal Glimpse",
   achievement: "Achievement",
   motivational: "Motivational",
+  team_goal: "Team Goal",
 };
 
 export default function ModerationPage() {
@@ -81,7 +82,7 @@ export default function ModerationPage() {
 
   async function handleDeletePost(post: AdminFeedPost) {
     if (busyPostIds.has(post.id)) return;
-    const preview = post.body || post.achievementId || TYPE_LABELS[post.type] || post.type;
+    const preview = post.body || post.achievementId || post.teamGoalTitle || TYPE_LABELS[post.type] || post.type;
     if (!window.confirm(`Remove this post by ${post.displayName ?? "this user"}?\n\n"${preview}"\n\nThis cannot be undone.`)) {
       return;
     }
@@ -202,6 +203,11 @@ export default function ModerationPage() {
                           </div>
                         ))}
                       </div>
+                    )}
+                    {post.type === "team_goal" && post.teamGoalTitle && (
+                      <p className="mt-2 text-sm text-white/60">
+                        {post.teamGoalTitle} ({post.teamGoalStatus})
+                      </p>
                     )}
 
                     <div className="mt-2 flex items-center gap-4 text-xs text-white/50">

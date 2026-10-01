@@ -10,6 +10,7 @@ import CommentThread from "@/components/CommentThread";
 import PostImage from "@/components/PostImage";
 import PostVideo from "@/components/PostVideo";
 import SharePostButton from "@/components/SharePostButton";
+import TeamGoalCard from "@/components/TeamGoalCard";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import type { Post } from "@/lib/supabase/db";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
@@ -123,6 +124,8 @@ export default function PostCard({
         )}
         {post.type === "motivational" && post.imagePath && <PostImage imagePath={post.imagePath} />}
         {post.type === "motivational" && post.videoPath && <PostVideo videoPath={post.videoPath} />}
+
+        {post.type === "team_goal" && post.teamGoalId && <TeamGoalCard post={post} />}
 
         <div className="flex items-center gap-2 flex-wrap">
           <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} counts={post.reactionCounts} />

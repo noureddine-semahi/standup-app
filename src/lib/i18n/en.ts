@@ -1180,6 +1180,32 @@ export const en = {
   "social.posting": "Posting…",
   "social.failedPost": "Failed to post",
 
+  // Team Goals — a goal that needs participation from several
+  // connections (open invite, shared checklist), distinct from a 1:1
+  // Assigned Goal.
+  "teamGoal.startButton": "Start a Team Goal",
+  "teamGoal.composerTitle": "Start a Team Goal",
+  "teamGoal.composerSubtitle": "Post an open invite — anyone who can see it can join, and it's done once every item below is checked.",
+  "teamGoal.titlePlaceholder": "What's the goal?",
+  "teamGoal.detailsPlaceholder": "Add details (optional)",
+  "teamGoal.checklistLabel": "Checklist",
+  "teamGoal.itemPlaceholder": "Item {n}",
+  "teamGoal.removeItem": "Remove item",
+  "teamGoal.addAnotherItem": "Add another item",
+  "teamGoal.cancel": "Cancel",
+  "teamGoal.createButton": "Post Team Goal",
+  "teamGoal.creating": "Posting…",
+  "teamGoal.failedCreate": "Failed to post team goal",
+  "teamGoal.completed": "Completed!",
+  "teamGoal.participantCount": "{count} joined",
+  "teamGoal.progress": "{done}/{total} done",
+  "teamGoal.joinToEdit": "Join to check off items",
+  "teamGoal.addItemPlaceholder": "Add an item…",
+  "teamGoal.addItemButton": "Add",
+  "teamGoal.adding": "Adding…",
+  "teamGoal.joinButton": "Join",
+  "teamGoal.joining": "Joining…",
+
   // Comments on posts, one level of replies, reactions on comments
   "comments.toggle": "Comments",
   "comments.loading": "Loading comments…",

@@ -1316,12 +1316,16 @@ export default function ToolsPage() {
                   style={{ overflow: "hidden", lineHeight: 1.3 }}
                 />
 
-                {/* Two sub-rows (not one flex-wrap pool) so Due Day and
-                    Remind stay paired together on their own line instead
-                    of wherever the wrap happens to split the full set of
-                    four fields. */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
+                {/* Two groups side by side (Balance/Minimum, Due Day/
+                    Remind), separated by a thin vertical rule rather than
+                    stacked rows — flex-wrap on the outer row still drops
+                    the second group onto its own line if a narrow
+                    viewport can't fit both side by side. */}
+                <div className="flex flex-wrap gap-3">
+                  <div
+                    className="flex flex-wrap gap-2 pr-3"
+                    style={{ borderRight: "1px solid rgba(var(--tint-rgb), 0.15)" }}
+                  >
                     <label className="text-xs text-white/50">
                       {t("backlog.paymentBalanceLabel")}
                       <input

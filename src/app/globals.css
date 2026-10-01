@@ -1085,15 +1085,31 @@ h1, h2, h3, h4, h5, h6 {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
   background: color-mix(in srgb, var(--tab-color) 14%, transparent);
   border-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
+  /* A hint of the active tab's own glow, clearly weaker -- matches the
+     same treatment on the header's hanging tab row. */
+  box-shadow: 0 -4px 10px -4px color-mix(in srgb, var(--tab-color) 30%, transparent);
 }
 
 .folder-tab-active {
-  color: color-mix(in srgb, var(--tab-color) 85%, white 15%);
+  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
   background: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--panel-alpha)));
-  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 65%, transparent);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--panel-alpha)));
   z-index: 2;
-  box-shadow: 0 -4px 14px -4px color-mix(in srgb, var(--tab-color) 45%, transparent);
+  /* Same "spotlight" treatment as the header's hanging active tab
+     (.folder-tab-hanging-active), mirrored for this rising-from-a-panel
+     orientation: the free top/side edges get the brightest glow instead
+     of underneath, since underneath is where this tab merges into the
+     panel below it. */
+  transform: translateY(-1px);
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease, border-color 0.25s ease,
+    box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 -3px 8px -2px color-mix(in srgb, var(--tab-color) 60%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--tab-color) 30%, transparent),
+    0 0 20px 3px color-mix(in srgb, var(--tab-color) 22%, transparent),
+    0 -10px 20px -6px color-mix(in srgb, var(--tab-color) 50%, transparent),
+    0 6px 14px -6px color-mix(in srgb, var(--tab-color) 30%, transparent);
 }
 
 .folder-tab-active::before {
@@ -1104,7 +1120,8 @@ h1, h2, h3, h4, h5, h6 {
   right: 8px;
   height: 2px;
   border-radius: 2px;
-  background: var(--tab-color);
+  background: color-mix(in srgb, var(--tab-color) 85%, white 45%);
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--tab-color) 70%, transparent);
 }
 
 /* The content panel directly beneath the tab bar — its flat top-left

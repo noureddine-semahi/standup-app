@@ -570,9 +570,17 @@ export default function ToolsPage() {
     <div className="card card-highlight">
       <div className="mb-4">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
-        <p className="text-white/70">
-          {t("tools.subtitle")}
-        </p>
+        {/* Scrolling single-line ticker instead of a wrapped paragraph —
+            the subtitle is duplicated so the CSS animation (marquee-scroll,
+            see globals.css) can loop seamlessly at -50% instead of jumping
+            back to the start. aria-hidden on the repeat keeps screen
+            readers from hearing the sentence twice. */}
+        <div className="marquee-window text-white/70">
+          <div className="marquee-track">
+            <span className="pr-12">{t("tools.subtitle")}</span>
+            <span className="pr-12" aria-hidden="true">{t("tools.subtitle")}</span>
+          </div>
+        </div>
       </div>
 
       {/* Full-width tool picker, same on mobile and desktop. Collapsed:

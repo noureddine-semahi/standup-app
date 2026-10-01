@@ -1150,7 +1150,7 @@ export default function ToolsPage() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex items-stretch gap-2">
                   <input
                     type="text"
                     value={newListItemDraft[list.id] ?? ""}
@@ -1160,14 +1160,15 @@ export default function ToolsPage() {
                     }}
                     placeholder={t("backlog.newListItemPlaceholder")}
                     disabled={addingItemListId === list.id}
-                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    style={{ height: "36px" }}
                   />
                   <button
                     type="button"
                     onClick={() => handleAddListItem(list.id)}
                     disabled={addingItemListId === list.id || !(newListItemDraft[list.id] ?? "").trim()}
-                    className="btn"
-                    style={{ padding: "0.3rem 0.75rem", fontSize: "0.75rem" }}
+                    className="btn flex-shrink-0 flex items-center justify-center"
+                    style={{ height: "36px", padding: "0 0.75rem", fontSize: "0.75rem" }}
                   >
                     {addingItemListId === list.id ? t("backlog.adding") : t("backlog.addItem")}
                   </button>

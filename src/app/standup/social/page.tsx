@@ -431,10 +431,10 @@ export default function SocialPage() {
       {/* Browser-tab / hanging-folder navigation, replacing the earlier
           large-card picker. This wrapper (not space-y-6) is what lets the
           tab bar sit flush against whichever content block follows it —
-          see .social-tabbar's negative margin-bottom in globals.css for
+          see .folder-tabbar's negative margin-bottom in globals.css for
           the actual overlap that erases the seam under the active tab. */}
       <div>
-        <div className="social-tabbar" role="tablist">
+        <div className="folder-tabbar" role="tablist">
           {TABS.map((tab) => {
             const isActive = tab.key === activeTab;
             return (
@@ -444,7 +444,7 @@ export default function SocialPage() {
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => setActiveTab(tab.key)}
-                className={`social-tab${isActive ? " social-tab-active" : ""}`}
+                className={`folder-tab${isActive ? " folder-tab-active" : ""}`}
                 style={{ "--tab-color": tab.color } as React.CSSProperties}
               >
                 <tab.icon size={15} />
@@ -459,7 +459,7 @@ export default function SocialPage() {
           {/* Composer — a motivational post is the one content type a user
               writes themselves; goal glimpses come from Today's Publish
               buttons, achievements auto-post on unlock. */}
-          <div className="card card-highlight social-tabbar-panel">
+          <div className="card card-highlight folder-tabbar-panel">
             <MentionInput
               multiline
               value={postBody}
@@ -752,7 +752,7 @@ export default function SocialPage() {
 
       {activeTab === "friends" && (
         <div className="space-y-6">
-          <div className="card card-highlight social-tabbar-panel">
+          <div className="card card-highlight folder-tabbar-panel">
             <h2 className="text-lg font-semibold mb-1">{t("social.discoverTitle")}</h2>
             <p className="text-sm text-white/60 mb-4">{t("social.discoverSubtitle")}</p>
 
@@ -928,7 +928,7 @@ export default function SocialPage() {
       )}
 
       {activeTab === "goals" && (
-        <div className="social-tabbar-panel">
+        <div className="folder-tabbar-panel">
           <GoalAssignmentsPanel />
         </div>
       )}

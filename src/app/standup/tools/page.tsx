@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History } from "lucide-react";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import {
   addBacklogGoal,
@@ -54,23 +54,20 @@ const WEEKDAY_KEYS: TranslationKey[] = [
 
 type ToolsTab = "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "assignments";
 
-const TABS: { key: ToolsTab; labelKey: TranslationKey; descriptionKey: TranslationKey; icon: typeof Archive }[] = [
-  { key: "backlog", labelKey: "backlog.tabBacklog", descriptionKey: "backlog.tabBacklogDescription", icon: Archive },
-  { key: "longTerm", labelKey: "backlog.tabLongTerm", descriptionKey: "backlog.tabLongTermDescription", icon: CalendarClock },
-  { key: "recurring", labelKey: "backlog.tabRecurring", descriptionKey: "backlog.tabRecurringDescription", icon: Repeat },
-  { key: "lists", labelKey: "backlog.tabLists", descriptionKey: "backlog.tabListsDescription", icon: ListChecks },
-  { key: "payments", labelKey: "backlog.tabPayments", descriptionKey: "backlog.tabPaymentsDescription", icon: CreditCard },
-  { key: "assignments", labelKey: "backlog.tabAssignments", descriptionKey: "backlog.tabAssignmentsDescription", icon: ClipboardList },
+// Per-tab accent colors, same folder-tab theme and palette approach as
+// Social's tab bar — explicit user call to apply it here too.
+const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; color: string }[] = [
+  { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa" },
+  { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock, color: "#a78bfa" },
+  { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee" },
+  { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399" },
+  { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e" },
+  { key: "assignments", labelKey: "backlog.tabAssignments", icon: ClipboardList, color: "#f59e0b" },
 ];
 
 export default function ToolsPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<ToolsTab>("backlog");
-  // Collapsed by default: just the active tool's own large card shows,
-  // highlighted. Tapping it (or any card while expanded) re-collapses to
-  // whichever tool was just picked, instead of staying a persistent list
-  // of 6 cards the user has to scroll past every time.
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -582,77 +579,36 @@ export default function ToolsPage() {
           </div>
         </div>
       </div>
-
-      {/* Full-width tool picker, same on mobile and desktop. Collapsed:
-          just the active tool's own card, highlighted, with a chevron
-          inviting a switch. Expanded: every tool as its own large
-          name+description+access row; picking one re-collapses to it. */}
-      {!pickerOpen ? (
-        (() => {
-          const active = TABS.find((tab) => tab.key === activeTab)!;
-          return (
-            <button
-              type="button"
-              onClick={() => setPickerOpen(true)}
-              className="w-full flex items-center gap-4 rounded-xl p-4 text-left transition"
-              style={{ background: "rgba(245, 158, 11, 0.12)", border: "1px solid rgba(245, 158, 11, 0.5)" }}
-            >
-              <div
-                className="flex-shrink-0 flex items-center justify-center rounded-lg"
-                style={{ width: "44px", height: "44px", background: "rgba(245, 158, 11, 0.18)" }}
-              >
-                <active.icon size={20} color="#fcd34d" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-white">{t(active.labelKey)}</div>
-                <div className="text-xs text-white/60 mt-0.5">{t(active.descriptionKey)}</div>
-              </div>
-              <div className="flex-shrink-0 flex items-center gap-1 text-xs text-white/50">
-                {t("tools.switchLabel")} <ChevronDown size={14} />
-              </div>
-            </button>
-          );
-        })()
-      ) : (
-        <div className="space-y-2">
-          {TABS.map((tab) => {
-            const isActive = tab.key === activeTab;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  setActiveTab(tab.key);
-                  setPickerOpen(false);
-                }}
-                className="w-full flex items-center gap-4 rounded-xl p-4 text-left transition"
-                style={{
-                  background: isActive ? "rgba(245, 158, 11, 0.12)" : "rgba(var(--tint-rgb), 0.04)",
-                  border: isActive ? "1px solid rgba(245, 158, 11, 0.5)" : "1px solid rgba(var(--tint-rgb), 0.12)",
-                }}
-              >
-                <div
-                  className="flex-shrink-0 flex items-center justify-center rounded-lg"
-                  style={{ width: "44px", height: "44px", background: isActive ? "rgba(245, 158, 11, 0.18)" : "rgba(var(--tint-rgb), 0.08)" }}
-                >
-                  <tab.icon size={20} color={isActive ? "#fcd34d" : undefined} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-white">{t(tab.labelKey)}</div>
-                  <div className="text-xs text-white/60 mt-0.5">{t(tab.descriptionKey)}</div>
-                </div>
-                <div className="flex-shrink-0 flex items-center gap-1 text-xs text-white/50">
-                  {t("tools.openLabel")} <ChevronRight size={14} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
 
+    {/* Browser-tab / hanging-folder navigation — same theme/markup as
+        Social's tab bar (.folder-* classes in globals.css), applied here
+        too per explicit request. This wrapper (not space-y-6) is what
+        lets the tab bar sit flush against whichever content card follows
+        it — see .folder-tabbar's negative margin-bottom in globals.css. */}
+    <div>
+      <div className="folder-tabbar" role="tablist">
+        {TABS.map((tab) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.key)}
+              className={`folder-tab${isActive ? " folder-tab-active" : ""}`}
+              style={{ "--tab-color": tab.color } as React.CSSProperties}
+            >
+              <tab.icon size={15} />
+              <span>{t(tab.labelKey)}</span>
+            </button>
+          );
+        })}
+      </div>
+
     {activeTab === "backlog" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight folder-tabbar-panel">
       {msg && (
         <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
           {msg}
@@ -805,7 +761,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "longTerm" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight folder-tabbar-panel">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.longTermTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.longTermSubtitle")}</p>
@@ -968,7 +924,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "recurring" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight folder-tabbar-panel">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.recurringTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.recurringSubtitle")}</p>
@@ -1070,7 +1026,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "lists" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight folder-tabbar-panel">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.listsTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.listsSubtitle")}</p>
@@ -1227,7 +1183,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "payments" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight folder-tabbar-panel">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.paymentsTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.paymentsSubtitle")}</p>
@@ -1467,7 +1423,12 @@ export default function ToolsPage() {
     </div>
     )}
 
-    {activeTab === "assignments" && <GoalAssignmentsPanel />}
+    {activeTab === "assignments" && (
+      <div className="folder-tabbar-panel">
+        <GoalAssignmentsPanel />
+      </div>
+    )}
+    </div>
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">

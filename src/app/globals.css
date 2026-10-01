@@ -852,9 +852,11 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
 }
 
-/* Social page tab bar — browser-tab / hanging-folder navigation, replacing
-   the earlier large-card picker. Each tab carries its own accent color
-   (--tab-color, set inline per tab in social/page.tsx) instead of a single
+/* Shared browser-tab / hanging-folder navigation — used by Social's 6
+   tabs and Tools' 6 tabs, both replacing an earlier large-card picker.
+   Generic ".folder-*" names (not page-specific) since it's reused as-is,
+   same markup shape, across pages. Each tab carries its own accent color
+   (--tab-color, set inline per tab in each page) instead of a single
    shared amber — explicit user call, matching a reference image of
    per-tab colored browser tabs. Inactive tabs show a DIM wash of their
    own color (color-mix against the page's neutral tint) so they still
@@ -862,7 +864,7 @@ h1, h2, h3, h4, h5, h6 {
    fuller, brighter wash of that same color, a glow in that color, and a
    thin solid top accent bar. overflow-x (not shrinking labels) handles
    narrow viewports per explicit request. */
-.social-tabbar {
+.folder-tabbar {
   display: flex;
   align-items: flex-end;
   overflow-x: auto;
@@ -873,11 +875,11 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: -1px;
   padding: 0 2px;
 }
-.social-tabbar::-webkit-scrollbar {
+.folder-tabbar::-webkit-scrollbar {
   display: none;
 }
 
-.social-tab {
+.folder-tab {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -895,13 +897,13 @@ h1, h2, h3, h4, h5, h6 {
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.social-tab:hover:not(.social-tab-active) {
+.folder-tab:hover:not(.folder-tab-active) {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
   background: color-mix(in srgb, var(--tab-color) 14%, transparent);
   border-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
 }
 
-.social-tab-active {
+.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 85%, white 15%);
   background: color-mix(in srgb, var(--tab-color) 16%, rgba(var(--panel-rgb), var(--panel-alpha)));
   border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
@@ -910,7 +912,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 -4px 14px -4px color-mix(in srgb, var(--tab-color) 45%, transparent);
 }
 
-.social-tab-active::before {
+.folder-tab-active::before {
   content: "";
   position: absolute;
   top: -1px;
@@ -924,8 +926,8 @@ h1, h2, h3, h4, h5, h6 {
 /* The content panel directly beneath the tab bar — its flat top-left
    corner (no radius) is what makes the active tab above look physically
    attached to this surface, continuing the zero-gap overlap from
-   .social-tabbar's own negative margin-bottom. */
-.social-tabbar-panel {
+   .folder-tabbar's own negative margin-bottom. */
+.folder-tabbar-panel {
   position: relative;
   z-index: 1;
   border-top-left-radius: 0;
@@ -938,20 +940,20 @@ h1, h2, h3, h4, h5, h6 {
    active tab also lifts slightly (translateY) for the "pulls up" motion
    requested alongside the unwrap. */
 @media (max-width: 640px) {
-  .social-tabbar {
+  .folder-tabbar {
     gap: 2px;
   }
-  .social-tab {
+  .folder-tab {
     gap: 0;
     padding: 0.6rem 0.65rem;
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
       box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
   }
-  .social-tab-active {
+  .folder-tab-active {
     padding: 0.6rem 0.85rem;
     transform: translateY(-2px);
   }
-  .social-tab span {
+  .folder-tab span {
     display: inline-block;
     max-width: 0;
     margin-left: 0;
@@ -961,7 +963,7 @@ h1, h2, h3, h4, h5, h6 {
     transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
       opacity 0.2s ease 0.05s;
   }
-  .social-tab-active span {
+  .folder-tab-active span {
     max-width: 120px;
     margin-left: 0.4rem;
     opacity: 1;

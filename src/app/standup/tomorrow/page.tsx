@@ -111,7 +111,7 @@ export default function TomorrowGoalsPage() {
   // — chosen via the Lock/Unlock toggle before a recipient is picked.
   const [assignTypeByGoalId, setAssignTypeByGoalId] = useState<Record<string, GoalAssignmentType>>({});
 
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const inputRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
 
   const originalIdsRef = useRef<Set<string>>(new Set());
@@ -480,7 +480,22 @@ export default function TomorrowGoalsPage() {
     });
   }
 
-  function onGoalKeyDown(e: ReactKeyboardEvent<HTMLInputElement>, idx: number) {
+  // Goal titles are editable textareas, not inputs, so a long auto-generated
+  // title (e.g. a payment reminder's "Pay X — $Y min due Z") wraps instead
+  // of silently scrolling off the visible width. Grows to fit its content
+  // on every keystroke (onChange) and whenever a title changes from outside
+  // typing too, e.g. a goal arriving via refresh() (the effect below).
+  function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  useEffect(() => {
+    inputRefs.current.forEach(autoResizeTextarea);
+  }, [goals]);
+
+  function onGoalKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>, idx: number) {
     const isEnter = e.key === "Enter" || e.key === "NumpadEnter";
     if (!isEnter) return;
     if (e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) return;
@@ -884,11 +899,12 @@ export default function TomorrowGoalsPage() {
                   <div className="goal-row-cols">
                     {/* Goal — static, ~45% */}
                     <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
-                      <input
+                      <textarea
                         ref={(el) => {
                           inputRefs.current[idx] = el;
+                          autoResizeTextarea(el);
                         }}
-                        type="text"
+                        rows={1}
                         value={g.title ?? ""}
                         disabled={locked || submitting || isExclusive}
                         onKeyDown={(e) => onGoalKeyDown(e, idx)}
@@ -902,15 +918,17 @@ export default function TomorrowGoalsPage() {
                           }
                           scheduleAutoSave();
                         }}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setGoals((prev) =>
                             prev.map((x, i) =>
                               i === idx ? { ...x, title: e.target.value } : x
                             )
-                          )
-                        }
+                          );
+                          autoResizeTextarea(e.target);
+                        }}
                         placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
-                        className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60"
+                        className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
+                        style={{ overflow: "hidden", lineHeight: 1.3 }}
                       />
 
                       {/* Compact quick-add row — checklist, files, and an

@@ -451,16 +451,13 @@ export default function SocialPage() {
           onDecline={() => router.push("/standup/dashboard")}
         />
       )}
-      <div className="card card-highlight">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("social.title")}</h1>
-        <p className="text-white/70">{t("social.subtitle")}</p>
-      </div>
-
-      {/* Browser-tab / hanging-folder navigation, replacing the earlier
-          large-card picker. This wrapper (not space-y-6) is what lets the
-          tab bar sit flush against whichever content block follows it —
-          see .folder-tabbar's negative margin-bottom in globals.css for
-          the actual overlap that erases the seam under the active tab. */}
+      {/* Browser-tab / hanging-folder navigation, now sitting directly on
+          top of (and visually merged with) the Community heading card
+          right below it, same treatment as the Tools page — explicit
+          user call. This wrapper (not space-y-6) is what lets the tab
+          bar sit flush against the card that follows it — see
+          .folder-tabbar's negative margin-bottom in globals.css for the
+          actual overlap that erases the seam under the active tab. */}
       <div>
         <div className="folder-tabbar" role="tablist">
           {TABS.map((tab) => {
@@ -482,12 +479,18 @@ export default function SocialPage() {
           })}
         </div>
 
+        <div className="card card-highlight folder-tabbar-panel">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("social.title")}</h1>
+          <p className="text-white/70">{t("social.subtitle")}</p>
+        </div>
+      </div>
+
       {activeTab !== "friends" && (
         <div className="space-y-6">
           {/* Composer — a motivational post is the one content type a user
               writes themselves; goal glimpses come from Today's Publish
               buttons, achievements auto-post on unlock. */}
-          <div className="card card-highlight folder-tabbar-panel">
+          <div className="card card-highlight">
             <MentionInput
               multiline
               value={postBody}
@@ -788,7 +791,7 @@ export default function SocialPage() {
 
       {activeTab === "friends" && (
         <div className="space-y-6">
-          <div className="card card-highlight folder-tabbar-panel">
+          <div className="card card-highlight">
             <h2 className="text-lg font-semibold mb-1">{t("social.discoverTitle")}</h2>
             <p className="text-sm text-white/60 mb-4">{t("social.discoverSubtitle")}</p>
 
@@ -963,12 +966,7 @@ export default function SocialPage() {
         </div>
       )}
 
-      {activeTab === "goals" && (
-        <div className="folder-tabbar-panel">
-          <GoalAssignmentsPanel />
-        </div>
-      )}
-      </div>
+      {activeTab === "goals" && <GoalAssignmentsPanel />}
     </div>
   );
 }

@@ -1055,12 +1055,10 @@ h1, h2, h3, h4, h5, h6 {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* No gap -- explicit user call for tabs that touch along their base
-     (full-width bottom edge) with zero daylight between them, the way
-     real file/folder tabs do. Their narrower tops naturally diverge
-     above that shared line instead; that's the intended silhouette,
-     not a bug. */
-  gap: 0;
+  /* Small gap, nearly touching -- explicit user call, reads as one
+     continuous strip rather than the previous pass's flush/overlapping
+     trapezoids. */
+  gap: 3px;
   margin-bottom: -1px;
   padding: 0 2px;
 }
@@ -1068,99 +1066,69 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-/* Trapezoid "file tab" silhouette (explicit user call, reference: a
-   narrower top edge, wider flared base, like /------\) via clip-path
-   rather than border-radius. Each top corner is a short 2-segment
-   bevel (not one sharp vertex) rather than a true arc -- clip-path's
-   polygon() can't express a curve on its own (that needs path(), which
-   doesn't support the %-based coordinates this flexible-width tab
-   needs), so this is the nearest approximation reachable without SVG.
-   clip-path also crops a rectangular border down to this polygon, so
-   the straight top/bottom edges still show a real border line, but the
-   diagonal/beveled sides don't (clip-path can't bend an existing
-   border around a cut) -- the drop-shadow below compensates, tracing
-   the actual clipped silhouette (unlike box-shadow, which only ever
-   follows the box's rectangle) to keep those edges visibly outlined
-   too, deliberately thin/soft rather than a heavy line. */
+/* Rounded browser-tab shape -- explicit user call reverting the
+   previous clip-path trapezoid experiment entirely ("no sharp
+   triangular/pointed sides"). Plain border-radius on the top two
+   corners, straight sides -- a normal border renders correctly all the
+   way around this shape, no clip-path/drop-shadow workaround needed. */
 .folder-tab {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   flex-shrink: 0;
   white-space: nowrap;
-  padding: 0.6rem 1.35rem;
+  padding: 0.6rem 1.1rem;
   font-size: 0.82rem;
   font-weight: 600;
   color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
-  /* Little to no fill -- explicit user call, the shape itself (border +
-     silhouette) carries the tab now, not a colored block. */
-  background: color-mix(in srgb, var(--tab-color) 2%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--tab-color) 22%, rgba(var(--tint-rgb), 0.12));
-  border-radius: 0;
-  clip-path: polygon(
-    14px 4px, 20px 0, calc(100% - 20px) 0, calc(100% - 14px) 4px,
-    100% 100%, 0 100%
-  );
-  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--tab-color) 40%, transparent));
-  /* A dark, neutral "shaded outline" at rest (not the colored glow,
-     which only shows on hover/active) -- explicit user call, gives
-     every tab a bit of depth/lift off the page even when idle. */
-  box-shadow: 0 3px 8px -5px rgba(0, 0, 0, 0.6);
+  background: color-mix(in srgb, var(--tab-color) 5%, rgba(var(--tint-rgb), 0.02));
+  border: 1.5px solid color-mix(in srgb, var(--tab-color) 35%, transparent);
+  border-radius: 10px 10px 0 0;
   position: relative;
   cursor: pointer;
+  /* Subtle illuminated outline at rest, in the tab's own accent color
+     -- explicit user call, much weaker than the active tab's spotlight
+     below (one soft layer vs. its five). */
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--tab-color) 35%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease, filter 0.2s ease;
-}
-
-/* Pulled closer together -- explicit user call, the slanted edges now
-   overlap slightly instead of only touching at one point. Later tabs
-   paint over earlier ones at the overlap (default stacking order for
-   position:relative siblings), which reads correctly here since the
-   active tab's own z-index:2 still always wins regardless of position. */
-.folder-tab:not(:first-child) {
-  margin-left: -5px;
+    box-shadow 0.2s ease;
 }
 
 .folder-tab:hover:not(.folder-tab-active) {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
-  background: color-mix(in srgb, var(--tab-color) 10%, transparent);
-  border-color: color-mix(in srgb, var(--tab-color) 45%, transparent);
-  /* A hint of the active tab's own glow, clearly weaker -- matches the
-     same treatment on the header's hanging tab row. */
-  box-shadow: 0 -4px 10px -4px color-mix(in srgb, var(--tab-color) 30%, transparent);
+  background: color-mix(in srgb, var(--tab-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--tab-color) 50%, transparent);
 }
 
 .folder-tab-active {
+  /* Dark colored surface (not a brighter fill) + bright outline + the
+     soft diffused light behind it below -- explicit three-part spec. */
   color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  background: color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--panel-alpha)));
-  border-color: color-mix(in srgb, var(--tab-color) 65%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--panel-alpha)));
+  background: color-mix(in srgb, var(--tab-color) 10%, rgba(var(--panel-rgb), var(--panel-alpha)));
+  border-color: color-mix(in srgb, var(--tab-color) 80%, white 10%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 10%, rgba(var(--panel-rgb), var(--panel-alpha)));
   z-index: 2;
-  filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--tab-color) 65%, transparent));
-  /* Same "spotlight" treatment as the header's hanging active tab
-     (.folder-tab-hanging-active), mirrored for this rising-from-a-panel
-     orientation: the free top/side edges get the brightest glow instead
-     of underneath, since underneath is where this tab merges into the
-     panel below it. */
   transform: translateY(-1px);
   transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease, border-color 0.25s ease,
-    box-shadow 0.25s ease, filter 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Soft spotlight radiating from BEHIND the whole tab -- top, sides,
+     and slightly underneath -- layered shadows fading outward on their
+     own rather than one hard-edged box. */
   box-shadow:
-    0 -3px 8px -2px color-mix(in srgb, var(--tab-color) 60%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--tab-color) 30%, transparent),
-    0 0 20px 3px color-mix(in srgb, var(--tab-color) 22%, transparent),
-    0 -10px 20px -6px color-mix(in srgb, var(--tab-color) 50%, transparent),
-    0 6px 14px -6px color-mix(in srgb, var(--tab-color) 30%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--tab-color) 55%, transparent),
+    0 -4px 10px -2px color-mix(in srgb, var(--tab-color) 65%, transparent),
+    0 0 24px 4px color-mix(in srgb, var(--tab-color) 28%, transparent),
+    0 -12px 26px -8px color-mix(in srgb, var(--tab-color) 55%, transparent),
+    0 8px 18px -8px color-mix(in srgb, var(--tab-color) 35%, transparent);
 }
 
 .folder-tab-active::before {
   content: "";
   position: absolute;
   top: -1px;
-  /* Inset past the top bevel's sharp segment (20px per side) --
-     otherwise the clip-path would cut off the outer ends of this bar. */
-  left: 22px;
-  right: 22px;
+  left: 10px;
+  right: 10px;
   height: 2px;
   border-radius: 2px;
   background: color-mix(in srgb, var(--tab-color) 85%, white 45%);
@@ -1185,20 +1153,13 @@ h1, h2, h3, h4, h5, h6 {
    requested alongside the unwrap. */
 @media (max-width: 640px) {
   .folder-tabbar {
-    gap: 0;
+    gap: 2px;
   }
   .folder-tab {
     gap: 0;
-    padding: 0.6rem 0.85rem;
-    /* Shallower inset than desktop's 14px -- a narrow icon-only tab
-       can't spare that much width to the slant without crowding the
-       icon itself. */
-    clip-path: polygon(6px 2px, 9px 0, calc(100% - 9px) 0, calc(100% - 6px) 2px, 100% 100%, 0 100%);
+    padding: 0.6rem 0.65rem;
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
-      box-shadow 0.2s ease, filter 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
-  }
-  .folder-tab:not(:first-child) {
-    margin-left: -3px;
+      box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
   }
   .folder-tab-active {
     padding: 0.6rem 0.85rem;
@@ -1236,13 +1197,11 @@ h1, h2, h3, h4, h5, h6 {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* No gap -- same "touch along the shared straight edge" call as
-     .folder-tabbar above, mirrored: here that shared edge is the TOP
-     (full width, flush against the header), not the bottom. */
-  gap: 0;
+  /* Small gap, nearly touching -- same call as .folder-tabbar above. */
+  gap: 3px;
   /* No negative margin here (previously -1px, tuned to let the active
      tab's background visually erase .app-header-inner's old 1px border
-     where it overlapped) -- explicit user call for the new red divider
+     where it overlapped) -- explicit user call for the red divider
      line above to stay a clean, always-visible separator, with every
      tab including the active one sitting fully underneath it rather
      than overlapping/covering it. */
@@ -1253,80 +1212,60 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-/* Trapezoid file-tab silhouette, mirrored from .folder-tab's (full
-   width at the attachment edge, narrower at the free edge) -- here the
-   TOP is the attachment edge (flush against the header) so it's full
-   width, and the BOTTOM (hanging down, free) is narrower. See .folder-
-   tab's own comment for why clip-path + drop-shadow (not border) is
-   what actually outlines the diagonal sides. */
+/* Rounded browser-tab shape, mirrored from .folder-tab (rounded at the
+   BOTTOM instead of the top, since this one hangs down from the header
+   rather than rising from a panel) -- same revert away from the
+   clip-path trapezoid experiment, same reasoning. */
 .folder-tab-hanging {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   flex-shrink: 0;
   white-space: nowrap;
-  padding: 0.45rem 1.25rem;
+  padding: 0.45rem 1rem;
   font-size: 0.78rem;
   font-weight: 600;
   text-decoration: none;
   color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
-  background: color-mix(in srgb, var(--tab-color) 2%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--tab-color) 22%, rgba(var(--tint-rgb), 0.12));
+  background: color-mix(in srgb, var(--tab-color) 5%, rgba(var(--tint-rgb), 0.02));
+  border: 1.5px solid color-mix(in srgb, var(--tab-color) 35%, transparent);
   border-top: none;
-  border-radius: 0;
-  /* Mirrors .folder-tab's top bevel, at the bottom instead (the free
-     edge here) -- same 2-segment-per-corner approximation. */
-  clip-path: polygon(
-    0 0, 100% 0, calc(100% - 14px) calc(100% - 4px), calc(100% - 20px) 100%,
-    20px 100%, 14px calc(100% - 4px)
-  );
-  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--tab-color) 40%, transparent));
-  /* Same dark, neutral "shaded outline" at rest as .folder-tab. */
-  box-shadow: 0 3px 8px -5px rgba(0, 0, 0, 0.6);
+  border-radius: 0 0 10px 10px;
   position: relative;
   cursor: pointer;
+  /* Subtle illuminated outline at rest, same as .folder-tab. */
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--tab-color) 35%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease, filter 0.2s ease;
-}
-
-/* Pulled closer together, same as .folder-tab. */
-.folder-tab-hanging:not(:first-child) {
-  margin-left: -5px;
+    box-shadow 0.2s ease;
 }
 
 .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
   color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
-  background: color-mix(in srgb, var(--tab-color) 10%, transparent);
-  border-color: color-mix(in srgb, var(--tab-color) 45%, transparent);
-  /* A hint of the active tab's own glow, clearly weaker -- one soft
-     layer instead of its four, and no top/bottom spill. */
-  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--tab-color) 30%, transparent);
+  background: color-mix(in srgb, var(--tab-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color) 55%, transparent);
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--tab-color) 50%, transparent);
 }
 
 .folder-tab-hanging-active {
   color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  background: color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--chrome-alpha)));
-  border-color: color-mix(in srgb, var(--tab-color) 65%, transparent);
-  border-top-color: color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--chrome-alpha)));
+  background: color-mix(in srgb, var(--tab-color) 10%, rgba(var(--panel-rgb), var(--chrome-alpha)));
+  border-color: color-mix(in srgb, var(--tab-color) 80%, white 10%);
+  border-top-color: color-mix(in srgb, var(--tab-color) 10%, rgba(var(--panel-rgb), var(--chrome-alpha)));
   z-index: 2;
-  filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--tab-color) 65%, transparent));
   /* Slightly raised off the row, as if the light above is lifting it --
      the mobile 640px rule below sets its own transform (part of the
      label-unwrap animation) and wins there since it's declared later. */
   transform: translateY(-1px);
   transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease, border-color 0.25s ease,
-    box-shadow 0.25s ease, filter 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Layered "spotlight" glow (explicit user call) rather than one flat
-     rectangular shadow: a tight bright rim hugging the top/sides, a
-     wider soft wash spilling onto the tab bar around it, and a
-     stronger, more diffused glow underneath -- each layer fades outward
-     on its own instead of a hard-edged box. */
+    box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Soft spotlight radiating from BEHIND the whole tab -- top, sides,
+     and slightly underneath -- mirrors .folder-tab-active's layers. */
   box-shadow:
-    0 -3px 8px -2px color-mix(in srgb, var(--tab-color) 60%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--tab-color) 30%, transparent),
-    0 0 20px 2px color-mix(in srgb, var(--tab-color) 22%, transparent),
-    0 10px 20px -6px color-mix(in srgb, var(--tab-color) 55%, transparent),
-    0 18px 36px -10px color-mix(in srgb, var(--tab-color) 40%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--tab-color) 55%, transparent),
+    0 -4px 10px -2px color-mix(in srgb, var(--tab-color) 65%, transparent),
+    0 0 24px 4px color-mix(in srgb, var(--tab-color) 28%, transparent),
+    0 10px 24px -8px color-mix(in srgb, var(--tab-color) 55%, transparent),
+    0 -8px 18px -8px color-mix(in srgb, var(--tab-color) 35%, transparent);
 }
 
 /* Thin brighter accent along the active tab's upper edge -- paired with
@@ -1348,10 +1287,8 @@ h1, h2, h3, h4, h5, h6 {
   content: "";
   position: absolute;
   bottom: -1px;
-  /* Inset past the bottom bevel's sharp segment (20px per side) --
-     otherwise the clip-path would cut off the outer ends of this bar. */
-  left: 22px;
-  right: 22px;
+  left: 10px;
+  right: 10px;
   height: 2px;
   border-radius: 2px;
   background: var(--tab-color);
@@ -1374,20 +1311,14 @@ h1, h2, h3, h4, h5, h6 {
     display: inline-flex;
   }
   .folder-tabbar-hanging {
-    gap: 0;
+    gap: 2px;
     padding: 0 10px 2px;
   }
   .folder-tab-hanging {
     gap: 0;
-    padding: 0.45rem 0.75rem;
-    /* Shallower inset than desktop's 12px -- matches .folder-tab's own
-       mobile override, same reasoning (narrow icon-only tab). */
-    clip-path: polygon(0 0, 100% 0, calc(100% - 6px) calc(100% - 2px), calc(100% - 9px) 100%, 9px 100%, 6px calc(100% - 2px));
+    padding: 0.45rem 0.6rem;
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
-      box-shadow 0.2s ease, filter 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
-  }
-  .folder-tab-hanging:not(:first-child) {
-    margin-left: -3px;
+      box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
   }
   .folder-tab-hanging-active {
     padding: 0.45rem 0.75rem;

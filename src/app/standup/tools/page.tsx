@@ -1248,14 +1248,24 @@ export default function ToolsPage() {
             return (
               <div key={account.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
-                  <input
-                    type="text"
+                  <textarea
+                    rows={1}
                     defaultValue={account.name}
                     key={`${account.id}-name-${account.name}`}
+                    ref={(el) => {
+                      if (!el) return;
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }}
                     onBlur={(e) => handleUpdatePaymentField(account, "name", e.target.value)}
                     disabled={busy}
-                    className="flex-1 min-w-0 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-white font-medium outline-none focus:border-white/25 focus:bg-white/5 disabled:opacity-50"
-                    style={{ maxWidth: "240px" }}
+                    className="flex-1 min-w-0 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-white font-medium outline-none focus:border-white/25 focus:bg-white/5 disabled:opacity-50 resize-none"
+                    style={{ maxWidth: "240px", overflow: "hidden", lineHeight: 1.3 }}
                   />
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="status-chip-sm" style={chipStyle as React.CSSProperties}>

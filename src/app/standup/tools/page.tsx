@@ -56,13 +56,15 @@ type ToolsTab = "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "a
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
-const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; color: string }[] = [
-  { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa" },
-  { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock, color: "#a78bfa" },
-  { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee" },
-  { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399" },
-  { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e" },
-  { key: "assignments", labelKey: "backlog.tabAssignments", icon: ClipboardList, color: "#f59e0b" },
+// descriptionKey backs the Tools card's own description, which now
+// swaps per-tab instead of the page keeping one fixed subtitle.
+const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; color: string; descriptionKey: TranslationKey }[] = [
+  { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa", descriptionKey: "tools.descBacklog" },
+  { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock, color: "#a78bfa", descriptionKey: "tools.descLongTerm" },
+  { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
+  { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
+  { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e", descriptionKey: "tools.descPayments" },
+  { key: "assignments", labelKey: "backlog.tabAssignments", icon: ClipboardList, color: "#f59e0b", descriptionKey: "tools.descAssignments" },
 ];
 
 export default function ToolsPage() {
@@ -564,28 +566,13 @@ export default function ToolsPage() {
 
   return (
     <div className="space-y-6">
-    <div className="card card-highlight">
-      <div className="mb-4">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
-        {/* Scrolling single-line ticker instead of a wrapped paragraph —
-            the subtitle is duplicated so the CSS animation (marquee-scroll,
-            see globals.css) can loop seamlessly at -50% instead of jumping
-            back to the start. aria-hidden on the repeat keeps screen
-            readers from hearing the sentence twice. */}
-        <div className="marquee-window text-white/70">
-          <div className="marquee-track">
-            <span className="pr-12">{t("tools.subtitle")}</span>
-            <span className="pr-12" aria-hidden="true">{t("tools.subtitle")}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Browser-tab / hanging-folder navigation — same theme/markup as
-        Social's tab bar (.folder-* classes in globals.css), applied here
-        too per explicit request. This wrapper (not space-y-6) is what
-        lets the tab bar sit flush against whichever content card follows
-        it — see .folder-tabbar's negative margin-bottom in globals.css. */}
+    {/* Browser-tab / hanging-folder navigation, now sitting directly on
+        top of (and visually merged with) the Tools heading card right
+        below it, instead of a separate heading card above a separate
+        tab bar — explicit user call, "tabs attached to the card like
+        file-folder tabs." This wrapper (not space-y-6) is what lets the
+        tab bar sit flush against the card that follows it — see
+        .folder-tabbar's negative margin-bottom in globals.css. */}
     <div>
       <div className="folder-tabbar" role="tablist">
         {TABS.map((tab) => {
@@ -607,8 +594,14 @@ export default function ToolsPage() {
         })}
       </div>
 
+      <div className="card card-highlight folder-tabbar-panel">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
+        <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
+      </div>
+    </div>
+
     {activeTab === "backlog" && (
-    <div className="card card-highlight folder-tabbar-panel">
+    <div className="card card-highlight">
       {msg && (
         <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
           {msg}
@@ -761,7 +754,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "longTerm" && (
-    <div className="card card-highlight folder-tabbar-panel">
+    <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.longTermTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.longTermSubtitle")}</p>
@@ -924,7 +917,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "recurring" && (
-    <div className="card card-highlight folder-tabbar-panel">
+    <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.recurringTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.recurringSubtitle")}</p>
@@ -1026,7 +1019,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "lists" && (
-    <div className="card card-highlight folder-tabbar-panel">
+    <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.listsTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.listsSubtitle")}</p>
@@ -1183,7 +1176,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "payments" && (
-    <div className="card card-highlight folder-tabbar-panel">
+    <div className="card card-highlight">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.paymentsTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.paymentsSubtitle")}</p>
@@ -1423,12 +1416,7 @@ export default function ToolsPage() {
     </div>
     )}
 
-    {activeTab === "assignments" && (
-      <div className="folder-tabbar-panel">
-        <GoalAssignmentsPanel />
-      </div>
-    )}
-    </div>
+    {activeTab === "assignments" && <GoalAssignmentsPanel />}
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">

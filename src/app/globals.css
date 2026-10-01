@@ -1102,10 +1102,23 @@ h1, h2, h3, h4, h5, h6 {
     100% 100%, 0 100%
   );
   filter: drop-shadow(0 0 1px color-mix(in srgb, var(--tab-color) 40%, transparent));
+  /* A dark, neutral "shaded outline" at rest (not the colored glow,
+     which only shows on hover/active) -- explicit user call, gives
+     every tab a bit of depth/lift off the page even when idle. */
+  box-shadow: 0 3px 8px -5px rgba(0, 0, 0, 0.6);
   position: relative;
   cursor: pointer;
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+/* Pulled closer together -- explicit user call, the slanted edges now
+   overlap slightly instead of only touching at one point. Later tabs
+   paint over earlier ones at the overlap (default stacking order for
+   position:relative siblings), which reads correctly here since the
+   active tab's own z-index:2 still always wins regardless of position. */
+.folder-tab:not(:first-child) {
+  margin-left: -5px;
 }
 
 .folder-tab:hover:not(.folder-tab-active) {
@@ -1183,6 +1196,9 @@ h1, h2, h3, h4, h5, h6 {
     clip-path: polygon(6px 2px, 9px 0, calc(100% - 9px) 0, calc(100% - 6px) 2px, 100% 100%, 0 100%);
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
       box-shadow 0.2s ease, filter 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  }
+  .folder-tab:not(:first-child) {
+    margin-left: -3px;
   }
   .folder-tab-active {
     padding: 0.6rem 0.85rem;
@@ -1265,10 +1281,17 @@ h1, h2, h3, h4, h5, h6 {
     20px 100%, 14px calc(100% - 4px)
   );
   filter: drop-shadow(0 0 1px color-mix(in srgb, var(--tab-color) 40%, transparent));
+  /* Same dark, neutral "shaded outline" at rest as .folder-tab. */
+  box-shadow: 0 3px 8px -5px rgba(0, 0, 0, 0.6);
   position: relative;
   cursor: pointer;
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+/* Pulled closer together, same as .folder-tab. */
+.folder-tab-hanging:not(:first-child) {
+  margin-left: -5px;
 }
 
 .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
@@ -1362,6 +1385,9 @@ h1, h2, h3, h4, h5, h6 {
     clip-path: polygon(0 0, 100% 0, calc(100% - 6px) calc(100% - 2px), calc(100% - 9px) 100%, 9px 100%, 6px calc(100% - 2px));
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
       box-shadow 0.2s ease, filter 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  }
+  .folder-tab-hanging:not(:first-child) {
+    margin-left: -3px;
   }
   .folder-tab-hanging-active {
     padding: 0.45rem 0.75rem;

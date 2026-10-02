@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
@@ -138,6 +139,13 @@ export default function TodayPage() {
   const { t } = useLanguage();
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
+  // Deep-linking in from Dashboard's now-tappable goal rows (?goal=<id>) —
+  // scrolls to and briefly highlights that specific goal once it's loaded.
+  // One-shot per page load, same guarded-ref pattern Social's own
+  // ?post=/&comment= deep link uses.
+  const searchParams = useSearchParams();
+  const highlightGoalId = searchParams.get("goal");
+  const scrolledToHighlightRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<DailyPlan | null>(null);
@@ -300,6 +308,19 @@ export default function TodayPage() {
       .then((cs) => setAcceptedConnections(cs.filter((c) => c.status === "accepted")))
       .catch(() => {});
   }, []);
+
+  // One-shot scroll-to-and-highlight for a ?goal= deep link (from
+  // Dashboard's tappable goal rows) — guarded by a ref so it only fires
+  // once per page load, not on every subsequent refresh.
+  useEffect(() => {
+    if (scrolledToHighlightRef.current || loading || !highlightGoalId) return;
+    const el = document.querySelector(`[data-goal-id="${highlightGoalId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledToHighlightRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightGoalId]);
 
   function refreshGoalAssignments() {
     return getMyGoalAssignments()
@@ -1577,8 +1598,9 @@ export default function TodayPage() {
                 <button
                   key={g.id}
                   type="button"
+                  data-goal-id={g.id}
                   onClick={() => toggleExpandedDone(g.id)}
-                  className="goal-row goal-row-done-collapsed"
+                  className={`goal-row goal-row-done-collapsed${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
                   style={
                     {
                       "--p-color": getPriorityMeta(p).color,
@@ -1617,7 +1639,8 @@ export default function TodayPage() {
             return (
               <div
                 key={g.id}
-                className={isCelebrating ? "goal-row goal-row-celebrate" : "goal-row"}
+                data-goal-id={g.id}
+                className={`${isCelebrating ? "goal-row goal-row-celebrate" : "goal-row"}${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
                 data-pending={!reviewed}
                 style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >

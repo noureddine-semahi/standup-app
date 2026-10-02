@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   addDays,
@@ -66,6 +67,12 @@ export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
   const todayISO = useMemo(() => toISODate(new Date()), []);
+  // Deep-linking in from Dashboard's tappable goal rows (?goal=<id>) —
+  // scrolls to and briefly highlights that goal once loaded, same
+  // guarded-ref one-shot pattern as Today's own page/Social's ?post=.
+  const searchParams = useSearchParams();
+  const highlightGoalId = searchParams.get("goal");
+  const scrolledToHighlightRef = useRef(false);
   const [loading, setLoading] = useState(true);
   // Drafting/saving tomorrow's plan is always available. Submitting
   // (finalizing) it is gated separately — only once today has been
@@ -136,6 +143,16 @@ export default function TomorrowGoalsPage() {
       .then((cs) => setAcceptedConnections(cs.filter((c) => c.status === "accepted")))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (scrolledToHighlightRef.current || loading || !highlightGoalId) return;
+    const el = document.querySelector(`[data-goal-id="${highlightGoalId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledToHighlightRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightGoalId]);
 
   function refreshGoalAssignments() {
     return getMyGoalAssignments()
@@ -896,7 +913,8 @@ export default function TomorrowGoalsPage() {
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDragEnd={handleDragEnd}
-                  className="goal-row"
+                  data-goal-id={g.id}
+                  className={`goal-row${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
                   style={{
                     "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
                     cursor: editMode ? "move" : "default",

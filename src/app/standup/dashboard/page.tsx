@@ -40,6 +40,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
   MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket, Lock, Unlock,
+  Sunrise, ChevronRight,
 } from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -490,14 +491,14 @@ export default function DashboardPage() {
 
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:flex-wrap">
               <div className="flex gap-2 sm:order-2">
-                <Link href="/standup/today" className="btn text-sm whitespace-nowrap">
-                  {t("nav.reviewToday")}
+                <Link href="/standup/today" className="btn btn-tint btn-teal text-sm whitespace-nowrap inline-flex items-center gap-1.5">
+                  <CheckCircle2 size={14} /> {t("nav.reviewToday")}
                 </Link>
-                <Link href="/standup/tomorrow" className="btn text-sm whitespace-nowrap">
-                  {t("nav.planTomorrow")}
+                <Link href="/standup/tomorrow" className="btn btn-tint btn-amber-tint text-sm whitespace-nowrap inline-flex items-center gap-1.5">
+                  <Sunrise size={14} /> {t("nav.planTomorrow")}
                 </Link>
               </div>
-              <button type="button" onClick={() => setShowAssistant(true)} className="btn sm:order-1 inline-flex items-center gap-2">
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn btn-tint btn-purple sm:order-1 inline-flex items-center gap-2">
                 <Bot size={15} /> {t("dashboard.assistant")}
               </button>
             </div>
@@ -834,8 +835,26 @@ export default function DashboardPage() {
           const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
           const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : todayP1.status;
           const effectiveReviewed = isExclusive ? true : !!todayP1.reviewed_at;
+
+          // Once the P1 goal is completed, collapse the big focus card
+          // into a compact success state — explicit user call, this
+          // frees up height for whatever's actually still actionable
+          // instead of keeping the full card around just to say "done."
+          if (effectiveStatus === "completed") {
+            return (
+              <Link href={`/standup/today?goal=${todayP1.id}`} className="block">
+                <div className="plan-submitted-card w-full">
+                  <CheckCircle2 size={16} />
+                  <div className="plan-submitted-title">
+                    {t("dashboard.p1CompletedTitle", { title: todayP1.title })}
+                  </div>
+                </div>
+              </Link>
+            );
+          }
+
           return (
-          <Link href="/standup/today" className="block">
+          <Link href={`/standup/today?goal=${todayP1.id}`} className="block">
             <div
               className="card card-highlight transition-all duration-300 hover:scale-[1.005] cursor-pointer"
             >
@@ -898,260 +917,287 @@ export default function DashboardPage() {
         {/* Today & Tomorrow Overview Grid (keep logic; enhance row styles) */}
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Today Overview */}
-          {/* min-w-0 on both the grid item and its card is required — CSS Grid
-              items default to min-width:auto, so a long unbreakable note
-              preview below could otherwise stretch this whole column (and
-              the card inside it) past the viewport instead of truncating. */}
-          <Link href="/standup/today" className="block min-w-0">
-            <div
-              className="card card-highlight transition cursor-pointer h-full min-w-0"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">{t("dashboard.todaysGoals")}</h2>
-                <span className="text-xs text-white/50">{formatDateDisplay(todayISO)}</span>
-              </div>
-
-              {sortedTodayGoals.length === 0 ? (
-                <div className="text-white/60 text-sm py-8 text-center">
-                  {t("dashboard.noGoalsToday")}
-                  <div className="mt-2 text-xs text-white/50">
-                    {t("dashboard.setYesterday")}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sortedTodayGoals.map((g, idx) => {
-                    const priority = g.priority;
-                    const assignment = assignedOutByGoalId.get(g.id);
-                    // Mirror Today's own effectiveStatus/reviewed fix: once
-                    // handed off exclusively (and accepted), this user's own
-                    // copy never changes again -- show the recipient's live
-                    // status instead of the frozen placeholder.
-                    const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
-                    const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : g.status;
-                    const reviewed = isExclusive ? true : !!g.reviewed_at;
-
-                    return (
-                      <div
-                        key={g.id}
-                        className="goal-row-compact text-sm transition-all duration-300"
-                        data-pending={!reviewed}
-                        style={{
-                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
-                        } as React.CSSProperties}
-                      >
-                        {/* Corner number tag — nothing else competing for
-                            space next to it, so the title can never overflow
-                            no matter how narrow the screen or long the title. */}
-                        <div className="goal-number-sm">{idx + 1}</div>
-                        <div className="goal-row-compact-body">
-                        <div className="truncate text-base font-medium text-white/90">{g.title}</div>
-
-                        {/* Chips and note preview live on their own rows
-                            below the title, instead of all fighting for
-                            space in one row — that's what was forcing
-                            horizontal overflow. */}
-                        <div className="mt-1.5 flex items-center gap-2">
-                          {typeof priority === "number" && (
-                            <div
-                              className="priority-chip-sm"
-                              style={{
-                                "--p-bg": getPriorityMeta(priority).bg,
-                                "--p-border": getPriorityMeta(priority).border,
-                                "--p-color": getPriorityMeta(priority).color,
-                              } as React.CSSProperties}
-                            >
-                              P{priority}
-                            </div>
-                          )}
-
-                          <div
-                            className="status-chip-sm"
-                            style={{
-                              "--chip-bg": reviewed ? statusChipColors(effectiveStatus).bg : "rgba(245, 158, 11, 0.08)",
-                              "--chip-border": reviewed ? statusChipColors(effectiveStatus).border : "rgba(245, 158, 11, 0.3)",
-                              "--chip-color": reviewed ? statusChipColors(effectiveStatus).color : "#fcd34d",
-                            } as React.CSSProperties}
-                            title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(effectiveStatus, t) }) : t("dashboard.pendingReviewShort")}
-                          >
-                            {reviewed ? (
-                              <>
-                                <span>{statusLabel(effectiveStatus, t)}</span>
-                                <StatusIcon status={effectiveStatus} size={12} />
-                              </>
-                            ) : (
-                              <>
-                                <span>{t("dashboard.pending")}</span>
-                                <Hourglass size={12} />
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {assignment && (
-                          <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
-                            {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                            {t("goalAssign.assignedToLabel", {
-                              name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                            })}
-                            {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                            {assignment.status === "accepted" && assignment.recipientGoalStatus && (
-                              <span className="inline-flex items-center gap-1">
-                                · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
-                                {statusLabel(assignment.recipientGoalStatus, t)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {noteCounts[g.id] > 0 && (
-                          <div
-                            className="mt-1.5 truncate text-xs text-cyan-300/80"
-                            title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
-                          >
-                            <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
-                          </div>
-                        )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center justify-between text-xs text-white/60">
-                <span>
-                  {t("dashboard.reviewedCompletedSummary", { reviewed: todayReviewed, completed: todayCompleted })}
-                </span>
-                <span className="text-white/50">→</span>
-              </div>
+          {/* min-w-0 is required — CSS Grid items default to min-width:auto,
+              so a long unbreakable note preview below could otherwise
+              stretch this whole column past the viewport instead of
+              truncating. Not a single big <Link> anymore (was wrapping the
+              ENTIRE card) — each goal row below is now its own Link to that
+              specific goal, which would otherwise nest an <a> inside an
+              <a>; the header/footer get their own small Links instead. */}
+          <div className="card card-highlight h-full min-w-0">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-white">{t("dashboard.todaysGoals")}</h2>
+              <span className="text-xs text-white/50">{formatDateDisplay(todayISO)}</span>
             </div>
-          </Link>
 
-          {/* Tomorrow Overview */}
-          <Link href="/standup/tomorrow" className="block min-w-0">
-            <div
-              className="card card-highlight transition cursor-pointer h-full min-w-0"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-white">{t("dashboard.stat.tomorrowPlan")}</h2>
-                <span className="text-xs text-white/50">{formatDateDisplay(tomorrowISO)}</span>
-              </div>
-
-              {sortedTomorrowGoals.length === 0 ? (
-                <div className="text-white/60 text-sm py-8 text-center">
-                  {t("dashboard.noPlanYet")}
-                  <div className="mt-2 text-xs text-white/50">
-                    {t("dashboard.setAtLeast3")}
-                  </div>
+            {sortedTodayGoals.length === 0 ? (
+              <div className="text-white/60 text-sm py-8 text-center">
+                {t("dashboard.noGoalsToday")}
+                <div className="mt-2 text-xs text-white/50">
+                  {t("dashboard.setYesterday")}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {sortedTomorrowGoals.slice(0, 5).map((g, idx) => {
-                    const priority = g.priority;
-                    const assignment = assignedOutByGoalId.get(g.id);
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedTodayGoals.map((g, idx) => {
+                  const priority = g.priority;
+                  const assignment = assignedOutByGoalId.get(g.id);
+                  // Mirror Today's own effectiveStatus/reviewed fix: once
+                  // handed off exclusively (and accepted), this user's own
+                  // copy never changes again -- show the recipient's live
+                  // status instead of the frozen placeholder.
+                  const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+                  const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : g.status;
+                  const reviewed = isExclusive ? true : !!g.reviewed_at;
 
-                    return (
-                      <div
-                        key={g.id}
-                        className="goal-row-compact text-sm transition-all duration-300"
-                        style={{
-                          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
-                        } as React.CSSProperties}
-                      >
-                        <div className="goal-number-sm">{idx + 1}</div>
-                        <div className="goal-row-compact-body">
-                        <div className="truncate text-base font-medium text-white/90">{g.title}</div>
+                  return (
+                    <Link
+                      key={g.id}
+                      href={`/standup/today?goal=${g.id}`}
+                      data-goal-id={g.id}
+                      className="goal-row-compact goal-row-compact-link text-sm transition-all duration-300"
+                      data-pending={!reviewed}
+                      style={{
+                        "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
+                      } as React.CSSProperties}
+                    >
+                      {/* Corner number tag — nothing else competing for
+                          space next to it, so the title can never overflow
+                          no matter how narrow the screen or long the title. */}
+                      <div className="goal-number-sm">{idx + 1}</div>
+                      <div className="goal-row-compact-body" style={{ paddingRight: "1.75rem" }}>
+                      <div className="goal-title-clamp-2 text-base font-medium text-white/90">{g.title}</div>
 
+                      {/* Chips and note preview live on their own rows
+                          below the title, instead of all fighting for
+                          space in one row — that's what was forcing
+                          horizontal overflow. */}
+                      <div className="mt-1.5 flex items-center gap-2">
                         {typeof priority === "number" && (
-                          <div className="mt-1.5">
-                            <div
-                              className="priority-chip-sm"
-                              style={{
-                                "--p-bg": getPriorityMeta(priority).bg,
-                                "--p-border": getPriorityMeta(priority).border,
-                                "--p-color": getPriorityMeta(priority).color,
-                              } as React.CSSProperties}
-                            >
-                              P{priority}
-                            </div>
-                          </div>
-                        )}
-
-                        {assignment && (
-                          <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
-                            {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                            {t("goalAssign.assignedToLabel", {
-                              name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                            })}
-                            {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                            {assignment.status === "accepted" && assignment.recipientGoalStatus && (
-                              <span className="inline-flex items-center gap-1">
-                                · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
-                                {statusLabel(assignment.recipientGoalStatus, t)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {noteCounts[g.id] > 0 && (
                           <div
-                            className="mt-1.5 truncate text-xs text-cyan-300/80"
-                            title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
+                            className="priority-chip-sm"
+                            style={{
+                              "--p-bg": getPriorityMeta(priority).bg,
+                              "--p-border": getPriorityMeta(priority).border,
+                              "--p-color": getPriorityMeta(priority).color,
+                            } as React.CSSProperties}
                           >
-                            <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
+                            P{priority}
                           </div>
                         )}
+
+                        <div
+                          className="status-chip-sm"
+                          style={{
+                            "--chip-bg": reviewed ? statusChipColors(effectiveStatus).bg : "rgba(245, 158, 11, 0.08)",
+                            "--chip-border": reviewed ? statusChipColors(effectiveStatus).border : "rgba(245, 158, 11, 0.3)",
+                            "--chip-color": reviewed ? statusChipColors(effectiveStatus).color : "#fcd34d",
+                          } as React.CSSProperties}
+                          title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(effectiveStatus, t) }) : t("dashboard.pendingReviewShort")}
+                        >
+                          {reviewed ? (
+                            <>
+                              <span>{statusLabel(effectiveStatus, t)}</span>
+                              <StatusIcon status={effectiveStatus} size={12} />
+                            </>
+                          ) : (
+                            <>
+                              <span>{t("dashboard.pending")}</span>
+                              <Hourglass size={12} />
+                            </>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
 
-                  {sortedTomorrowGoals.length > 5 && (
-                    <div className="text-xs text-white/50 text-center py-1">
-                      {t("dashboard.moreGoals", { count: sortedTomorrowGoals.length - 5 })}
-                    </div>
-                  )}
-                </div>
-              )}
+                      {assignment && (
+                        <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
+                          {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                          {t("goalAssign.assignedToLabel", {
+                            name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                          })}
+                          {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                          {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                            <span className="inline-flex items-center gap-1">
+                              · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
+                              {statusLabel(assignment.recipientGoalStatus, t)}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
-              <div className="mt-4 flex items-center justify-between text-xs text-white/60">
-                <span>
-                  {t("dashboard.goalsCount", { count: tomorrowTotal })}{tomorrowSubmitted ? t("dashboard.suffixSubmitted") : t("dashboard.suffixDraft")}
-                </span>
-                <span className="text-white/50">→</span>
+                      {noteCounts[g.id] > 0 && (
+                        <div
+                          className="mt-1.5 truncate text-xs text-cyan-300/80"
+                          title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
+                        >
+                          <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
+                        </div>
+                      )}
+                      </div>
+                      {/* Decorative nav cue only — the whole row above is
+                          already the real tap target. */}
+                      <ChevronRight size={16} className="flex-shrink-0 text-white/30" style={{ position: "absolute", right: "0.85rem", top: "50%", transform: "translateY(-50%)" }} />
+                    </Link>
+                  );
+                })}
               </div>
+            )}
+
+            <Link href="/standup/today" className="mt-4 flex items-center justify-between text-xs text-white/60 hover:text-white/80 transition">
+              <span>
+                {t("dashboard.reviewedCompletedSummary", { reviewed: todayReviewed, completed: todayCompleted })}
+              </span>
+              <ChevronRight size={14} className="text-white/50" />
+            </Link>
+          </div>
+
+          {/* Tomorrow Overview — same not-one-big-Link restructure as
+              Today's card above. */}
+          <div className="card card-highlight h-full min-w-0">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-white">{t("dashboard.stat.tomorrowPlan")}</h2>
+              <span className="text-xs text-white/50">{formatDateDisplay(tomorrowISO)}</span>
             </div>
-          </Link>
+
+            {sortedTomorrowGoals.length === 0 ? (
+              <div className="text-white/60 text-sm py-8 text-center">
+                {t("dashboard.noPlanYet")}
+                <div className="mt-2 text-xs text-white/50">
+                  {t("dashboard.setAtLeast3")}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedTomorrowGoals.slice(0, 5).map((g, idx) => {
+                  const priority = g.priority;
+                  const assignment = assignedOutByGoalId.get(g.id);
+
+                  return (
+                    <Link
+                      key={g.id}
+                      href={`/standup/tomorrow?goal=${g.id}`}
+                      data-goal-id={g.id}
+                      className="goal-row-compact goal-row-compact-link text-sm transition-all duration-300"
+                      style={{
+                        "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
+                      } as React.CSSProperties}
+                    >
+                      <div className="goal-number-sm">{idx + 1}</div>
+                      <div className="goal-row-compact-body" style={{ paddingRight: "1.75rem" }}>
+                      <div className="goal-title-clamp-2 text-base font-medium text-white/90">{g.title}</div>
+
+                      {typeof priority === "number" && (
+                        <div className="mt-1.5">
+                          <div
+                            className="priority-chip-sm"
+                            style={{
+                              "--p-bg": getPriorityMeta(priority).bg,
+                              "--p-border": getPriorityMeta(priority).border,
+                              "--p-color": getPriorityMeta(priority).color,
+                            } as React.CSSProperties}
+                          >
+                            P{priority}
+                          </div>
+                        </div>
+                      )}
+
+                      {assignment && (
+                        <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
+                          {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                          {t("goalAssign.assignedToLabel", {
+                            name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                          })}
+                          {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                          {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                            <span className="inline-flex items-center gap-1">
+                              · <StatusIcon status={assignment.recipientGoalStatus} size={11} />{" "}
+                              {statusLabel(assignment.recipientGoalStatus, t)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {noteCounts[g.id] > 0 && (
+                        <div
+                          className="mt-1.5 truncate text-xs text-cyan-300/80"
+                          title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
+                        >
+                          <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
+                        </div>
+                      )}
+                      </div>
+                      <ChevronRight size={16} className="flex-shrink-0 text-white/30" style={{ position: "absolute", right: "0.85rem", top: "50%", transform: "translateY(-50%)" }} />
+                    </Link>
+                  );
+                })}
+
+                {sortedTomorrowGoals.length > 5 && (
+                  <div className="text-xs text-white/50 text-center py-1">
+                    {t("dashboard.moreGoals", { count: sortedTomorrowGoals.length - 5 })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Link href="/standup/tomorrow" className="mt-4 flex items-center justify-between text-xs text-white/60 hover:text-white/80 transition">
+              <span>
+                {t("dashboard.goalsCount", { count: tomorrowTotal })}{tomorrowSubmitted ? t("dashboard.suffixSubmitted") : t("dashboard.suffixDraft")}
+              </span>
+              <ChevronRight size={14} className="text-white/50" />
+            </Link>
+          </div>
         </div>
 
-        {/* Quick Actions (unchanged) */}
+        {/* Quick Actions — primary CTA(s) full-width on mobile, the two
+            secondary actions side-by-side underneath (see .quick-actions-*
+            in globals.css). Both secondaries are now context-aware: once
+            today's reviewed/tomorrow's submitted, they swap to a ✓ success
+            treatment instead of staying static labels forever. */}
         <div
           className="card card-highlight"
         >
           <h2 className="text-lg font-semibold mb-4">{t("dashboard.quickActions")}</h2>
-          <div className="flex flex-wrap gap-3">
-            {todayPending > 0 && (
-              <Link href="/standup/today" className="btn btn-primary inline-flex items-center gap-2">
-                <Zap size={15} /> {t(todayPending > 1 ? "dashboard.reviewPending.other" : "dashboard.reviewPending.one", { count: todayPending })}
+          <div className="flex flex-col gap-3">
+            <div className="quick-actions-primary">
+              {todayPending > 0 && (
+                <Link href="/standup/today" className="btn btn-primary inline-flex items-center justify-center gap-2">
+                  <Zap size={15} /> {t(todayPending > 1 ? "dashboard.reviewPending.other" : "dashboard.reviewPending.one", { count: todayPending })}
+                </Link>
+              )}
+              {!todayClosed && todayTotal > 0 && todayPending === 0 && (
+                <Link href="/standup/today" className="btn btn-primary inline-flex items-center justify-center gap-2">
+                  <CheckCircle2 size={15} /> {t("dashboard.closeOutDay")}
+                </Link>
+              )}
+              {todayClosed && (
+                <div className="plan-submitted-card">
+                  <CheckCircle2 size={16} />
+                  <div className="plan-submitted-title">{t("dashboard.dayCompleteTitle")}</div>
+                </div>
+              )}
+              {tomorrowTotal === 0 && (
+                <Link href="/standup/tomorrow" className="btn btn-primary inline-flex items-center justify-center gap-2">
+                  <Target size={15} /> {t("nav.planTomorrow")}
+                </Link>
+              )}
+            </div>
+
+            <div className="quick-actions-secondary">
+              <Link
+                href="/standup/today"
+                className={`btn btn-tint inline-flex items-center justify-center gap-2 ${todayTotal > 0 && todayPending === 0 ? "btn-teal" : "btn-blue"}`}
+              >
+                {todayTotal > 0 && todayPending === 0 ? <CheckCircle2 size={15} /> : <ClipboardList size={15} />}
+                {todayTotal > 0 && todayPending === 0 ? t("dashboard.reviewedState") : t("dashboard.todaysGoals")}
               </Link>
-            )}
-            {!todayClosed && todayTotal > 0 && todayPending === 0 && (
-              <Link href="/standup/today" className="btn btn-primary inline-flex items-center gap-2">
-                <CheckCircle2 size={15} /> {t("dashboard.closeOutDay")}
+              <Link
+                href="/standup/tomorrow"
+                className={`btn btn-tint inline-flex items-center justify-center gap-2 ${tomorrowSubmitted ? "btn-teal" : "btn-amber-tint"}`}
+              >
+                {tomorrowSubmitted ? <CheckCircle2 size={15} /> : <FileEdit size={15} />}
+                {tomorrowSubmitted ? t("dashboard.planReadyState") : t("dashboard.stat.tomorrowPlan")}
               </Link>
-            )}
-            {tomorrowTotal === 0 && (
-              <Link href="/standup/tomorrow" className="btn btn-primary inline-flex items-center gap-2">
-                <Target size={15} /> {t("nav.planTomorrow")}
-              </Link>
-            )}
-            <Link href="/standup/today" className="btn inline-flex items-center gap-2">
-              <ClipboardList size={15} /> {t("dashboard.todaysGoals")}
-            </Link>
-            <Link href="/standup/tomorrow" className="btn inline-flex items-center gap-2">
-              <FileEdit size={15} /> {t("dashboard.stat.tomorrowPlan")}
-            </Link>
+            </div>
           </div>
         </div>
 

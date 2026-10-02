@@ -568,7 +568,12 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 760px) {
   .brand-oversized {
     position: relative;
-    width: 118px;
+    /* Reserved width matches the image's real rendered width at 62px
+       tall (source asset is 900x323, ratio ~2.786:1, confirmed to have
+       zero transparent padding -- 62 * 2.786 ~= 173px). Pure layout
+       footprint for .app-header-inner's flex row; doesn't clip the
+       image itself, which overflows it via position:absolute below. */
+    width: 173px;
     height: 34px;
     flex-shrink: 0;
   }
@@ -576,14 +581,14 @@ h1, h2, h3, h4, h5, h6 {
   .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
-    top: 18px;
-    height: 40px;
+    top: 5px;
+    height: 62px;
     width: auto;
-    /* Higher than .folder-tab-hanging-active's own z-index:2 -- explicit
-       user call to let the logo visually sit on top of a centered tab
-       it happens to overlap, rather than the two tying and source order
-       (tab row comes after the header in the DOM) deciding the opposite. */
-    z-index: 5;
+    /* Highest layer in the header -- above .app-header-inner's red
+       divider (unlayered, paints in normal flow) and above
+       .folder-tab-hanging-active's z-index:2, so the logo always wins
+       any visual overlap with either. */
+    z-index: 10;
   }
 
   .brand-oversized::before {
@@ -592,7 +597,7 @@ h1, h2, h3, h4, h5, h6 {
     left: -6px;
     right: -6px;
     bottom: -3px;
-    height: 16px;
+    height: 22px;
     background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.13), transparent 72%);
     z-index: 1;
     pointer-events: none;

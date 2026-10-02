@@ -266,13 +266,35 @@ a {
 [data-theme="light"] .text-yellow-400 { color: #a16207; }
 
 html, body {
-  height: 100%;
   pointer-events: auto;
   /* Safety net: a single element anywhere with a non-shrinking width wider
      than the viewport would otherwise push the whole page wider, silently
      shifting content (like action buttons) off past the right edge instead
      of visibly breaking — this caps it at the viewport instead. */
   overflow-x: hidden;
+}
+
+/* html stays pinned to exactly the viewport height -- this (combined with
+   overflow-x:hidden above forcing overflow-y to compute as auto, per the
+   overflow shorthand's axis-homogenization rule) is what makes it the
+   page's one real scrolling container, same as a normal page with no
+   height overrides at all. */
+html {
+  height: 100%;
+}
+
+/* body previously also had height:100% (an equal, separately-capped box),
+   which meant body's OWN content could exceed ITS OWN 100%-of-viewport
+   height -- triggering the exact same auto-overflow on body too, making
+   it a SECOND, competing scroll container nested inside html's. Two
+   stacked scrollable boxes is exactly what made a touch-scroll gesture
+   need a second try on mobile (the first touch could land on whichever
+   one wasn't the one that actually needed to move). min-height instead
+   of height means body only ever needs to grow to fit its real content
+   (so it never overflows itself), while still guaranteeing a short page
+   still fills at least the full viewport for background-color purposes. */
+body {
+  min-height: 100%;
 }
 
 /* Native <select> dropdowns: the closed box picks up our custom dark

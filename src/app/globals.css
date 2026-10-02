@@ -2898,6 +2898,7 @@ select:focus {
   gap: 0.65rem;
   padding: 0.55rem 1rem;
   border-radius: 10px;
+  color: #6ee7b7;
   background: linear-gradient(to bottom, rgba(16, 185, 129, 0.22), rgba(16, 185, 129, 0.08));
   border: 1px solid rgba(16, 185, 129, 0.45);
   box-shadow:
@@ -2916,6 +2917,29 @@ select:focus {
 .plan-submitted-sub {
   font-size: 0.72rem;
   color: rgba(110, 231, 183, 0.8);
+}
+
+/* Light theme — the dark-theme values above (a light mint-green on a
+   barely-tinted glass surface) read as near-invisible, low-contrast text
+   on a light page background. Mirrors --status-completed's own dark/light
+   split: the whole hue swaps from a light, bright green (reads on dark)
+   to a deep, dark green (reads on light), not just an opacity tweak. */
+[data-theme="light"] .plan-submitted-card {
+  color: #047857;
+  background: linear-gradient(to bottom, rgba(4, 120, 87, 0.16), rgba(4, 120, 87, 0.06));
+  border-color: rgba(4, 120, 87, 0.4);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.08),
+    0 0 10px -4px rgba(4, 120, 87, 0.3);
+}
+
+[data-theme="light"] .plan-submitted-title {
+  color: #047857;
+}
+
+[data-theme="light"] .plan-submitted-sub {
+  color: rgba(4, 120, 87, 0.8);
 }
 
 /* Mobile planning action bar. On a narrow viewport the bottom

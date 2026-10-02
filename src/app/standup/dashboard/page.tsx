@@ -498,8 +498,8 @@ export default function DashboardPage() {
                   <Sunrise size={14} /> {t("nav.planTomorrow")}
                 </Link>
               </div>
-              <button type="button" onClick={() => setShowAssistant(true)} className="btn btn-tint btn-purple sm:order-1 inline-flex items-center gap-2">
-                <Bot size={15} /> {t("dashboard.assistant")}
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn btn-tint btn-purple text-sm whitespace-nowrap sm:order-1 inline-flex items-center gap-1.5">
+                <Bot size={14} /> {t("dashboard.assistant")}
               </button>
             </div>
           </div>

@@ -32,21 +32,30 @@ export default function LanguageToggle({ size = "md" }: { size?: "sm" | "md" }) 
         aria-checked={language === "es"}
         aria-label={language === "es" ? t("language.switchToEnglish") : t("language.switchToSpanish")}
         onClick={handleToggle}
-        className="relative rounded-full transition-colors flex-shrink-0"
+        className="relative rounded-full transition-all flex-shrink-0"
         style={{
           width: `${width}px`,
           height: `${height}px`,
-          background: language === "es" ? "var(--accent-blue)" : "rgba(var(--tint-rgb),0.15)",
+          background:
+            language === "es"
+              ? "linear-gradient(to bottom, rgba(255,255,255,0.2) 0%, transparent 45%), linear-gradient(to bottom, color-mix(in srgb, var(--accent-blue) 85%, white 10%), color-mix(in srgb, var(--accent-blue) 70%, black 15%))"
+              : "linear-gradient(to bottom, rgba(255,255,255,0.1) 0%, transparent 45%), linear-gradient(to bottom, rgba(var(--tint-rgb),0.22), rgba(var(--tint-rgb),0.08))",
           border: "1px solid rgba(var(--tint-rgb),0.18)",
+          boxShadow:
+            language === "es"
+              ? "inset 0 1px 0 0 rgba(255,255,255,0.3), inset 0 -1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px -1px rgba(0,0,0,0.3), 0 0 8px -1px var(--accent-blue)"
+              : "inset 0 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px -1px rgba(0,0,0,0.3)",
         }}
       >
         <span
-          className="absolute rounded-full bg-white transition-transform"
+          className="absolute rounded-full transition-transform"
           style={{
             width: `${knob}px`,
             height: `${knob}px`,
             top: "2px",
             left: "2px",
+            background: "radial-gradient(circle at 32% 28%, #ffffff 0%, #e4e9f0 45%, #a8b2c0 100%)",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.45), inset 0 1px 1px 0 rgba(255,255,255,0.9), inset 0 -1px 1px 0 rgba(0,0,0,0.12)",
             transform: language === "es" ? `translateX(${width - knob - 4}px)` : "translateX(0)",
           }}
         />

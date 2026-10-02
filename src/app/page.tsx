@@ -165,14 +165,16 @@ export default function LandingPage() {
         <style>{`.scroll-reveal { opacity: 1 !important; transform: none !important; }`}</style>
       </noscript>
       {/* Hero — the day itself rendered as a bank of scoreboard digits,
-          lit segments in ghost-cell mode until they light on load. */}
-      <div className="max-w-5xl mx-auto px-4 py-20 sm:py-28 text-center">
-        <div className="flex items-end justify-center gap-6 sm:gap-10 mb-10 flex-wrap">
+          lit segments in ghost-cell mode until they light on load.
+          Counters shrunk and tightened so the headline/tagline/CTA read
+          as the main event instead of competing evenly with them. */}
+      <div className="max-w-5xl mx-auto px-4 py-12 sm:py-16 text-center">
+        <div className="flex items-end justify-center gap-4 sm:gap-6 mb-6 flex-wrap">
           {READOUTS.map((r) => (
-            <div key={r.labelKey} className="flex flex-col items-center gap-3">
-              <SevenSegmentReadout value={lit ? r.value : "0".repeat(r.value.length)} color={r.color} size={36} />
+            <div key={r.labelKey} className="flex flex-col items-center gap-2">
+              <SevenSegmentReadout value={lit ? r.value : "0".repeat(r.value.length)} color={r.color} size={22} />
               <div
-                className="led-mono text-[11px] tracking-widest uppercase"
+                className="led-mono text-[10px] tracking-widest uppercase"
                 style={{ color: "var(--led-text-dim)" }}
               >
                 {t(r.labelKey)}
@@ -186,7 +188,7 @@ export default function LandingPage() {
           <span className="block">{t("landing.headlineLine2")}</span>
         </h1>
 
-        <p className="led-mono text-sm sm:text-base mb-10 max-w-2xl mx-auto" style={{ color: "var(--led-text-dim)" }}>
+        <p className="font-sans text-sm sm:text-base mb-8 max-w-2xl mx-auto" style={{ color: "var(--led-text-dim)" }}>
           {t("landing.tagline")}
         </p>
 
@@ -200,49 +202,49 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Promo video — the hero's static digits tell the story in one
-          frozen frame; this shows it in motion right below, before a
-          visitor has to read anything else to get it. Muted+loop so it
-          autoplays across browsers; controls stay on so sound (voiceover-
-          free, just sound design + score per how it was produced) is a
-          visitor's choice, not forced on them. */}
-      <div className="scroll-reveal max-w-3xl mx-auto px-4 pb-20">
-        <div className="led-cell p-3 sm:p-4">
-          <video
-            className="w-full rounded-lg block"
-            src="/videos/standup-promo.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-          />
+      {/* Promo video, framed as a product preview (slight 3D tilt + soft
+          glow) rather than a plain embedded clip — tells a first-time
+          visitor "this is a real application" the moment it's in view.
+          Muted+loop so it autoplays across browsers; controls stay on so
+          sound (voiceover-free, just sound design + score) is a visitor's
+          choice, not forced on them. */}
+      <div className="scroll-reveal max-w-2xl mx-auto px-4 pb-12">
+        <div className="product-preview-frame">
+          <div className="product-preview-frame-inner led-cell p-3 sm:p-4">
+            <video
+              className="w-full rounded-lg block"
+              src="/videos/standup-promo.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+            />
+          </div>
         </div>
       </div>
 
-      {/* Features — ledger rows, not 6 identical led-cell boxes. A single
-          column keeps the divider logic simple (Tailwind's divide-y) rather
-          than fighting a 2-column grid's row-pairing; the process sequence
-          below and the CTA are where led-cell's box treatment is earned. */}
-      <div className="scroll-reveal max-w-3xl mx-auto px-4 py-20">
-        <div className="text-center mb-16">
+      {/* Features — a 2x3 grid of subtle panels instead of six identical
+          text rows, which read as repetitive at a glance. */}
+      <div className="scroll-reveal max-w-4xl mx-auto px-4 py-12">
+        <div className="text-center mb-10">
           <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.whyStandup")}</h2>
           <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
             {t("landing.builtOnPrinciples")}
           </p>
         </div>
 
-        <div className="divide-y divide-white/10">
+        <div className="grid gap-4 sm:grid-cols-2">
           {FEATURES.map((f) => (
-            <div key={f.titleKey} className="py-5">
-              <div className="flex items-center gap-2 mb-3">
+            <div key={f.titleKey} className="feature-panel">
+              <div className="flex items-center gap-2 mb-2">
                 <span
                   className="led-dot"
                   style={{ background: f.color, boxShadow: `0 0 8px ${f.color}` }}
                 />
                 <h3 className="led-mono text-sm font-bold uppercase tracking-wide">{t(f.titleKey)}</h3>
               </div>
-              <p className="text-sm" style={{ color: "var(--led-text-dim)" }}>
+              <p className="font-sans text-sm" style={{ color: "var(--led-text-dim)" }}>
                 {t(f.bodyKey)}
               </p>
             </div>
@@ -250,10 +252,12 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* How It Works — keeps led-cell (1 of 2 card-budget slots): a
-          3-step sequence genuinely reads as discrete devices. */}
-      <div className="scroll-reveal max-w-6xl mx-auto px-4 py-20">
-        <div className="text-center mb-16">
+      {/* How It Works — each step card now carries its own quiet glow/
+          border in that step's color, with a larger digit (the one
+          genuinely distinctive brand element here, worth using bigger)
+          and a gentle hover lift. */}
+      <div className="scroll-reveal max-w-6xl mx-auto px-4 py-12">
+        <div className="text-center mb-10">
           <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.howItWorks")}</h2>
           <p className="led-mono text-sm" style={{ color: "var(--led-text-dim)" }}>
             {t("landing.threeSteps")}
@@ -262,12 +266,12 @@ export default function LandingPage() {
 
         <div className="grid gap-4 lg:grid-cols-3 [&>*]:min-w-0">
           {STEPS.map((s) => (
-            <div key={s.n} className="led-cell p-6">
+            <div key={s.n} className="led-cell step-card p-6" style={{ "--step-color": s.color } as React.CSSProperties}>
               <div className="mb-4">
-                <SevenSegmentDigit char={s.n} color={s.color} size={28} />
+                <SevenSegmentDigit char={s.n} color={s.color} size={40} />
               </div>
               <h3 className="led-mono text-sm font-bold uppercase tracking-wide mb-2">{t(s.titleKey)}</h3>
-              <p className="text-sm" style={{ color: "var(--led-text-dim)" }}>
+              <p className="font-sans text-sm" style={{ color: "var(--led-text-dim)" }}>
                 {t(s.bodyKey)}
               </p>
             </div>
@@ -275,12 +279,13 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* CTA — keeps led-cell (2 of 2 card-budget slots): the single most
-          important box on the page earns its containment. */}
-      <div className="scroll-reveal max-w-3xl mx-auto px-4 py-20 text-center">
+      {/* CTA — a faint background glow instead of blending flatly into
+          the page, and brand-consistent copy ("Ready to Show Up?") in
+          place of generic habit-app language. */}
+      <div className="scroll-reveal max-w-3xl mx-auto px-4 py-12 text-center cta-glow-wrap">
         <div className="led-cell p-10" style={{ borderColor: "rgba(245, 158, 11, 0.35)" }}>
           <h2 className="led-headline text-3xl font-bold mb-3">{t("landing.readyToBuild")}</h2>
-          <p className="led-mono text-sm mb-8" style={{ color: "var(--led-text-dim)" }}>
+          <p className="font-sans text-sm mb-8" style={{ color: "var(--led-text-dim)" }}>
             {t("landing.joinToday")}
           </p>
           <Link href="/signup" className="led-switch led-switch-primary">

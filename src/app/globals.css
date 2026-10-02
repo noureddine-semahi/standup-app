@@ -501,6 +501,49 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 170px;
 }
 
+/* Logged-out desktop nav group (About rotation + Sign In + Get Started) --
+   explicit user call: Sign In/Sign Up used to be the only two things left
+   in this row, so .nav-link's own flex:1 1 130px (tuned for a full-width
+   label sharing a row with several other grown chips) stretched them to
+   fill almost the entire header width, reading like form fields instead
+   of nav links. Kept together in one wrapper so they sit as a compact
+   group rather than space-between scattering them across the row. */
+.nav-auth-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+}
+
+.nav-link-compact {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 6px 12px;
+}
+
+/* Sign Up becomes the highlighted "Get Started" CTA -- an amber-outlined
+   pill matching the app's existing primary-accent language elsewhere
+   (same family as .btn-primary/.led-switch-primary), not just another
+   plain nav chip. */
+.nav-link-cta {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 6px 14px;
+  color: var(--accent-amber);
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.5);
+  font-weight: 700;
+}
+
+.nav-link-cta:hover {
+  background: rgba(245, 158, 11, 0.24);
+  border-color: rgba(245, 158, 11, 0.7);
+}
+
+.nav-link-cta::before {
+  display: none;
+}
+
 .nav-link::before {
   content: '';
   position: absolute;
@@ -997,21 +1040,16 @@ h1, h2, h3, h4, h5, h6 {
     display: none;
   }
 
-  .nav-mobile-trigger {
-    display: flex;
+  /* Logged-out visitor nav: About/Sign In/Get Started move into the
+     hamburger's .mobile-menu-panel instead of staying inline here --
+     explicit user call. Without this, 3 compact-but-not-shrinking links
+     plus the brand logo genuinely don't fit a phone-width row. */
+  .nav-auth-links {
+    display: none;
   }
 
-  /* Logged-out Sign In/Sign Up -- unlike the logged-in header's children,
-     these two never got a mobile-specific shrink, so .nav-link's
-     flex:1 1 130px/min-width:128px sizing (tuned for a full-width label
-     like "Plan Tomorrow") pushed them off the right edge of a phone
-     screen instead of fitting next to the brand. Shrinks to just
-     content width here instead of reserving that floor. */
-  .nav-link-auth {
-    flex: 0 0 auto;
-    min-width: 0;
-    padding: 6px 10px;
-    font-size: 0.78rem;
+  .nav-mobile-trigger {
+    display: flex;
   }
 
   .mobile-menu-panel {
@@ -1029,13 +1067,6 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     justify-content: flex-start;
     text-align: left;
-  }
-}
-
-@media (max-width: 360px) {
-  .nav-link-auth {
-    padding: 5px 8px;
-    font-size: 0.72rem;
   }
 }
 
@@ -2858,6 +2889,82 @@ select:focus {
 .led-cell:hover {
   border-color: rgba(var(--tint-rgb), 0.18);
   background: rgba(var(--tint-rgb), 0.045);
+}
+
+/* ✨ Landing page refinement pass — product-preview video frame, the Why
+   StandUp feature grid, How It Works' per-step color glow, and the CTA's
+   background glow. Explicit user call: subtle depth/hierarchy, not flashy. */
+
+/* Promo video gets a slight 3D tilt + soft amber glow so it reads as a
+   framed "product preview" window rather than a plain embedded video —
+   straightens out on hover/focus so it's comfortable to actually watch. */
+.product-preview-frame {
+  perspective: 1400px;
+}
+
+.product-preview-frame-inner {
+  transform: rotateX(3deg) rotateY(-5deg);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  box-shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.6), 0 0 40px -12px rgba(245, 158, 11, 0.25);
+}
+
+.product-preview-frame:hover .product-preview-frame-inner,
+.product-preview-frame-inner:focus-within {
+  transform: rotateX(0deg) rotateY(0deg);
+  box-shadow: 0 25px 60px -20px rgba(0, 0, 0, 0.6), 0 0 50px -10px rgba(245, 158, 11, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-preview-frame-inner {
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Why StandUp — subtle 2x3 panels (not heavy cards) replacing the old
+   divide-y text list, which read as repetitive six rows of plain text. */
+.feature-panel {
+  background: rgba(var(--tint-rgb), 0.03);
+  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  text-align: left;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-panel:hover {
+  background: rgba(var(--tint-rgb), 0.055);
+  border-color: rgba(var(--tint-rgb), 0.2);
+}
+
+/* How It Works — each step gets a quiet glow/border in its own step color
+   (set via --step-color inline) instead of sitting flat against the
+   background, plus a gentle hover lift. */
+.step-card {
+  border-color: color-mix(in srgb, var(--step-color) 35%, var(--led-border));
+  background: color-mix(in srgb, var(--step-color) 4%, var(--led-cell));
+  box-shadow: 0 0 22px -10px var(--step-color);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+.step-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.5), 0 0 28px -8px var(--step-color);
+}
+
+/* CTA — a faint radial glow behind the card instead of it blending flatly
+   into the page, dark amber/gold per explicit "not bright" direction. */
+.cta-glow-wrap {
+  position: relative;
+}
+
+.cta-glow-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -15% -10%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.14), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .card.card-static:hover::before {

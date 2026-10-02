@@ -446,7 +446,7 @@ export default function Header() {
       return (
         <Link
           href={INFO_ROTATION[pathname]?.href ?? "/about"}
-          className={INFO_PAGES.includes(pathname) ? "nav-link font-semibold" : "nav-link"}
+          className={INFO_PAGES.includes(pathname) ? "nav-link nav-link-compact font-semibold" : "nav-link nav-link-compact"}
         >
           {t(INFO_ROTATION[pathname]?.labelKey ?? "nav.about")}
         </Link>
@@ -474,21 +474,26 @@ export default function Header() {
   // authenticated case moved to navTabs() below.
   function authLinks() {
     if (loading || user || isAuthPage) return null;
+    // Compact now instead of each link stretching via .nav-link's own
+    // flex:1 1 130px (fine when they're sharing a row with other grown
+    // nav chips, but the only two things left in this row for a signed-
+    // out visitor, which made them stretch to fill almost the entire
+    // header) -- explicit user call. The info-page rotation (About/FAQ/
+    // Contact) moves inline here too instead of being reachable only via
+    // the "More" button, and Sign Up becomes the highlighted CTA.
     return (
-      <>
+      <div className="nav-auth-links">
+        {infoLinks(false)}
         <Link
           href="/login"
-          className={pathname === "/login" ? "nav-link nav-link-auth font-semibold" : "nav-link nav-link-auth"}
+          className={pathname === "/login" ? "nav-link nav-link-compact font-semibold" : "nav-link nav-link-compact"}
         >
           {t("nav.signIn")}
         </Link>
-        <Link
-          href="/signup"
-          className={pathname === "/signup" ? "nav-link nav-link-auth font-semibold" : "nav-link nav-link-auth"}
-        >
-          {t("nav.signUp")}
+        <Link href="/signup" className="nav-link nav-link-cta">
+          {t("landing.getStarted")}
         </Link>
-      </>
+      </div>
     );
   }
 
@@ -767,6 +772,22 @@ export default function Header() {
       {menuOpen && (
         <div className="mobile-menu-panel">
           {secondaryLinks(true)}
+          {/* Sign In/Get Started live inline in the desktop row (see
+              .nav-auth-links) but collapse in here on mobile instead --
+              explicit user call. */}
+          {!loading && !user && !isAuthPage && (
+            <>
+              <Link
+                href="/login"
+                className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}
+              >
+                {t("nav.signIn")}
+              </Link>
+              <Link href="/signup" className="nav-link nav-link-cta">
+                {t("landing.getStarted")}
+              </Link>
+            </>
+          )}
           {user && (
             <button
               type="button"

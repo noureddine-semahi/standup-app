@@ -60,7 +60,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2 } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -760,11 +760,20 @@ export default function TomorrowGoalsPage() {
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
+  // Mirrors persistGoals()'s own "anything to save?" check so the Save
+  // button's state always matches what a click on it would actually do --
+  // computed at render time (not a ref) so typing immediately flips it
+  // active instead of waiting for the debounced autosave to catch up.
+  const isDirty = computeHashForSave(compactForSave(goals)) !== lastSavedHashRef.current;
+
+  const totalGoalsFilled = normalized.filter((g) => (g.title ?? "").trim().length > 0).length;
+  const goalsProgressPercent = Math.min(100, Math.round((totalGoalsFilled / MAX_GOALS) * 100));
+
   return (
     <div
-      className="card card-highlight"
+      className="card card-highlight tomorrow-page-card"
     >
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">{t("tomorrow.title")}</h1>
             <p className="text-white/70 mb-2">
@@ -774,6 +783,20 @@ export default function TomorrowGoalsPage() {
               {t("tomorrow.currentPriorityGoals")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
               {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
             </p>
+
+            {/* Planning progress — moved up here from a plain text line at
+                the very bottom of the page, so it's visible alongside the
+                priority-goal summary without scrolling. */}
+            <div className="mt-3" style={{ maxWidth: "260px" }}>
+              <div className="flex items-center justify-between text-xs text-white/50 mb-1">
+                <span>{t("tomorrow.goalsProgressLabel", { count: totalGoalsFilled, max: MAX_GOALS })}</span>
+                <span>{goalsProgressPercent}%</span>
+              </div>
+              <div className="goal-progress-track">
+                <div className="goal-progress-fill" style={{ "--progress": goalsProgressPercent / 100 } as React.CSSProperties} />
+              </div>
+            </div>
+
             {coveredByPass && (
               <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-teal-400">
                 <Ticket size={13} /> {t("datePage.streakPassCoveredAdvance")}
@@ -781,15 +804,15 @@ export default function TomorrowGoalsPage() {
             )}
           </div>
 
-          <div className="flex flex-row items-center gap-3">
+          <div className="tomorrow-toolbar" style={{ maxWidth: "340px" }}>
             {!coveredByPass && (
               <button
-                className="btn inline-flex items-center gap-1.5"
+                className="btn tomorrow-toolbar-btn"
                 onClick={handleUseStreakPass}
                 disabled={usingPass || (passBalance?.available ?? 0) <= 0}
                 title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
               >
-                <Ticket size={14} />
+                <Ticket size={13} />
                 {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPassAdvance", { count: passBalance?.available ?? 0 })}
               </button>
             )}
@@ -797,7 +820,7 @@ export default function TomorrowGoalsPage() {
               <button
                 onClick={() => setEditMode(!editMode)}
                 disabled={submitting}
-                className="btn"
+                className="btn tomorrow-toolbar-btn"
                 style={{
                   background: editMode ? "rgba(245, 158, 11, 0.3)" : undefined,
                   borderColor: editMode ? "rgba(245, 158, 11, 0.6)" : undefined,
@@ -913,37 +936,66 @@ export default function TomorrowGoalsPage() {
                   <div className="goal-row-cols">
                     {/* Goal — static, ~45% */}
                     <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
-                      <textarea
-                        ref={(el) => {
-                          inputRefs.current[idx] = el;
-                          autoResizeTextarea(el);
-                        }}
-                        rows={1}
-                        value={g.title ?? ""}
-                        disabled={locked || submitting || isExclusive}
-                        onKeyDown={(e) => onGoalKeyDown(e, idx)}
-                        onBlur={() => {
-                          if (skipNextBlurAutosaveRef.current) {
-                            skipNextBlurAutosaveRef.current = false;
-                            return;
-                          }
-                          if (priorityChangeInProgressRef.current) {
-                            return;
-                          }
-                          scheduleAutoSave();
-                        }}
-                        onChange={(e) => {
-                          setGoals((prev) =>
-                            prev.map((x, i) =>
-                              i === idx ? { ...x, title: e.target.value } : x
-                            )
-                          );
-                          autoResizeTextarea(e.target);
-                        }}
-                        placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
-                        className="w-full bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
-                        style={{ overflow: "hidden", lineHeight: 1.3 }}
-                      />
+                      {/* Priority sits right beside the title now — it's
+                          important-enough information that a user
+                          shouldn't have to scan all the way down the card
+                          to find it (explicit user call). */}
+                      <div className="flex items-start gap-2">
+                        <textarea
+                          ref={(el) => {
+                            inputRefs.current[idx] = el;
+                            autoResizeTextarea(el);
+                          }}
+                          rows={1}
+                          value={g.title ?? ""}
+                          disabled={locked || submitting || isExclusive}
+                          onKeyDown={(e) => onGoalKeyDown(e, idx)}
+                          onBlur={() => {
+                            if (skipNextBlurAutosaveRef.current) {
+                              skipNextBlurAutosaveRef.current = false;
+                              return;
+                            }
+                            if (priorityChangeInProgressRef.current) {
+                              return;
+                            }
+                            scheduleAutoSave();
+                          }}
+                          onChange={(e) => {
+                            setGoals((prev) =>
+                              prev.map((x, i) =>
+                                i === idx ? { ...x, title: e.target.value } : x
+                              )
+                            );
+                            autoResizeTextarea(e.target);
+                          }}
+                          placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
+                          className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
+                          style={{ overflow: "hidden", lineHeight: 1.3 }}
+                        />
+                        <select
+                          value={p}
+                          disabled={locked || submitting || isExclusive}
+                          onChange={(e) => {
+                            priorityChangeInProgressRef.current = true;
+                            const v = Number(e.target.value);
+                            setGoals((prev) => applyPriorityChange(prev, idx, v));
+                          }}
+                          className="priority-select"
+                          style={{
+                            "--p-bg": opt.bg,
+                            "--p-border": opt.border,
+                            "--p-color": opt.color,
+                            flexShrink: 0,
+                            marginTop: "2px",
+                          } as React.CSSProperties}
+                        >
+                          {[1, 2, 3, 4, 5].map((v) => (
+                            <option key={v} value={v}>
+                              P{v}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
                       {/* Compact quick-add row — checklist, files, and an
                           optional link, right under the goal title. */}
@@ -1201,35 +1253,12 @@ export default function TomorrowGoalsPage() {
                       )}
                     </div>
 
-                    {/* Priority + Remove — grouped together instead of two separate cramped columns.
-                        The select always renders regardless of the current priority value —
-                        it previously hid itself for P4/P5, trapping the goal at that priority
-                        with no way to see or change it. */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <select
-                        value={p}
-                        disabled={locked || submitting || isExclusive}
-                        onChange={(e) => {
-                          priorityChangeInProgressRef.current = true;
-                          const v = Number(e.target.value);
-                          setGoals((prev) => applyPriorityChange(prev, idx, v));
-                        }}
-                        className="priority-select"
-                        style={{
-                          "--p-bg": opt.bg,
-                          "--p-border": opt.border,
-                          "--p-color": opt.color,
-                        } as React.CSSProperties}
-                      >
-                        {[1, 2, 3, 4, 5].map((v) => (
-                          <option key={v} value={v}>
-                            P{v}
-                          </option>
-                        ))}
-                      </select>
-
-
-                      {g.id && (
+                    {/* Comment/note toggle — the one remaining control in
+                        this column now that priority lives beside the
+                        title; a secondary icon action, not competing with
+                        priority/status for visual weight. */}
+                    {g.id && (
+                      <div className="flex items-center justify-end flex-shrink-0 w-full sm:w-auto">
                         <button
                           type="button"
                           onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id as string]: !prev[g.id as string] }))}
@@ -1237,10 +1266,10 @@ export default function TomorrowGoalsPage() {
                           data-open={!!showNoteInput[g.id]}
                           title={t("tomorrow.addNoteTitle")}
                         >
-                          <MessageCircle size={16} />
+                          <MessageCircle size={14} />
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                   </div>
                 </div>
@@ -1250,7 +1279,7 @@ export default function TomorrowGoalsPage() {
         </div>
 
         {!locked && (
-          <div className="mt-8 flex flex-wrap gap-4 items-center">
+          <div className="tomorrow-action-row mt-8 flex flex-wrap gap-4 items-center">
             <button
               className="btn hover-scale"
               onClick={addMoreGoal}
@@ -1265,36 +1294,36 @@ export default function TomorrowGoalsPage() {
             <button
               className="btn hover-scale"
               onClick={saveDraftOrChanges}
-              disabled={submitting}
+              disabled={submitting || !isDirty}
               title={t("tomorrow.manualSaveTitle")}
             >
-              {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
+              {submitting ? t("tomorrow.saving") : !isDirty ? t("tomorrow.savedCheck") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
             </button>
 
-            <button
-              className="btn btn-primary hover-scale"
-              onClick={onSubmitPlan}
-              disabled={!canSubmit || submitted}
-              title={
-                submitted
-                  ? ""
-                  : !submitEligible
-                  ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
-                  : priorityGoalsFilled < 3
-                  ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
-                  : ""
-              }
-            >
-              {submitting
-                ? t("tomorrow.submitting")
-                : submitted
-                ? t("tomorrow.plansSubmitted")
-                : t("tomorrow.submitPlan")}
-            </button>
-
-            <div className="text-sm text-white/60">
-              {t("tomorrow.goalsCountFooter", { count: goals.length, max: MAX_GOALS })}
-            </div>
+            {submitted ? (
+              <div className="plan-submitted-card">
+                <CheckCircle2 size={16} />
+                <div>
+                  <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
+                  <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="btn btn-primary hover-scale"
+                onClick={onSubmitPlan}
+                disabled={!canSubmit}
+                title={
+                  !submitEligible
+                    ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
+                    : priorityGoalsFilled < 3
+                    ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
+                    : ""
+                }
+              >
+                {submitting ? t("tomorrow.submitting") : t("tomorrow.submitPlan")}
+              </button>
+            )}
           </div>
         )}
 
@@ -1316,7 +1345,7 @@ export default function TomorrowGoalsPage() {
           </div>
         )}
 
-        <div className="mt-6 flex items-center gap-2 sm:gap-3">
+        <div className="tomorrow-bottom-nav-links mt-6 flex items-center gap-2 sm:gap-3">
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tools" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.tools")}</Link>
           <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>

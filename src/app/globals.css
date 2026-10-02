@@ -2619,3 +2619,124 @@ select:focus {
 .card.card-static:hover::before {
   opacity: 0;
 }
+
+/* ✨ Plan Tomorrow — mobile scanability pass. The "Cover this day in
+   advance (N left)" / "Reorder" pair was previously two bare .btn
+   elements left to size themselves naturally, so the long streak-pass
+   label wrapped to 2-3 lines while Reorder sat next to it as a tall,
+   narrow mismatch. This forces both into one equal-height, equal-width
+   row regardless of label length, still using .btn's own 3D/glass
+   surface underneath (only sizing/layout changes here). */
+.tomorrow-toolbar {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.tomorrow-toolbar-btn {
+  flex: 1 1 0;
+  min-height: 40px;
+  padding: 0.4rem 0.65rem !important;
+  font-size: 0.74rem !important;
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
+/* Planning progress — "N of MAX goals planned", moved up next to the
+   priority-goal summary so it's visible without scrolling to the
+   bottom of the page, where it previously only existed as plain text. */
+.goal-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.1);
+  overflow: hidden;
+}
+
+.goal-progress-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(to right, rgba(245, 158, 11, 0.55), rgba(245, 158, 11, 0.9));
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+
+/* Success state for a submitted plan — replaces what used to be a
+   disabled-looking primary button with weak, brownish text. A real
+   green glass status card instead, same family as .plan-submitted's
+   sibling status surfaces elsewhere (status-chip/goal-done-banner)
+   but hand-tuned for strong contrast against the dark surface rather
+   than reusing --status-completed (tuned for a small chip, too dim at
+   this size/weight). */
+.plan-submitted-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  background: linear-gradient(to bottom, rgba(16, 185, 129, 0.22), rgba(16, 185, 129, 0.08));
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+    0 0 14px -4px rgba(16, 185, 129, 0.4);
+}
+
+.plan-submitted-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #6ee7b7;
+  line-height: 1.3;
+}
+
+.plan-submitted-sub {
+  font-size: 0.72rem;
+  color: rgba(110, 231, 183, 0.8);
+}
+
+/* Mobile planning action bar. On a narrow viewport the bottom
+   Calendar/Tools/Dashboard quick-links are redundant (same
+   destinations already live in the main nav) and the real action a
+   user needs while editing tomorrow's plan — Add goal / Save / Submit
+   — was easy to lose track of above the fold. Pins that row to the
+   viewport bottom instead, same glass panel treatment as .app-header
+   (--panel-rgb/--chrome-alpha so it themes correctly), and hides the
+   now-redundant nav-links row. Desktop is completely untouched here —
+   both rows stay in normal flow above 640px. */
+@media (max-width: 640px) {
+  .tomorrow-page-card {
+    padding-bottom: 92px;
+  }
+
+  .tomorrow-action-row {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    margin: 0 !important;
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: rgba(var(--panel-rgb), var(--chrome-alpha));
+    backdrop-filter: blur(12px) saturate(180%);
+    border-top: 1px solid rgba(245, 158, 11, 0.2);
+    box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+    overflow-x: auto;
+  }
+
+  .tomorrow-action-row > * {
+    flex-shrink: 0;
+  }
+
+  .tomorrow-bottom-nav-links {
+    display: none;
+  }
+}

@@ -334,6 +334,7 @@ export const en = {
   "today.chooseAction": "Choose action",
   "today.addNoteTitle": "Add note",
   "today.inProgressAction": "In Progress",
+  "today.updateStatusLabel": "Update status",
   "today.rescheduledTo": "Rescheduled to {date}",
   "today.refresh": "Refresh",
   "today.movedToBacklog": "Moved to Backlog ✓",

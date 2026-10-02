@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
 import type { TimelineEntry } from "@/lib/goalTimeline";
@@ -16,6 +16,21 @@ export default function GoalTimeline({
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(defaultExpanded);
+
+  // Collapsed by default on narrow screens -- explicit user call, this
+  // history list was pushing the actual status controls further down
+  // the page than they needed to be on mobile. Done post-mount (not in
+  // the useState initializer) to avoid an SSR/client markup mismatch --
+  // the brief flash from expanded to collapsed on a phone is an
+  // accepted tradeoff for that. Only ever collapses automatically, never
+  // re-expands on resize, so it doesn't fight a user who already
+  // toggled it open.
+  useEffect(() => {
+    if (defaultExpanded && window.matchMedia("(max-width: 480px)").matches) {
+      setExpanded(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mt-3">

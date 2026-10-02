@@ -903,6 +903,20 @@ h1, h2, h3, h4, h5, h6 {
   .goal-row-cols {
     gap: 0.6rem;
   }
+  /* The collapsed-done stamp (.goal-done-banner) is absolutely positioned
+     over the row rather than reserving its own flex space, so at this
+     width its full desktop size was overlapping the goal title next to
+     it -- explicit user-reported bug. Shrunk here (keeping the same
+     tilted-stamp look, just smaller), and the title gets matching
+     reserved padding so text never renders underneath it. */
+  .goal-done-banner {
+    padding: 0.25rem 0.65rem;
+    font-size: 0.68rem;
+    right: 0.6rem;
+  }
+  .goal-done-title {
+    padding-right: 72px;
+  }
 }
 
 /* Dashboard's 6 stat tiles stay 2-per-row all the way up to the lg: grid
@@ -1002,12 +1016,21 @@ h1, h2, h3, h4, h5, h6 {
 /* Pressed: drops below rest (not just back to 0), shadow shrinks, and
    an inset shadow replaces the raised highlight -- reads as physically
    pushed in rather than merely "not hovering anymore." */
+/* Pressed: ~2px down, fast (120ms) so it reads as physical rather than
+   an animated transition, shadow shrinks, bevel darkens, sheen
+   compresses via the ::before scale right below. */
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(2px);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   box-shadow:
-    inset 0 1px 3px 0 rgba(0, 0, 0, 0.35),
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.4),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.04),
     0 1px 2px -1px rgba(0, 0, 0, 0.3);
+}
+
+.btn:active::before {
+  transform: scaleY(0.8);
+  transform-origin: top;
 }
 
 /* Flat/dim, almost no glow or shadow -- explicit "clearly unavailable"
@@ -1094,11 +1117,17 @@ select.btn {
 }
 
 .btn-primary:active {
-  transform: translateY(1px);
+  transform: translateY(2px);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
   box-shadow:
-    inset 0 1px 3px 0 rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.45),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
     0 1px 3px -1px rgba(0, 0, 0, 0.35);
+}
+
+.btn-primary:active::before {
+  transform: scaleY(0.8);
+  transform-origin: top;
 }
 
 /* ✨ Cards with Glow Effect — a glass panel using --panel-rgb/--panel-alpha*,
@@ -1455,6 +1484,11 @@ select.btn {
      glow were strengthened/widened further in a later refinement pass;
      overflow-y:hidden above would otherwise clip them. */
   padding: 0 18px 20px;
+  /* Very subtle fade at the left/right edges -- explicit user call, a
+     visual cue that more tabs sit off-screen on a horizontal scroll
+     rather than the row just stopping abruptly. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
 }
 .folder-tabbar-hanging::-webkit-scrollbar {
   display: none;
@@ -1484,16 +1518,16 @@ select.btn {
   /* Recessed, closer to the red divider line above -- explicit user
      call, sits opposite the active tab's pulled-down position below. */
   transform: translateY(-1px);
-  /* Faint illuminated outline + minimal bevel (a thin inner top
-     highlight, thin inner bottom shade) + a small grounded shadow --
-     all clearly weaker than the active tab's versions below. Outline/
-     glow brightened slightly (38%->46%) per explicit refinement call
-     to read a bit more visibly while staying clearly recessed. */
+  /* Colored outline + minimal bevel (a thin inner top highlight, thin
+     inner bottom shade) + a small grounded shadow, same as before --
+     but the glow itself cut way down (was 0 0 8px 1px @46%) so the
+     active tab's own glow reads as the one clearly lit control instead
+     of every tab glowing roughly the same amount. */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
     0 3px 5px -3px rgba(0, 0, 0, 0.3),
-    0 0 8px 1px color-mix(in srgb, var(--tab-color) 46%, transparent);
+    0 0 3px 0px color-mix(in srgb, var(--tab-color) 26%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -1509,7 +1543,7 @@ select.btn {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
     0 4px 6px -3px rgba(0, 0, 0, 0.35),
-    0 0 13px 2px color-mix(in srgb, var(--tab-color) 58%, transparent);
+    0 0 6px 0px color-mix(in srgb, var(--tab-color) 34%, transparent);
 }
 
 .folder-tab-hanging-active {
@@ -2074,11 +2108,11 @@ select:focus {
 .priority-select {
   appearance: none;
   -webkit-appearance: none;
-  width: 44px;
-  height: 32px;
-  border-radius: 8px;
+  width: 34px;
+  height: 26px;
+  border-radius: 7px;
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   text-align: center;
   text-align-last: center;
   cursor: pointer;
@@ -2199,7 +2233,6 @@ select:focus {
 .status-chip::before,
 .status-chip-sm::before,
 .priority-chip-sm::before,
-.actions-toggle::before,
 .action-btn::before,
 .goal-done-banner::before,
 .btn::before {
@@ -2207,6 +2240,11 @@ select:focus {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* Fast, physical-feeling transform transition for the pressed-state
+     "compress the sheen" effect on interactive controls (see each
+     :active::before rule) -- slower background-change transitions
+     stay on the base .status-chip/.btn/etc. rules themselves. */
+  transition: transform 0.12s ease;
   background:
     linear-gradient(to bottom, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0.95) 1px, transparent 1px),
     radial-gradient(circle 16% at 16% 12%, rgb(255 255 255 / var(--glass-glint-peak)) 0%, rgb(255 255 255 / calc(var(--glass-glint-peak) * 0.4)) 45%, transparent 85%),
@@ -2215,7 +2253,6 @@ select:focus {
 
 /* Hover: the interactive ones from that set (status chips/stamps are
    display-only, no hover) get a brighter reflection to match. */
-.actions-toggle:hover::before,
 .action-btn:hover::before,
 .btn:hover::before {
   background:
@@ -2336,39 +2373,35 @@ select:focus {
     0 1px 4px -2px rgba(0, 0, 0, 0.3);
 }
 
-/* ✨ Actions gear toggle — same footprint/type scale as .priority-select, so the
-   two controls read as a matched pair instead of mismatched button styles. */
+/* ✨ Actions/note icon toggles — secondary controls (per the app's sheen
+   hierarchy: status is the prominent control on this row, these are just
+   icon shortcuts beside it), so they're a size down from .priority-select/
+   .status-chip and skip the glass-sheen ::before entirely -- a flat-ish
+   bevel/shadow only, no reflection layer. */
 .actions-toggle {
   appearance: none;
   -webkit-appearance: none;
-  width: 44px;
-  height: 32px;
-  border-radius: 8px;
-  font-size: 1.1rem;
+  width: 34px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 1rem;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(var(--tint-rgb), 0.15);
-  background: rgba(var(--tint-rgb), 0.06);
-  color: rgba(var(--tint-rgb), 0.85);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2),
-    0 2px 5px -3px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid rgba(var(--tint-rgb), 0.13);
+  background: rgba(var(--tint-rgb), 0.05);
+  color: rgba(var(--tint-rgb), 0.7);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 0 rgba(0, 0, 0, 0.15);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 
 .actions-toggle:hover {
-  transform: scale(1.06);
-  border-color: rgba(var(--tint-rgb), 0.4);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
-    0 3px 7px -3px rgba(0, 0, 0, 0.35);
+  border-color: rgba(var(--tint-rgb), 0.35);
+  color: rgba(var(--tint-rgb), 0.95);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 0 rgba(0, 0, 0, 0.18);
 }
 
 .actions-toggle[data-open="true"] {
@@ -2424,10 +2457,16 @@ select:focus {
 }
 
 .action-btn:active {
-  transform: translateX(2px) translateY(1px);
+  transform: translateX(2px) translateY(2px);
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
   box-shadow:
-    inset 0 1px 3px 0 rgba(0, 0, 0, 0.3),
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.35),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.action-btn:active::before {
+  transform: scaleY(0.8);
+  transform-origin: top;
 }
 
 .action-btn:disabled {
@@ -2435,6 +2474,19 @@ select:focus {
   opacity: 0.6;
   transform: none;
   box-shadow: none;
+}
+
+/* Marks the goal's current status among the 5 action choices -- a
+   quiet outer glow + brighter border so it reads as "this is the
+   value" without dimming the other four, which stay at their normal
+   glassy baseline. */
+.action-btn[data-current="true"] {
+  border-color: var(--btn-color, rgba(var(--tint-rgb), 0.5));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
+    0 2px 5px -3px rgba(0, 0, 0, 0.3),
+    0 0 9px -1px var(--btn-color, transparent);
 }
 
 /* ✨ Compact goal row — same corner-tag/full-border-color treatment as the

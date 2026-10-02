@@ -1602,7 +1602,7 @@ export default function TodayPage() {
                     >
                       {idx + 1}
                     </div>
-                    <div className="flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
+                    <div className="goal-done-title flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
                       {g.title}
                     </div>
                   </div>
@@ -1913,7 +1913,7 @@ export default function TodayPage() {
                           data-open={!!showActions[g.id]}
                           title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
                         >
-                          {reviewed ? <SquareCheck size={16} /> : <Square size={16} />}
+                          {reviewed ? <SquareCheck size={14} /> : <Square size={14} />}
                         </button>
                       )}
 
@@ -1927,7 +1927,7 @@ export default function TodayPage() {
                         data-open={!!showNoteInput[g.id]}
                         title={t("today.addNoteTitle")}
                       >
-                        <MessageCircle size={16} />
+                        <MessageCircle size={14} />
                       </button>
                     </div>
 
@@ -1936,11 +1936,15 @@ export default function TodayPage() {
                         one click (see selectQuickAction). */}
                     {!dayClosed && !isExclusive && showActions[g.id] && (
                       <div className="flex flex-col gap-2" style={{ minWidth: "180px" }}>
+                        <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
+                          {t("today.updateStatusLabel")}
+                        </div>
                         <button
                           type="button"
                           onClick={() => selectQuickAction(g, "completed")}
                           disabled={locked || isBusy}
                           className="action-btn"
+                          data-current={g.status === "completed"}
                           style={{
                             "--btn-bg": g.status === "completed" ? "var(--status-completed-bg-active)" : "var(--status-completed-bg)",
                             "--btn-border": g.status === "completed" ? "var(--status-completed-border-active)" : "var(--status-completed-border)",
@@ -1956,6 +1960,7 @@ export default function TodayPage() {
                           onClick={() => selectQuickAction(g, "in_progress")}
                           disabled={locked || isBusy}
                           className="action-btn"
+                          data-current={g.status === "in_progress"}
                           style={{
                             "--btn-bg": g.status === "in_progress" ? "var(--status-in-progress-bg-active)" : "var(--status-in-progress-bg)",
                             "--btn-border": g.status === "in_progress" ? "var(--status-in-progress-border-active)" : "var(--status-in-progress-border)",
@@ -1971,6 +1976,7 @@ export default function TodayPage() {
                           onClick={() => selectQuickAction(g, "blocked")}
                           disabled={locked || isBusy}
                           className="action-btn"
+                          data-current={g.status === "blocked"}
                           style={{
                             "--btn-bg": g.status === "blocked" ? "var(--status-blocked-bg-active)" : "var(--status-blocked-bg)",
                             "--btn-border": g.status === "blocked" ? "var(--status-blocked-border-active)" : "var(--status-blocked-border)",
@@ -1986,6 +1992,7 @@ export default function TodayPage() {
                           onClick={() => selectQuickAction(g, "canceled")}
                           disabled={locked || isBusy}
                           className="action-btn"
+                          data-current={g.status === "canceled"}
                           style={{
                             "--btn-bg": g.status === "canceled" ? "var(--status-canceled-bg-active)" : "var(--status-canceled-bg)",
                             "--btn-border": g.status === "canceled" ? "var(--status-canceled-border-active)" : "var(--status-canceled-border)",
@@ -2001,6 +2008,7 @@ export default function TodayPage() {
                           onClick={() => selectQuickAction(g, "reschedule")}
                           disabled={locked || isBusy}
                           className="action-btn"
+                          data-current={!!g.rescheduled_to}
                           style={{
                             "--btn-bg": g.rescheduled_to ? "var(--status-postponed-bg-active)" : "var(--status-postponed-bg)",
                             "--btn-border": g.rescheduled_to ? "var(--status-postponed-border-active)" : "var(--status-postponed-border)",

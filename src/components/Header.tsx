@@ -285,6 +285,16 @@ export default function Header() {
     setBellOpen(false);
   }, [pathname]);
 
+  // Keeps the newly-active hanging tab centered in the scrollable nav
+  // strip whenever the route changes -- explicit user call, otherwise
+  // navigating to a tab near either end can leave it partially (or
+  // fully) off-screen on narrow viewports with nothing prompting the
+  // user to scroll there themselves.
+  useEffect(() => {
+    const active = document.querySelector(".folder-tab-hanging-active");
+    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [pathname]);
+
   type NotificationEntry = {
     id: string;
     label: string;

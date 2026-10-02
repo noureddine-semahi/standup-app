@@ -560,11 +560,40 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Mobile (<=760px, where the hamburger trigger already takes over) keeps
-   the existing compact, non-overlapping .brand-logo treatment untouched
-   -- explicit user call: usability over effect once space is this tight.
-   .folder-tabbar-hanging's own padding is untouched here too, since the
-   logo never grows at this width. */
+/* Mobile (<=760px, where the hamburger trigger already takes over) --
+   user asked for the enlarged logo here too (reversing the earlier "keep
+   it compact, usability over effect" call). Scaled down further than
+   tablet since the width budget is tighter and the hamburger/bell/avatar
+   cluster sits on the same row to the right. */
+@media (max-width: 760px) {
+  .brand-oversized {
+    position: relative;
+    width: 118px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+
+  .brand-oversized .brand-logo {
+    position: absolute;
+    left: 0;
+    top: 18px;
+    height: 40px;
+    width: auto;
+    z-index: 2;
+  }
+
+  .brand-oversized::before {
+    content: "";
+    position: absolute;
+    left: -6px;
+    right: -6px;
+    bottom: -3px;
+    height: 16px;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.13), transparent 72%);
+    z-index: 1;
+    pointer-events: none;
+  }
+}
 
 /* ✨ Navigation */
 .nav-link {
@@ -1892,13 +1921,13 @@ select.btn {
    the base rule again. */
 @media (min-width: 1025px) {
   .folder-tabbar-hanging {
-    padding-left: 220px;
+    padding-left: 214px;
   }
 }
 
 @media (min-width: 761px) and (max-width: 1024px) {
   .folder-tabbar-hanging {
-    padding-left: 166px;
+    padding-left: 162px;
   }
 }
 
@@ -2079,6 +2108,34 @@ select.btn {
     max-width: 120px;
     margin-left: 0.35rem;
     opacity: 1;
+  }
+}
+
+/* Info-tab collapse widened to a laptop-friendly threshold, independent
+   of the icon-only 640px rule above. At typical laptop widths (roughly
+   1025-1450px) all 9 tabs' full labels don't fit once the oversized-
+   logo's clearance (.folder-tabbar-hanging's padding-left) is accounted
+   for -- collapsing About/FAQ/Contact into the one combined tab (already
+   built for mobile, just reused at a wider breakpoint here) frees enough
+   width that the last tab (Contact) stops getting clipped at the window
+   edge, without forcing icon-only mode on every tab the way 640px does. */
+@media (max-width: 1450px) {
+  .folder-tab-hanging-info-individual {
+    display: none;
+  }
+  .folder-tab-hanging-info-combined {
+    display: inline-flex;
+  }
+}
+
+/* Mobile (<=760px) clearance for the new mobile tier of .brand-oversized
+   above (logo's measured right edge ~129.5px at that size). Declared
+   after the 640px block's own padding shorthand above so this longhand
+   override actually wins for widths in that sub-range too -- same
+   cascade-order lesson as the desktop/tablet overrides. */
+@media (max-width: 760px) {
+  .folder-tabbar-hanging {
+    padding-left: 138px;
   }
 }
 

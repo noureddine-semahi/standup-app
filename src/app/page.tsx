@@ -55,17 +55,21 @@ const FEATURES: { color: string; titleKey: TranslationKey; bodyKey: TranslationK
   },
 ];
 
+// Evening-first, close-the-loop order -- Review Today closes out the day
+// and is what actually unlocks Plan Tomorrow, not the other way around.
+// Explicit user call: this reordering matches the product's real workflow
+// and what the landing page's own promo video demonstrates.
 const STEPS: { n: string; color: string; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
   {
     n: "1",
     color: "var(--led-amber)",
-    titleKey: "nav.planTomorrow",
+    titleKey: "nav.reviewToday",
     bodyKey: "landing.step1Body",
   },
   {
     n: "2",
     color: "var(--led-green)",
-    titleKey: "nav.reviewToday",
+    titleKey: "nav.planTomorrow",
     bodyKey: "landing.step2Body",
   },
   {
@@ -178,7 +182,8 @@ export default function LandingPage() {
         </div>
 
         <h1 className="led-headline text-3xl sm:text-5xl font-bold mb-5 leading-tight">
-          {t("landing.headline")}
+          <span className="block">{t("landing.headlineLine1")}</span>
+          <span className="block">{t("landing.headlineLine2")}</span>
         </h1>
 
         <p className="led-mono text-sm sm:text-base mb-10 max-w-2xl mx-auto" style={{ color: "var(--led-text-dim)" }}>

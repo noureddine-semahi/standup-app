@@ -581,7 +581,13 @@ h1, h2, h3, h4, h5, h6 {
   .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
-    top: 5px;
+    /* Pulled up from 5px -- explicit user call after seeing it live on
+       a real device: at 62px tall the previous offset sank the logo
+       low enough to crowd the active tab's own raised/glowing box
+       right below it, not just the thin red line. Shifted up 10px
+       (overlap past the divider drops from ~16px to ~6px) while
+       keeping the same 62px height. */
+    top: -5px;
     height: 62px;
     width: auto;
     /* Highest layer in the header -- above .app-header-inner's red

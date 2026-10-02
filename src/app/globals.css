@@ -368,6 +368,16 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+  /* Same overflow-shorthand axis-homogenization trap as html/body (see
+     that rule's own comment) -- overflow-x:hidden alone forces overflow-y
+     to compute as auto, turning this wrapper into a THIRD nested scroll
+     container whenever its content overflows its own box by even a few
+     px (confirmed on the landing page: the CTA glow's negative-inset
+     ::before bleeds a little past the last section's bottom edge).
+     .app-shell was never meant to scroll on its own -- the page scrolls
+     at the document level -- so both axes explicitly non-scrolling
+     avoids the trap instead of triggering it. */
+  overflow-y: hidden;
 }
 
 .app-bg {

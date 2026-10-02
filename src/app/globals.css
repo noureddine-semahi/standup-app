@@ -1892,13 +1892,13 @@ select.btn {
    the base rule again. */
 @media (min-width: 1025px) {
   .folder-tabbar-hanging {
-    padding-left: 236px;
+    padding-left: 220px;
   }
 }
 
 @media (min-width: 761px) and (max-width: 1024px) {
   .folder-tabbar-hanging {
-    padding-left: 180px;
+    padding-left: 166px;
   }
 }
 

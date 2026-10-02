@@ -444,6 +444,9 @@ h1, h2, h3, h4, h5, h6 {
      of the whole fixed header including the tab row). */
   border-bottom: 3px solid rgba(220, 38, 38, 0.85);
   box-shadow: 0 2px 10px -1px rgba(220, 38, 38, 0.4);
+  /* Anchors .brand-landing's absolute-positioned logo below (landing
+     page only) without affecting any other page's header. */
+  position: relative;
 }
 
 .brand {
@@ -486,6 +489,82 @@ h1, h2, h3, h4, h5, h6 {
     height: 28px;
   }
 }
+
+/* ✨ Landing-page-only oversized logo, breaking through the header's red
+   divider line — explicit user call, scoped to .brand-landing (pathname
+   === "/" only, see Header.tsx) so the rest of the app's header is
+   completely untouched. The wrapper keeps a normal, modestly-sized flex
+   footprint (so nav positioning next to it is unaffected and the header
+   row itself never grows taller); the actual logo image inside is
+   absolutely positioned and free to render taller than its own wrapper,
+   extending past .app-header-inner's bottom border without disturbing
+   anything else's layout. */
+@media (min-width: 1025px) {
+  .brand-landing {
+    position: relative;
+    width: 210px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+
+  .brand-landing .brand-logo {
+    position: absolute;
+    left: 0;
+    top: -4px;
+    height: 68px;
+    width: auto;
+    z-index: 2;
+  }
+
+  /* Very subtle warm glow right where the logo crosses the red line --
+     explicit "not excessively neon" direction. */
+  .brand-landing::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    right: -12px;
+    bottom: -6px;
+    height: 26px;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.16), transparent 72%);
+    z-index: 1;
+    pointer-events: none;
+  }
+}
+
+/* Tablet — moderately scaled down, overlap preserved but smaller. */
+@media (min-width: 761px) and (max-width: 1024px) {
+  .brand-landing {
+    position: relative;
+    width: 155px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+
+  .brand-landing .brand-logo {
+    position: absolute;
+    left: 0;
+    top: 9px;
+    height: 50px;
+    width: auto;
+    z-index: 2;
+  }
+
+  .brand-landing::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    bottom: -4px;
+    height: 20px;
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.14), transparent 72%);
+    z-index: 1;
+    pointer-events: none;
+  }
+}
+
+/* Mobile (<=760px, where the hamburger trigger already takes over) keeps
+   the existing compact, non-overlapping .brand-logo treatment untouched
+   -- explicit user call: usability over effect once space is this tight. */
 
 /* ✨ Navigation */
 .nav-link {

@@ -2976,6 +2976,29 @@ select:focus {
   .goal-toolbar-label {
     display: none;
   }
+
+  /* Pushes "Assign" back onto the same row as the other 4 pills instead
+     of wrapping to its own line -- explicit user call, tighten
+     everything in this row rather than let one control force a wrap.
+     The native <select>'s own rendered text (its chosen/placeholder
+     <option>) can't be hidden the way the icon+label buttons' text can,
+     so it's the main thing actually forcing the wrap; constraining its
+     width + ellipsizing is what actually fixes it, the smaller
+     padding/gap on the rest just buys a bit more room besides. */
+  .goal-toolbar {
+    gap: 0.3rem;
+  }
+
+  .goal-toolbar-btn {
+    padding: 0.25rem 0.4rem !important;
+    min-height: 28px;
+  }
+
+  select.goal-toolbar-btn {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* Mobile planning action bar. On a narrow viewport the bottom

@@ -104,6 +104,13 @@ a {
   --app-bg-wash-1: rgba(245, 158, 11, 0.08);
   --app-bg-wash-2: rgba(16, 185, 129, 0.06);
   --app-bg-gradient: linear-gradient(180deg, #05060a 0%, #0a0e1a 45%, #05060a 100%);
+
+  /* Glass/mirror reflection overlay intensity -- explicit user-given
+     ranges, dark theme (default). See .glass-sheen's own rule for how
+     these combine into the actual gradient. */
+  --glass-sheen-peak: 0.42;
+  --glass-sheen-mid: 0.2;
+  --glass-glint-peak: 0.9;
 }
 
 [data-theme="light"] {
@@ -114,6 +121,13 @@ a {
   --panel-alpha-hover: 0.85;
   --chrome-alpha: 0.82;
   --chrome-alpha-hover: 0.9;
+
+  /* Glass/mirror reflection -- dialed down a step from dark theme
+     (explicit "30-35% light / 35-45% dark" ranges), since a white
+     overlay already reads brighter against light-theme surfaces. */
+  --glass-sheen-peak: 0.32;
+  --glass-sheen-mid: 0.14;
+  --glass-glint-peak: 0.75;
 
   /* Same hues, dialed several shades darker/more saturated for contrast
      against a light canvas instead of a near-black one. */
@@ -929,18 +943,12 @@ h1, h2, h3, h4, h5, h6 {
    shadow underneath so it reads as slightly raised off the page. */
 .btn {
   border: 1px solid rgba(var(--tint-rgb), 0.22);
-  /* Soft diagonal glass reflection -- a small bright glint near the
-     top-left corner plus a larger, heavily-feathered ellipse anchored
-     top-center-left, fading smoothly toward the right/bottom with no
-     hard edge, stacked as plain background layers (not a pseudo-
-     element) so this also renders correctly on the handful of .btn
-     usages that are actually a native <select>, e.g. "Assign to..."
-     on Today -- ::before/::after never render on replaced form
-     controls, a background layer always does. */
-  background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.28) 25%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.03) 62%, transparent 75%),
-    linear-gradient(to bottom, rgba(var(--tint-rgb), 0.1), rgba(var(--tint-rgb), 0.04));
+  /* Plain colored surface -- the reflection is a dedicated ::before
+     overlay now (see the shared rule further down), not baked into
+     this background. select.btn overrides this with an equivalent
+     background-layered version, since ::before never renders on a
+     native <select>. */
+  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.1), rgba(var(--tint-rgb), 0.04));
   color: rgba(var(--tint-rgb), 0.92);
   padding: 9px 14px;
   border-radius: 6px;
@@ -956,7 +964,13 @@ h1, h2, h3, h4, h5, h6 {
     0 2px 5px -2px rgba(0, 0, 0, 0.35);
 }
 
-.btn::before {
+/* Ripple lives on ::after now (was ::before) -- ::before is reserved
+   for the reflection overlay below, shared with every other 3D
+   button/status control. Paint order shifts slightly as a result (the
+   ripple now paints above the button's text instead of below it,
+   during its brief 0.6s animation) -- a minor, low-opacity, transient
+   effect, not worth a bigger restructure to avoid. */
+.btn::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -969,17 +983,14 @@ h1, h2, h3, h4, h5, h6 {
   transition: transform 0.6s ease;
 }
 
-.btn:hover::before {
+.btn:hover::after {
   transform: translate(-50%, -50%) scale(1);
 }
 
 /* Hover: rises ~1.5px, glow/shadow both strengthen a step, reflection
    brightens slightly too. */
 .btn:hover {
-  background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.48) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.34) 25%, rgba(255, 255, 255, 0.13) 45%, rgba(255, 255, 255, 0.04) 62%, transparent 75%),
-    linear-gradient(to bottom, rgba(var(--tint-rgb), 0.16), rgba(var(--tint-rgb), 0.07));
+  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.16), rgba(var(--tint-rgb), 0.07));
   border-color: rgba(var(--tint-rgb), 0.35);
   transform: translateY(-1.5px);
   box-shadow:
@@ -1019,14 +1030,9 @@ h1, h2, h3, h4, h5, h6 {
    whatever accent color the button already has rather than hardcoding
    one, including its own glass reflection band. */
 .btn-selected {
-  /* Since .btn is always composed alongside this, and .btn's own
-     reflection now lives directly in its `background` (not a pseudo-
-     element), this needs to repeat the same glass layers here to not
-     lose them under its own colored tint. */
-  background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.28) 25%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.03) 62%, transparent 75%),
-    linear-gradient(to bottom, color-mix(in srgb, currentColor 22%, transparent), color-mix(in srgb, currentColor 10%, transparent));
+  /* The reflection comes from .btn's own ::before (always composed
+     alongside this) -- just the colored tint underneath it. */
+  background: linear-gradient(to bottom, color-mix(in srgb, currentColor 22%, transparent), color-mix(in srgb, currentColor 10%, transparent));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
@@ -1043,16 +1049,26 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(var(--tint-rgb), 0.08);
 }
 
+/* The handful of .btn usages that are actually a native <select> (e.g.
+   Today's "Assign to..." picker) can't render the ::before reflection
+   overlay every other .btn gets -- ::before/::after are never painted
+   on replaced form controls, in any browser. Falls back to an
+   equivalent background-layered version instead, same visual recipe. */
+select.btn {
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0.95) 1px, transparent 1px),
+    radial-gradient(circle 16% at 16% 12%, rgb(255 255 255 / var(--glass-glint-peak)) 0%, rgb(255 255 255 / calc(var(--glass-glint-peak) * 0.4)) 45%, transparent 85%),
+    radial-gradient(105% 70% at 28% 0%, rgb(255 255 255 / var(--glass-sheen-peak)) 0%, rgb(255 255 255 / var(--glass-sheen-mid)) 20%, rgb(255 255 255 / calc(var(--glass-sheen-mid) * 0.25)) 34%, transparent 48%),
+    linear-gradient(to bottom, rgba(var(--tint-rgb), 0.1), rgba(var(--tint-rgb), 0.04));
+}
+
 /* Same depth treatment as .btn, amber-tinted -- the primary action
    still reads as a switch that's on (matching the landing page's
    .led-switch-primary), just with real dimension now instead of a
    flat lit cell. */
 .btn-primary {
   border: 1px solid rgba(245, 158, 11, 0.5);
-  background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.28) 25%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.03) 62%, transparent 75%),
-    linear-gradient(to bottom, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
+  background: linear-gradient(to bottom, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
   color: var(--accent-amber);
   font-weight: 700;
   box-shadow:
@@ -1067,10 +1083,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary:hover {
-  background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.48) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.34) 25%, rgba(255, 255, 255, 0.13) 45%, rgba(255, 255, 255, 0.04) 62%, transparent 75%),
-    linear-gradient(to bottom, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.12));
+  background: linear-gradient(to bottom, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.12));
   border-color: rgba(245, 158, 11, 0.75);
   transform: translateY(-1.5px);
   box-shadow:
@@ -2166,28 +2179,49 @@ select:focus {
    content paint order), so the label stays fully legible instead of
    getting washed out. One shared rule rather than restyling each
    control individually. */
+/* A dedicated reflection OVERLAY, not a background gradient -- explicit
+   user call. Sits on its own ::before layer, painted on TOP of each
+   control's existing colored background/bevel/border/shadow (all of
+   which are untouched), never replacing or lightening it. Composed of:
+   a thin 1px bright specular line right at the top edge, a small glint
+   near the upper-left, and a diagonal sweep anchored top-left/top-
+   center that fades to fully transparent by ~48% down (before the
+   middle). Intensity is theme-aware via --glass-sheen-peak/-mid/
+   --glass-glint-peak (dark theme: 35-45% white peak; light theme:
+   30-35% -- set in :root/[data-theme="light"]), so this one rule
+   covers both themes without duplicating it per-theme. .btn/.btn-
+   primary share this too (their pre-existing ripple effect already
+   lives on ::after, not ::before, so there's no conflict); the native
+   <select>-based .btn usages (e.g. Today's "Assign to...") get a
+   background-layered equivalent instead, see select.btn below --
+   ::before/::after never render on replaced form controls, no way
+   around that. */
 .status-chip::before,
 .status-chip-sm::before,
 .priority-chip-sm::before,
 .actions-toggle::before,
 .action-btn::before,
-.goal-done-banner::before {
+.goal-done-banner::before,
+.btn::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.28) 25%, rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.03) 62%, transparent 75%);
+    linear-gradient(to bottom, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0.95) 1px, transparent 1px),
+    radial-gradient(circle 16% at 16% 12%, rgb(255 255 255 / var(--glass-glint-peak)) 0%, rgb(255 255 255 / calc(var(--glass-glint-peak) * 0.4)) 45%, transparent 85%),
+    radial-gradient(105% 70% at 28% 0%, rgb(255 255 255 / var(--glass-sheen-peak)) 0%, rgb(255 255 255 / var(--glass-sheen-mid)) 20%, rgb(255 255 255 / calc(var(--glass-sheen-mid) * 0.25)) 34%, transparent 48%);
 }
 
-/* Hover: the two interactive ones from that set (status chips/stamps are
+/* Hover: the interactive ones from that set (status chips/stamps are
    display-only, no hover) get a brighter reflection to match. */
 .actions-toggle:hover::before,
-.action-btn:hover::before {
+.action-btn:hover::before,
+.btn:hover::before {
   background:
-    radial-gradient(circle 14% at 20% 14%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.48) 50%, transparent 100%),
-    radial-gradient(120% 55% at 32% 0%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.34) 25%, rgba(255, 255, 255, 0.13) 45%, rgba(255, 255, 255, 0.04) 62%, transparent 75%);
+    linear-gradient(to bottom, rgb(255 255 255 / 1) 0, rgb(255 255 255 / 1) 1px, transparent 1px),
+    radial-gradient(circle 16% at 16% 12%, rgb(255 255 255 / 1) 0%, rgb(255 255 255 / calc(var(--glass-glint-peak) * 0.5)) 45%, transparent 85%),
+    radial-gradient(105% 70% at 28% 0%, rgb(255 255 255 / calc(var(--glass-sheen-peak) + 0.1)) 0%, rgb(255 255 255 / calc(var(--glass-sheen-mid) + 0.08)) 20%, rgb(255 255 255 / calc(var(--glass-sheen-mid) * 0.3)) 34%, transparent 48%);
 }
 
 /* ✨ Corner number tag for dense dashboard preview rows — same idea as the

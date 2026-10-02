@@ -608,6 +608,109 @@ h1, h2, h3, h4, h5, h6 {
   color: rgb(252, 211, 77);
 }
 
+/* ✨ Header utility cluster (bell / More / profile pill) upgraded to the
+   same glass-3D treatment as Today's status buttons (.action-btn) --
+   explicit user call. Reuses that exact confirmed-working mechanism: a
+   plain hardcoded-rgba ::before reflection, not the shared var()/calc()-
+   in-rgb() rule used elsewhere (still suspect, see
+   [[standup-app-glass-mirror-ui-shipped]] in memory). Bell/More get the
+   reflection directly since neither has a pre-existing ::before; the
+   profile pill (.nav-link.nav-profile) is scoped so the rest of
+   .nav-link's many other consumers (page nav chips, mobile dropdown
+   links) are untouched. */
+.nav-bell-btn,
+.nav-more-btn {
+  /* .nav-bell-btn already has position:relative of its own; .nav-more-btn
+     shares its layout rule with .hamburger-btn above, which doesn't set
+     it -- needed here so the ::before reflection below positions against
+     this button, not whatever ancestor happens to be positioned. */
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.12), rgba(var(--tint-rgb), 0.04));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+    0 2px 6px -3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.nav-bell-btn:hover,
+.nav-more-btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
+    0 4px 10px -3px rgba(0, 0, 0, 0.4);
+}
+
+.nav-bell-btn:active,
+.nav-more-btn:active {
+  transform: translateY(1px);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow:
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.nav-bell-btn::before,
+.nav-more-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: transform 0.12s ease;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.45) 0px, rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.1) 28%, transparent 52%),
+    linear-gradient(125deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.11) 12%, rgba(255, 255, 255, 0.06) 24%, rgba(255, 255, 255, 0.02) 36%, transparent 48%);
+}
+
+[data-theme="light"] .nav-bell-btn::before,
+[data-theme="light"] .nav-more-btn::before {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 0px, rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.08) 28%, transparent 52%),
+    linear-gradient(125deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.08) 12%, rgba(255, 255, 255, 0.04) 24%, rgba(255, 255, 255, 0.015) 36%, transparent 48%);
+}
+
+.nav-bell-btn:active::before,
+.nav-more-btn:active::before {
+  transform: scaleY(0.85);
+  transform-origin: top;
+}
+
+/* The profile pill already has its own ::before for .nav-link's
+   underline-sweep hover indicator -- rather than fight that pseudo-
+   element (same conflict `.btn`'s ripple had with its reflection, see
+   [[standup-app-glass-mirror-ui-shipped]]), the reflection is stacked
+   directly into `background` instead, same technique `.priority-select`/
+   `select.btn` already use for native <select>s that can't take a
+   ::before at all. The underline indicator itself is untouched. */
+.nav-link.nav-profile {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.4) 0px, rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    radial-gradient(circle at 90% 15%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 30%, transparent 55%),
+    rgba(245, 158, 11, 0.1);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.25),
+    0 2px 6px -3px rgba(0, 0, 0, 0.35);
+}
+
+.nav-link.nav-profile:hover {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.45) 0px, rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+    radial-gradient(circle at 90% 15%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.1) 30%, transparent 55%),
+    rgba(16, 185, 129, 0.16);
+}
+
+[data-theme="light"] .nav-link.nav-profile {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.3) 0px, rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+    radial-gradient(circle at 90% 15%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 30%, transparent 55%),
+    rgba(245, 158, 11, 0.1);
+}
+
 .nav-bell-badge {
   position: absolute;
   top: -4px;

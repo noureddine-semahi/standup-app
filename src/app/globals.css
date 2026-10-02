@@ -2224,20 +2224,39 @@ select:focus {
     radial-gradient(105% 70% at 28% 0%, rgb(255 255 255 / calc(var(--glass-sheen-peak) + 0.1)) 0%, rgb(255 255 255 / calc(var(--glass-sheen-mid) + 0.08)) 20%, rgb(255 255 255 / calc(var(--glass-sheen-mid) * 0.3)) 34%, transparent 48%);
 }
 
-/* TEMPORARY, isolated to the 5 large status buttons only (Completed/In
-   Progress/Blocked/Canceled/Rescheduled) -- explicit user call to debug
-   why the shared reflection above wasn't visibly rendering. Same
-   specificity as the grouped rule, declared after it, so this wins
-   for .action-btn specifically without touching any of the other
-   targets that rule also covers. Deliberately plain, hardcoded
-   rgba() -- no custom properties, no calc() inside a color function --
-   to rule out the relative-color-syntax/var() combination above as
-   the actual cause. Intentionally strong per explicit request: do not
-   tone this down until confirmed visible. */
+/* Confirmed working and now refined/toned down to its final values --
+   isolated to the 5 large status buttons (Completed/In Progress/
+   Blocked/Canceled/Rescheduled). Same specificity as the shared
+   grouped rule above, declared after it, so this wins for .action-btn
+   specifically; every other target that rule covers is untouched.
+   Deliberately kept as plain, hardcoded rgba() -- no custom
+   properties, no calc() inside a color function -- since that's the
+   mechanism actually confirmed to render; do not reintroduce var()/
+   calc() color-function syntax here even to add theming, which is why
+   the light-theme override just below is a second full hardcoded
+   background rather than reusing shared tokens.
+   Three layers: a thin 1px bright top-edge line, a narrow specular
+   glint nudged toward the upper-right, and a soft sweep anchored
+   nearer center-right than before -- every stop fades continuously
+   (no held-flat plateau) so both sides feather smoothly, and nothing
+   exceeds ~0.3 peak opacity so it never reads as solid white or hides
+   the status color underneath. */
 .action-btn::before {
   background:
-    radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.6) 20%, transparent 42%),
-    radial-gradient(ellipse 90% 60% at 25% 5%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.45) 15%, rgba(255, 255, 255, 0.22) 30%, rgba(255, 255, 255, 0.08) 42%, transparent 52%);
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 0px, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.12) 28%, transparent 52%),
+    radial-gradient(ellipse 70% 48% at 42% 0%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.12) 16%, rgba(255, 255, 255, 0.05) 30%, transparent 46%);
+}
+
+/* Light theme: same shape, scaled down to the dimmer range a white
+   overlay needs against a light surface -- a second fully hardcoded
+   background rather than theming the dark rule via custom properties,
+   same reasoning as above. */
+[data-theme="light"] .action-btn::before {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.4) 0px, rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    radial-gradient(circle at 90% 12%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.09) 28%, transparent 52%),
+    radial-gradient(ellipse 70% 48% at 42% 0%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.08) 16%, rgba(255, 255, 255, 0.03) 30%, transparent 46%);
 }
 
 /* ✨ Corner number tag for dense dashboard preview rows — same idea as the

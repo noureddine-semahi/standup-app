@@ -444,8 +444,7 @@ h1, h2, h3, h4, h5, h6 {
      of the whole fixed header including the tab row). */
   border-bottom: 3px solid rgba(220, 38, 38, 0.85);
   box-shadow: 0 2px 10px -1px rgba(220, 38, 38, 0.4);
-  /* Anchors .brand-landing's absolute-positioned logo below (landing
-     page only) without affecting any other page's header. */
+  /* Anchors .brand-oversized's absolute-positioned logo below. */
   position: relative;
 }
 
@@ -490,24 +489,23 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* ✨ Landing-page-only oversized logo, breaking through the header's red
-   divider line — explicit user call, scoped to .brand-landing (pathname
-   === "/" only, see Header.tsx) so the rest of the app's header is
-   completely untouched. The wrapper keeps a normal, modestly-sized flex
-   footprint (so nav positioning next to it is unaffected and the header
-   row itself never grows taller); the actual logo image inside is
-   absolutely positioned and free to render taller than its own wrapper,
-   extending past .app-header-inner's bottom border without disturbing
-   anything else's layout. */
+/* ✨ App-wide oversized logo, breaking through the header's red divider
+   line — explicit user call, applies everywhere (.brand-oversized is on
+   every .brand instance now, see Header.tsx). The wrapper keeps a
+   normal, modestly-sized flex footprint (so nav positioning next to it
+   is unaffected and the header row itself never grows taller); the
+   actual logo image inside is absolutely positioned and free to render
+   taller than its own wrapper, extending past .app-header-inner's
+   bottom border without disturbing anything else's layout. */
 @media (min-width: 1025px) {
-  .brand-landing {
+  .brand-oversized {
     position: relative;
     width: 210px;
     height: 34px;
     flex-shrink: 0;
   }
 
-  .brand-landing .brand-logo {
+  .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
     top: -4px;
@@ -518,7 +516,7 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Very subtle warm glow right where the logo crosses the red line --
      explicit "not excessively neon" direction. */
-  .brand-landing::before {
+  .brand-oversized::before {
     content: "";
     position: absolute;
     left: -12px;
@@ -533,14 +531,14 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Tablet — moderately scaled down, overlap preserved but smaller. */
 @media (min-width: 761px) and (max-width: 1024px) {
-  .brand-landing {
+  .brand-oversized {
     position: relative;
     width: 155px;
     height: 34px;
     flex-shrink: 0;
   }
 
-  .brand-landing .brand-logo {
+  .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
     top: 9px;
@@ -549,7 +547,7 @@ h1, h2, h3, h4, h5, h6 {
     z-index: 2;
   }
 
-  .brand-landing::before {
+  .brand-oversized::before {
     content: "";
     position: absolute;
     left: -8px;
@@ -564,7 +562,9 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Mobile (<=760px, where the hamburger trigger already takes over) keeps
    the existing compact, non-overlapping .brand-logo treatment untouched
-   -- explicit user call: usability over effect once space is this tight. */
+   -- explicit user call: usability over effect once space is this tight.
+   .folder-tabbar-hanging's own padding is untouched here too, since the
+   logo never grows at this width. */
 
 /* ✨ Navigation */
 .nav-link {
@@ -1878,6 +1878,28 @@ select.btn {
 }
 .folder-tabbar-hanging::-webkit-scrollbar {
   display: none;
+}
+
+/* The oversized header logo (.brand-oversized, see above) dips down past
+   the red divider line at the same left x-position (18px) this tab row
+   starts from by default -- without this, the first tab would render
+   directly underneath where the logo overlaps. Pushed right to clear
+   the logo's reserved width at each breakpoint it's enlarged at; below
+   1024px/above 1025px matches .brand-oversized's own breakpoints so
+   both change together. Declared AFTER the base rule's shorthand
+   `padding` above so this longhand override actually wins the cascade
+   (equal specificity, source order decides) -- do not move this above
+   the base rule again. */
+@media (min-width: 1025px) {
+  .folder-tabbar-hanging {
+    padding-left: 236px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1024px) {
+  .folder-tabbar-hanging {
+    padding-left: 180px;
+  }
 }
 
 /* Rounded browser-tab shape, mirrored from .folder-tab (rounded at the

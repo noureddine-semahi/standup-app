@@ -434,10 +434,6 @@ export default function Header() {
 
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isRecoveryPage = pathname === "/reset-password";
-  // Oversized, header-boundary-breaking logo treatment -- explicit user
-  // call, scoped to the public landing page only (pathname === "/"), not
-  // the rest of the app's header. See .brand-landing in globals.css.
-  const isLandingPage = pathname === "/";
 
   // Rendered once for the desktop row and once for the mobile dropdown, so
   // the active-page logic lives in one place instead of being duplicated
@@ -674,7 +670,7 @@ export default function Header() {
     return (
       <header className="app-header">
         <div className="app-header-inner">
-          <Link href={user ? "/standup/dashboard" : "/"} className="brand">
+          <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo" />
           </Link>
@@ -686,7 +682,7 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href={user ? "/standup/dashboard" : "/"} className={`brand${isLandingPage ? " brand-landing" : ""}`}>
+        <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo" />
         </Link>

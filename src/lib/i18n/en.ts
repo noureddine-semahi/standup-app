@@ -990,7 +990,7 @@ export const en = {
   "landing.step3Body": "Earn points, track streaks, and watch your daily execution habit strengthen over time.",
 
   // GoalChecklist (shared component)
-  "checklist.toggleCompact": "+ Checklist",
+  "checklist.toggleCompact": "Checklist",
   "checklist.toggle": "Checklist",
   "checklist.noItemsYet": "No items yet.",
   "checklist.addPlaceholder": "Add item…",
@@ -1002,7 +1002,7 @@ export const en = {
   "checklist.noListsToLoad": "No lists yet — add one in Backlog.",
 
   // GoalAttachments (shared component)
-  "attachments.toggleCompact": "+ Files",
+  "attachments.toggleCompact": "Files",
   "attachments.toggle": "Files",
   "attachments.noFilesYet": "No files yet.",
   "attachments.opening": "Opening…",
@@ -1212,6 +1212,10 @@ export const en = {
   "goalAssign.failed": "Failed to assign goal",
   "goalAssign.sharedHint": "Shared — you can both independently update your own copy",
   "goalAssign.exclusiveHint": "Exclusive — only they can act on this; it won't block your own day",
+  "goalAssign.exclusiveShort": "Exclusive",
+  "goalAssign.sharedShort": "Shared",
+  "goalAssign.exclusiveDesc": "Only they can act on this goal",
+  "goalAssign.sharedDesc": "You both track your own copy independently",
 
   // Glimpse sharing — used by PostCard's goal_glimpse rendering
   "dashboard.glimpseProgress": "{completed}/{total} done",

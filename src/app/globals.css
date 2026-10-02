@@ -2942,6 +2942,42 @@ select:focus {
   color: rgba(4, 120, 87, 0.8);
 }
 
+/* ✨ Goal card toolbar — Checklist/Files/Link/Assign/Privacy, redesigned
+   from plain gray form-style buttons into one integrated row using the
+   same .btn-tint color system as Dashboard's action buttons. Explicit
+   user call, visual/layout only -- every control below still calls the
+   exact same handlers it always did. */
+.goal-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.goal-toolbar-btn {
+  padding: 0.3rem 0.55rem !important;
+  font-size: 0.72rem !important;
+  font-weight: 600;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Icon+label controls collapse to icon-only (title attr carries the
+   label for a11y/tooltip) below ~480px -- explicit user call, keeps the
+   toolbar from wrapping onto several lines or overflowing on a phone.
+   The Exclusive/Shared control keeps its label at every width (it's
+   short enough, and the mockup explicitly keeps it legible). */
+@media (max-width: 480px) {
+  .goal-toolbar-label {
+    display: none;
+  }
+}
+
 /* Mobile planning action bar. On a narrow viewport the bottom
    Calendar/Tools/Dashboard quick-links are redundant (same
    destinations already live in the main nav) and the real action a

@@ -988,7 +988,7 @@ export const es: Record<keyof typeof en, string> = {
   "landing.step3Body": "Gana puntos, rastrea rachas, y observa cómo tu hábito de ejecución diaria se fortalece con el tiempo.",
 
   // GoalChecklist (shared component)
-  "checklist.toggleCompact": "+ Lista",
+  "checklist.toggleCompact": "Lista",
   "checklist.toggle": "Lista de verificación",
   "checklist.noItemsYet": "Aún no hay elementos.",
   "checklist.addPlaceholder": "Agregar elemento…",
@@ -1000,7 +1000,7 @@ export const es: Record<keyof typeof en, string> = {
   "checklist.noListsToLoad": "Aún no hay listas — agrega una en Backlog.",
 
   // GoalAttachments (shared component)
-  "attachments.toggleCompact": "+ Archivos",
+  "attachments.toggleCompact": "Archivos",
   "attachments.toggle": "Archivos",
   "attachments.noFilesYet": "Aún no hay archivos.",
   "attachments.opening": "Abriendo…",
@@ -1209,6 +1209,10 @@ export const es: Record<keyof typeof en, string> = {
   "goalAssign.failed": "Error al asignar el objetivo",
   "goalAssign.sharedHint": "Compartido — ambos pueden actualizar su propia copia de forma independiente",
   "goalAssign.exclusiveHint": "Exclusivo — solo esa persona puede actuar sobre esto; no bloqueará tu propio día",
+  "goalAssign.exclusiveShort": "Exclusivo",
+  "goalAssign.sharedShort": "Compartido",
+  "goalAssign.exclusiveDesc": "Solo esa persona puede actuar sobre este objetivo",
+  "goalAssign.sharedDesc": "Ambos siguen su propia copia de forma independiente",
 
   // Glimpse sharing — used by PostCard's goal_glimpse rendering
   "dashboard.glimpseProgress": "{completed}/{total} completados",

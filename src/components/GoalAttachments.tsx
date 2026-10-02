@@ -111,10 +111,13 @@ export default function GoalAttachments({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="btn"
-          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+          className="btn btn-tint btn-purple goal-toolbar-btn"
+          title={t("attachments.toggleCompact")}
         >
-          {t("attachments.toggleCompact")}{items.length > 0 ? ` (${items.length})` : ""}
+          <Paperclip size={13} />
+          <span className="goal-toolbar-label">
+            {t("attachments.toggleCompact")}{items.length > 0 ? ` (${items.length})` : ""}
+          </span>
         </button>
       ) : (
         <button

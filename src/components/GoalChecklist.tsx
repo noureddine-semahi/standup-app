@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ChevronDown, ChevronRight, ListPlus } from "lucide-react";
+import { X, ChevronDown, ChevronRight, ListPlus, ListChecks } from "lucide-react";
 import {
   addChecklistItem,
   deleteChecklistItem,
@@ -148,10 +148,13 @@ export default function GoalChecklist({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="btn"
-          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0 }}
+          className="btn btn-tint btn-blue goal-toolbar-btn"
+          title={t("checklist.toggleCompact")}
         >
-          {t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+          <ListChecks size={13} />
+          <span className="goal-toolbar-label">
+            {t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+          </span>
         </button>
       ) : (
         <button

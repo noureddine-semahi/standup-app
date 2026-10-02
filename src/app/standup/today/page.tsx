@@ -65,7 +65,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
-  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp,
+  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -200,6 +200,10 @@ export default function TodayPage() {
   // Defaults to "shared" (unset) to match createGoalAssignment's own default.
   const [assignTypeByGoalId, setAssignTypeByGoalId] = useState<Record<string, GoalAssignmentType>>({});
   const [respondingAssignmentIds, setRespondingAssignmentIds] = useState<Set<string>>(new Set());
+  // At most one goal's Exclusive/Shared dropdown open at a time -- same
+  // single-ref click-outside pattern as Social's connection-card menu.
+  const [openPrivacyMenuId, setOpenPrivacyMenuId] = useState<string | null>(null);
+  const privacyMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Notes + the derived history facts render as one merged timeline below
   // the goal now (see the entries computation in the render below) instead
@@ -321,6 +325,17 @@ export default function TodayPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, highlightGoalId]);
+
+  useEffect(() => {
+    if (!openPrivacyMenuId) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (privacyMenuRef.current && !privacyMenuRef.current.contains(e.target as Node)) {
+        setOpenPrivacyMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openPrivacyMenuId]);
 
   function refreshGoalAssignments() {
     return getMyGoalAssignments()
@@ -1697,12 +1712,12 @@ export default function TodayPage() {
                     </div>
                     {g.details && <div className="text-sm text-white/60 mb-2">{g.details}</div>}
 
-                    {/* Compact quick-add row — checklist, files, and an
-                        optional link, right under the goal title. */}
-                    <div
-                      className="mt-2 flex items-center gap-1"
-                      style={{ flexWrap: "nowrap", overflowX: "auto" }}
-                    >
+                    {/* Goal toolbar — Checklist/Files/Link/Exclusive-or-
+                        Shared/Assign, redesigned into one integrated row
+                        (was two separate rows of plain gray buttons).
+                        Visual/layout only: every control below still
+                        calls the exact same handlers as before. */}
+                    <div className="goal-toolbar">
                       <GoalChecklist
                         compact
                         goalId={g.id}
@@ -1731,19 +1746,95 @@ export default function TodayPage() {
                             }
                             setShowLinkInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }));
                           }}
-                          className="btn"
-                          style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+                          className="btn btn-tint btn-teal goal-toolbar-btn"
                           title={g.link_url || t("today.attachLink")}
                         >
-                          {g.link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("today.link")}
+                          {g.link_url ? <Link2 size={13} /> : <Plus size={13} />}
+                          <span className="goal-toolbar-label">{t("today.link")}</span>
                         </button>
+                      )}
+
+                      {/* Exclusive/Shared + Assign — same row now instead
+                          of a separate line below; both only show pre-
+                          assignment, same as before (assignment/received
+                          replace them with the status line underneath). */}
+                      {!assignment && !received && acceptedConnections.length > 0 && (
+                        <>
+                          <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
+                            <button
+                              type="button"
+                              onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : g.id))}
+                              className="btn goal-toolbar-btn"
+                            >
+                              {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
+                                <Lock size={13} />
+                              ) : (
+                                <Unlock size={13} />
+                              )}
+                              <span className="goal-toolbar-label">
+                                {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
+                                  ? t("goalAssign.exclusiveShort")
+                                  : t("goalAssign.sharedShort")}
+                              </span>
+                              <ChevronDown size={12} className="text-white/40" />
+                            </button>
+                            {openPrivacyMenuId === g.id && (
+                              <div className="conn-card-menu" style={{ minWidth: "210px" }}>
+                                {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => {
+                                      setAssignTypeByGoalId((prev) => ({ ...prev, [g.id]: option }));
+                                      setOpenPrivacyMenuId(null);
+                                    }}
+                                    className="conn-card-menu-item"
+                                    style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                                  >
+                                    <span className="inline-flex items-center gap-1.5">
+                                      {option === "exclusive" ? <Lock size={12} /> : <Unlock size={12} />}
+                                      {option === "exclusive" ? t("goalAssign.exclusiveShort") : t("goalAssign.sharedShort")}
+                                      {(assignTypeByGoalId[g.id] ?? "exclusive") === option && <Check size={12} className="text-emerald-400" />}
+                                    </span>
+                                    <span className="text-[10px] text-white/45">
+                                      {option === "exclusive" ? t("goalAssign.exclusiveDesc") : t("goalAssign.sharedDesc")}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="relative inline-flex items-center">
+                            <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
+                            <select
+                              value=""
+                              disabled={assigningGoalIds.has(g.id) || dayClosed}
+                              onChange={(e) => {
+                                const recipientId = e.target.value;
+                                if (recipientId) handleAssignGoal(g.id, recipientId);
+                              }}
+                              className="btn btn-tint btn-amber-tint goal-toolbar-btn"
+                              style={{ paddingLeft: "1.7rem" }}
+                            >
+                              <option value="" disabled>
+                                {t("goalAssign.placeholder")}
+                              </option>
+                              {acceptedConnections.map((c) => (
+                                <option key={c.otherUserId} value={c.otherUserId}>
+                                  {connectionDisplayName(c, t)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </>
                       )}
                     </div>
 
-                    {/* Assign to — own row right below Checklist/Files/Link
-                        rather than sharing their row, so it doesn't compete
-                        with those for space or get lost among them. */}
-                    {(assignment || received || acceptedConnections.length > 0) && (
+                    {/* Assignment status — once assigned (either
+                        direction), replaces the Exclusive/Shared+Assign
+                        controls above with a read-only status line. */}
+                    {(assignment || received) && (
                       <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
                         {assignment ? (
                           <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
@@ -1759,7 +1850,7 @@ export default function TodayPage() {
                               </span>
                             )}
                           </span>
-                        ) : received ? (
+                        ) : (
                           // A goal that's itself the product of an assignment
                           // I received — locked from being re-assigned onward
                           // (see receivedByGoalId above), same Lock icon
@@ -1767,53 +1858,9 @@ export default function TodayPage() {
                           <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
                             <Lock size={11} />
                             {t("social.assignedByLabel", {
-                              name: received.assignerDisplayName ?? t("social.anonymousUser"),
+                              name: received!.assignerDisplayName ?? t("social.anonymousUser"),
                             })}
                           </span>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setAssignTypeByGoalId((prev) => ({
-                                  ...prev,
-                                  [g.id]: (prev[g.id] ?? "exclusive") === "exclusive" ? "shared" : "exclusive",
-                                }))
-                              }
-                              className="btn"
-                              style={{ padding: "0.15rem 0.35rem", flexShrink: 0 }}
-                              title={
-                                (assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
-                                  ? t("goalAssign.exclusiveHint")
-                                  : t("goalAssign.sharedHint")
-                              }
-                            >
-                              {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
-                                <Lock size={11} />
-                              ) : (
-                                <Unlock size={11} />
-                              )}
-                            </button>
-                            <select
-                              value=""
-                              disabled={assigningGoalIds.has(g.id) || dayClosed}
-                              onChange={(e) => {
-                                const recipientId = e.target.value;
-                                if (recipientId) handleAssignGoal(g.id, recipientId);
-                              }}
-                              className="btn"
-                              style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", flexShrink: 0 }}
-                            >
-                              <option value="" disabled>
-                                {t("goalAssign.placeholder")}
-                              </option>
-                              {acceptedConnections.map((c) => (
-                                <option key={c.otherUserId} value={c.otherUserId}>
-                                  {connectionDisplayName(c, t)}
-                                </option>
-                              ))}
-                            </select>
-                          </>
                         )}
                       </div>
                     )}

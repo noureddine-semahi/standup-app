@@ -2740,3 +2740,120 @@ select:focus {
     display: none;
   }
 }
+
+/* ✨ Community feed polish — tighter cards + a small "feels alive" reaction
+   micro-animation. Explicit user call: "don't use the huge traveling
+   sheen here, a micro-animation would be enough." */
+
+/* PostCard-specific override of .goal-row-compact-body's shared padding —
+   that default includes top clearance for a corner number badge (used by
+   Dashboard's own dense goal previews, sharing the same base class), which
+   PostCard never renders, so it was paying for clearance it didn't need. */
+.post-card-body {
+  padding: 0.85rem;
+}
+
+@keyframes reaction-pop-icon {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.reaction-pop-icon {
+  display: inline-flex;
+  animation: reaction-pop-icon 0.3s ease;
+}
+
+@keyframes reaction-pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  40% {
+    box-shadow: 0 0 10px 2px var(--reaction-color, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.reaction-pulse {
+  animation: reaction-pulse-glow 0.3s ease;
+}
+
+/* Friends/Connections — relationship-state badge + overflow menu.
+   Explicit user call: a card should say Invite/Pending/Connected at a
+   glance, and an accepted connection's primary action should be "View
+   profile", not "Remove" (which made the whole page read as
+   administrative rather than social). */
+.conn-state-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+.conn-state-connected {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.conn-state-pending {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.conn-card-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  background: rgba(var(--panel-rgb), 0.98);
+  backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+}
+
+.conn-card-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  text-align: left;
+  color: rgba(var(--tint-rgb), 0.85);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.conn-card-menu-item:hover {
+  background: rgba(var(--tint-rgb), 0.08);
+}
+
+.conn-card-menu-item-danger {
+  color: #fca5a5;
+}
+
+.conn-card-menu-item-danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}

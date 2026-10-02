@@ -21,7 +21,7 @@ export const GLIMPSE_REACTIONS: { value: GlimpseReaction; icon: LucideIcon; labe
  * the caller supplies it (the feed already returns each post's
  * myReaction in one call).
  */
-export function usePostReaction(postId: string, initialReaction: GlimpseReaction | null) {
+export function usePostReaction(postId: string, initialReaction: GlimpseReaction | null, initialCounts: Record<string, number> = {}) {
   const [myReaction, setMyReaction] = useState(initialReaction);
   const [reacting, setReacting] = useState(false);
 
@@ -46,7 +46,17 @@ export function usePostReaction(postId: string, initialReaction: GlimpseReaction
     }
   }
 
-  return { myReaction, reacting, pickReaction };
+  // Optimistic display counts -- the server snapshot (initialCounts) plus
+  // whatever delta the user's own still-settling pick has caused, so the
+  // number on screen moves the instant you tap instead of waiting for the
+  // next feed refetch to catch up with the real count.
+  const counts = { ...initialCounts };
+  if (myReaction !== initialReaction) {
+    if (initialReaction) counts[initialReaction] = Math.max(0, (counts[initialReaction] ?? 0) - 1);
+    if (myReaction) counts[myReaction] = (counts[myReaction] ?? 0) + 1;
+  }
+
+  return { myReaction, reacting, pickReaction, counts };
 }
 
 /**
@@ -56,7 +66,7 @@ export function usePostReaction(postId: string, initialReaction: GlimpseReaction
  * and will keep drifting independently, so a shared abstraction over two
  * call sites isn't worth the indirection yet.
  */
-export function useCommentReaction(commentId: string, initialReaction: GlimpseReaction | null) {
+export function useCommentReaction(commentId: string, initialReaction: GlimpseReaction | null, initialCounts: Record<string, number> = {}) {
   const [myReaction, setMyReaction] = useState(initialReaction);
   const [reacting, setReacting] = useState(false);
 
@@ -79,5 +89,12 @@ export function useCommentReaction(commentId: string, initialReaction: GlimpseRe
     }
   }
 
-  return { myReaction, reacting, pickReaction };
+  // Same optimistic-count treatment as usePostReaction above.
+  const counts = { ...initialCounts };
+  if (myReaction !== initialReaction) {
+    if (initialReaction) counts[initialReaction] = Math.max(0, (counts[initialReaction] ?? 0) - 1);
+    if (myReaction) counts[myReaction] = (counts[myReaction] ?? 0) + 1;
+  }
+
+  return { myReaction, reacting, pickReaction, counts };
 }

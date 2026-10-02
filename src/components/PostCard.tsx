@@ -43,12 +43,12 @@ export default function PostCard({
   highlightCommentId?: string | null;
 }) {
   const { t } = useLanguage();
-  const { myReaction, reacting, pickReaction } = usePostReaction(post.id, post.myReaction);
+  const { myReaction, reacting, pickReaction, counts } = usePostReaction(post.id, post.myReaction, post.reactionCounts);
   const displayName = post.displayName ?? t("social.anonymousUser");
 
   return (
     <div className={`goal-row-compact${highlighted ? " post-card-highlight" : ""}`} data-post-id={post.id}>
-      <div className="goal-row-compact-body p-3">
+      <div className="goal-row-compact-body post-card-body">
         <div className="flex items-center gap-2 mb-2">
           <Avatar avatarUrl={post.avatarUrl} label={displayName} size={28} />
           <div className="min-w-0">
@@ -76,7 +76,7 @@ export default function PostCard({
                 <Lock size={11} /> {t("today.publishSharedWithLabel", { name: post.targetDisplayName })}
               </div>
             )}
-            <div className="space-y-1 mb-3">
+            <div className="space-y-1 mb-2">
               {post.goals.map((g) => {
                 const color = statusChipColors(g.status).color;
                 return (
@@ -107,7 +107,7 @@ export default function PostCard({
             const achievement = ACHIEVEMENTS.find((a) => a.id === post.achievementId);
             if (!achievement) return null;
             return (
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <div
                   className="flex-shrink-0 flex items-center justify-center rounded-full"
                   style={{
@@ -129,7 +129,7 @@ export default function PostCard({
           })()}
 
         {post.type === "motivational" && post.body && (
-          <p className="text-sm text-white/80 mb-3 whitespace-pre-wrap">{post.body}</p>
+          <p className="text-sm text-white/80 mb-2 whitespace-pre-wrap">{post.body}</p>
         )}
         {post.type === "motivational" && post.imagePath && <PostImage imagePath={post.imagePath} />}
         {post.type === "motivational" && post.videoPath && <PostVideo videoPath={post.videoPath} />}
@@ -137,7 +137,7 @@ export default function PostCard({
         {post.type === "team_goal" && post.teamGoalId && <TeamGoalCard post={post} />}
 
         <div className="flex items-center gap-2 flex-wrap">
-          <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} counts={post.reactionCounts} />
+          <GlimpseReactionPicker myReaction={myReaction} reacting={reacting} onPick={pickReaction} counts={counts} />
           {shareableConnections.length > 0 && (
             <SharePostButton postId={post.id} connections={shareableConnections} />
           )}

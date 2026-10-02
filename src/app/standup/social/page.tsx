@@ -36,7 +36,8 @@ import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2 } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, MoreVertical } from "lucide-react";
+import ConnectionProfileModal from "@/components/ConnectionProfileModal";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -75,6 +76,13 @@ export default function SocialPage() {
   // Per-row busy tracking so accepting/declining/removing one row doesn't
   // block interaction with the others while its request is in flight.
   const [busyConnectionIds, setBusyConnectionIds] = useState<Set<string>>(new Set());
+  // At most one accepted-connection card's "⋯" menu open at a time — same
+  // single-ref click-outside pattern as Header's own More panel. Remove now
+  // lives there instead of being the card's one big visible button, which
+  // made the Connections list read as administrative rather than social.
+  const [openConnMenuId, setOpenConnMenuId] = useState<string | null>(null);
+  const connMenuRef = useRef<HTMLDivElement | null>(null);
+  const [viewingConnection, setViewingConnection] = useState<Connection | null>(null);
 
   const [discoverUsers, setDiscoverUsers] = useState<DiscoverableUser[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -226,6 +234,17 @@ export default function SocialPage() {
       setGuidelinesSaving(false);
     }
   }
+
+  useEffect(() => {
+    if (!openConnMenuId) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (connMenuRef.current && !connMenuRef.current.contains(e.target as Node)) {
+        setOpenConnMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openConnMenuId]);
 
   function setConnectionBusy(id: string, busy: boolean) {
     setBusyConnectionIds((prev) => {
@@ -415,16 +434,7 @@ export default function SocialPage() {
   const myPosts = feed.filter((p) => p.userId === currentUserId);
   const visiblePosts =
     activeTab === "global" ? globalPosts : activeTab === "circle" ? circlePosts : activeTab === "myPosts" ? myPosts : feed;
-  // Names the feed card after whichever tab is actually showing it, so the
-  // card itself (not just the tab bar above) says what you're looking at.
-  const feedTitleKey: TranslationKey =
-    activeTab === "global"
-      ? "social.feedTitleGlobal"
-      : activeTab === "circle"
-      ? "social.feedTitleCircle"
-      : activeTab === "myPosts"
-      ? "social.feedTitleMyPosts"
-      : "social.feedTitleMyFeed";
+  const teamGoalPosts = feed.filter((p) => p.type === "team_goal");
 
   // Per-tab accent colors (reusing GLIMPSE_REACTIONS' existing palette for
   // 4 of the 6 — blue/rose/amber/emerald are already this app's established
@@ -432,14 +442,20 @@ export default function SocialPage() {
   // single shared amber used everywhere else active-state color is used.
   // Explicit user call, reference image attached: inactive tabs show a
   // dim version of their own color instead of staying neutral/gray.
-  const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users; color: string }[] = [
-    { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid, color: "#60a5fa" },
-    { key: "global", labelKey: "social.tabGlobal", icon: Globe, color: "#34d399" },
-    { key: "circle", labelKey: "social.tabCircle", icon: Users, color: "#a78bfa" },
-    { key: "myPosts", labelKey: "social.tabMyPosts", icon: UserCircle, color: "#f43f5e" },
-    { key: "friends", labelKey: "social.tabFriends", icon: UserPlus, color: "#22d3ee" },
-    { key: "goals", labelKey: "social.tabGoals", icon: ClipboardList, color: "#f59e0b" },
+  // descriptionKey backs the per-tab compact hero below the tab bar, which
+  // replaced a single generic "Community" header repeated on every tab —
+  // explicit user call ("let the page's actual content begin almost
+  // immediately"), same descriptionKey pattern Tools already uses, except
+  // here the title ALSO swaps per tab (Tools keeps one fixed title).
+  const TABS: { key: SocialTab; labelKey: TranslationKey; icon: typeof Users; color: string; descriptionKey: TranslationKey }[] = [
+    { key: "myFeed", labelKey: "social.tabMyFeed", icon: LayoutGrid, color: "#60a5fa", descriptionKey: "social.descMyFeed" },
+    { key: "global", labelKey: "social.tabGlobal", icon: Globe, color: "#34d399", descriptionKey: "social.descGlobal" },
+    { key: "circle", labelKey: "social.tabCircle", icon: Users, color: "#a78bfa", descriptionKey: "social.descCircle" },
+    { key: "myPosts", labelKey: "social.tabMyPosts", icon: UserCircle, color: "#f43f5e", descriptionKey: "social.descMyPosts" },
+    { key: "friends", labelKey: "social.tabFriends", icon: UserPlus, color: "#22d3ee", descriptionKey: "social.descFriends" },
+    { key: "goals", labelKey: "social.tabGoals", icon: ClipboardList, color: "#f59e0b", descriptionKey: "social.descGoals" },
   ];
+  const activeTabMeta = TABS.find((tab) => tab.key === activeTab)!;
 
   return (
     <div className="space-y-6">
@@ -468,6 +484,8 @@ export default function SocialPage() {
                 type="button"
                 role="tab"
                 aria-selected={isActive}
+                aria-label={t(tab.labelKey)}
+                title={t(tab.labelKey)}
                 onClick={() => setActiveTab(tab.key)}
                 className={`folder-tab${isActive ? " folder-tab-active" : ""}`}
                 style={{ "--tab-color": tab.color } as React.CSSProperties}
@@ -479,13 +497,25 @@ export default function SocialPage() {
           })}
         </div>
 
+        {/* Compact, per-tab hero — replaces a single generic "Community"
+            header that repeated on every sub-tab and ate a lot of mobile
+            vertical space before any actual tab content appeared. */}
         <div className="card card-highlight folder-tabbar-panel">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("social.title")}</h1>
-          <p className="text-white/70">{t("social.subtitle")}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span style={{ color: activeTabMeta.color }}>
+              <activeTabMeta.icon size={20} />
+            </span>
+            <h1 className="text-xl sm:text-2xl font-bold">{t(activeTabMeta.labelKey)}</h1>
+          </div>
+          <p className="text-sm text-white/70">{t(activeTabMeta.descriptionKey)}</p>
         </div>
       </div>
 
-      {activeTab !== "friends" && (
+      {/* Motivational composer + general feed — My Feed/Global/My Circle/
+          My Posts only. Friends and Goals are purpose-built (people-first
+          and team-goals-first respectively) rather than sharing this same
+          top template — explicit user call. */}
+      {(activeTab === "myFeed" || activeTab === "global" || activeTab === "circle" || activeTab === "myPosts") && (
         <div className="space-y-6">
           {/* Composer — a motivational post is the one content type a user
               writes themselves; goal glimpses come from Today's Publish
@@ -624,148 +654,15 @@ export default function SocialPage() {
             {postError && <p className="mt-2 text-xs text-red-300">{postError}</p>}
           </div>
 
-          {/* Team Goal composer — a goal that needs participation from
-              several connections, not a 1:1 handoff (that's Assigned
-              Goals). Posted as an open invite: anyone who can see it can
-              join and the shared checklist completes once every item is
-              checked, by anyone. Collapsed by default, own small card
-              rather than merged into the motivational composer above
-              since the shape is different (title + items, no body/media). */}
-          {!showTeamGoalComposer ? (
-            <button
-              type="button"
-              onClick={() => setShowTeamGoalComposer(true)}
-              className="btn inline-flex items-center gap-1.5"
-            >
-              <ListChecks size={14} /> {t("teamGoal.startButton")}
-            </button>
-          ) : (
-            <div className="card card-highlight">
-              <h2 className="text-lg font-semibold mb-1">{t("teamGoal.composerTitle")}</h2>
-              <p className="text-sm text-white/60 mb-3">{t("teamGoal.composerSubtitle")}</p>
-
-              <input
-                type="text"
-                value={teamGoalTitle}
-                onChange={(e) => setTeamGoalTitle(e.target.value)}
-                disabled={creatingTeamGoal}
-                placeholder={t("teamGoal.titlePlaceholder")}
-                className="w-full mb-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-              />
-              <textarea
-                value={teamGoalDetails}
-                onChange={(e) => setTeamGoalDetails(e.target.value)}
-                disabled={creatingTeamGoal}
-                placeholder={t("teamGoal.detailsPlaceholder")}
-                rows={2}
-                className="w-full mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
-              />
-
-              <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
-                {t("teamGoal.checklistLabel")}
-              </div>
-              <div className="space-y-2 mb-2">
-                {teamGoalItemDrafts.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(e) =>
-                        setTeamGoalItemDrafts((prev) => prev.map((v, i) => (i === idx ? e.target.value : v)))
-                      }
-                      disabled={creatingTeamGoal}
-                      placeholder={t("teamGoal.itemPlaceholder", { n: idx + 1 })}
-                      className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                    />
-                    {teamGoalItemDrafts.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setTeamGoalItemDrafts((prev) => prev.filter((_, i) => i !== idx))}
-                        disabled={creatingTeamGoal}
-                        className="btn flex-shrink-0"
-                        style={{ padding: "0.35rem" }}
-                        title={t("teamGoal.removeItem")}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setTeamGoalItemDrafts((prev) => [...prev, ""])}
-                disabled={creatingTeamGoal}
-                className="btn inline-flex items-center gap-1.5 mb-3"
-                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
-              >
-                <Plus size={13} /> {t("teamGoal.addAnotherItem")}
-              </button>
-
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTeamGoalVisibility("connections")}
-                    className="btn"
-                    style={{
-                      padding: "0.3rem 0.6rem",
-                      fontSize: "0.75rem",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                      background: teamGoalVisibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
-                      borderColor: teamGoalVisibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
-                    }}
-                  >
-                    <Users size={12} /> {t("today.publishConnectionsBtn")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTeamGoalVisibility("everyone")}
-                    className="btn"
-                    style={{
-                      padding: "0.3rem 0.6rem",
-                      fontSize: "0.75rem",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.3rem",
-                      background: teamGoalVisibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
-                      borderColor: teamGoalVisibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
-                    }}
-                  >
-                    <Globe size={12} /> {t("today.publishEveryoneBtn")}
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowTeamGoalComposer(false)}
-                    disabled={creatingTeamGoal}
-                    className="btn text-sm px-3 py-2"
-                  >
-                    {t("teamGoal.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateTeamGoal}
-                    disabled={creatingTeamGoal || !teamGoalTitle.trim()}
-                    className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
-                  >
-                    {creatingTeamGoal ? t("teamGoal.creating") : t("teamGoal.createButton")}
-                  </button>
-                </div>
-              </div>
-              {teamGoalError && <p className="mt-2 text-xs text-red-300">{teamGoalError}</p>}
-            </div>
-          )}
-
           {/* Feed — every post type (goal glimpses, achievements, motivational)
               the viewer is allowed to see for the active tab, newest first. */}
           <div className="card card-highlight">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">{t(feedTitleKey)}</h2>
-              <p className="mt-1 text-sm text-white/60">{t("social.publicFeedSubtitle")}</p>
+            <div className="my-2 flex items-center gap-4">
+              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+              <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
+                {t("social.latestActivityDivider")}
+              </div>
+              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
             </div>
             {feedError && <p className="mb-3 text-xs text-red-300">{feedError}</p>}
             {!feedLoading && visiblePosts.length === 0 ? (
@@ -911,9 +808,10 @@ export default function SocialPage() {
                   {outgoing.map((c) => (
                     <div
                       key={c.id}
-                      className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
+                      className="relative flex flex-col items-center gap-2 rounded-xl p-3 text-center"
                       style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
                     >
+                      <span className="conn-state-badge conn-state-pending">{t("social.statePending")}</span>
                       <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c, t)} size={56} />
                       <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
                       <button
@@ -942,20 +840,60 @@ export default function SocialPage() {
                   {accepted.map((c) => (
                     <div
                       key={c.id}
-                      className="flex flex-col items-center gap-2 rounded-xl p-3 text-center"
+                      className="relative flex flex-col items-center gap-2 rounded-xl p-3 text-center"
                       style={{ background: "rgba(var(--tint-rgb), 0.04)", border: "1px solid rgba(var(--tint-rgb), 0.1)" }}
                     >
+                      {/* Relationship state — explicit user call: a user
+                          should be able to tell Invite/Pending/Connected
+                          apart at a glance, not just infer it from which
+                          section a card happens to sit in. */}
+                      <span className="conn-state-badge conn-state-connected">{t("social.stateConnected")}</span>
+
                       <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c, t)} size={56} />
                       <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveConnection(c.id)}
-                        disabled={busyConnectionIds.has(c.id)}
-                        className="btn w-full"
-                        style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
-                      >
-                        {t("social.removeConnection")}
-                      </button>
+
+                      <div className="flex items-center gap-1.5 w-full">
+                        <button
+                          type="button"
+                          onClick={() => setViewingConnection(c)}
+                          className="btn flex-1"
+                          style={{ padding: "0.3rem 0.5rem", fontSize: "0.72rem" }}
+                        >
+                          {t("social.viewProfile")}
+                        </button>
+                        {/* Remove now lives behind this menu instead of
+                            being the card's one big visible action —
+                            explicit user call ("Remove being the main
+                            button makes the page feel administrative
+                            rather than social"). */}
+                        <div className="relative" ref={openConnMenuId === c.id ? connMenuRef : undefined}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenConnMenuId((prev) => (prev === c.id ? null : c.id))}
+                            className="btn flex-shrink-0"
+                            style={{ padding: "0.3rem 0.4rem" }}
+                            title={t("social.moreActions")}
+                            aria-label={t("social.moreActions")}
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          {openConnMenuId === c.id && (
+                            <div className="conn-card-menu">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenConnMenuId(null);
+                                  handleRemoveConnection(c.id);
+                                }}
+                                disabled={busyConnectionIds.has(c.id)}
+                                className="conn-card-menu-item conn-card-menu-item-danger"
+                              >
+                                <Trash2 size={13} /> {t("social.removeConnection")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -966,7 +904,177 @@ export default function SocialPage() {
         </div>
       )}
 
-      {activeTab === "goals" && <GoalAssignmentsPanel />}
+      {/* Goals — purpose-built around team/shared goals instead of sharing
+          the motivational composer/feed template (explicit user call:
+          "Goals should lead with team/community goals"). Team Goal
+          composer moved here from the generic block above; the filtered
+          team_goal list leads, with the existing 1:1 Assigned Goals
+          shortcut panel below it. */}
+      {activeTab === "goals" && (
+        <div className="space-y-6">
+          {!showTeamGoalComposer ? (
+            <button
+              type="button"
+              onClick={() => setShowTeamGoalComposer(true)}
+              className="btn btn-primary inline-flex items-center gap-1.5"
+            >
+              <ListChecks size={14} /> {t("teamGoal.startButton")}
+            </button>
+          ) : (
+            <div className="card card-highlight">
+              <h2 className="text-lg font-semibold mb-1">{t("teamGoal.composerTitle")}</h2>
+              <p className="text-sm text-white/60 mb-3">{t("teamGoal.composerSubtitle")}</p>
+
+              <input
+                type="text"
+                value={teamGoalTitle}
+                onChange={(e) => setTeamGoalTitle(e.target.value)}
+                disabled={creatingTeamGoal}
+                placeholder={t("teamGoal.titlePlaceholder")}
+                className="w-full mb-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+              />
+              <textarea
+                value={teamGoalDetails}
+                onChange={(e) => setTeamGoalDetails(e.target.value)}
+                disabled={creatingTeamGoal}
+                placeholder={t("teamGoal.detailsPlaceholder")}
+                rows={2}
+                className="w-full mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50 resize-none"
+              />
+
+              <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
+                {t("teamGoal.checklistLabel")}
+              </div>
+              <div className="space-y-2 mb-2">
+                {teamGoalItemDrafts.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(e) =>
+                        setTeamGoalItemDrafts((prev) => prev.map((v, i) => (i === idx ? e.target.value : v)))
+                      }
+                      disabled={creatingTeamGoal}
+                      placeholder={t("teamGoal.itemPlaceholder", { n: idx + 1 })}
+                      className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    />
+                    {teamGoalItemDrafts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setTeamGoalItemDrafts((prev) => prev.filter((_, i) => i !== idx))}
+                        disabled={creatingTeamGoal}
+                        className="btn flex-shrink-0"
+                        style={{ padding: "0.35rem" }}
+                        title={t("teamGoal.removeItem")}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTeamGoalItemDrafts((prev) => [...prev, ""])}
+                disabled={creatingTeamGoal}
+                className="btn inline-flex items-center gap-1.5 mb-3"
+                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+              >
+                <Plus size={13} /> {t("teamGoal.addAnotherItem")}
+              </button>
+
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTeamGoalVisibility("connections")}
+                    className="btn"
+                    style={{
+                      padding: "0.3rem 0.6rem",
+                      fontSize: "0.75rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      background: teamGoalVisibility === "connections" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: teamGoalVisibility === "connections" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                    }}
+                  >
+                    <Users size={12} /> {t("today.publishConnectionsBtn")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamGoalVisibility("everyone")}
+                    className="btn"
+                    style={{
+                      padding: "0.3rem 0.6rem",
+                      fontSize: "0.75rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      background: teamGoalVisibility === "everyone" ? "rgba(245, 158, 11, 0.2)" : undefined,
+                      borderColor: teamGoalVisibility === "everyone" ? "rgba(245, 158, 11, 0.6)" : undefined,
+                    }}
+                  >
+                    <Globe size={12} /> {t("today.publishEveryoneBtn")}
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowTeamGoalComposer(false)}
+                    disabled={creatingTeamGoal}
+                    className="btn text-sm px-3 py-2"
+                  >
+                    {t("teamGoal.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateTeamGoal}
+                    disabled={creatingTeamGoal || !teamGoalTitle.trim()}
+                    className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
+                  >
+                    {creatingTeamGoal ? t("teamGoal.creating") : t("teamGoal.createButton")}
+                  </button>
+                </div>
+              </div>
+              {teamGoalError && <p className="mt-2 text-xs text-red-300">{teamGoalError}</p>}
+            </div>
+          )}
+
+          <div className="card card-highlight">
+            <h2 className="text-lg font-semibold mb-1">{t("teamGoal.activeListTitle")}</h2>
+            {teamGoalPosts.length === 0 ? (
+              <p className="text-sm text-white/50">{t("teamGoal.noneYet")}</p>
+            ) : (
+              <div className="space-y-3">
+                {teamGoalPosts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    commentCount={commentCounts[post.id] ?? 0}
+                    shareableConnections={shareableConnections}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-3 flex items-center gap-4">
+              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+              <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
+                {t("teamGoal.assignedGoalsDivider")}
+              </div>
+              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+            </div>
+            <GoalAssignmentsPanel />
+          </div>
+        </div>
+      )}
+
+      {viewingConnection && (
+        <ConnectionProfileModal connection={viewingConnection} onClose={() => setViewingConnection(null)} />
+      )}
     </div>
   );
 }

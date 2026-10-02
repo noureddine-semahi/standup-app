@@ -665,10 +665,9 @@ export default function Header() {
     return (
       <header className="app-header">
         <div className="app-header-inner">
-          <Link href={user ? "/standup/dashboard" : "/"} className="brand flex items-center gap-2">
+          <Link href={user ? "/standup/dashboard" : "/"} className="brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-192.png" alt="" className="w-5 h-5 rounded-sm flex-shrink-0" />
-            StandUp
+            <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo" />
           </Link>
         </div>
       </header>
@@ -678,10 +677,9 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href={user ? "/standup/dashboard" : "/"} className="brand flex items-center gap-2">
+        <Link href={user ? "/standup/dashboard" : "/"} className="brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/icon-192.png" alt="" className="w-5 h-5 rounded-sm flex-shrink-0" />
-          StandUp
+          <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo" />
         </Link>
 
         {/* Logged-out only — Sign In/Sign Up. Logged-in users get the same

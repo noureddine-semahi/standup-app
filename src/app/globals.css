@@ -415,18 +415,44 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .brand {
-  font-family: var(--font-heading, var(--font-body, ui-sans-serif, system-ui));
-  font-weight: 700;
-  font-size: 1.25rem;
-  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
-  color: var(--accent-amber);
-  transition: color 0.3s ease, text-shadow 0.3s ease;
+  border-radius: 10px;
+  transition: filter 0.3s ease, transform 0.3s ease, background 0.3s ease;
 }
 
 .brand:hover {
   transform: scale(1.05);
   filter: brightness(1.2);
+}
+
+/* The new logo artwork has its own dark glow/smoke halo baked into its
+   pixels (not a transparency artifact -- confirmed by inspection, alpha
+   thresholding didn't change it) that reads as intended against this
+   app's near-black header but shows as a visible gray smudge against a
+   light one. Rather than fight the source asset, light theme gets a
+   small dark backing plate behind the logo instead -- the glow renders
+   against its own intended dark backdrop regardless of page theme. */
+[data-theme="light"] .brand {
+  background: #0b0a12;
+  padding: 4px 10px;
+}
+
+/* The new icon+wordmark lockup image replacing the old icon+styled-text
+   pair -- a fixed height (not width) so it scales proportionally and
+   stays crisp at any header size; width is intrinsic from the image's
+   own aspect ratio. */
+.brand-logo {
+  display: block;
+  height: 34px;
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .brand-logo {
+    height: 28px;
+  }
 }
 
 /* ✨ Navigation */

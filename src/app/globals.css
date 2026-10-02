@@ -499,26 +499,61 @@ h1, h2, h3, h4, h5, h6 {
   filter: brightness(1.2);
 }
 
-/* The new logo artwork has its own dark glow/smoke halo baked into its
-   pixels (not a transparency artifact -- confirmed by inspection, alpha
-   thresholding didn't change it) that reads as intended against this
-   app's near-black header but shows as a visible gray smudge against a
-   light one. Rather than fight the source asset, light theme gets a
-   small dark backing plate behind the logo instead -- the glow renders
-   against its own intended dark backdrop regardless of page theme. */
-[data-theme="light"] .brand {
-  background: #0b0a12;
-  padding: 4px 10px;
-}
-
 /* The new icon+wordmark lockup image replacing the old icon+styled-text
    pair -- a fixed height (not width) so it scales proportionally and
    stays crisp at any header size; width is intrinsic from the image's
-   own aspect ratio. */
+   own aspect ratio. Both theme variants below share this sizing/
+   positioning via the same .brand-logo class. */
 .brand-logo {
   display: block;
   height: 34px;
   width: auto;
+}
+
+/* Two theme-specific exports instead of one asset + a backing plate
+   (the old [data-theme="light"] .brand { background: #0b0a12 } rule,
+   removed). Re-checked the "baked into color not alpha" theory from
+   the original logo-rebrand session (months ago) while building this --
+   it was wrong: the source PNG's alpha channel is already correct (0 at
+   the true background), but it also has a real dark ambient-shadow
+   layer around the glow with its OWN correctly-faded alpha, by design
+   for a near-black header -- composited against white instead, that
+   shadow's dark RGB shows through as a visible gray smudge, which is
+   what the old backing plate was actually papering over, and what
+   became a visible "sticker" once the logo grew large enough. The
+   light-mode export (standup-wordmark-light.png) shrinks alpha
+   specifically for dim/shadow-like pixels -- newAlpha = alpha *
+   (max(r,g,b)/255)^2 -- which leaves bright, near-opaque pixels (the
+   glyphs and the neon glow's own color) untouched while making the
+   dark shadow layer nearly disappear, no backing plate needed. Both
+   images render at all times; which one is visible is a pure CSS
+   [data-theme] toggle (same pattern already used elsewhere in this
+   file), not a JS src swap -- no new state/effect in Header.tsx. */
+.brand-logo-light {
+  display: none;
+}
+[data-theme="light"] .brand-logo-dark {
+  display: none;
+}
+[data-theme="light"] .brand-logo-light {
+  display: block;
+}
+
+/* Light mode's de-haloed export has no dark backdrop of its own to give
+   the lettering contrast -- the "Stand" half in particular is a white/
+   silver gradient in the source art, meant to read against dark. These
+   stacked drop-shadows (which follow the image's alpha silhouette,
+   including every letterform, not just the outer edge) stand in for
+   that lost contrast: a tight dark edge for legibility, a soft contact
+   shadow for grounding, and two low-opacity colored glows (amber, this
+   app's standard neon accent; red, echoing the divider it overlaps) so
+   the neon feel survives without the old heavy black box. Deliberately
+   lighter-touch than a literal outline/text-shadow would be on a flat
+   shape this detailed. */
+.brand-logo-light {
+  filter: drop-shadow(0 0 1px rgba(10, 10, 15, 0.75)) drop-shadow(0 0 2.5px rgba(10, 10, 15, 0.45))
+    drop-shadow(0 2px 6px rgba(15, 15, 20, 0.16)) drop-shadow(0 0 8px rgba(245, 158, 11, 0.22))
+    drop-shadow(0 3px 8px rgba(220, 38, 38, 0.14));
 }
 
 @media (max-width: 480px) {

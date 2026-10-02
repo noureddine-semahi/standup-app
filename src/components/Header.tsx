@@ -671,8 +671,20 @@ export default function Header() {
       <header className="app-header">
         <div className="app-header-inner">
           <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
+            {/* Two theme-specific exports, toggled by [data-theme] in CSS
+                (see .brand-logo-light/-dark) rather than swapping `src` in
+                JS -- the dark-mode export's glow includes a real dark
+                ambient-shadow layer (correctly alpha-faded, by design for
+                a near-black header) that reads as a visible gray smudge
+                on a light one. The light export shrinks that shadow's
+                alpha specifically (see standup-wordmark-light.png's
+                generation) so it nearly disappears on white instead.
+                Same technique as the app's existing data-theme CSS
+                pattern elsewhere, no new state/effect needed. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo" />
+            <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
           </Link>
         </div>
       </header>
@@ -684,7 +696,9 @@ export default function Header() {
       <div className="app-header-inner">
         <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo" />
+          <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
         </Link>
 
         {/* Logged-out only — Sign In/Sign Up. Logged-in users get the same

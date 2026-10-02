@@ -579,7 +579,11 @@ h1, h2, h3, h4, h5, h6 {
     top: 18px;
     height: 40px;
     width: auto;
-    z-index: 2;
+    /* Higher than .folder-tab-hanging-active's own z-index:2 -- explicit
+       user call to let the logo visually sit on top of a centered tab
+       it happens to overlap, rather than the two tying and source order
+       (tab row comes after the header in the DOM) deciding the opposite. */
+    z-index: 5;
   }
 
   .brand-oversized::before {
@@ -2069,8 +2073,13 @@ select.btn {
 
 /* Mobile: icon-only, active tab unwraps its label — same mechanism as
    the "up" tab bars' own 640px rule. Also where About/FAQ/Contact
-   collapse into the single combined tab. */
-@media (max-width: 640px) {
+   collapse into the single combined tab. Widened from 640px to 760px
+   (matching .brand-oversized's and .nav-mobile-trigger's own mobile
+   breakpoint) so the centered row above (see the 760px justify-content
+   rule further down) never needs the 7 full-label tabs to fit in the
+   641-760px sub-range -- without this, that range still showed full
+   labels and genuinely overflowed even centered. */
+@media (max-width: 760px) {
   .folder-tab-hanging-info-individual {
     display: none;
   }
@@ -2128,14 +2137,20 @@ select.btn {
   }
 }
 
-/* Mobile (<=760px) clearance for the new mobile tier of .brand-oversized
-   above (logo's measured right edge ~129.5px at that size). Declared
-   after the 640px block's own padding shorthand above so this longhand
-   override actually wins for widths in that sub-range too -- same
-   cascade-order lesson as the desktop/tablet overrides. */
+/* Mobile (<=760px): explicit user call, reversing the push-right approach
+   used on desktop/tablet -- center the tabs in the row instead of
+   reserving left space for the logo. No tab should be hidden, scrolled
+   off, or shoved aside here; it's fine if the logo's glow visually
+   overlaps the first tab a little, since with the info-tab-combine
+   already active at this width (see the 1450px rule above, 7 tabs not
+   9) the centered row comfortably fits every phone width without
+   needing to scroll. Declared after the 640px block's own padding
+   shorthand above so this `justify-content` isn't fighting a later,
+   more specific rule -- same cascade-order lesson as the desktop/
+   tablet overrides elsewhere in this file. */
 @media (max-width: 760px) {
   .folder-tabbar-hanging {
-    padding-left: 138px;
+    justify-content: center;
   }
 }
 

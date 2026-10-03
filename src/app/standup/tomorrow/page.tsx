@@ -1140,7 +1140,7 @@ export default function TomorrowGoalsPage() {
                                   const recipientId = e.target.value;
                                   if (recipientId) handleAssignGoal(g.id as string, recipientId);
                                 }}
-                                className="btn btn-tint btn-amber-tint goal-toolbar-btn"
+                                className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
                                 style={{ paddingLeft: "1.7rem" }}
                               >
                                 <option value="" disabled>

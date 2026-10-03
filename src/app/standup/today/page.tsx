@@ -1194,10 +1194,8 @@ export default function TodayPage() {
                 <button
                   onClick={reopenDay}
                   disabled={reopening}
-                  className="btn bottom-nav-btn"
+                  className="btn bottom-nav-btn metal-orange"
                   style={{
-                    background: "rgba(245, 158, 11, 0.3)",
-                    border: "2px solid rgba(245, 158, 11, 0.5)",
                     fontWeight: "bold",
                     whiteSpace: "nowrap"
                   }}
@@ -1226,14 +1224,8 @@ export default function TodayPage() {
                         : t("today.finishInProgressShort")
                       : t("today.closeOutDayTitle")
                   }
-                  className="btn bottom-nav-btn"
-                  style={{
-                    background: "rgba(245, 158, 11, 0.2)",
-                    border: "2px solid rgba(245, 158, 11, 0.4)",
-                    opacity: !canCloseDay || closing ? 0.5 : 1,
-                    cursor: !canCloseDay || closing ? "not-allowed" : "pointer",
-                    whiteSpace: "nowrap",
-                  }}
+                  className="btn bottom-nav-btn metal-orange"
+                  style={{ whiteSpace: "nowrap" }}
                 >
                   {closing ? t("today.closing") : t("today.closeOutDayBtn")}
                 </button>
@@ -1810,7 +1802,7 @@ export default function TodayPage() {
                                 const recipientId = e.target.value;
                                 if (recipientId) handleAssignGoal(g.id, recipientId);
                               }}
-                              className="btn btn-tint btn-amber-tint goal-toolbar-btn"
+                              className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
                               style={{ paddingLeft: "1.7rem" }}
                             >
                               <option value="" disabled>

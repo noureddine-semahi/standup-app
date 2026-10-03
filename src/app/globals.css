@@ -4946,20 +4946,27 @@ select:focus {
   }
 }
 
-/* Cleared/Covered (plus Missed, close behind) measured a 34.3px
-   natural label width against a ~30.5px date cell at 320px -- a
-   ~1.9px overflow per side, confirmed via getBoundingClientRect, not
-   assumed. Cell width already grows past this comfortably by 360px
-   (measured ~38.6px there), so the reduction is scoped to below that
-   width only -- it never touches the sm:text-[10px] desktop size.
-   7px + a touch of negative letter-spacing was the smallest
-   combination that cleared the real cell width with margin (measured
-   ~29px) without going so small it reads as an "emergency" size. The
-   date number itself (text-sm/sm:text-2xl) is untouched -- it stays
-   the dominant element in the cell. */
-@media (max-width: 359px) {
+/* Phase 10C found the Phase 10B fix below was verified against a test
+   page that didn't include the real .card padding, understating the
+   true deficit -- the real cell at 320px is ~30.6px, not the ~37.7px
+   the earlier check used. Against the real cell, Spanish "Resuelto"/
+   "Cubierto" (longer than their English counterparts "Cleared"/
+   "Covered") still overflowed at 7px+(-0.02em): 33.16px vs a 30.58px
+   cell, and ALSO at 360px itself (39.17px vs 36.3px), since 360px fell
+   just outside the old `max-width: 359px` boundary and got the
+   unreduced 8px size, which is wider still. Re-measured against the
+   real card-padded cell: 6px+(-0.02em) brings the longest Spanish
+   labels to 28.42px, a 2.16px margin at the narrowest real width
+   (320px) and a 7.9px margin at 360px -- confirmed still clearly
+   legible as a word at actual device pixel density (checked at 2x
+   scale, not just 1x), not shrunk past the point of reading as an
+   "emergency" size. Breakpoint widened to include 360px itself, since
+   that's the width that needed it; 390px+ was already fine unreduced
+   (minimum measured margin 1.4px at 390px) and is left alone. The date
+   number (text-sm/sm:text-2xl) remains untouched and dominant. */
+@media (max-width: 360px) {
   .calendar-cell-label {
-    font-size: 7px;
+    font-size: 6px;
     letter-spacing: -0.02em;
   }
 }

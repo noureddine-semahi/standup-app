@@ -2999,6 +2999,26 @@ select:focus {
   gap: 1.5rem;
 }
 
+/* Regression fix (pre-existing, unrelated to the metal-edge visual work):
+   the title column is `.flex-1` (Tailwind's `flex: 1 1 0%`) with an
+   explicit `min-width: 0` inline style, and the Priority/Actions column
+   has a fixed `min-width: 160px` inline style. With a 0% flex-basis and
+   min-width:0 on the title column, flex-wrap's "does this exceed the
+   container" check never sees enough hypothetical width to trigger a
+   wrap -- the title column just keeps shrinking to absorb the deficit
+   instead, well past 480px, squeezing long titles down to one-word-per-
+   line and taking the goal-toolbar buttons inside it down with it. The
+   comment above already documents the INTENDED behavior ("wrap onto
+   stacked lines... before 480px") -- flex-wrap alone was never actually
+   achieving it. Forcing an explicit stack here is the robust fix,
+   independent of the two columns' individual flex-basis/min-width
+   values. 640px matches this file's other mobile-tier breakpoints. */
+@media (max-width: 640px) {
+  .goal-row-cols {
+    flex-direction: column;
+  }
+}
+
 /* Corner number tag — merged into the card's own top-left corner/border
    instead of a free-floating circle, so it doesn't compete with the goal
    title for horizontal space. */

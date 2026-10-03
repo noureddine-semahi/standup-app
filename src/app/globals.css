@@ -3049,23 +3049,6 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.82rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  /* Amber LED number: vivid fill + a crisp dark stroke so it stays
-     sharp/"engraved" even while the glow layers below bloom past it --
-     text-stroke draws tight at the glyph edge (no blur of its own),
-     independent of text-shadow's blur radius, which is exactly the
-     "crisp outline, soft glow extends beyond it" split the spec calls
-     for. Order: tiny warm highlight (tight, barely blurred) -> the
-     actual restrained amber glow -> a small downward dark shadow for
-     depth so the number doesn't look pasted flat onto the metal. */
-  color: #ffb000;
-  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.85);
-  text-shadow:
-    0 0 2px rgba(255, 221, 161, 0.85),
-    0 0 6px rgba(255, 176, 0, 0.55),
-    0 1px 1px rgba(0, 0, 0, 0.5);
   border-radius: 50%;
   background:
     radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.3) 9%, transparent 20%),
@@ -3092,6 +3075,49 @@ select:focus {
   pointer-events: none;
 }
 
+/* The digit itself -- a real gradient fill (bright warm core fading to
+   saturated amber/orange at the edges), not a flat color, via
+   background-clip:text. This HAS to be a separate element from
+   .goal-number-badge: that element's own `background` is already the
+   multi-layer gunmetal sphere material, and background-clip:text would
+   clip THAT to the glyph shape if applied on the same element, erasing
+   the sphere everywhere else. `color`/`-webkit-text-fill-color` is the
+   standard progressive-enhancement fallback pair -- engines without
+   background-clip:text support (none in this app's real target
+   browsers, but cheap insurance) fall back to the flat `color` below
+   instead of invisible text.
+   Bumped noticeably heavier/larger than the previous pass (800/0.82rem
+   -> 900/1rem) -- the earlier digits were getting visually lost against
+   the gunmetal shading, per explicit "3 and 4 unreadable" feedback.
+   position:relative + z-index:1 is what actually fixes that: ::before/
+   ::after below are position:absolute with no z-index of their own,
+   which (per normal CSS stacking) placed them ABOVE this plain-text
+   content by default -- a real layering bug, not just a contrast one.
+   Giving the digit its own stacking level, and the pseudo-elements an
+   explicit negative one, makes the ordering explicit both ways. */
+.goal-number-badge-digit {
+  position: relative;
+  z-index: 1;
+  display: block;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  background-image: radial-gradient(circle at 50% 32%, #fff4b0 0%, #ffc21a 36%, #ffb000 66%, #ff8a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: #ffc21a;
+  -webkit-text-fill-color: transparent;
+  /* Crisp outline, tuned to sharpen the now-thicker glyph without
+     swallowing its interior -- "the stroke exists to sharpen the
+     shape, not dominate it." */
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.92);
+  text-shadow:
+    0 0 2px rgba(255, 244, 176, 0.9),
+    0 0 5px rgba(255, 178, 0, 0.6),
+    0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
 .goal-number-badge::before,
 .goal-number-badge::after {
   content: "";
@@ -3099,6 +3125,7 @@ select:focus {
   inset: 0;
   border-radius: 50%;
   pointer-events: none;
+  z-index: -1;
 }
 
 /* Small crisp specular glint -- upper-left, where the "small bright

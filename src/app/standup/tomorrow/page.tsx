@@ -56,6 +56,7 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
+import GoalNumberOrb from "@/components/GoalNumberOrb";
 import PageLoadingState from "@/components/PageLoadingState";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -949,7 +950,7 @@ export default function TomorrowGoalsPage() {
                   {/* Number badge — a small corner tag flush with the card's
                       own top-left border/radius, instead of a free-floating
                       circle competing with the goal title for horizontal space. */}
-                  <div className="goal-number-badge">{displayIdx + 1}</div>
+                  <GoalNumberOrb number={displayIdx + 1} />
                   {/* Mirrors the number badge on the opposite corner —
                       moved here from an inline button next to the priority
                       select, same as Today's goal-delete-corner-btn. */}

@@ -54,6 +54,7 @@ import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
+import GoalNumberOrb from "@/components/GoalNumberOrb";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { Clock, Link2, Plus, Sun, Redo2, X, Ticket } from "lucide-react";
@@ -1025,7 +1026,7 @@ export default function DynamicDatePage() {
 
                 {/* Number badge — a small corner tag flush with the card's
                     own top-left border/radius. */}
-                <div className="goal-number-badge">{idx + 1}</div>
+                <GoalNumberOrb number={idx + 1} />
                 {/* Mirrors the number badge on the opposite corner — moved
                     here from an inline button next to the priority select,
                     same as Today's goal-delete-corner-btn. */}

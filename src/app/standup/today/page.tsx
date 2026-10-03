@@ -10,6 +10,7 @@ import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
+import GoalNumberOrb from "@/components/GoalNumberOrb";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -1628,16 +1629,15 @@ export default function TodayPage() {
                   title={t("today.clickToExpand")}
                 >
                   <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
-                    <div
-                      className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white/80 text-sm"
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        background: "rgba(var(--tint-rgb), 0.06)",
-                        border: "1px solid rgba(var(--tint-rgb), 0.14)",
-                      }}
-                    >
-                      {idx + 1}
+                    {/* GoalNumberOrb is position:absolute (anchors to the
+                        card's own corner on the full .goal-row card) --
+                        this small relative wrapper, sized to match its
+                        footprint, lets it render inline next to the title
+                        here instead, same spot the old flat circle used
+                        to occupy. Same orb, same component, everywhere --
+                        see GoalNumberOrb.tsx. */}
+                    <div style={{ position: "relative", width: "34px", height: "34px", flexShrink: 0 }}>
+                      <GoalNumberOrb number={idx + 1} />
                     </div>
                     <div className="goal-done-title flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
                       {g.title}
@@ -1692,7 +1692,7 @@ export default function TodayPage() {
                 )}
                 {/* Number badge — a small corner tag flush with the card's
                     own top-left border/radius. */}
-                <div className="goal-number-badge">{idx + 1}</div>
+                <GoalNumberOrb number={idx + 1} />
 
                 <div className="goal-row-body">
                 <div className="goal-row-cols">

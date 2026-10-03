@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History } from "lucide-react";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
+import GoalNumberOrb from "@/components/GoalNumberOrb";
 import {
   addBacklogGoal,
   addLongTermGoal,
@@ -681,7 +682,7 @@ export default function ToolsPage() {
                 className="goal-row"
                 style={{ "--p-color": meta.color } as React.CSSProperties}
               >
-                <div className="goal-number-badge">{idx + 1}</div>
+                <GoalNumberOrb number={idx + 1} />
                 <button
                   type="button"
                   onClick={() => handleDelete(item)}
@@ -856,7 +857,7 @@ export default function ToolsPage() {
                 className="goal-row"
                 style={{ "--p-color": meta.color } as React.CSSProperties}
               >
-                <div className="goal-number-badge">{idx + 1}</div>
+                <GoalNumberOrb number={idx + 1} />
                 <button
                   type="button"
                   onClick={() => handleDeleteLongTerm(item)}
@@ -1064,7 +1065,7 @@ export default function ToolsPage() {
             const busy = busyListIds.has(list.id);
             return (
               <div key={list.id} className="rounded-xl border border-white/10 bg-white/5 pt-6 px-4 pb-4" style={{ position: "relative" }}>
-                <div className="goal-number-badge">{idx + 1}</div>
+                <GoalNumberOrb number={idx + 1} />
                 <button
                   type="button"
                   onClick={() => handleDeleteList(list)}
@@ -1269,7 +1270,7 @@ export default function ToolsPage() {
             const busy = busyPaymentIds.has(account.id);
             return (
               <div key={account.id} className="rounded-xl border border-white/10 bg-white/5 pt-6 px-4 pb-4" style={{ position: "relative" }}>
-                <div className="goal-number-badge">{idx + 1}</div>
+                <GoalNumberOrb number={idx + 1} />
                 <button
                   type="button"
                   onClick={() => handleDeletePayment(account)}

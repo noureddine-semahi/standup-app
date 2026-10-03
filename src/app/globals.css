@@ -3019,28 +3019,111 @@ select:focus {
   }
 }
 
-/* Corner number tag — merged into the card's own top-left corner/border
-   instead of a free-floating circle, so it doesn't compete with the goal
-   title for horizontal space. */
+/* Goal number marker -- a metallic hemisphere/domed stud mounted at the
+   card's top-left corner, replacing the old flat corner-tag shape
+   (quarter-rounded flag, 24x24px). VISUAL ONLY: still position:absolute
+   with no effect on .goal-row-cols/.goal-row-body's flex layout, exactly
+   like the shape it replaces -- the slight size increase (24px -> 34px)
+   and small negative top/left offset (so part of the sphere overhangs
+   the card's own rounded corner, "mounted on the surface" rather than
+   inset into it) were verified via Playwright getBoundingClientRect
+   against the actual title text node to confirm zero overlap before
+   landing on these numbers; do not enlarge further without re-checking.
+   --metal-color is inherited from .goal-row (already set there, Phase 2
+   of the metal-edge system) -- no JSX/inline-style changes needed, same
+   value every other semantic reflection on the card already uses.
+   Three layers: this element's own background (base gunmetal material +
+   baked-in highlight/shadow gradients) and box-shadow (inset curvature +
+   outer contact shadow + rim), ::before (a small crisp specular glint,
+   the "sparkle" a flat gradient alone can't sell), ::after (the
+   semantic-color reflection, soft-light blended so it reads as colored
+   light hitting metal rather than a tinted sphere). Both pseudo-elements
+   are position:absolute/inset:0 and pointer-events:none -- decorative
+   only, never part of layout. */
 .goal-number-badge {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 24px;
-  height: 24px;
+  top: -5px;
+  left: -5px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: rgba(var(--tint-rgb), 0.75);
-  background: rgba(var(--tint-rgb), 0.07);
-  border-right: 1px solid rgba(var(--tint-rgb), 0.12);
-  border-bottom: 1px solid rgba(var(--tint-rgb), 0.12);
-  border-top-left-radius: 16px;
-  border-bottom-right-radius: 8px;
-  z-index: 2;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #eef0f4;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7), 0 -0.5px 0 rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.3) 9%, transparent 20%),
+    radial-gradient(circle at 37% 33%, rgba(225, 229, 236, 0.5) 0%, transparent 46%),
+    radial-gradient(circle at 68% 76%, rgba(0, 0, 0, 0.6) 0%, transparent 58%),
+    linear-gradient(155deg, #9aa0ad 0%, #5b606c 48%, #202229 100%);
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.55),
+    inset 2px 0 2px rgba(255, 255, 255, 0.08),
+    0 1px 0 0 rgba(0, 0, 0, 0.5),
+    0 3px 6px -1px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(255, 255, 255, 0.06);
+  z-index: 3;
   pointer-events: none;
+}
+
+.goal-number-badge::before,
+.goal-number-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Small crisp specular glint -- upper-left, where the "small bright
+   specular highlight" spec calls for it, distinct from the softer
+   broader highlight already baked into the background gradient above. */
+.goal-number-badge::before {
+  background: radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 30%, transparent 55%);
+  width: 40%;
+  height: 32%;
+  top: 10%;
+  left: 14%;
+  inset: auto;
+}
+
+/* Semantic reflection -- soft-light blended (reads as colored light
+   hitting the metal, not a colored sphere) and concentrated toward one
+   edge, same --metal-color every other card-surface reflection uses. */
+.goal-number-badge::after {
+  background: radial-gradient(
+    circle at 78% 70%,
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 65%, transparent) 0%,
+    transparent 48%
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.6;
+}
+
+/* Light mode: a genuinely different palette (not a dark-theme ratio) --
+   lighter brushed-steel gradient, a neutral warm-gray contact shadow
+   instead of near-black, and the inset highlight/shadow pair rebalanced
+   so the curvature still reads clearly against a light card. */
+[data-theme="light"] .goal-number-badge {
+  text-shadow: 0 1px 1px rgba(20, 22, 30, 0.55), 0 -0.5px 0 rgba(255, 255, 255, 0.5);
+  background:
+    radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.6) 10%, transparent 22%),
+    radial-gradient(circle at 37% 33%, rgba(255, 255, 255, 0.4) 0%, transparent 48%),
+    radial-gradient(circle at 68% 76%, rgba(40, 42, 48, 0.4) 0%, transparent 56%),
+    linear-gradient(155deg, #eef0f3 0%, #a6abb6 48%, #686d77 100%);
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.8),
+    inset 0 -3px 4px rgba(40, 42, 48, 0.4),
+    inset 2px 0 2px rgba(255, 255, 255, 0.3),
+    0 1px 0 0 rgba(40, 42, 48, 0.16),
+    0 3px 6px -1px rgba(40, 32, 28, 0.32),
+    0 0 0 1px rgba(40, 42, 48, 0.22);
 }
 
 .goal-row:hover {

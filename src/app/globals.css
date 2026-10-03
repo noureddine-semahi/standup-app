@@ -46,17 +46,35 @@ a {
   --metal-edge-red: #f43f5e;
   --metal-edge-neutral: #94a3b8;
 
-  /* The two diffuse glow-layer shapes .metal-strong uses, lifted into
-     variables so .folder-tab-active/.folder-tab-hanging-active (the
-     reference "Community" look this whole system generalizes) can
-     consume the SAME values instead of duplicating the recipe -- a
-     real refactor, not a parallel system. Dark theme (here) keeps
-     their original tuned numbers; light theme below scales both down
-     ~25%, same as the rest of this file's active-glow handling. */
+  /* NAV-TAB-ONLY glow shape, consumed exclusively by
+     .folder-tab-active/.folder-tab-hanging-active (the Community/
+     header nav bar's active-state look) -- explicitly NOT reused by
+     any button-level class below as of the metal-edge refinement
+     pass. The header/nav's own intensity was confirmed to look right
+     as-is and is left untouched; a CTA button at this same intensity
+     read as "a large diffuse neon cloud" once applied, which is why
+     .metal-strong/.btn-primary now have their OWN, separately-tuned
+     --metal-glow-strong-* below instead of sharing these. */
   --metal-glow-1: 0 0 18px 6px;
   --metal-glow-1-strength: 60%;
   --metal-glow-2: 0 0 30px 11px;
   --metal-glow-2-strength: 36%;
+
+  /* Button-level glow, decoupled from the nav-tab shape above.
+     --metal-glow-strong-* is for .metal-strong/.btn-primary (the
+     "active/primary" tier) -- a single restrained layer, ~10px reach,
+     not the nav's two-layer 18-30px halo. --metal-glow-int-*-rest/
+     -hover is for .metal-interactive/.btn (the "normal button" tier)
+     -- barely-there at rest, a small increase on hover, per explicit
+     "almost no glow" / "tiny glow increase" spec. */
+  --metal-glow-strong: 0 0 10px 1px;
+  --metal-glow-strong-strength: 42%;
+  --metal-glow-int-rest: 0 0 4px -1px;
+  --metal-glow-int-rest-strength: 22%;
+  --metal-glow-int-hover: 0 0 8px 0px;
+  --metal-glow-int-hover-strength: 38%;
+  --metal-glow-surface-hover: 0 0 8px -5px;
+  --metal-glow-surface-hover-strength: 28%;
 
   --tint-rgb: 255, 255, 255;
   --panel-rgb: 10, 14, 26;
@@ -168,14 +186,31 @@ a {
   --chrome-alpha: 0.82;
   --chrome-alpha-hover: 0.9;
 
-  /* Metal-strong's two glow layers scaled down ~25%, same ratio already
-     used for .folder-tab-active's own light override before this
-     system existed -- a glow this size/strength reads as "illuminated"
-     on a near-black surface but "blurry smudge" on a light one. */
+  /* Nav-tab glow (.folder-tab-active only), scaled down ~25% -- same
+     ratio used before the metal-edge system existed. Left untouched by
+     the later refinement pass; the header/nav was confirmed to already
+     look right. */
   --metal-glow-1: 0 0 14px 4px;
   --metal-glow-1-strength: 45%;
   --metal-glow-2: 0 0 22px 8px;
   --metal-glow-2-strength: 27%;
+
+  /* Button-level glow, light mode -- reduced SUBSTANTIALLY more than a
+     flat ~25% ratio would give (explicit user call: "do not simply
+     reuse the dark-mode glow values," since the same orange/gold glow
+     that reads as a restrained accent on a near-black button reads as
+     a much more conspicuous yellow smudge on white). The metallic
+     border carries the definition here; glow is reduced to a faint
+     trace, strongest on .metal-strong/.btn-primary and barely present
+     on normal buttons at rest. */
+  --metal-glow-strong: 0 0 6px 0px;
+  --metal-glow-strong-strength: 20%;
+  --metal-glow-int-rest: 0 0 2px -1px;
+  --metal-glow-int-rest-strength: 10%;
+  --metal-glow-int-hover: 0 0 4px -1px;
+  --metal-glow-int-hover-strength: 16%;
+  --metal-glow-surface-hover: 0 0 5px -4px;
+  --metal-glow-surface-hover-strength: 14%;
 
   /* Neutral ambient shadows -- same shape/blur/spread as the dark-theme
      values at :root, just recolored from flat black to a soft warm dark
@@ -1573,7 +1608,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.2),
     0 6px 18px -8px rgba(0, 0, 0, 0.45),
-    0 0 10px -5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 35%, transparent);
+    var(--metal-glow-surface-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-surface-hover-strength), transparent);
 }
 
 .metal-interactive {
@@ -1586,11 +1621,14 @@ h1, h2, h3, h4, h5, h6 {
     color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 9%, rgba(var(--tint-rgb), 0.06)),
     color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 3%, rgba(var(--tint-rgb), 0.02))
   );
+  /* Glow kept to a faint trace at rest ("almost no colored glow" per
+     spec) via --metal-glow-int-rest -- the border above is what should
+     catch the eye, not an outer halo. */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
     0 2px 6px -3px rgba(0, 0, 0, 0.35),
-    0 0 6px -3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 35%, transparent);
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent);
 }
 
 .metal-interactive:hover,
@@ -1601,18 +1639,18 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
     0 4px 10px -3px rgba(0, 0, 0, 0.4),
-    0 0 14px -4px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 55%, transparent);
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent);
 }
 
-/* Pressed: moves inward ~1px (not just "un-hovers"), glow eases back,
-   inset shadow deepens -- reads as physically pushed in. */
+/* Pressed: moves inward ~1px (not just "un-hovers"), glow eases back
+   below even the resting level, inset shadow deepens -- reads as
+   physically pushed in. */
 .metal-interactive:active {
   transform: translateY(1px);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.32),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
-    0 0 4px -2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, transparent);
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .metal-interactive:disabled {
@@ -1635,29 +1673,36 @@ h1, h2, h3, h4, h5, h6 {
     color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 16%, rgba(var(--panel-rgb), var(--panel-alpha))),
     color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 6%, rgba(var(--panel-rgb), var(--panel-alpha)))
   );
+  /* Single restrained glow layer via --metal-glow-strong -- NOT the
+     nav tab's two-layer --metal-glow-1/2 halo (reserved for
+     .folder-tab-active, see its own definition). A CTA/selected-state
+     button needs to read as "polished metal catching light," not the
+     same intensity as the header's active nav tab. */
   box-shadow:
     inset 0 1.5px 0 0 rgba(255, 255, 255, 0.24),
     inset 1px 0 0 0 color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, white 20%),
     inset -1px 0 0 0 color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, white 20%),
     inset 0 -2px 0 0 rgba(0, 0, 0, 0.4),
-    0 8px 16px -6px rgba(0, 0, 0, 0.5),
+    0 6px 12px -6px rgba(0, 0, 0, 0.45),
     0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent),
-    var(--metal-glow-1) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-1-strength), transparent),
-    var(--metal-glow-2) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-2-strength), transparent);
+    var(--metal-glow-strong) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-strong-strength), transparent);
 }
 
 .metal-strong:hover {
   transform: translateY(-1px);
 }
 
+/* Pressed: inset shadow deepens, outer glow drops entirely (not just
+   eases) -- same "reduce glow, move inward" read as .metal-interactive's
+   press state, just keeping the thin colored ring (0 0 0 1.5px, no
+   blur) since .metal-strong's identity leans more on that crisp edge. */
 .metal-strong:active {
   transform: translateY(1px);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.4),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent),
-    0 0 10px -2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 35%, transparent);
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent);
 }
 
 .metal-strong:disabled {
@@ -1738,7 +1783,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
     0 2px 5px -2px rgba(0, 0, 0, 0.35),
-    0 0 5px -3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, transparent);
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent);
 }
 
 /* Ripple lives on ::after now (was ::before) -- ::before is reserved
@@ -1779,7 +1824,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
     0 5px 12px -3px rgba(0, 0, 0, 0.45),
-    0 0 12px -4px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, transparent);
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent);
 }
 
 /* Pressed: drops below rest (not just back to 0), shadow shrinks, and
@@ -1791,11 +1836,13 @@ h1, h2, h3, h4, h5, h6 {
 .btn:active {
   transform: translateY(2px);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  /* Outer glow dropped entirely on press (not just eased) -- same
+     "reduce glow, move inward, deepen inset shadow" read used
+     app-wide across this refinement pass. */
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.4),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.04),
-    0 1px 2px -1px rgba(0, 0, 0, 0.3),
-    0 0 4px -3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, transparent);
+    0 1px 2px -1px rgba(0, 0, 0, 0.3);
 }
 
 .btn:active::before {
@@ -1942,14 +1989,18 @@ select.btn {
   background: linear-gradient(to bottom, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.09));
   color: var(--accent-amber);
   font-weight: 700;
+  /* Single restrained glow (--metal-glow-strong, same token
+     .metal-strong uses) -- NOT the nav tab's two-layer halo. This was
+     the main source of "Plan Tomorrow"'s glow spreading far outside
+     the button; a CTA reads as "polished metal catching light," not
+     the header's own active-nav intensity. */
   box-shadow:
     inset 0 1.5px 0 0 rgba(255, 255, 255, 0.24),
     inset 1px 0 0 0 rgba(245, 158, 11, 0.35),
     inset -1px 0 0 0 rgba(245, 158, 11, 0.35),
     inset 0 -1px 0 0 rgba(120, 53, 15, 0.4),
     0 3px 8px -3px rgba(0, 0, 0, 0.4),
-    var(--metal-glow-1) rgba(245, 158, 11, 0.28),
-    var(--metal-glow-2) rgba(245, 158, 11, 0.16);
+    var(--metal-glow-strong) color-mix(in srgb, #f59e0b var(--metal-glow-strong-strength), transparent);
 }
 
 .btn-primary::before {
@@ -1967,18 +2018,18 @@ select.btn {
     inset 0 -1px 0 0 rgba(120, 53, 15, 0.45),
     0 6px 14px -3px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(245, 158, 11, 0.75),
-    var(--metal-glow-1) rgba(245, 158, 11, 0.4),
-    var(--metal-glow-2) rgba(245, 158, 11, 0.22);
+    var(--metal-glow-strong) color-mix(in srgb, #f59e0b calc(var(--metal-glow-strong-strength) + 10%), transparent);
 }
 
 .btn-primary:active {
   transform: translateY(2px);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  /* Glow dropped entirely on press, same convention as every other
+     control in this system. */
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.45),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
-    0 1px 3px -1px rgba(0, 0, 0, 0.35),
-    0 0 8px -3px rgba(245, 158, 11, 0.3);
+    0 1px 3px -1px rgba(0, 0, 0, 0.35);
 }
 
 .btn-primary:active::before {

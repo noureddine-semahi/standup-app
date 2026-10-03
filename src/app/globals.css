@@ -165,6 +165,11 @@ a {
   --shadow-card-hover: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
   --shadow-card-highlight: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
   --shadow-dropdown: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  /* New: a resting (not hover-only) shadow for .card itself, part of
+     the metal-edge Phase 2 "major container" tier (~10-15% intensity,
+     no semantic glow) -- .card previously had none at rest, only on
+     hover. Deliberately smaller than --shadow-card-hover. */
+  --shadow-card-rest: 0 4px 14px -10px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="light"] {
@@ -224,6 +229,7 @@ a {
   --shadow-card-hover: 0 10px 20px -10px rgba(40, 32, 28, 0.16);
   --shadow-card-highlight: 0 6px 16px -8px rgba(40, 32, 28, 0.14);
   --shadow-dropdown: 0 10px 26px -10px rgba(40, 32, 28, 0.18);
+  --shadow-card-rest: 0 3px 10px -9px rgba(40, 32, 28, 0.2);
 
   /* Glass/mirror reflection -- dialed down a step from dark theme
      (explicit "30-35% light / 35-45% dark" ranges), since a white
@@ -2040,9 +2046,21 @@ select.btn {
 /* ✨ Cards with Glow Effect — a glass panel using --panel-rgb/--panel-alpha*,
    so it becomes a genuine light glass surface (with dark text, via
    --tint-rgb) in light mode instead of staying permanently dark-glass. */
+/* Metal-edge Phase 2 "major container" tier -- intentionally the
+   quietest of the three card tiers (~10-15% vs goal cards' ~20-35%):
+   a neutral metallic perimeter (no semantic --metal-color set here, so
+   it always falls back to --metal-edge-neutral -- no colored glow by
+   default, matching "frame the content, don't compete with it"), a
+   faint directional highlight, and a soft resting shadow .card
+   previously didn't have at all (only on hover). Still just --tint-rgb/
+   --metal-edge-neutral color-mixes, so it's automatically correct in
+   both themes without a separate light override block. */
 .card {
   color: rgba(var(--tint-rgb), 0.92);
-  border: 1px solid rgba(245, 158, 11, 0.15);
+  border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 7%, rgba(var(--tint-rgb), 0.1));
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 14%, rgba(var(--tint-rgb), 0.18));
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 5%, rgba(var(--tint-rgb), 0.08));
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 3%, rgba(var(--tint-rgb), 0.06));
   background: rgba(var(--panel-rgb), var(--panel-alpha));
   backdrop-filter: blur(10px) saturate(150%);
   border-radius: 10px;
@@ -2051,6 +2069,9 @@ select.btn {
   position: relative;
   overflow: hidden;
   animation: fadeIn 0.6s ease-out;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    var(--shadow-card-rest);
 }
 
 .card::before {
@@ -2069,7 +2090,9 @@ select.btn {
   border-color: rgba(245, 158, 11, 0.25);
   background: rgba(var(--panel-rgb), var(--panel-alpha-hover));
   transform: translateY(-2px);
-  box-shadow: var(--shadow-card-hover);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    var(--shadow-card-hover);
 }
 
 .card:hover::before {
@@ -2078,10 +2101,19 @@ select.btn {
 
 /* A quieter emphasis modifier — replaces the old per-page inline
    saturated-hue border + heavy colored glow with one consistent,
-   low-key treatment. */
+   low-key treatment. Still within the "major container" metal-edge
+   tier (no semantic glow unless --metal-color is explicitly set) --
+   just the directional metallic perimeter pushed a step further than
+   plain .card, not a flat colored ring like the old !important
+   border-color did (that would have overridden .card's new
+   directional border-top/right/bottom entirely). This is what the
+   Today page's container (.card.card-highlight) actually renders. */
 .card-highlight {
-  border-color: rgba(245, 158, 11, 0.25) !important;
-  box-shadow: var(--shadow-card-highlight);
+  border-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 10%, rgba(var(--tint-rgb), 0.12)) !important;
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, rgba(var(--tint-rgb), 0.22)) !important;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    var(--shadow-card-highlight);
 }
 
 /* Shared browser-tab / hanging-folder navigation — used by Social's 6
@@ -2899,27 +2931,56 @@ select:focus {
    own — the number badge and (on Today) the collapse button are positioned
    flush against this element's own edges/corners/radius, and .goal-row-body
    carries the padding for everything else. */
+/* Phase 2 of the metal-edge system (see .metal-strong/-interactive/
+   -surface further up): goal cards move from a flat, full-perimeter
+   priority-colored border (P1's solid red in particular read as a
+   validation/error outline, not an accent -- the original reason this
+   got softened for light mode) to a metallic-surface construction.
+   --metal-color aliases --p-color (already set inline per goal,
+   unchanged) so this needed zero JS/JSX changes for the common case.
+   Semantic color is concentrated as a directional "reflection" --
+   brightest top-left, fading through neutral-metallic on the right,
+   darkest bottom-right -- rather than a uniform colored ring, per
+   explicit "dark/silver metal + red reflection, not a red CSS border"
+   direction. "Expanded" card tier (~35% of .metal-strong's visual
+   weight) -- .goal-row-done-collapsed below is the quieter "collapsed"
+   tier (~20%), keyed to status instead of priority. */
 .goal-row {
+  --metal-color: var(--p-color, var(--metal-edge-neutral));
   position: relative;
   border-radius: 16px;
-  background: rgba(var(--tint-rgb), 0.03);
-  border: 1px solid var(--p-color, rgba(var(--tint-rgb), 0.08));
+  background: linear-gradient(135deg, rgba(var(--tint-rgb), 0.045) 0%, rgba(var(--tint-rgb), 0.02) 65%);
+  border: 1.5px solid color-mix(in srgb, var(--metal-color) 24%, rgba(var(--tint-rgb), 0.14));
+  border-top-color: color-mix(in srgb, var(--metal-color) 52%, rgba(var(--tint-rgb), 0.3));
+  border-left-color: color-mix(in srgb, var(--metal-color) 40%, rgba(var(--tint-rgb), 0.22));
+  border-right-color: color-mix(in srgb, var(--metal-color) 20%, rgba(var(--tint-rgb), 0.12));
+  border-bottom-color: color-mix(in srgb, var(--metal-color) 14%, rgba(0, 0, 0, 0.35));
   padding: 0;
-  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
+    0 6px 16px -10px rgba(0, 0, 0, 0.4),
+    0 0 11px -5px color-mix(in srgb, var(--metal-color) 42%, transparent);
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Light mode only: --p-color is the SOLID priority color (same value
-   used for priority text/icons elsewhere), and P1's solid red
-   (--priority-1: #b91c1c) as a full 1px card border reads as a
-   validation/error outline rather than a priority accent -- confirmed
-   via a mock render before this change. color-mix() keeps the exact
-   same hue (so "P1 = red" stays just as clear, and P2-P5 inherit the
-   same softening automatically, no special-casing one priority) at
-   reduced opacity, reading as an accent border instead. Dark theme is
-   untouched -- the same solid color against a near-black card doesn't
-   have this problem, so there's no reason to change its contrast. */
+/* Light mode: same directional-reflection construction, re-based onto
+   a light neutral surface instead of dark -- NOT a flat ratio of the
+   dark values (explicit instruction for this pass, same as the button
+   refinement before it). Glow is cut substantially further here; the
+   metallic border carries the definition on a light card. */
 [data-theme="light"] .goal-row {
-  border-color: color-mix(in srgb, var(--p-color, rgba(var(--tint-rgb), 0.3)) 45%, transparent);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(var(--tint-rgb), 0.025) 65%);
+  border: 1.5px solid color-mix(in srgb, var(--metal-color) 16%, rgba(var(--tint-rgb), 0.2));
+  border-top-color: color-mix(in srgb, var(--metal-color) 38%, rgba(var(--tint-rgb), 0.38));
+  border-left-color: color-mix(in srgb, var(--metal-color) 30%, rgba(var(--tint-rgb), 0.3));
+  border-right-color: color-mix(in srgb, var(--metal-color) 14%, rgba(var(--tint-rgb), 0.18));
+  border-bottom-color: color-mix(in srgb, var(--metal-color) 10%, rgba(40, 32, 28, 0.26));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.08),
+    0 4px 12px -10px rgba(40, 32, 28, 0.3),
+    0 0 7px -4px color-mix(in srgb, var(--metal-color) 28%, transparent);
 }
 
 /* Padded content area for everything except the number badge/collapse
@@ -2973,8 +3034,19 @@ select:focus {
 /* Collapsed completed/canceled goal — a compact row with a large diagonal
    status stamp over it, in place of the full card. --done-color/-border/-bg
    come from statusChipColors() so the stamp matches the status chip's
-   existing per-status color instead of introducing a new palette. */
+   existing per-status color instead of introducing a new palette.
+   Metal-edge "collapsed" tier (~20% of .metal-strong's visual weight,
+   quieter than .goal-row's own "expanded" ~35%): --metal-color keys off
+   --done-color (STATUS, not priority -- a resolved goal's identity is
+   its outcome) instead of .goal-row's --p-color. Overrides .goal-row's
+   own border (both classes are on this element; declared later here so
+   it wins) down to almost no color at rest, brightening only on hover/
+   tap -- "almost no glow, slight reflection, brighten gently on hover"
+   per spec. No box-shadow override needed: .goal-row's own glow is
+   already small enough at this component's scale to read as
+   appropriately quiet without a separate collapsed-specific value. */
 .goal-row-done-collapsed {
+  --metal-color: var(--done-color, var(--metal-edge-neutral));
   width: 100%;
   display: flex;
   align-items: center;
@@ -2984,11 +3056,14 @@ select:focus {
   font: inherit;
   color: inherit;
   overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--metal-color) 7%, rgba(var(--tint-rgb), 0.1));
+  border-top-color: color-mix(in srgb, var(--metal-color) 16%, rgba(var(--tint-rgb), 0.18));
 }
 
 .goal-row-done-collapsed:hover {
   background: rgba(var(--tint-rgb), 0.05);
-  border-color: rgba(var(--tint-rgb), 0.14);
+  border-color: color-mix(in srgb, var(--metal-color) 14%, rgba(var(--tint-rgb), 0.16));
+  border-top-color: color-mix(in srgb, var(--metal-color) 30%, rgba(var(--tint-rgb), 0.28));
 }
 
 .goal-done-banner {
@@ -3549,19 +3624,36 @@ select:focus {
 /* ✨ Compact goal row — same corner-tag/full-border-color treatment as the
    full .goal-row card, for dense dashboard preview lists. No padding of its
    own; .goal-row-compact-body carries it, with clearance for the corner tag. */
+/* Dense dashboard preview row -- treated as the metal-edge "collapsed"
+   tier (same quiet weight as .goal-row-done-collapsed), since several
+   of these typically appear together in a list rather than one at a
+   time like the full .goal-row card. */
 .goal-row-compact {
+  --metal-color: var(--p-color, var(--metal-edge-neutral));
   position: relative;
   border-radius: 10px;
   background: rgba(var(--tint-rgb), 0.03);
-  border: 1px solid var(--p-color, rgba(var(--tint-rgb), 0.07));
+  border: 1px solid color-mix(in srgb, var(--metal-color) 8%, rgba(var(--tint-rgb), 0.08));
+  border-top-color: color-mix(in srgb, var(--metal-color) 18%, rgba(var(--tint-rgb), 0.18));
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
 
-/* Same light-mode accent-border softening as .goal-row above, same
-   reasoning. */
+.goal-row-compact:hover {
+  border-color: color-mix(in srgb, var(--metal-color) 15%, rgba(var(--tint-rgb), 0.14));
+  border-top-color: color-mix(in srgb, var(--metal-color) 32%, rgba(var(--tint-rgb), 0.26));
+}
+
+/* Light mode: same directional construction as .goal-row's own light
+   override -- not a flat ratio of dark. */
 [data-theme="light"] .goal-row-compact {
-  border-color: color-mix(in srgb, var(--p-color, rgba(var(--tint-rgb), 0.3)) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--metal-color) 6%, rgba(var(--tint-rgb), 0.12));
+  border-top-color: color-mix(in srgb, var(--metal-color) 14%, rgba(var(--tint-rgb), 0.24));
+}
+
+[data-theme="light"] .goal-row-compact:hover {
+  border-color: color-mix(in srgb, var(--metal-color) 10%, rgba(var(--tint-rgb), 0.18));
+  border-top-color: color-mix(in srgb, var(--metal-color) 22%, rgba(var(--tint-rgb), 0.32));
 }
 
 .goal-row-compact-body {
@@ -3579,7 +3671,13 @@ select:focus {
   transform: none;
   border-color: rgba(245, 158, 11, 0.15);
   background: rgba(var(--panel-rgb), var(--panel-alpha));
-  box-shadow: none;
+  /* Stay at the resting shadow (not escalate to --shadow-card-hover,
+     not drop to none either) -- a static card shouldn't lift on hover,
+     but it shouldn't go flatter than its own resting metal-surface
+     depth just because the cursor is over it. */
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    var(--shadow-card-rest);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

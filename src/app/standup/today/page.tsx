@@ -1657,7 +1657,12 @@ export default function TodayPage() {
                 data-goal-id={g.id}
                 className={`${isCelebrating ? "goal-row goal-row-celebrate" : "goal-row"}${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
                 data-pending={!reviewed}
-                style={{ "--p-color": getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
+                /* A resolved-but-expanded goal (isCollapsible, re-opened via
+                   toggleExpandedDone) reflects its STATUS color here, same as
+                   it would show collapsed -- an active/pending goal still
+                   reflects PRIORITY, same as before. --p-color feeds
+                   .goal-row's --metal-color (see globals.css). */
+                style={{ "--p-color": isCollapsible ? doneColors.color : getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
               >
                 {isCelebrating && <div className="goal-complete-badge"><Check size={14} strokeWidth={3} /></div>}
                 {isCollapsible && (

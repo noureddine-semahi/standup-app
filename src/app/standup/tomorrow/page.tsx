@@ -862,11 +862,13 @@ export default function TomorrowGoalsPage() {
               <button
                 onClick={() => setEditMode(!editMode)}
                 disabled={submitting}
-                className="btn tomorrow-toolbar-btn"
-                style={{
-                  background: editMode ? "rgba(245, 158, 11, 0.3)" : undefined,
-                  borderColor: editMode ? "rgba(245, 158, 11, 0.6)" : undefined,
-                }}
+                // Phase 8C: was a plain .btn with an inline background/
+                // borderColor override for the selected (editMode) state --
+                // the same bypass-the-shared-system pattern Phase 8B found
+                // and fixed on the All Day button. Same fix: the existing
+                // .btn-tint/.btn-amber-tint combo instead of a one-off
+                // inline color.
+                className={`btn tomorrow-toolbar-btn${editMode ? " btn-tint btn-amber-tint" : ""}`}
               >
                 {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
               </button>

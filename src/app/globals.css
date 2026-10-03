@@ -4348,6 +4348,52 @@ select:focus {
   }
 }
 
+/* Plan Tomorrow's bottom action area — Add Goal (secondary) / Saved
+   (status feedback, not a button once there's nothing to save) /
+   Submit Plan (primary completion action). Desktop: one row, three
+   chunks, left to right -- unchanged from before Phase 8A. */
+.tomorrow-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tomorrow-action-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tomorrow-action-primary {
+  display: flex;
+}
+
+/* Passive save-state feedback -- same vertical rhythm as a .btn (so the
+   secondary row doesn't change height when this swaps with the real
+   Save button) but no border/background/cursor, so it reads as status
+   text instead of a second button competing with Submit Plan. */
+.tomorrow-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 9px 2px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--status-completed);
+  white-space: nowrap;
+}
+
+/* Fixed min-width sized to the longest EN/ES label this button ever
+   shows ("Enviar plan de mañana") so swapping to "Submitting…" or
+   adding the lock icon doesn't visibly resize the button -- measured
+   against the real compiled .btn/.tomorrow-submit-btn CSS, not
+   estimated. Desktop only; mobile makes it full-width regardless. */
+.tomorrow-submit-btn {
+  min-width: 190px;
+  justify-content: center;
+}
+
 /* Mobile planning action bar. On a narrow viewport the bottom
    Calendar/Tools/Dashboard quick-links are redundant (same
    destinations already live in the main nav) and the real action a
@@ -4356,10 +4402,20 @@ select:focus {
    viewport bottom instead, same glass panel treatment as .app-header
    (--panel-rgb/--chrome-alpha so it themes correctly), and hides the
    now-redundant nav-links row. Desktop is completely untouched here —
-   both rows stay in normal flow above 640px. */
+   both rows stay in normal flow above 640px.
+
+   Phase 8A: the original version of this rule kept a single nowrap row
+   (flex-wrap:nowrap + flex-shrink:0 on every child + overflow-x:auto),
+   turning the bar into a horizontally-scrollable strip once three
+   controls stopped fitting at 360-412px -- Submit Plan, the primary
+   completion action, ended up requiring a sideways swipe to reach.
+   Replaced with an intentional two-tier stack instead of a shrink-to-
+   fit/scroll hack: Add Goal + Saved share a compact row, Submit Plan
+   (or the submitted card) gets its own full-width row below, so it's
+   always immediately visible without any scrolling in either axis. */
 @media (max-width: 640px) {
   .tomorrow-page-card {
-    padding-bottom: 92px;
+    padding-bottom: 132px;
   }
 
   .tomorrow-action-row {
@@ -4368,20 +4424,30 @@ select:focus {
     right: 0;
     bottom: 0;
     z-index: 30;
+    flex-direction: column;
+    align-items: stretch;
     margin: 0 !important;
+    gap: 0.6rem;
     padding: 10px 14px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     background: rgba(var(--panel-rgb), var(--chrome-alpha));
     backdrop-filter: blur(12px) saturate(180%);
     border-top: 1px solid rgba(245, 158, 11, 0.2);
     box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
-    flex-wrap: nowrap !important;
-    gap: 0.5rem !important;
-    overflow-x: auto;
   }
 
-  .tomorrow-action-row > * {
-    flex-shrink: 0;
+  .tomorrow-action-secondary {
+    justify-content: space-between;
+  }
+
+  .tomorrow-action-primary {
+    width: 100%;
+  }
+
+  .tomorrow-action-primary > *,
+  .tomorrow-submit-btn {
+    width: 100%;
+    min-width: 0;
   }
 
   .tomorrow-bottom-nav-links {

@@ -1348,51 +1348,83 @@ export default function TomorrowGoalsPage() {
         </div>
 
         {!locked && (
-          <div className="tomorrow-action-row mt-8 flex flex-wrap gap-4 items-center">
-            <button
-              className="btn hover-scale"
-              onClick={addMoreGoal}
-              disabled={!canAddMore}
-              title={
-                goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
-              }
-            >
-              {t("tomorrow.addGoal")}
-            </button>
-
-            <button
-              className="btn hover-scale"
-              onClick={saveDraftOrChanges}
-              disabled={submitting || !isDirty}
-              title={t("tomorrow.manualSaveTitle")}
-            >
-              {submitting ? t("tomorrow.saving") : !isDirty ? t("tomorrow.savedCheck") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
-            </button>
-
-            {submitted ? (
-              <div className="plan-submitted-card">
-                <CheckCircle2 size={16} />
-                <div>
-                  <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
-                  <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
-                </div>
-              </div>
-            ) : (
+          <div className="tomorrow-action-row mt-8">
+            {/* Secondary tier — Add Goal is a real action; Save only
+                renders as a button while there's something TO save
+                (isDirty). Once saved, it becomes passive status text
+                instead of a disabled-but-still-button-shaped control,
+                so it stops visually competing with Submit Plan. This
+                doesn't change when a save actually happens (autosave/
+                saveDraftOrChanges are untouched) -- only whether an
+                already-inert control renders as a button at all. */}
+            <div className="tomorrow-action-secondary">
               <button
-                className="btn btn-primary hover-scale"
-                onClick={onSubmitPlan}
-                disabled={!canSubmit}
+                className="btn hover-scale"
+                onClick={addMoreGoal}
+                disabled={!canAddMore}
                 title={
-                  !submitEligible
-                    ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
-                    : priorityGoalsFilled < 3
-                    ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
-                    : ""
+                  goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
                 }
               >
-                {submitting ? t("tomorrow.submitting") : t("tomorrow.submitPlan")}
+                {t("tomorrow.addGoal")}
               </button>
-            )}
+
+              {isDirty ? (
+                <button
+                  className="btn hover-scale"
+                  onClick={saveDraftOrChanges}
+                  disabled={submitting}
+                  title={t("tomorrow.manualSaveTitle")}
+                >
+                  {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
+                </button>
+              ) : (
+                <span className="tomorrow-save-status" role="status">
+                  <Check size={14} />
+                  {t("tomorrow.savedCheck")}
+                </span>
+              )}
+            </div>
+
+            {/* Primary tier — Submit Plan (or the submitted card) always
+                gets its own full-width row on mobile, so it's never the
+                thing a user has to scroll sideways to find. */}
+            <div className="tomorrow-action-primary">
+              {submitted ? (
+                <div className="plan-submitted-card">
+                  <CheckCircle2 size={16} />
+                  <div>
+                    <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
+                    <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-primary hover-scale tomorrow-submit-btn"
+                  onClick={onSubmitPlan}
+                  disabled={!canSubmit}
+                  aria-busy={submitting}
+                  title={
+                    !submitEligible
+                      ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
+                      : priorityGoalsFilled < 3
+                      ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
+                      : ""
+                  }
+                >
+                  {submitting ? (
+                    t("tomorrow.submitting")
+                  ) : !submitEligible ? (
+                    <>
+                      <Lock size={14} />
+                      {t("tomorrow.submitPlan")}
+                    </>
+                  ) : (
+                    t("tomorrow.submitPlan")
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         )}
 

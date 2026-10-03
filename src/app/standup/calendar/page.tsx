@@ -265,8 +265,7 @@ export default function CalendarPage() {
                 )}
                 {passBalance !== null && (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm"
-                    style={{ background: "rgba(45, 212, 191, 0.10)", border: "1px solid rgba(45, 212, 191, 0.3)", color: "rgb(94, 234, 212)" }}
+                    className="calendar-passes-pill inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm"
                     title={t("calendar.streakPassHint")}
                   >
                     <Ticket size={13} />

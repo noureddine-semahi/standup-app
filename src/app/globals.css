@@ -4970,3 +4970,32 @@ select:focus {
     letter-spacing: -0.02em;
   }
 }
+
+/* Phase 10C: the passes-pill's dark-mode colors (unchanged from
+   before) moved out of an inline style and into this class, because a
+   [data-theme="light"] override can't beat an inline style without
+   !important -- same base-class + theme-override split already used
+   by .dashboard-banner-success/-attention/-danger, reused here rather
+   than invented fresh. Measured (WCAG relative-luminance formula, not
+   eyeballed): the old inline teal-300 text on this pill's own light-
+   mode background composited to a 1.32:1 contrast ratio -- far under
+   even the 3:1 large-text minimum, a real defect, not just "quieter
+   than dark mode". */
+.calendar-passes-pill {
+  background: rgba(45, 212, 191, 0.10);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  color: rgb(94, 234, 212);
+}
+
+/* teal-700 text + a stronger bg/border alpha, the same technique
+   Phase 9B used for the emerald/amber/red banners: text dark enough
+   to read on a pale fill, fill bumped so it doesn't go see-through.
+   Recalculated against the real composited light-mode background
+   (card-over-body, pill-tint-over-card): 5.20:1, clears WCAG AA
+   normal text (4.5:1) with margin. Scoped to this one class --
+   doesn't touch any shared teal/accent token. */
+[data-theme="light"] .calendar-passes-pill {
+  background: rgba(45, 212, 191, 0.14);
+  border-color: rgba(15, 118, 110, 0.4);
+  color: #0f766e;
+}

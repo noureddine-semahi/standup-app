@@ -940,6 +940,17 @@ export default function TomorrowGoalsPage() {
                   onDragEnd={handleDragEnd}
                   data-goal-id={g.id}
                   className={`goal-row${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
+                  // Phase 8B: reuses the exact "quiet" edge-weight tier
+                  // Phase 7B already built for Today's P3 cards (see
+                  // globals.css) -- P3/amber reads louder than every other
+                  // priority at the shared border-mix ratio purely because
+                  // its hue has much higher perceived luminance, not
+                  // because P3 is meant to outweigh P1/P2. Tomorrow never
+                  // had this attribute wired in, so its P3 cards had the
+                  // same un-corrected imbalance Today's did before Phase
+                  // 7B. No new CSS -- same tier, same class, just applied
+                  // here too.
+                  data-edge-weight={p === 3 ? "quiet" : undefined}
                   style={{
                     "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
                     cursor: editMode ? "move" : "default",
@@ -1012,7 +1023,7 @@ export default function TomorrowGoalsPage() {
                             autoResizeTextarea(e.target);
                           }}
                           placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
-                          className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
+                          className="goal-title-input flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
                           style={{ overflow: "hidden", lineHeight: 1.3 }}
                         />
                         <select
@@ -1260,15 +1271,23 @@ export default function TomorrowGoalsPage() {
                             );
                             scheduleAutoSave();
                           }}
-                          className="btn"
+                          // Phase 8B: was a plain .btn with an inline
+                          // background/borderColor override for the
+                          // selected state -- the exact "bypasses the
+                          // shared system" pattern found and fixed on
+                          // Today's buttons in earlier phases. Reuses the
+                          // existing .btn-tint/.btn-amber-tint combo (the
+                          // same amber accent the Assign control already
+                          // uses) instead of a one-off inline color, so
+                          // Time + All Day read as the same family of
+                          // scheduling control.
+                          className={`btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
                           style={{
                             padding: "0.2rem 0.55rem",
                             fontSize: "0.7rem",
                             display: "inline-flex",
                             alignItems: "center",
                             gap: "0.3rem",
-                            background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
-                            borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
                           }}
                           title={t("tomorrow.allDayTitle")}
                         >

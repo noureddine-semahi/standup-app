@@ -4410,6 +4410,54 @@ select:focus {
   justify-content: center;
 }
 
+/* Phase 8B: the goal title is a borderless, transparent <textarea>
+   (bg-transparent border-0) meant to read as a big inline headline
+   that's part of the card, not a boxed form field -- but the shared
+   light-mode legibility fix for plain inputs/textareas app-wide
+   (further up this file, "Light mode: plain text inputs...") gives
+   EVERY textarea an opaque white fill + border in light mode, correct
+   for the real boxed textareas it was built for (Tools/Backlog notes
+   etc.) but wrong here, where it showed up as a stark white box
+   sitting on the card. Scoped to this one class (higher specificity
+   than the shared `textarea` rule, so it wins without `!important`
+   and without touching that shared rule or any other textarea on the
+   page) rather than opting out of the light-mode fix everywhere.
+   Dark mode never had this problem (the shared rule doesn't touch
+   dark mode). The title's own `outline-none` removes the browser's
+   default focus ring in both themes, but the app's existing generic
+   `input:focus, textarea:focus` rule (see below) already restores a
+   restrained amber glow for any real <textarea>, this one included --
+   so no extra focus rule was needed here. */
+[data-theme="light"] textarea.goal-title-input:not(:disabled) {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+[data-theme="light"] textarea.goal-title-input:focus {
+  background-color: transparent;
+}
+
+/* No bespoke focus ring here -- the app's existing generic
+   `input:focus, textarea:focus` rule (further up this file) already
+   gives every text field a restrained amber glow on focus, and this
+   textarea is a real <textarea> it already matches. An earlier
+   version of this tried to tie the focus color to the card's own
+   --metal-color via color-mix() instead; dropped after it
+   mysteriously computed to a fully transparent box-shadow (same
+   fragile pattern already hit once in the Phase 7B work) despite
+   --metal-color resolving correctly when queried directly -- not
+   worth chasing further when the existing shared focus style already
+   does the job with zero new code. */
+
+/* Phase 8B: All Day's SELECTED look now comes from the existing
+   .btn-tint/.btn-amber-tint classes (same amber accent already used
+   for the Assign control, and already reads as "related scheduling
+   controls" sitting next to Time since both already share .btn's
+   6px radius / border weight) instead of an inline background/border
+   override -- the inline version bypassed the shared button system
+   the same way Today's old "Reopen Day"/"Close Out Day" buttons once
+   did (found and fixed in the metal-edge Phase 5 pass). */
+
 /* Mobile planning action bar. On a narrow viewport the bottom
    Calendar/Tools/Dashboard quick-links are redundant (same
    destinations already live in the main nav) and the real action a

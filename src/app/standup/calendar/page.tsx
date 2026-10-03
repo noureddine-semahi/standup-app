@@ -225,45 +225,62 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="card">
+    <div className="card card-highlight">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-3xl font-bold">{t("nav.calendar")}</h1>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={previousMonth} className="btn btn-ghost">
-              {t("calendar.prev")}
-            </button>
-            <button onClick={goToToday} className="btn">
-              {t("calendar.today")}
-            </button>
-            <button onClick={nextMonth} className="btn btn-ghost">
-              {t("calendar.next")}
-            </button>
-            {overdueDays.length > 0 && (
-              <button
-                onClick={() => setShowOverdueList((v) => !v)}
-                className="btn"
-                style={{ background: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.4)" }}
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <TriangleAlert size={13} /> {t("calendar.unreviewedCount", { count: overdueDays.length })} {showOverdueList ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </span>
+          {/* Phase 10B: was one flat `flex flex-wrap` of 5 siblings (3 nav
+              buttons + 2 conditional status pills), which wrapped wherever
+              it happened to run out of room -- measured at ~190px tall at
+              320px. Split into two intentional clusters instead: month
+              navigation (always a single row) and status/info (its own
+              row, allowed to wrap on its own if a translation needs it).
+              See .calendar-controls/-nav-cluster/-status-cluster in
+              globals.css -- new, Calendar-scoped, nothing shared touched. */}
+          <div className="calendar-controls">
+            <div className="calendar-nav-cluster">
+              <button onClick={previousMonth} className="btn btn-ghost calendar-nav-btn">
+                {t("calendar.prev")}
               </button>
-            )}
-            {passBalance !== null && (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm"
-                style={{ background: "rgba(45, 212, 191, 0.10)", border: "1px solid rgba(45, 212, 191, 0.3)", color: "rgb(94, 234, 212)" }}
-                title={t("calendar.streakPassHint")}
-              >
-                <Ticket size={13} />
-                {t(passBalance.available === 1 ? "calendar.passesAvailable.one" : "calendar.passesAvailable.other", { count: passBalance.available })}
-              </span>
+              <button onClick={goToToday} className="btn calendar-nav-btn">
+                {t("calendar.today")}
+              </button>
+              <button onClick={nextMonth} className="btn btn-ghost calendar-nav-btn">
+                {t("calendar.next")}
+              </button>
+            </div>
+            {(overdueDays.length > 0 || passBalance !== null) && (
+              <div className="calendar-status-cluster">
+                {overdueDays.length > 0 && (
+                  <button
+                    onClick={() => setShowOverdueList((v) => !v)}
+                    className="btn"
+                    style={{ background: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.4)" }}
+                    aria-expanded={showOverdueList}
+                    aria-controls="calendar-overdue-list"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <TriangleAlert size={13} /> {t("calendar.unreviewedCount", { count: overdueDays.length })} {showOverdueList ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </span>
+                  </button>
+                )}
+                {passBalance !== null && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm"
+                    style={{ background: "rgba(45, 212, 191, 0.10)", border: "1px solid rgba(45, 212, 191, 0.3)", color: "rgb(94, 234, 212)" }}
+                    title={t("calendar.streakPassHint")}
+                  >
+                    <Ticket size={13} />
+                    {t(passBalance.available === 1 ? "calendar.passesAvailable.one" : "calendar.passesAvailable.other", { count: passBalance.available })}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
 
         {showOverdueList && overdueDays.length > 0 && (
           <div
+            id="calendar-overdue-list"
             className="mb-6 rounded-2xl p-4"
             style={{ background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.3)" }}
           >
@@ -365,8 +382,12 @@ export default function CalendarPage() {
                     {date.getDate()}
                 </div>
 
-                {/* Text under number */}
-                <div className="mt-1 text-[8px] sm:text-[10px] font-semibold text-white/90 leading-none">
+                {/* Text under number -- calendar-cell-label only exists so
+                    the sub-360px override below (globals.css) has
+                    something Calendar-scoped to target; the visible size
+                    at every other width still comes from these same
+                    text-[8px]/sm:text-[10px] utilities, unchanged. */}
+                <div className="calendar-cell-label mt-1 text-[8px] sm:text-[10px] font-semibold text-white/90 leading-none">
                   {label || "\u00A0"}
                 </div>
               </Link>
@@ -374,11 +395,20 @@ export default function CalendarPage() {
           })}
         </div>
 
-        {/* Legend */}
-        <div className="mt-6 flex flex-wrap gap-4 text-xs text-white/60">
-          <div className="flex items-center gap-2">
+        {/* Legend -- Phase 10B: was a free flex-wrap of all 7 items, which
+            measured 6 rows / ~176px tall at 320px (longer labels like
+            "Cleared (rescheduled)" claimed a full row alone). Replaced
+            with .calendar-legend (globals.css): a 2-column grid on
+            mobile, reverting to the original flex-wrap at wider widths
+            where there's room for it. Tested with the real longest EN/ES
+            strings first -- a plain 2-column grid with wrapping text
+            (not truncated/nowrap) fits with no clipping; a nowrap+
+            ellipsis version was tried and rejected for actually hiding
+            label text. */}
+        <div className="calendar-legend text-xs text-white/60">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("today").bg,
                 borderColor: toneStyles("today").border,
@@ -386,9 +416,9 @@ export default function CalendarPage() {
             />
             <span>{t("calendar.today")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("closed").bg,
                 borderColor: toneStyles("closed").border,
@@ -396,9 +426,9 @@ export default function CalendarPage() {
             />
             <span>{t("calendar.legendDayClosed")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("hasGoals").bg,
                 borderColor: toneStyles("hasGoals").border,
@@ -406,9 +436,9 @@ export default function CalendarPage() {
             />
             <span>{t("calendar.legendHasGoals")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("overdue").bg,
                 borderColor: toneStyles("overdue").border,
@@ -416,9 +446,9 @@ export default function CalendarPage() {
             />
             <span>{t("calendar.legendMissed")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("cleared").bg,
                 borderColor: toneStyles("cleared").border,
@@ -426,9 +456,9 @@ export default function CalendarPage() {
             />
             <span>{t("calendar.legendCleared")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("covered").bg,
                 borderColor: toneStyles("covered").border,
@@ -436,9 +466,9 @@ export default function CalendarPage() {
             />
             <span>{t("calendar.legendCovered")}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-4 h-4 rounded-md border"
+              className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
                 background: toneStyles("neutral").bg,
                 borderColor: toneStyles("neutral").border,

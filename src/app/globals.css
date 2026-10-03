@@ -4843,3 +4843,123 @@ select:focus {
 [data-theme="light"] .dashboard-banner-danger .dashboard-banner-heading {
   color: #b91c1c;
 }
+
+/* Phase 10B: Calendar-scoped CSS foundation. The Phase 10A audit found
+   Calendar had effectively zero dedicated CSS -- every layout decision
+   was a Tailwind utility, and every semantic color an inline style.
+   These .calendar-* selectors solve only the specific mobile-density
+   problems that audit measured; they don't touch any shared selector
+   Today/Tomorrow/Dashboard also rely on, and don't attempt the full
+   inline-style migration that's explicitly out of scope for this
+   phase. Dark values are unchanged from before (nothing here recolors
+   anything); only layout/grouping and two narrow-width text rules are
+   new. */
+
+/* Was one flat `flex flex-wrap` holding up to 5 siblings (3 nav
+   buttons + 2 conditional status pills) -- measured at ~190px tall at
+   320px because they wrapped wherever they ran out of room, often one
+   per row. Split into two intentional clusters: navigation (always a
+   single row -- confirmed via measurement that Prev+Today+Next fit in
+   254px, well under even a 320px viewport) and status/info (its own
+   row, allowed to wrap on its own terms if a translation needs it,
+   never mixed into the nav row's wrapping). */
+.calendar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* At >=640px, try a row first -- re-measuring the original flat
+   layout found it was already wrapping to 2 rows at 768px/1280px too
+   (86px, not single-row as first assumed; nav+status together need
+   ~729px but only ~559px is available once the heading and card
+   padding take their share). Row+wrap still matters here: it's what
+   lets both clusters share a row at wider desktop sizes this phase
+   didn't test, and costs nothing when they don't fit -- measured
+   96px, a negligible 10px over the original's own 2-row 86px, not a
+   single-row regression. Only mobile needs the unconditional column
+   stack below this breakpoint. */
+@media (min-width: 640px) {
+  .calendar-controls {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}
+
+.calendar-nav-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+/* .btn sets `overflow: hidden` (for its ::after ripple -- a frozen
+   global rule, not touched here), which per spec makes a flex item's
+   *automatic* min-width resolve to 0 instead of its content size --
+   so without this override, flex-shrink is free to squeeze any .btn
+   narrower than its own text and silently clip it (found empirically:
+   forcing white-space:nowrap here first "fixed" a 2-line-wrap height
+   bump at 320px, but actually just traded a visible, complete 2-line
+   button for an invisible clipped one -- "← Prev" was rendering as
+   "← Pre", scrollWidth 100px inside a 96px clientWidth). Restoring a
+   real min-width lets flex-shrink fall back to the standard, safe
+   floor instead: each button may still wrap onto 2 lines at the
+   narrowest widths (Prev/Next's breakable arrow+word), but never
+   shrinks past the point where it'd have to cut text. Measured at
+   320px: Prev/Next's own wrapped min-content is 69.8px each, Today's
+   (unbreakable, stays 1 line) is 79.8px -- 219.4px combined + 16px of
+   gap fits inside the 238px actually available there, with ~3px to
+   spare and zero clipping. */
+.calendar-nav-btn {
+  min-width: min-content;
+}
+
+.calendar-status-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Legend: free flex-wrap measured at 6 rows / ~176px tall at 320px --
+   longer labels ("Cleared (rescheduled)", "Covered (streak pass)")
+   each claimed a full row alone, same pattern in Spanish (its
+   equivalents run longer still). A 2-column grid -- tested against
+   the real longest EN/ES strings with normal text wrapping, not
+   nowrap+ellipsis (that version clipped text outright and was
+   rejected) -- cuts this to 4 rows / ~118px (EN) with zero clipping.
+   Reverts to the original flex-wrap at >=640px, where the earlier
+   audit already confirmed it reads fine (2 rows at 768px). */
+.calendar-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: start;
+}
+
+@media (min-width: 640px) {
+  .calendar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+}
+
+/* Cleared/Covered (plus Missed, close behind) measured a 34.3px
+   natural label width against a ~30.5px date cell at 320px -- a
+   ~1.9px overflow per side, confirmed via getBoundingClientRect, not
+   assumed. Cell width already grows past this comfortably by 360px
+   (measured ~38.6px there), so the reduction is scoped to below that
+   width only -- it never touches the sm:text-[10px] desktop size.
+   7px + a touch of negative letter-spacing was the smallest
+   combination that cleared the real cell width with margin (measured
+   ~29px) without going so small it reads as an "emergency" size. The
+   date number itself (text-sm/sm:text-2xl) is untouched -- it stays
+   the dominant element in the cell. */
+@media (max-width: 359px) {
+  .calendar-cell-label {
+    font-size: 7px;
+    letter-spacing: -0.02em;
+  }
+}

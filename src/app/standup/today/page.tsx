@@ -1357,12 +1357,8 @@ export default function TodayPage() {
             live in the header above instead of repeating themselves here. */}
         {!dayClosed && (
         <div
-          className="mb-6 rounded-2xl p-6"
-          style={{
-            background: "rgba(245, 158, 11, 0.06)",
-            border: "1px solid rgba(245, 158, 11, 0.3)",
-            boxShadow: "0 8px 20px -8px rgba(0, 0, 0, 0.45)",
-          }}
+          className="mb-6 rounded-2xl p-6 metal-surface"
+          style={{ "--metal-color": "var(--metal-edge-orange)" } as React.CSSProperties}
         >
           {totalCount === 0 ? (
             <>
@@ -1378,8 +1374,6 @@ export default function TodayPage() {
                     onClick={() => setShowQuickAdd(true)}
                     className="btn btn-primary"
                     style={{
-                      background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                      border: "2px solid #b45309",
                       padding: "0.75rem 1.5rem",
                       fontSize: "1rem",
                       fontWeight: "bold"
@@ -1398,10 +1392,8 @@ export default function TodayPage() {
               {!showQuickAdd && (
                 <button
                   onClick={() => setShowQuickAdd(true)}
-                  className="btn day-action-btn-sm"
+                  className="btn day-action-btn-sm metal-orange"
                   style={{
-                    background: "rgba(245, 158, 11, 0.2)",
-                    border: "2px solid rgba(245, 158, 11, 0.4)",
                     padding: "0.5rem 1rem",
                     whiteSpace: "nowrap",
                   }}
@@ -1519,9 +1511,8 @@ export default function TodayPage() {
         {/* Close Out Day Section */}
         {!dayClosed && totalCount > 0 && (
           <div
-            className="mb-6 rounded-2xl bg-white/5 p-4"
+            className="mb-6 rounded-2xl p-4 metal-surface"
             style={{
-              border: "1px solid rgba(var(--tint-rgb),0.08)",
               borderLeftWidth: "3px",
               borderLeftColor: "rgba(245, 158, 11, 0.5)",
             }}

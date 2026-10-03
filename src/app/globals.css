@@ -1617,6 +1617,36 @@ h1, h2, h3, h4, h5, h6 {
     var(--metal-glow-surface-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-surface-hover-strength), transparent);
 }
 
+/* Light mode: a genuinely different construction, not an inverted
+   dark-mode wash -- first real-world use of .metal-surface (this
+   phase wires it into the information/action panels) surfaced that
+   its background tint (rgba(var(--tint-rgb), X)) and flat rgba(0,0,0,
+   ...) shadows had the same two problems already fixed elsewhere in
+   this file: a near-black tint reads as "receded/muted" rather than
+   "lightly elevated" on a light page (same lesson as the light-mode
+   input-field fix), and a flat black shadow is heavier here than it
+   needs to be (same lesson as --shadow-card-rest). Warm-white
+   top-fading background instead, and a soft warm-gray contact shadow
+   in place of flat black. */
+[data-theme="light"] .metal-surface {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(var(--tint-rgb), 0.02));
+  border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 10%, rgba(var(--tint-rgb), 0.16));
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, rgba(var(--tint-rgb), 0.28));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.08),
+    0 3px 10px -9px rgba(40, 32, 28, 0.26);
+}
+
+[data-theme="light"] .metal-surface:hover {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, rgba(var(--tint-rgb), 0.36));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.1),
+    0 5px 14px -8px rgba(40, 32, 28, 0.3),
+    var(--metal-glow-surface-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-surface-hover-strength), transparent);
+}
+
 .metal-interactive {
   cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent);
@@ -1910,11 +1940,18 @@ h1, h2, h3, h4, h5, h6 {
 .btn-tint {
   background: linear-gradient(to bottom, color-mix(in srgb, currentColor 20%, transparent), color-mix(in srgb, currentColor 7%, transparent));
   border-color: color-mix(in srgb, currentColor 45%, transparent);
+  /* Glow trimmed (10px/16px -> 6px/10px) to match the restraint the
+     rest of the metal-edge system settled on for small controls --
+     these (Checklist/Files/Link/Lock/Assign, inside a goal card) were
+     the last surviving holdout at the OLDER, stronger pre-refinement
+     intensity. Colors/background/border untouched -- normalizing
+     glow only, not a redesign; a fuller small-control pass is a later
+     phase. */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
     0 2px 6px -3px rgba(0, 0, 0, 0.4),
-    0 0 10px -3px currentColor;
+    0 0 6px -3px currentColor;
 }
 
 .btn-tint:hover {
@@ -1924,7 +1961,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.35),
     0 5px 12px -3px rgba(0, 0, 0, 0.45),
-    0 0 16px -2px currentColor;
+    0 0 10px -2px currentColor;
 }
 
 .btn-tint:focus-visible {

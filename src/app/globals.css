@@ -31,6 +31,33 @@ a {
   --accent-red: #ef4444;
   --accent-rose: #f43f5e;
 
+  /* ✨ Metallic-edge design system — semantic colors, matching the exact
+     hues NAV_TABS (Header.tsx) already uses per destination, so a
+     button/card picks up the SAME color identity its section already
+     has rather than introducing a second palette. Consumed by
+     .metal-strong/.metal-interactive/.metal-surface below via
+     --metal-color (set inline per instance, or via one of these as a
+     fallback/default); not meant to be referenced directly elsewhere. */
+  --metal-edge-blue: #60a5fa;
+  --metal-edge-purple: #a78bfa;
+  --metal-edge-green: #34d399;
+  --metal-edge-orange: #f59e0b;
+  --metal-edge-cyan: #22d3ee;
+  --metal-edge-red: #f43f5e;
+  --metal-edge-neutral: #94a3b8;
+
+  /* The two diffuse glow-layer shapes .metal-strong uses, lifted into
+     variables so .folder-tab-active/.folder-tab-hanging-active (the
+     reference "Community" look this whole system generalizes) can
+     consume the SAME values instead of duplicating the recipe -- a
+     real refactor, not a parallel system. Dark theme (here) keeps
+     their original tuned numbers; light theme below scales both down
+     ~25%, same as the rest of this file's active-glow handling. */
+  --metal-glow-1: 0 0 18px 6px;
+  --metal-glow-1-strength: 60%;
+  --metal-glow-2: 0 0 30px 11px;
+  --metal-glow-2-strength: 36%;
+
   --tint-rgb: 255, 255, 255;
   --panel-rgb: 10, 14, 26;
   --panel-alpha: 0.6;
@@ -140,6 +167,15 @@ a {
   --panel-alpha-hover: 0.95;
   --chrome-alpha: 0.82;
   --chrome-alpha-hover: 0.9;
+
+  /* Metal-strong's two glow layers scaled down ~25%, same ratio already
+     used for .folder-tab-active's own light override before this
+     system existed -- a glow this size/strength reads as "illuminated"
+     on a near-black surface but "blurry smudge" on a light one. */
+  --metal-glow-1: 0 0 14px 4px;
+  --metal-glow-1-strength: 45%;
+  --metal-glow-2: 0 0 22px 8px;
+  --metal-glow-2-strength: 27%;
 
   /* Neutral ambient shadows -- same shape/blur/spread as the dark-theme
      values at :root, just recolored from flat black to a soft warm dark
@@ -1483,6 +1519,180 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* ============================================================
+   ✨ Metallic-edge design system
+   ============================================================
+   Generalizes the Community/Social/Tools tab bar's existing look
+   (.folder-tab-active/.folder-tab-hanging-active, just above this
+   section -- now refactored to source their glow from the same
+   --metal-glow-* tokens these classes use, not a parallel copy) into
+   three reusable intensity levels any component can opt into:
+
+   .metal-strong      -- active nav, selected states, primary CTAs.
+                          The Community reference look itself.
+   .metal-interactive -- normal buttons, filters, dropdowns, tool
+                          cards, anything clickable.
+   .metal-surface      -- cards/panels; very restrained, mostly neutral.
+
+   Each is colored via --metal-color, set either inline per instance
+   (style={{ "--metal-color": "..." }}, same convention --tab-color
+   already uses) or by adding one of the small .metal-{hue} modifier
+   classes below, which just set --metal-color to one of the
+   --metal-edge-* tokens (see :root). Undeclared, every intensity
+   falls back to --metal-edge-neutral -- never fully colorless.
+
+   Construction, every level: a directionally-lit border (brighter top/
+   left, darker bottom -- light appears to hit from upper-left, never a
+   flat uniform ring), a subtle top-lit-to-bottom-darker background
+   gradient tinted by --metal-color, an inset top highlight + inset
+   bottom bevel for physical depth, and (strong/interactive only) an
+   outer colored glow that gets more restrained at each lower tier --
+   intensity hierarchy is real here: strong's glow is the --metal-glow-*
+   tokens at full strength, interactive's is a single much smaller
+   layer, surface has none at rest and only a faint hover glow. */
+.metal-strong,
+.metal-interactive,
+.metal-surface {
+  position: relative;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.metal-surface {
+  border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 14%, rgba(var(--tint-rgb), 0.1));
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 24%, rgba(var(--tint-rgb), 0.16));
+  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.035), rgba(var(--tint-rgb), 0.015));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.16),
+    0 4px 14px -8px rgba(0, 0, 0, 0.4);
+}
+
+.metal-surface:hover {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 36%, rgba(var(--tint-rgb), 0.2));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2),
+    0 6px 18px -8px rgba(0, 0, 0, 0.45),
+    0 0 10px -5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 35%, transparent);
+}
+
+.metal-interactive {
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent);
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 52%, white 8%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, black 25%);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 9%, rgba(var(--tint-rgb), 0.06)),
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 3%, rgba(var(--tint-rgb), 0.02))
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
+    0 2px 6px -3px rgba(0, 0, 0, 0.35),
+    0 0 6px -3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 35%, transparent);
+}
+
+.metal-interactive:hover,
+.metal-interactive:focus-visible {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 68%, white 14%);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
+    0 4px 10px -3px rgba(0, 0, 0, 0.4),
+    0 0 14px -4px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 55%, transparent);
+}
+
+/* Pressed: moves inward ~1px (not just "un-hovers"), glow eases back,
+   inset shadow deepens -- reads as physically pushed in. */
+.metal-interactive:active {
+  transform: translateY(1px);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow:
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.32),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
+    0 0 4px -2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, transparent);
+}
+
+.metal-interactive:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+  border-color: rgba(var(--tint-rgb), 0.12);
+  background: rgba(var(--tint-rgb), 0.04);
+  box-shadow: none;
+}
+
+.metal-strong {
+  border: 1.5px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 55%, white 5%);
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 80%, white 20%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 75%, white 15%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 75%, white 15%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 40%, black 25%);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 16%, rgba(var(--panel-rgb), var(--panel-alpha))),
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 6%, rgba(var(--panel-rgb), var(--panel-alpha)))
+  );
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.24),
+    inset 1px 0 0 0 color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, white 20%),
+    inset -1px 0 0 0 color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, white 20%),
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.4),
+    0 8px 16px -6px rgba(0, 0, 0, 0.5),
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent),
+    var(--metal-glow-1) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-1-strength), transparent),
+    var(--metal-glow-2) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-2-strength), transparent);
+}
+
+.metal-strong:hover {
+  transform: translateY(-1px);
+}
+
+.metal-strong:active {
+  transform: translateY(1px);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow:
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent),
+    0 0 10px -2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 35%, transparent);
+}
+
+.metal-strong:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(var(--tint-rgb), 0.12);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+
+/* Accessible focus ring for either button-level intensity -- separate
+   from the hover glow above (:focus-visible only, keyboard/assistive
+   nav, not every mouse click), matching the rest of the app's .btn
+   focus-ring convention so it's visually consistent everywhere. */
+.metal-strong:focus-visible,
+.metal-interactive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 70%, white 10%);
+  outline-offset: 2px;
+}
+
+/* Color modifiers -- compose with any intensity class, e.g.
+   class="metal-interactive metal-blue". Each just points --metal-color
+   at one of the semantic tokens above; the intensity class does all
+   the actual construction. Matches NAV_TABS' (Header.tsx) existing
+   per-section colors exactly, so a component picks up the same
+   identity its section already has. */
+.metal-blue { --metal-color: var(--metal-edge-blue); }
+.metal-purple { --metal-color: var(--metal-edge-purple); }
+.metal-green { --metal-color: var(--metal-edge-green); }
+.metal-orange { --metal-color: var(--metal-edge-orange); }
+.metal-cyan { --metal-color: var(--metal-edge-cyan); }
+.metal-red { --metal-color: var(--metal-edge-red); }
+.metal-neutral { --metal-color: var(--metal-edge-neutral); }
+
 /* ✨ Buttons with Ripple Effect -- the shared reusable "physical 3D
    button" design token this whole app's buttons get through just
    these two classes (.btn, .btn-primary) plus their hover/active/
@@ -1490,15 +1700,31 @@ h1, h2, h3, h4, h5, h6 {
    hand. Size/layout/label/icon/position are untouched throughout --
    purely the surface treatment: a top-lit-to-bottom-darker gradient,
    a thin inset top highlight, a darker inset bottom bevel, and a soft
-   shadow underneath so it reads as slightly raised off the page. */
+   shadow underneath so it reads as slightly raised off the page.
+   .btn itself is now built on the metal-interactive construction above
+   (neutral-colored by default, since a plain .btn has no inherent
+   semantic hue) -- extending the metallic system to "standard buttons"
+   app-wide without requiring every call site to add a new class. */
 .btn {
-  border: 1px solid rgba(var(--tint-rgb), 0.22);
-  /* Plain colored surface -- the reflection is a dedicated ::before
-     overlay now (see the shared rule further down), not baked into
-     this background. select.btn overrides this with an equivalent
-     background-layered version, since ::before never renders on a
+  /* Directionally-lit metallic border (brighter top, darker bottom) +
+     a --metal-color-tinted gradient fill -- the metal-interactive
+     recipe above, inlined here rather than requiring every one of the
+     hundreds of .btn call sites to also add class="metal-interactive".
+     Neutral-colored by default (--metal-edge-neutral) since a plain
+     .btn has no inherent semantic hue; any call site can still set
+     --metal-color inline (or add a .metal-{hue} modifier class) to tint
+     an individual button, same mechanism .folder-tab's --tab-color
+     already uses. select.btn overrides background with an equivalent
+     layered version further down, since ::before never renders on a
      native <select>. */
-  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.1), rgba(var(--tint-rgb), 0.04));
+  border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 24%, transparent);
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 40%, white 6%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 14%, black 20%);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 6%, rgba(var(--tint-rgb), 0.08)),
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 2%, rgba(var(--tint-rgb), 0.03))
+  );
   color: rgba(var(--tint-rgb), 0.92);
   padding: 9px 14px;
   border-radius: 6px;
@@ -1511,7 +1737,8 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
-    0 2px 5px -2px rgba(0, 0, 0, 0.35);
+    0 2px 5px -2px rgba(0, 0, 0, 0.35),
+    0 0 5px -3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, transparent);
 }
 
 /* Ripple lives on ::after now (was ::before) -- ::before is reserved
@@ -1540,13 +1767,19 @@ h1, h2, h3, h4, h5, h6 {
 /* Hover: rises ~1.5px, glow/shadow both strengthen a step, reflection
    brightens slightly too. */
 .btn:hover {
-  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.16), rgba(var(--tint-rgb), 0.07));
-  border-color: rgba(var(--tint-rgb), 0.35);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 11%, rgba(var(--tint-rgb), 0.14)),
+    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 4%, rgba(var(--tint-rgb), 0.06))
+  );
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 58%, white 12%);
+  border-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 42%, transparent);
   transform: translateY(-1.5px);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
-    0 5px 12px -3px rgba(0, 0, 0, 0.45);
+    0 5px 12px -3px rgba(0, 0, 0, 0.45),
+    0 0 12px -4px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, transparent);
 }
 
 /* Pressed: drops below rest (not just back to 0), shadow shrinks, and
@@ -1561,7 +1794,8 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.4),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.04),
-    0 1px 2px -1px rgba(0, 0, 0, 0.3);
+    0 1px 2px -1px rgba(0, 0, 0, 0.3),
+    0 0 4px -3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, transparent);
 }
 
 .btn:active::before {
@@ -1690,20 +1924,32 @@ select.btn {
     linear-gradient(to bottom, rgba(var(--tint-rgb), 0.1), rgba(var(--tint-rgb), 0.04));
 }
 
-/* Same depth treatment as .btn, amber-tinted -- the primary action
-   still reads as a switch that's on (matching the landing page's
-   .led-switch-primary), just with real dimension now instead of a
-   flat lit cell. */
+/* The app's primary CTA -- now the "metal-strong" intensity level,
+   amber-colored (matching the landing page's .led-switch-primary and
+   every other primary-action accent app-wide), using the exact same
+   directional-lighting + --metal-glow-* recipe as the Community tab
+   bar's active state and .metal-strong above, rather than a separate
+   hand-tuned amber glow. --metal-color isn't set here (amber is this
+   button's own fixed identity, not swappable per instance the way a
+   plain .btn's tint can be), so every color-mix below reads literal
+   amber directly. */
 .btn-primary {
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  background: linear-gradient(to bottom, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
+  border: 1.5px solid rgba(245, 158, 11, 0.55);
+  border-top-color: rgba(245, 158, 11, 0.85);
+  border-left-color: rgba(245, 158, 11, 0.78);
+  border-right-color: rgba(245, 158, 11, 0.78);
+  border-bottom-color: color-mix(in srgb, #f59e0b 40%, black 25%);
+  background: linear-gradient(to bottom, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.09));
   color: var(--accent-amber);
   font-weight: 700;
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.24),
+    inset 1px 0 0 0 rgba(245, 158, 11, 0.35),
+    inset -1px 0 0 0 rgba(245, 158, 11, 0.35),
     inset 0 -1px 0 0 rgba(120, 53, 15, 0.4),
     0 3px 8px -3px rgba(0, 0, 0, 0.4),
-    0 0 12px rgba(245, 158, 11, 0.15);
+    var(--metal-glow-1) rgba(245, 158, 11, 0.28),
+    var(--metal-glow-2) rgba(245, 158, 11, 0.16);
 }
 
 .btn-primary::before {
@@ -1712,13 +1958,17 @@ select.btn {
 
 .btn-primary:hover {
   background: linear-gradient(to bottom, rgba(245, 158, 11, 0.3), rgba(245, 158, 11, 0.12));
-  border-color: rgba(245, 158, 11, 0.75);
+  border-color: rgba(245, 158, 11, 0.85);
   transform: translateY(-1.5px);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.28),
+    inset 1px 0 0 0 rgba(245, 158, 11, 0.45),
+    inset -1px 0 0 0 rgba(245, 158, 11, 0.45),
     inset 0 -1px 0 0 rgba(120, 53, 15, 0.45),
     0 6px 14px -3px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(245, 158, 11, 0.75), 0 0 22px rgba(245, 158, 11, 0.4);
+    0 0 0 1px rgba(245, 158, 11, 0.75),
+    var(--metal-glow-1) rgba(245, 158, 11, 0.4),
+    var(--metal-glow-2) rgba(245, 158, 11, 0.22);
 }
 
 .btn-primary:active {
@@ -1727,7 +1977,8 @@ select.btn {
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.45),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.06),
-    0 1px 3px -1px rgba(0, 0, 0, 0.35);
+    0 1px 3px -1px rgba(0, 0, 0, 0.35),
+    0 0 8px -3px rgba(245, 158, 11, 0.3);
 }
 
 .btn-primary:active::before {
@@ -1936,27 +2187,18 @@ select.btn {
      Ring/halo brightness and the top highlight match the subheader's
      own later refinement pass (ring toned down further, halo layers
      brightened/widened, top highlight nudged up). */
+  /* The two diffuse glow layers now read from the shared --metal-glow-*
+     tokens (see :root/[data-theme="light"]) instead of hardcoded
+     values -- this IS the "metal-strong" intensity level's glow
+     recipe (see .metal-strong further down, which reuses the exact
+     same tokens), refactored into a shared source instead of two
+     parallel copies. Light theme's ~25%-reduced numbers now apply
+     automatically via the token, no separate override block needed. */
   box-shadow:
     inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
     0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
-    0 0 18px 6px color-mix(in srgb, var(--tab-color) 60%, transparent),
-    0 0 30px 11px color-mix(in srgb, var(--tab-color) 36%, transparent);
-}
-
-/* Light mode: same four layers, the two diffuse glow layers scaled down
-   ~25% in both blur/spread and opacity (18px/6px/60% -> 14px/4px/45%,
-   30px/11px/36% -> 22px/8px/27%) -- a glow this size/strength reads as
-   "illuminated" on a near-black panel but "blurry smudge" on a light
-   one. Active nav keeps the strongest glow of anything in light mode
-   (everything else in this pass either lost its glow entirely or kept
-   a much more restrained one), just dialed back from the dark-theme
-   tuning rather than matched to it exactly. */
-[data-theme="light"] .folder-tab-active {
-  box-shadow:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
-    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
-    0 0 14px 4px color-mix(in srgb, var(--tab-color) 45%, transparent),
-    0 0 22px 8px color-mix(in srgb, var(--tab-color) 27%, transparent);
+    var(--metal-glow-1) color-mix(in srgb, var(--tab-color) var(--metal-glow-1-strength), transparent),
+    var(--metal-glow-2) color-mix(in srgb, var(--tab-color) var(--metal-glow-2-strength), transparent);
 }
 
 .folder-tab-active::before {
@@ -2239,6 +2481,9 @@ select.btn {
      to match the border above, and its two diffuse layers brightened/
      widened so more of the active tab's emphasis reads as soft light
      behind it rather than a bright edge. */
+  /* The two diffuse glow layers read from the shared --metal-glow-*
+     tokens now (see .folder-tab-active above and .metal-strong further
+     down -- all three consume the same source). */
   box-shadow:
     inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
     inset 1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
@@ -2246,17 +2491,15 @@ select.btn {
     inset 0 -2px 0 0 rgba(0, 0, 0, 0.45),
     0 10px 18px -4px rgba(0, 0, 0, 0.62),
     0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
-    0 0 18px 6px color-mix(in srgb, var(--tab-color) 60%, transparent),
-    0 0 30px 11px color-mix(in srgb, var(--tab-color) 36%, transparent);
+    var(--metal-glow-1) color-mix(in srgb, var(--tab-color) var(--metal-glow-1-strength), transparent),
+    var(--metal-glow-2) color-mix(in srgb, var(--tab-color) var(--metal-glow-2-strength), transparent);
 }
 
-/* Light mode: the two neutral black shadows (the bevel + the "pulled
-   out" grounded shadow underneath) recolored/softened the same way as
-   the shared --shadow-* tokens elsewhere, and the two colored glow
-   layers scaled down ~25% exactly as .folder-tab-active's own light
-   override does above -- same reasoning, this is the other half of the
-   same active-nav-tab visual (hanging header row vs. up-rising panel
-   tabs), kept in sync. */
+/* Light mode: just the two neutral black shadows (the bevel + the
+   "pulled out" grounded shadow underneath) still need an explicit
+   override -- recolored/softened the same way as the shared --shadow-*
+   tokens elsewhere. The colored glow layers above already adapt
+   automatically via --metal-glow-*, no longer duplicated here. */
 [data-theme="light"] .folder-tab-hanging-active {
   box-shadow:
     inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
@@ -2265,8 +2508,8 @@ select.btn {
     inset 0 -2px 0 0 rgba(40, 32, 28, 0.22),
     0 8px 16px -4px rgba(40, 32, 28, 0.28),
     0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
-    0 0 14px 4px color-mix(in srgb, var(--tab-color) 45%, transparent),
-    0 0 22px 8px color-mix(in srgb, var(--tab-color) 27%, transparent);
+    var(--metal-glow-1) color-mix(in srgb, var(--tab-color) var(--metal-glow-1-strength), transparent),
+    var(--metal-glow-2) color-mix(in srgb, var(--tab-color) var(--metal-glow-2-strength), transparent);
 }
 
 /* Thin brighter accent along the active tab's upper edge -- paired with

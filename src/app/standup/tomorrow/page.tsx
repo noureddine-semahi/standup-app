@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -80,6 +81,14 @@ export default function TomorrowGoalsPage() {
   // reviewed — so this no longer blocks the whole page.
   const [submitEligible, setSubmitEligible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Phase 8A.1: gates the mobile action bar's createPortal(document.body)
+  // call until after hydration (same pattern RescheduleModal/other modals
+  // in this app already use for their own portals) -- document doesn't
+  // exist during SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [planId, setPlanId] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<string>("draft");
@@ -1347,86 +1356,124 @@ export default function TomorrowGoalsPage() {
           })}
         </div>
 
-        {!locked && (
-          <div className="tomorrow-action-row mt-8">
-            {/* Secondary tier — Add Goal is a real action; Save only
-                renders as a button while there's something TO save
-                (isDirty). Once saved, it becomes passive status text
-                instead of a disabled-but-still-button-shaped control,
-                so it stops visually competing with Submit Plan. This
-                doesn't change when a save actually happens (autosave/
-                saveDraftOrChanges are untouched) -- only whether an
-                already-inert control renders as a button at all. */}
-            <div className="tomorrow-action-secondary">
-              <button
-                className="btn hover-scale"
-                onClick={addMoreGoal}
-                disabled={!canAddMore}
-                title={
-                  goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
-                }
-              >
-                {t("tomorrow.addGoal")}
-              </button>
-
-              {isDirty ? (
+        {!locked && (() => {
+          // Phase 8A.1: the mobile bar used to be a `position: fixed`
+          // DESCENDANT of this card -- but .card carries `backdrop-filter`
+          // (confirmed via computed-style walk: it's the only ancestor
+          // between here and <body> with a containing-block-triggering
+          // property), which per spec makes any `position: fixed`
+          // descendant behave like `position: absolute` relative to the
+          // card instead of the viewport. Verified empirically pre-fix:
+          // the bar's getBoundingClientRect().top moved 1:1 with
+          // window.scrollTo(), which true fixed positioning never does.
+          //
+          // Fix: render the SAME content twice from one inner function
+          // (not a shared element reference -- each call produces its own
+          // element tree, so there's no React key collision) -- once
+          // inline here for desktop (unchanged from Phase 8A, still fully
+          // contained in the card's normal flow), and once through a
+          // portal straight to document.body for mobile, which escapes
+          // the card's containing block entirely so `position: fixed`
+          // finally anchors to the real viewport. Only one of the two
+          // ever displays at a given width (globals.css media query),
+          // the other is `display: none` -- same "render both, let CSS
+          // pick one" pattern this app already uses for mobile/desktop
+          // nav variants, and the portal itself reuses the exact
+          // `createPortal(..., document.body)` + `mounted` SSR-guard
+          // convention already established by this app's modals (e.g.
+          // RescheduleModal) -- not a new pattern.
+          const content = (
+            <>
+              {/* Secondary tier — Add Goal is a real action; Save only
+                  renders as a button while there's something TO save
+                  (isDirty). Once saved, it becomes passive status text
+                  instead of a disabled-but-still-button-shaped control,
+                  so it stops visually competing with Submit Plan. This
+                  doesn't change when a save actually happens (autosave/
+                  saveDraftOrChanges are untouched) -- only whether an
+                  already-inert control renders as a button at all. */}
+              <div className="tomorrow-action-secondary">
                 <button
                   className="btn hover-scale"
-                  onClick={saveDraftOrChanges}
-                  disabled={submitting}
-                  title={t("tomorrow.manualSaveTitle")}
-                >
-                  {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
-                </button>
-              ) : (
-                <span className="tomorrow-save-status" role="status">
-                  <Check size={14} />
-                  {t("tomorrow.savedCheck")}
-                </span>
-              )}
-            </div>
-
-            {/* Primary tier — Submit Plan (or the submitted card) always
-                gets its own full-width row on mobile, so it's never the
-                thing a user has to scroll sideways to find. */}
-            <div className="tomorrow-action-primary">
-              {submitted ? (
-                <div className="plan-submitted-card">
-                  <CheckCircle2 size={16} />
-                  <div>
-                    <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
-                    <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  className="btn btn-primary hover-scale tomorrow-submit-btn"
-                  onClick={onSubmitPlan}
-                  disabled={!canSubmit}
-                  aria-busy={submitting}
+                  onClick={addMoreGoal}
+                  disabled={!canAddMore}
                   title={
-                    !submitEligible
-                      ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
-                      : priorityGoalsFilled < 3
-                      ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
-                      : ""
+                    goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
                   }
                 >
-                  {submitting ? (
-                    t("tomorrow.submitting")
-                  ) : !submitEligible ? (
-                    <>
-                      <Lock size={14} />
-                      {t("tomorrow.submitPlan")}
-                    </>
-                  ) : (
-                    t("tomorrow.submitPlan")
-                  )}
+                  {t("tomorrow.addGoal")}
                 </button>
-              )}
-            </div>
-          </div>
-        )}
+
+                {isDirty ? (
+                  <button
+                    className="btn hover-scale"
+                    onClick={saveDraftOrChanges}
+                    disabled={submitting}
+                    title={t("tomorrow.manualSaveTitle")}
+                  >
+                    {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
+                  </button>
+                ) : (
+                  <span className="tomorrow-save-status" role="status">
+                    <Check size={14} />
+                    {t("tomorrow.savedCheck")}
+                  </span>
+                )}
+              </div>
+
+              {/* Primary tier — Submit Plan (or the submitted card) always
+                  gets its own full-width row on mobile, so it's never the
+                  thing a user has to scroll sideways to find. */}
+              <div className="tomorrow-action-primary">
+                {submitted ? (
+                  <div className="plan-submitted-card">
+                    <CheckCircle2 size={16} />
+                    <div>
+                      <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
+                      <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-primary hover-scale tomorrow-submit-btn"
+                    onClick={onSubmitPlan}
+                    disabled={!canSubmit}
+                    aria-busy={submitting}
+                    title={
+                      !submitEligible
+                        ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
+                        : priorityGoalsFilled < 3
+                        ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
+                        : ""
+                    }
+                  >
+                    {submitting ? (
+                      t("tomorrow.submitting")
+                    ) : !submitEligible ? (
+                      <>
+                        <Lock size={14} />
+                        {t("tomorrow.submitPlan")}
+                      </>
+                    ) : (
+                      t("tomorrow.submitPlan")
+                    )}
+                  </button>
+                )}
+              </div>
+            </>
+          );
+
+          return (
+            <>
+              <div className="tomorrow-action-row tomorrow-action-row-desktop mt-8">{content}</div>
+              {mounted &&
+                createPortal(
+                  <div className="tomorrow-action-row tomorrow-action-row-mobile">{content}</div>,
+                  document.body
+                )}
+            </>
+          );
+        })()}
 
         {!locked && !submitted && !submitEligible && (
           <div className="mt-3 text-xs text-white/50">

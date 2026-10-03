@@ -4359,6 +4359,22 @@ select:focus {
   gap: 1rem;
 }
 
+/* Phase 8A.1: two copies of the SAME content now exist in the DOM
+   (tomorrow/page.tsx renders one inline, one through a portal to
+   document.body) so the mobile copy can truly be position:fixed to
+   the viewport -- .tomorrow-page-card's backdrop-filter (from the
+   shared .card class) otherwise traps a fixed descendant into
+   behaving like position:absolute relative to the card instead (see
+   the comment above this rule's mobile override below). Only one
+   copy is ever visible; this is the same "render both, let a media
+   query pick one" technique already used elsewhere in this app for
+   mobile/desktop variants, not scroll-position JS. Desktop copy needs
+   no override -- .tomorrow-action-row's base rule above already is
+   its complete, pre-Phase-8A.1 styling. */
+.tomorrow-action-row-mobile {
+  display: none;
+}
+
 .tomorrow-action-secondary {
   display: flex;
   align-items: center;
@@ -4412,13 +4428,43 @@ select:focus {
    Replaced with an intentional two-tier stack instead of a shrink-to-
    fit/scroll hack: Add Goal + Saved share a compact row, Submit Plan
    (or the submitted card) gets its own full-width row below, so it's
-   always immediately visible without any scrolling in either axis. */
+   always immediately visible without any scrolling in either axis.
+
+   Phase 8A.1: this used to target the single .tomorrow-action-row
+   directly. Confirmed via computed-style walk of the real ancestor
+   chain (.tomorrow-page-card -> .app-main -> .app-shell) that
+   .tomorrow-page-card's backdrop-filter was the only permanent
+   containing-block trigger between here and <body> -- .app-main/
+   .app-shell have none, and .card's own fadeIn-animation transform is
+   transient (reverts to "none" once the 0.6s entrance finishes, so it
+   only shares this bug for the first instant after page load, not
+   the real ongoing problem). Rather than strip backdrop-filter from
+   the shared .card class (would change every card in the app) or
+   restructure the React tree to move the DESKTOP copy out from under
+   the card (would visibly detach it from the panel it's meant to sit
+   inside), the portaled MOBILE-only copy now targets its own class so
+   it can be position:fixed from a DOM location (document.body) that
+   was never inside the card's containing block to begin with -- this
+   rule no longer needs to fight the containing-block problem at all,
+   it just styles the portal's output. Verified empirically post-fix:
+   getBoundingClientRect().top stays constant across scroll positions,
+   which it never did before this change. */
 @media (max-width: 640px) {
+  /* 164px clears the bar's tallest real measured footprint: the
+     Submitted state's two-line card wraps to a 3rd line in Spanish at
+     320px ("5 objetivos planificados para mañana" wraps its sub-line),
+     measured at 146px there vs ~119px for the Locked/Ready/Submitting
+     button -- plus an ~18px safety margin, not an arbitrary guess. */
   .tomorrow-page-card {
-    padding-bottom: 132px;
+    padding-bottom: 164px;
   }
 
-  .tomorrow-action-row {
+  .tomorrow-action-row-desktop {
+    display: none;
+  }
+
+  .tomorrow-action-row-mobile {
+    display: flex;
     position: fixed;
     left: 0;
     right: 0;

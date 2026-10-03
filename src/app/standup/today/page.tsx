@@ -1610,6 +1610,25 @@ export default function TodayPage() {
               effectiveStatus === "postponed";
             const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
             const doneColors = statusChipColors(effectiveStatus);
+            // Phase 7B: corrects perceived card-edge visual WEIGHT, not
+            // color identity -- P3's yellow and Completed's green read
+            // louder than every other state at the shared mix ratio
+            // purely because their hues have much higher luminance, and
+            // Canceled/In Progress read too weak in light mode because
+            // their hues sit close to the page's own cool gray. See the
+            // "Phase 7B edge-weight tiers" rule in globals.css for the
+            // actual values; "quiet" only has an effect in dark mode,
+            // "boost" only in light mode (each theme's tier is declared
+            // only under that theme's own block).
+            const edgeWeight = isCollapsible
+              ? effectiveStatus === "completed"
+                ? "quiet"
+                : effectiveStatus === "canceled" || effectiveStatus === "in_progress"
+                  ? "boost"
+                  : undefined
+              : p === 3
+                ? "quiet"
+                : undefined;
 
             if (isCollapsed) {
               return (
@@ -1679,6 +1698,7 @@ export default function TodayPage() {
                 data-goal-id={g.id}
                 className={`${isCelebrating ? "goal-row goal-row-celebrate" : "goal-row"}${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
                 data-pending={!reviewed}
+                data-edge-weight={edgeWeight}
                 /* A resolved-but-expanded goal (isCollapsible, re-opened via
                    toggleExpandedDone) reflects its STATUS color here, same as
                    it would show collapsed -- an active/pending goal still

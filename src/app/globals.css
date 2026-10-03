@@ -3016,7 +3016,18 @@ select:focus {
    explicit "dark/silver metal + red reflection, not a red CSS border"
    direction. "Expanded" card tier (~35% of .metal-strong's visual
    weight) -- .goal-row-done-collapsed below is the quieter "collapsed"
-   tier (~20%), keyed to status instead of priority. */
+   tier (~20%), keyed to status instead of priority.
+
+   Phase 7B: states that need a different visual WEIGHT than the
+   baseline formula below get a `data-edge-weight` attribute (set
+   alongside --p-color in today/page.tsx) and a small override block
+   further down (search "Phase 7B edge-weight tiers") that restates
+   just the mix percentages for that tier -- card-specific, doesn't
+   touch the priority/status color tokens themselves (still used
+   unmodified for text, chips, stamps, buttons elsewhere). Explicit
+   per-tier literals, same pattern every other metal-edge tier in
+   this file already uses
+   successfully. */
 .goal-row {
   --metal-color: var(--p-color, var(--metal-edge-neutral));
   position: relative;
@@ -3053,6 +3064,45 @@ select:focus {
     inset 0 -1px 0 0 rgba(40, 32, 28, 0.08),
     0 4px 12px -10px rgba(40, 32, 28, 0.3),
     0 0 7px -4px color-mix(in srgb, var(--metal-color) 28%, transparent);
+}
+
+/* Phase 7B edge-weight tiers: two states need their mix percentage
+   adjusted so perceived visual WEIGHT lines up with the rest of the
+   card family, without changing --priority-3/--status-completed/
+   -canceled/-in-progress themselves (still used unmodified for text,
+   chips, stamps, buttons). "quiet" (dark mode only) pulls P3's yellow
+   and Completed's green back down -- both read louder than every
+   other state at the shared 52/40/20/14/42% ratio purely because
+   their hues have much higher perceived luminance, not because
+   either is meant to outweigh a problem state like Blocked. "boost"
+   (light mode only) raises Canceled/In Progress, whose hues sit too
+   close to the light page background's own cool gray to read clearly
+   at the shared ratio. Declared after the base rules above so they
+   win at equal specificity; each theme's tier only overrides that
+   theme's own block, so e.g. "quiet" (unset in light mode) leaves P3/
+   Completed at the normal light-mode values. */
+.goal-row[data-edge-weight="quiet"] {
+  border-top-color: color-mix(in srgb, var(--metal-color) 26%, rgba(var(--tint-rgb), 0.3));
+  border-left-color: color-mix(in srgb, var(--metal-color) 20%, rgba(var(--tint-rgb), 0.22));
+  border-right-color: color-mix(in srgb, var(--metal-color) 10%, rgba(var(--tint-rgb), 0.12));
+  border-bottom-color: color-mix(in srgb, var(--metal-color) 7%, rgba(0, 0, 0, 0.35));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
+    0 6px 16px -10px rgba(0, 0, 0, 0.4),
+    0 0 11px -5px color-mix(in srgb, var(--metal-color) 20%, transparent);
+}
+
+[data-theme="light"] .goal-row[data-edge-weight="boost"] {
+  border-top-color: color-mix(in srgb, var(--metal-color) 54%, rgba(var(--tint-rgb), 0.38));
+  border-left-color: color-mix(in srgb, var(--metal-color) 44%, rgba(var(--tint-rgb), 0.3));
+  border-right-color: color-mix(in srgb, var(--metal-color) 22%, rgba(var(--tint-rgb), 0.18));
+  border-bottom-color: color-mix(in srgb, var(--metal-color) 16%, rgba(40, 32, 28, 0.26));
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.08),
+    0 4px 12px -10px rgba(40, 32, 28, 0.3),
+    0 0 10px -4px color-mix(in srgb, var(--metal-color) 40%, transparent);
 }
 
 /* Padded content area for everything except the number badge/collapse

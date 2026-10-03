@@ -3052,22 +3052,42 @@ select:focus {
   font-size: 0.82rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: #eef0f4;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7), 0 -0.5px 0 rgba(255, 255, 255, 0.18);
+  /* Amber LED number: vivid fill + a crisp dark stroke so it stays
+     sharp/"engraved" even while the glow layers below bloom past it --
+     text-stroke draws tight at the glyph edge (no blur of its own),
+     independent of text-shadow's blur radius, which is exactly the
+     "crisp outline, soft glow extends beyond it" split the spec calls
+     for. Order: tiny warm highlight (tight, barely blurred) -> the
+     actual restrained amber glow -> a small downward dark shadow for
+     depth so the number doesn't look pasted flat onto the metal. */
+  color: #ffb000;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.85);
+  text-shadow:
+    0 0 2px rgba(255, 221, 161, 0.85),
+    0 0 6px rgba(255, 176, 0, 0.55),
+    0 1px 1px rgba(0, 0, 0, 0.5);
   border-radius: 50%;
   background:
     radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.3) 9%, transparent 20%),
     radial-gradient(circle at 37% 33%, rgba(225, 229, 236, 0.5) 0%, transparent 46%),
     radial-gradient(circle at 68% 76%, rgba(0, 0, 0, 0.6) 0%, transparent 58%),
     linear-gradient(155deg, #9aa0ad 0%, #5b606c 48%, #202229 100%);
+  /* Order matters here -- CSS layers box-shadows front-to-back in list
+     order (first = closest to viewer). Front to back: inset surface
+     shading, the dark machined bezel ring, a thin metallic reflection
+     just outside it, the existing downward edge/contact shadows, and
+     finally (furthest back, widest reach) the amber ambient glow the
+     LED number casts onto the card behind the hemisphere -- kept to a
+     ~10-12px bloom, not a large halo. */
   box-shadow:
     inset 0 2px 2px rgba(255, 255, 255, 0.3),
     inset 0 -3px 4px rgba(0, 0, 0, 0.55),
     inset 2px 0 2px rgba(255, 255, 255, 0.08),
+    0 0 0 1.5px rgba(8, 9, 11, 0.8),
+    0 0 0 2.5px rgba(255, 255, 255, 0.08),
     0 1px 0 0 rgba(0, 0, 0, 0.5),
     0 3px 6px -1px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    0 0 0 2px rgba(255, 255, 255, 0.06);
+    0 0 11px 2px rgba(255, 176, 0, 0.32);
   z-index: 3;
   pointer-events: none;
 }
@@ -3109,9 +3129,14 @@ select:focus {
 /* Light mode: a genuinely different palette (not a dark-theme ratio) --
    lighter brushed-steel gradient, a neutral warm-gray contact shadow
    instead of near-black, and the inset highlight/shadow pair rebalanced
-   so the curvature still reads clearly against a light card. */
+   so the curvature still reads clearly against a light card. The amber
+   number itself (fill/stroke/glow) is unchanged from the base rule --
+   an LED reads the same color regardless of ambient light -- only the
+   bezel ring and the surrounding ambient bloom are retuned: the bezel
+   stays just as dark/crisp (explicit "keep the black bezel clearly
+   visible" call) while the amber glow is cut substantially so it
+   doesn't wash out against a light card. */
 [data-theme="light"] .goal-number-badge {
-  text-shadow: 0 1px 1px rgba(20, 22, 30, 0.55), 0 -0.5px 0 rgba(255, 255, 255, 0.5);
   background:
     radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.6) 10%, transparent 22%),
     radial-gradient(circle at 37% 33%, rgba(255, 255, 255, 0.4) 0%, transparent 48%),
@@ -3121,9 +3146,11 @@ select:focus {
     inset 0 2px 2px rgba(255, 255, 255, 0.8),
     inset 0 -3px 4px rgba(40, 42, 48, 0.4),
     inset 2px 0 2px rgba(255, 255, 255, 0.3),
+    0 0 0 1.5px rgba(8, 9, 11, 0.85),
+    0 0 0 2.5px rgba(255, 255, 255, 0.5),
     0 1px 0 0 rgba(40, 42, 48, 0.16),
     0 3px 6px -1px rgba(40, 32, 28, 0.32),
-    0 0 0 1px rgba(40, 42, 48, 0.22);
+    0 0 8px 1px rgba(255, 176, 0, 0.16);
 }
 
 .goal-row:hover {

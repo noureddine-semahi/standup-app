@@ -62,6 +62,10 @@ export const es: Record<keyof typeof en, string> = {
 
   // Dashboard
   "dashboard.loading": "Cargando panel...",
+  "dashboard.loadErrorTitle": "No pudimos cargar tu panel",
+  "dashboard.loadErrorBody": "Algo salió mal al cargar tus datos. Por favor, inténtalo de nuevo.",
+  "dashboard.retry": "Reintentar",
+  "dashboard.retrying": "Reintentando…",
   "dashboard.subtitle": "Tu resumen de ejecución diaria",
   "dashboard.pointsToNext": "{points} pts para el siguiente",
   "dashboard.maxLevel": "Nivel máximo",

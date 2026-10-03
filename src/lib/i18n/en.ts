@@ -62,6 +62,10 @@ export const en = {
 
   // Dashboard
   "dashboard.loading": "Loading dashboard...",
+  "dashboard.loadErrorTitle": "We couldn't load your dashboard",
+  "dashboard.loadErrorBody": "Something went wrong while loading your data. Please try again.",
+  "dashboard.retry": "Retry",
+  "dashboard.retrying": "Retrying…",
   "dashboard.subtitle": "Your daily execution overview",
   "dashboard.pointsToNext": "{points} pts to next",
   "dashboard.maxLevel": "Max level",

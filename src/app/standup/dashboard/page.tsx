@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   toISODate,
@@ -118,6 +118,21 @@ export default function DashboardPage() {
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
 
   const [loading, setLoading] = useState(true);
+  // Phase 9B: tracks the critical load path only (profile/streak/today's
+  // plan/tomorrow's plan -- the values every stat tile, the P1 card, and
+  // both goal lists directly display). The other data sources batched
+  // alongside them (achievements, connections, assignments, mentions,
+  // post activity, streak passes) already degrade gracefully via their
+  // own .catch(() => fallback) -- a failure there was never promoted
+  // into loadError, matching how they already behaved before this phase.
+  const [loadError, setLoadError] = useState(false);
+  // Separate from `loading` on purpose: `loading` still drives the
+  // full-page PageLoadingState skeleton for the initial mount (and any
+  // refreshKey-triggered reload, unchanged from before). `retrying`
+  // only covers an explicit Retry click, so the error banner/button stay
+  // visible with their own busy state instead of being replaced by the
+  // full skeleton.
+  const [retrying, setRetrying] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [pendingAchievements, setPendingAchievements] = useState<AchievementDef[]>([]);
   const [showAssistant, setShowAssistant] = useState(false);
@@ -223,14 +238,16 @@ export default function DashboardPage() {
     dismissAchievement(achievement);
   }
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const u = session?.user ?? null;
+  // Phase 9B: lifted out of the mount effect (as a stable useCallback) so
+  // the new Retry button can re-run the exact same sequence instead of
+  // duplicating it. Behavior is otherwise unchanged from before this
+  // phase -- same batch, same per-source fallbacks, same side effects.
+  const load = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const u = session?.user ?? null;
         setUser(u);
 
         // These nine don't depend on each other, so they run as one batch
@@ -333,14 +350,29 @@ export default function DashboardPage() {
           setNoteCounts(counts);
           setLatestNotes(latest);
         }
-      } catch (error) {
-        console.error("Dashboard load error:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
 
-    load();
+        // Reached the end without throwing -- the critical path (profile/
+        // streak/both plans) succeeded, so any previous load-failure state
+        // no longer applies, including after a successful Retry.
+        setLoadError(false);
+      } catch (error) {
+        // Only the 4 un-caught calls above (profile/streak/today's plan/
+        // tomorrow's plan) can actually reach this catch -- every other
+        // source in the Promise.all already swallows its own failure into
+        // a null/[] fallback and was never meant to block the page. Those
+        // 4 are exactly the values every stat tile, the P1 card, and both
+        // goal lists display directly, so a failure here genuinely means
+        // "this dashboard's numbers can't be trusted" -- the bar Phase 9A
+        // set for showing the new error state instead of silently
+        // rendering zeroed-out content.
+        console.error("Dashboard load error:", error);
+        setLoadError(true);
+      }
+    }, [todayISO, tomorrowISO, t]);
+
+  useEffect(() => {
+    setLoading(true);
+    load().finally(() => setLoading(false));
 
     // Points earned elsewhere (e.g. closing out Today) wouldn't otherwise
     // be reflected here until the dashboard is fully remounted — refetch
@@ -381,8 +413,48 @@ export default function DashboardPage() {
     return map;
   }, [goalAssignments]);
 
+  // Phase 9B: re-runs the exact same load() a Retry click as the initial
+  // mount does. Guarded by `retrying` so a second click while one is
+  // already in flight is a no-op instead of firing a duplicate request.
+  async function handleRetry() {
+    if (retrying) return;
+    setRetrying(true);
+    await load();
+    setRetrying(false);
+  }
+
   if (loading) {
     return <PageLoadingState label={t("dashboard.loading")} />;
+  }
+
+  // Phase 9B: shown only when the critical load path actually failed (see
+  // the comment on load()'s catch block) -- never for the already-
+  // gracefully-degraded optional data sources. Header kept minimal (just
+  // the page title) since the full header card needs `profile` to render
+  // its level badge, which is exactly what failed to load.
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <div className="card card-highlight dashboard-shell">
+          <h1 className="text-3xl font-bold">{t("nav.dashboard")}</h1>
+        </div>
+        <div className="dashboard-banner dashboard-banner-danger" role="alert">
+          <div className="dashboard-banner-heading">
+            <TriangleAlert size={17} /> {t("dashboard.loadErrorTitle")}
+          </div>
+          <p className="dashboard-banner-body">{t("dashboard.loadErrorBody")}</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={retrying}
+            aria-busy={retrying}
+            className="btn btn-primary dashboard-banner-cta"
+          >
+            {retrying ? t("dashboard.retrying") : t("dashboard.retry")}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Today stats
@@ -506,17 +578,23 @@ export default function DashboardPage() {
 
           {/* One-time welcome banner for brand-new accounts — see
               isNewUser/welcomeDismissed above. Separate from the rotating
-              Motivation card below, which is a recurring nicety rather than
-              onboarding content. */}
+              Motivation card (moved below, after the P1 highlight, in
+              Phase 9B), which is a recurring nicety rather than onboarding
+              content.
+              Phase 9B: CTA downgraded from .btn-primary to plain .btn --
+              banners are lightweight information/attention surfaces, not
+              primary-CTA-weight objects (see .dashboard-banner's own
+              comment in globals.css), and Quick Actions below is the
+              page's one established "what should I do next" location --
+              a new account could otherwise show two simultaneous
+              .btn-primary buttons (this one + Quick Actions' own "Plan
+              Tomorrow") communicating equal top importance. */}
           {isNewUser && !welcomeDismissed && (
-            <div
-              className="mt-6 rounded-2xl p-5"
-              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.3)" }}
-            >
+            <div className="mt-6 dashboard-banner dashboard-banner-attention">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 text-base font-bold text-white"><Hand size={17} /> {t("dashboard.welcomeTitle")}</div>
-                  <p className="mt-2 text-sm text-white/70 leading-relaxed">
+                  <div className="dashboard-banner-heading"><Hand size={17} /> {t("dashboard.welcomeTitle")}</div>
+                  <p className="dashboard-banner-body">
                     {t("dashboard.welcomePart1")}<b>{t("nav.planTomorrow")}</b>{t("dashboard.welcomePart2")}
                     <b>{t("nav.reviewToday")}</b>{t("dashboard.welcomePart3")}
                   </p>
@@ -532,7 +610,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href="/standup/tomorrow"
-                className="btn btn-primary mt-4 inline-block"
+                className="btn dashboard-banner-cta inline-block"
                 onClick={dismissWelcome}
               >
                 {t("dashboard.planTomorrowArrow")}
@@ -541,10 +619,7 @@ export default function DashboardPage() {
           )}
 
           {paymentGoalsAddedMsg && (
-            <div
-              className="mt-6 rounded-2xl p-4 flex items-center justify-between gap-4"
-              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
-            >
+            <div className="mt-6 dashboard-banner dashboard-banner-attention flex items-center justify-between gap-4">
               <span className="text-sm text-white/80">{paymentGoalsAddedMsg}</span>
               <button
                 type="button"
@@ -563,14 +638,11 @@ export default function DashboardPage() {
               page — it's a status reflection, not a nag, so it just shows
               for as long as it's accurately true. */}
           {todayClosed && tomorrowSubmitted && (
-            <div
-              className="mt-6 rounded-2xl p-5"
-              style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)" }}
-            >
-              <div className="flex items-center gap-2 text-base font-bold text-emerald-300">
+            <div className="mt-6 dashboard-banner dashboard-banner-success">
+              <div className="dashboard-banner-heading">
                 <PartyPopper size={18} /> {t("dashboard.allCaughtUpTitle")}
               </div>
-              <p className="mt-2 text-sm text-white/70 leading-relaxed">
+              <p className="dashboard-banner-body">
                 {t("dashboard.allCaughtUpBody")}
               </p>
             </div>
@@ -582,17 +654,14 @@ export default function DashboardPage() {
               at Calendar, where any goal still worth pursuing can be
               re-attempted (rescheduled) forward. */}
           {overdue.count > 0 && (
-            <div
-              className="mt-6 rounded-2xl p-5"
-              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
-            >
-              <div className="flex items-center gap-2 text-base font-bold text-amber-300">
+            <div className="mt-6 dashboard-banner dashboard-banner-attention">
+              <div className="dashboard-banner-heading">
                 <TriangleAlert size={17} /> {t(overdue.count === 1 ? "dashboard.overdueTitle.one" : "dashboard.overdueTitle.other", { count: overdue.count })}
               </div>
-              <p className="mt-2 text-sm text-white/70 leading-relaxed">
+              <p className="dashboard-banner-body">
                 {t("dashboard.overdueBody")}
               </p>
-              <Link href="/standup/calendar?unreviewed=1" className="btn mt-4 inline-block">
+              <Link href="/standup/calendar?unreviewed=1" className="btn dashboard-banner-cta inline-block">
                 {t("dashboard.viewUnreviewed")}
               </Link>
             </div>
@@ -602,59 +671,18 @@ export default function DashboardPage() {
               without push/email: a banner shown while the dashboard is open,
               once there are 6 or fewer hours left and today isn't closed. */}
           {showEndOfDayReminder && (
-            <div
-              className="mt-6 rounded-2xl p-5"
-              style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)" }}
-            >
-              <div className="flex items-center gap-2 text-base font-bold text-amber-300">
+            <div className="mt-6 dashboard-banner dashboard-banner-attention">
+              <div className="dashboard-banner-heading">
                 <AlarmClock size={17} /> {hoursLeftToday < 1 ? t("dashboard.hoursLeftLessThanHour") : t("dashboard.hoursLeft", { hours: Math.round(hoursLeftToday) })}
               </div>
-              <p className="mt-2 text-sm text-white/70 leading-relaxed">
+              <p className="dashboard-banner-body">
                 {t(todayPending === 1 ? "dashboard.pendingReviewBanner.one" : "dashboard.pendingReviewBanner.other", { count: todayPending })}
               </p>
-              <Link href="/standup/today" className="btn mt-4 inline-block">
+              <Link href="/standup/today" className="btn dashboard-banner-cta inline-block">
                 {t("nav.reviewToday")} →
               </Link>
             </div>
           )}
-
-          {/* Welcome / Motivation — one full-length card on its own row.
-              Padding overridden down from .card's own 24px default to
-              keep the text close to the border, per explicit request. */}
-          <div
-            className="mt-6 card card-highlight"
-            style={{ padding: "8px 10px" }}
-          >
-            <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
-            {/* The new message pushes the old one up and off, rather than
-                a crossfade — see .motivation-slide-in/out in globals.css.
-                Only clips/absolutely-positions its children WHILE the two
-                messages overlap mid-transition (is-transitioning); at rest
-                (the vast majority of the time) it's a plain block sized to
-                its own content, so a long message is never cut off and the
-                card uses exactly as much height as the full text needs. */}
-            <div className={`motivation-ticker-window mt-2${prevMotivationIndex !== null ? " is-transitioning" : ""}`}>
-              {prevMotivationIndex !== null && (
-                <div
-                  key={`prev-${prevMotivationIndex}`}
-                  className="motivation-slide motivation-slide-out text-lg font-semibold text-white leading-snug"
-                >
-                  {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
-                    name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
-                  })}
-                </div>
-              )}
-              <div
-                key={`cur-${motivationIndex}`}
-                className={`text-lg font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide motivation-slide-in" : ""}`}
-                onAnimationEnd={() => setPrevMotivationIndex(null)}
-              >
-                {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
-                  name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
-                })}
-              </div>
-            </div>
-          </div>
 
           {/* Stat tiles — two rows of three */}
           <div className="mt-3 grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">
@@ -913,6 +941,48 @@ export default function DashboardPage() {
           </Link>
           );
         })()}
+
+        {/* Motivation — Phase 9B: moved here (after the P1 highlight,
+            before Today/Tomorrow) from its previous spot right after the
+            banners/before the stat tiles. Decorative/supportive content
+            was outranking the user's actual progress and most actionable
+            item in scan order; this keeps the feature exactly as-is
+            (same card, same ticker animation, same copy) and only changes
+            where it sits in the page. */}
+        <div
+          className="card card-highlight"
+          style={{ padding: "8px 10px" }}
+        >
+          <div className="flex items-center gap-1.5 text-sm text-white/70"><Sparkles size={13} /> {t("dashboard.motivationLabel")}</div>
+          {/* The new message pushes the old one up and off, rather than
+              a crossfade — see .motivation-slide-in/out in globals.css.
+              Only clips/absolutely-positions its children WHILE the two
+              messages overlap mid-transition (is-transitioning); at rest
+              (the vast majority of the time) it's a plain block sized to
+              its own content, so a long message is never cut off and the
+              card uses exactly as much height as the full text needs. */}
+          <div className={`motivation-ticker-window mt-2${prevMotivationIndex !== null ? " is-transitioning" : ""}`}>
+            {prevMotivationIndex !== null && (
+              <div
+                key={`prev-${prevMotivationIndex}`}
+                className="motivation-slide motivation-slide-out text-lg font-semibold text-white leading-snug"
+              >
+                {t(MOTIVATIONAL_MESSAGE_KEYS[prevMotivationIndex], {
+                  name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+                })}
+              </div>
+            )}
+            <div
+              key={`cur-${motivationIndex}`}
+              className={`text-lg font-semibold text-white leading-snug ${prevMotivationIndex !== null ? "motivation-slide motivation-slide-in" : ""}`}
+              onAnimationEnd={() => setPrevMotivationIndex(null)}
+            >
+              {t(MOTIVATIONAL_MESSAGE_KEYS[motivationIndex], {
+                name: profile?.display_name || user?.email?.split("@")[0] || t("motivation.fallbackName"),
+              })}
+            </div>
+          </div>
+        </div>
 
         {/* Today & Tomorrow Overview Grid (keep logic; enhance row styles) */}
         <div className="grid gap-4 lg:grid-cols-2">

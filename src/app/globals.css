@@ -3314,7 +3314,13 @@ select:focus {
 .goal-done-banner {
   position: absolute;
   top: 50%;
-  right: 0.9rem;
+  /* Phase 6.1: nudged closer to the card's right edge (0.9rem -> 0.65rem)
+     to free a little more title space universally -- still enough
+     clearance that the glow (reaches ~8px past the stamp's own box)
+     doesn't hit .goal-row-done-collapsed's overflow:hidden boundary.
+     Stamp's own padding/font/rotation/color/glow are UNCHANGED (all
+     approved in Phase 6) -- this is a position-only adjustment. */
+  right: 0.65rem;
   transform: translateY(-50%) rotate(-5deg);
   padding: 0.28rem 0.8rem;
   border-radius: 6px;

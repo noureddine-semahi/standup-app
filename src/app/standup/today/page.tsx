@@ -127,6 +127,25 @@ const PRIORITY_OPTIONS = [
 ];
 
 
+// Phase 6.1: per-status title-space reservation for the collapsed-done
+// row's stamp, replacing one blanket worst-case value (which solved
+// collision but left too little title room for short-labeled statuses).
+// Each number is the stamp's measured rendered width (max of the EN/ES
+// translation, whichever is wider -- "Reprogramado" is 12% wider than
+// "Rescheduled") plus its right-edge offset (0.65rem) and a small
+// safety gap, measured via Playwright against the actual compiled
+// .goal-done-banner CSS, not estimated. Only the 5 statuses reachable
+// via the collapsed row (see isCollapsible below) are listed; anything
+// else falls back to the worst case (postponed/Reprogramado).
+const COLLAPSED_STAMP_RESERVE_PX: Partial<Record<GoalStatus, number>> = {
+  completed: 137,
+  blocked: 129,
+  canceled: 129,
+  postponed: 152,
+  in_progress: 144,
+};
+const COLLAPSED_STAMP_RESERVE_FALLBACK_PX = 152;
+
 const STATUS_OPTIONS: { value: GoalStatus; label: string }[] = [
   { value: "not_started", label: "Not started" },
   { value: "in_progress", label: "In progress" },
@@ -1628,17 +1647,19 @@ export default function TodayPage() {
                   >
                     {/* Left padding reserves the orb's now-larger visual
                         footprint (it's no longer an inline flex sibling).
-                        Right padding reserves the stamp's worst-case width
-                        across BOTH supported languages -- measured every
-                        possible status label in EN and ES (not just
-                        "Rescheduled"): ES "Reprogramado" is the actual
-                        widest at ~169px, wider than any English label,
-                        so a per-status pixel map would have been wrong
-                        for Spanish. One shared, generous reservation
-                        instead -- costs a little title width on short
-                        labels (e.g. "Blocked"), but guarantees the stamp
-                        never covers the title in either language. */}
-                    <div className="flex items-center" style={{ minWidth: 0, paddingLeft: "30px", paddingRight: "158px" }}>
+                        Right padding is now PER-STATUS (Phase 6.1) instead
+                        of one blanket worst-case value -- a short label
+                        like "Blocked" no longer pays Reprogramado's full
+                        reservation. See COLLAPSED_STAMP_RESERVE_PX above
+                        for how each number was measured. */}
+                    <div
+                      className="flex items-center"
+                      style={{
+                        minWidth: 0,
+                        paddingLeft: "30px",
+                        paddingRight: `${COLLAPSED_STAMP_RESERVE_PX[effectiveStatus] ?? COLLAPSED_STAMP_RESERVE_FALLBACK_PX}px`,
+                      }}
+                    >
                       <div className="goal-done-title flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
                         {g.title}
                       </div>

@@ -111,16 +111,48 @@ a {
   --glass-sheen-peak: 0.42;
   --glass-sheen-mid: 0.2;
   --glass-glint-peak: 0.9;
+
+  /* Neutral ambient shadow tokens -- dark theme's existing literal
+     values, unchanged, just lifted into variables so the light-theme
+     override above can recolor/soften them for .card:hover/
+     .card-highlight/the floating dropdown panels without duplicating
+     each consumer's full box-shadow rule per theme. */
+  --shadow-card-hover: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+  --shadow-card-highlight: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
+  --shadow-dropdown: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] {
   color-scheme: light;
   --tint-rgb: 20, 22, 30;
-  --panel-rgb: 255, 255, 255;
-  --panel-alpha: 0.72;
-  --panel-alpha-hover: 0.85;
+  /* A hair warm (255,253,250) rather than pure white -- "very subtle
+     warm/off-white" per the light-mode polish pass, barely perceptible
+     on its own but enough to read as a deliberate surface tone instead
+     of clinical white. Alpha raised 0.72->0.88 (hover 0.85->0.95) so
+     cards sit much closer to solid/clean against the page instead of
+     the washed-out, barely-there-above-the-background look the old
+     lower alpha produced -- --page-bg/--app-bg-gradient below are left
+     cooler and untouched, so the contrast between the two actually
+     increases rather than card and page converging toward the same
+     flat gray. */
+  --panel-rgb: 255, 253, 250;
+  --panel-alpha: 0.88;
+  --panel-alpha-hover: 0.95;
   --chrome-alpha: 0.82;
   --chrome-alpha-hover: 0.9;
+
+  /* Neutral ambient shadows -- same shape/blur/spread as the dark-theme
+     values at :root, just recolored from flat black to a soft warm dark
+     gray at much lower opacity. Pure black at 0.45-0.6 alpha (the dark-
+     theme tuning) reads as a heavy, muddy smear against a light card;
+     warming the hue slightly and roughly halving the opacity keeps the
+     same sense of depth without the harshness. Used by .card:hover/
+     .card-highlight and the floating dropdown panels (.nav-more-panel/
+     .nav-bell-panel/.conn-card-menu), which all shared the exact same
+     literal rgba(0,0,0,0.5)-family values before this. */
+  --shadow-card-hover: 0 10px 20px -10px rgba(40, 32, 28, 0.16);
+  --shadow-card-highlight: 0 6px 16px -8px rgba(40, 32, 28, 0.14);
+  --shadow-dropdown: 0 10px 26px -10px rgba(40, 32, 28, 0.18);
 
   /* Glass/mirror reflection -- dialed down a step from dark theme
      (explicit "30-35% light / 35-45% dark" ranges), since a white
@@ -237,6 +269,76 @@ a {
 .placeholder\:text-white\/40::placeholder { color: rgba(var(--tint-rgb), 0.4); }
 .placeholder\:text-white\/60::placeholder { color: rgba(var(--tint-rgb), 0.6); }
 .focus\:placeholder\:text-white\/60:focus::placeholder { color: rgba(var(--tint-rgb), 0.6); }
+
+/* Light-mode-only contrast fix for secondary/tertiary text. These low-
+   opacity "white" utilities are used everywhere as the de facto
+   secondary-text system (timestamps, helper copy, uppercase labels like
+   "UPDATE STATUS"/"LATEST ACTIVITY", placeholders, metadata) — on dark
+   theme, --tint-rgb is near-white so even 0.3-0.4 opacity stays legible;
+   on light theme --tint-rgb is near-black, and the SAME 0.3-0.5 opacity
+   reads as near-invisible pale gray on a white/light card (confirmed via
+   a mock render before making this change). Bumping just the lower
+   tiers (<=0.6) darkens that faint text without touching 0.7+, which
+   already read fine and are closer to primary-text weight -- keeps
+   secondary text from starting to compete with headings. Dark theme's
+   rules above are completely untouched; this only ever applies under
+   [data-theme="light"]. */
+[data-theme="light"] {
+  --text-dim-30: 0.48;
+  --text-dim-35: 0.52;
+  --text-dim-40: 0.56;
+  --text-dim-50: 0.64;
+  --text-dim-60: 0.72;
+}
+[data-theme="light"] .text-white\/30 { color: rgba(var(--tint-rgb), var(--text-dim-30)); }
+[data-theme="light"] .text-white\/35 { color: rgba(var(--tint-rgb), var(--text-dim-35)); }
+[data-theme="light"] .text-white\/40 { color: rgba(var(--tint-rgb), var(--text-dim-40)); }
+[data-theme="light"] .text-white\/50 { color: rgba(var(--tint-rgb), var(--text-dim-50)); }
+[data-theme="light"] .text-white\/60 { color: rgba(var(--tint-rgb), var(--text-dim-60)); }
+[data-theme="light"] .hover\:text-white\/60:hover { color: rgba(var(--tint-rgb), var(--text-dim-60)); }
+[data-theme="light"] .placeholder\:text-white\/40::placeholder { color: rgba(var(--tint-rgb), var(--text-dim-40)); }
+[data-theme="light"] .placeholder\:text-white\/60::placeholder { color: rgba(var(--tint-rgb), var(--text-dim-60)); }
+[data-theme="light"] .focus\:placeholder\:text-white\/60:focus::placeholder { color: rgba(var(--tint-rgb), var(--text-dim-60)); }
+
+/* Light mode: plain text inputs/textareas/selects across the app (Tools'
+   Lists/Payments/Recurring/Long-Term tabs, Backlog, etc.) are styled
+   ad hoc per call site with the shared border-white/20 bg-white/10
+   utility combo above. That combo tints the background TOWARD BLACK
+   (via --tint-rgb) at low opacity -- the right direction for "lifted
+   above a dark card" on dark theme, but the opposite of what reads as
+   "active" on light theme, where darkening toward black looks muted/
+   disabled instead. Confirmed via user screenshots: enabled inputs on
+   those tabs were visually indistinguishable from genuinely disabled
+   ones. Retargeted by element type rather than by overriding
+   .bg-white\/10 itself (which is also used for unrelated non-input
+   hover states that don't have this problem) -- excludes checkbox/
+   radio/range inputs (native-styled, not text fields), .btn-class
+   selects (the priority dropdown, which already has its own per-
+   priority coloring via --p-bg/--p-border and shouldn't be touched
+   here) and anything already :disabled (handled separately below).
+   Specificity ([data-theme="light"] + tag + two :not()s) comfortably
+   beats the single-class bg-white/10 / border-white/20 utilities it's
+   overriding, regardless of source order. */
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.btn):not(:disabled),
+[data-theme="light"] textarea:not(:disabled),
+[data-theme="light"] select:not(.btn):not(.priority-select):not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(var(--tint-rgb), 0.28);
+}
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.btn):focus,
+[data-theme="light"] textarea:focus,
+[data-theme="light"] select:not(.btn):not(.priority-select):focus {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+/* Disabled fields stay a visibly muted gray -- now clearly darker/
+   flatter than the bright enabled state above instead of both looking
+   like the same faint wash. */
+[data-theme="light"] input:disabled,
+[data-theme="light"] textarea:disabled,
+[data-theme="light"] select:disabled {
+  background-color: rgba(var(--tint-rgb), 0.07);
+  border-color: rgba(var(--tint-rgb), 0.12);
+}
 
 /* Tailwind's pastel accent text colors (amber-300, emerald-300, cyan-300,
    etc.) are calibrated to pop on a dark canvas — the same light, low-
@@ -1114,7 +1216,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(245, 158, 11, 0.15);
   background: rgba(var(--panel-rgb), 0.98);
   backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-dropdown);
 }
 
 .nav-more-panel .nav-link {
@@ -1146,7 +1248,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(245, 158, 11, 0.15);
   background: rgba(var(--panel-rgb), 0.98);
   backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-dropdown);
   overflow: hidden;
 }
 
@@ -1665,7 +1767,7 @@ select.btn {
   border-color: rgba(245, 158, 11, 0.25);
   background: rgba(var(--panel-rgb), var(--panel-alpha-hover));
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .card:hover::before {
@@ -1677,7 +1779,7 @@ select.btn {
    low-key treatment. */
 .card-highlight {
   border-color: rgba(245, 158, 11, 0.25) !important;
-  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-card-highlight);
 }
 
 /* Shared browser-tab / hanging-folder navigation — used by Social's 6
@@ -1782,6 +1884,18 @@ select.btn {
     0 0 13px 2px color-mix(in srgb, var(--tab-color) 58%, transparent);
 }
 
+/* Light mode: same neutral-shadow softening + ~25% glow reduction as
+   every other hover/active state in this pass -- an inactive tab's own
+   accent color (set above) is untouched, so it stays just as
+   recognizable; only the transient hover shadow/glow is toned down. */
+[data-theme="light"] .folder-tab:hover:not(.folder-tab-active) {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.14),
+    0 4px 6px -3px rgba(40, 32, 28, 0.2),
+    0 0 10px 1px color-mix(in srgb, var(--tab-color) 44%, transparent);
+}
+
 .folder-tab-active {
   /* Dark colored surface (not a brighter fill) + bright outline + the
      soft diffused light behind it below -- explicit three-part spec.
@@ -1827,6 +1941,22 @@ select.btn {
     0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
     0 0 18px 6px color-mix(in srgb, var(--tab-color) 60%, transparent),
     0 0 30px 11px color-mix(in srgb, var(--tab-color) 36%, transparent);
+}
+
+/* Light mode: same four layers, the two diffuse glow layers scaled down
+   ~25% in both blur/spread and opacity (18px/6px/60% -> 14px/4px/45%,
+   30px/11px/36% -> 22px/8px/27%) -- a glow this size/strength reads as
+   "illuminated" on a near-black panel but "blurry smudge" on a light
+   one. Active nav keeps the strongest glow of anything in light mode
+   (everything else in this pass either lost its glow entirely or kept
+   a much more restrained one), just dialed back from the dark-theme
+   tuning rather than matched to it exactly. */
+[data-theme="light"] .folder-tab-active {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
+    0 0 14px 4px color-mix(in srgb, var(--tab-color) 45%, transparent),
+    0 0 22px 8px color-mix(in srgb, var(--tab-color) 27%, transparent);
 }
 
 .folder-tab-active::before {
@@ -2118,6 +2248,25 @@ select.btn {
     0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
     0 0 18px 6px color-mix(in srgb, var(--tab-color) 60%, transparent),
     0 0 30px 11px color-mix(in srgb, var(--tab-color) 36%, transparent);
+}
+
+/* Light mode: the two neutral black shadows (the bevel + the "pulled
+   out" grounded shadow underneath) recolored/softened the same way as
+   the shared --shadow-* tokens elsewhere, and the two colored glow
+   layers scaled down ~25% exactly as .folder-tab-active's own light
+   override does above -- same reasoning, this is the other half of the
+   same active-nav-tab visual (hanging header row vs. up-rising panel
+   tabs), kept in sync. */
+[data-theme="light"] .folder-tab-hanging-active {
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
+    inset 1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
+    inset -1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
+    inset 0 -2px 0 0 rgba(40, 32, 28, 0.22),
+    0 8px 16px -4px rgba(40, 32, 28, 0.28),
+    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
+    0 0 14px 4px color-mix(in srgb, var(--tab-color) 45%, transparent),
+    0 0 22px 8px color-mix(in srgb, var(--tab-color) 27%, transparent);
 }
 
 /* Thin brighter accent along the active tab's upper edge -- paired with
@@ -2463,6 +2612,20 @@ select:focus {
   border: 1px solid var(--p-color, rgba(var(--tint-rgb), 0.08));
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Light mode only: --p-color is the SOLID priority color (same value
+   used for priority text/icons elsewhere), and P1's solid red
+   (--priority-1: #b91c1c) as a full 1px card border reads as a
+   validation/error outline rather than a priority accent -- confirmed
+   via a mock render before this change. color-mix() keeps the exact
+   same hue (so "P1 = red" stays just as clear, and P2-P5 inherit the
+   same softening automatically, no special-casing one priority) at
+   reduced opacity, reading as an accent border instead. Dark theme is
+   untouched -- the same solid color against a near-black card doesn't
+   have this problem, so there's no reason to change its contrast. */
+[data-theme="light"] .goal-row {
+  border-color: color-mix(in srgb, var(--p-color, rgba(var(--tint-rgb), 0.3)) 45%, transparent);
 }
 
 /* Padded content area for everything except the number badge/collapse
@@ -3020,12 +3183,40 @@ select:focus {
     0 0 10px -3px var(--btn-color, transparent);
 }
 
+/* Light mode: these 5 status buttons already lean on --btn-color for
+   their identity (border + a restrained colored glow on hover/current),
+   which is the right pattern per the status/priority >  minimal-glow
+   rule -- just the NEUTRAL black shadow components (bevel + contact
+   shadow) needed softening here, same recoloring as the shared
+   --shadow-* tokens elsewhere in this file, plus a touch less reach on
+   the colored glow itself (10px -> 8px) so it reads as restrained
+   rather than competing with the active nav tab's glow above it. */
+[data-theme="light"] .action-btn {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.12),
+    0 2px 5px -3px rgba(40, 32, 28, 0.16);
+}
+[data-theme="light"] .action-btn:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.14),
+    0 3px 8px -3px rgba(40, 32, 28, 0.2),
+    0 0 8px -3px var(--btn-color, transparent);
+}
+
 .action-btn:active {
   transform: translateX(2px) translateY(2px);
   transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
   box-shadow:
     inset 0 2px 4px 0 rgba(0, 0, 0, 0.35),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="light"] .action-btn:active {
+  box-shadow:
+    inset 0 2px 4px 0 rgba(40, 32, 28, 0.2),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.4);
 }
 
 .action-btn:active::before {
@@ -3053,6 +3244,14 @@ select:focus {
     0 0 9px -1px var(--btn-color, transparent);
 }
 
+[data-theme="light"] .action-btn[data-current="true"] {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.12),
+    0 2px 5px -3px rgba(40, 32, 28, 0.16),
+    0 0 7px -1px var(--btn-color, transparent);
+}
+
 /* ✨ Compact goal row — same corner-tag/full-border-color treatment as the
    full .goal-row card, for dense dashboard preview lists. No padding of its
    own; .goal-row-compact-body carries it, with clearance for the corner tag. */
@@ -3063,6 +3262,12 @@ select:focus {
   border: 1px solid var(--p-color, rgba(var(--tint-rgb), 0.07));
   padding: 0;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Same light-mode accent-border softening as .goal-row above, same
+   reasoning. */
+[data-theme="light"] .goal-row-compact {
+  border-color: color-mix(in srgb, var(--p-color, rgba(var(--tint-rgb), 0.3)) 45%, transparent);
 }
 
 .goal-row-compact-body {
@@ -3550,7 +3755,7 @@ select:focus {
   border: 1px solid rgba(245, 158, 11, 0.15);
   background: rgba(var(--panel-rgb), 0.98);
   backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-dropdown);
 }
 
 .conn-card-menu-item {

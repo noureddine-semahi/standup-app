@@ -1627,9 +1627,22 @@ h1, h2, h3, h4, h5, h6 {
    input-field fix), and a flat black shadow is heavier here than it
    needs to be (same lesson as --shadow-card-rest). Warm-white
    top-fading background instead, and a soft warm-gray contact shadow
-   in place of flat black. */
+   in place of flat black.
+
+   Phase 7A fix: that top-fading gradient faded its low stop,
+   rgba(var(--tint-rgb), 0.02), to within ~4/255 of the page background
+   in light mode (--tint-rgb is near-black there) -- the audit found the
+   lower portion of every real .metal-surface panel (the info/action
+   panels) reads as flush with the page. Replaced with a FLAT fill using
+   --panel-rgb, the same token .card already uses successfully for
+   uniform top-to-bottom separation -- at a lower alpha than .card's
+   0.88 (.metal-surface is the deliberately quieter "restrained, mostly
+   neutral" tier, see the comment above this selector's dark-mode
+   sibling) so it stays a shallow, premium surface and not a second
+   .card. The inset top highlight below still carries the "lit from
+   above" cue, so the fade wasn't needed for that. */
 [data-theme="light"] .metal-surface {
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(var(--tint-rgb), 0.02));
+  background: rgba(var(--panel-rgb), 0.55);
   border: 1px solid color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 10%, rgba(var(--tint-rgb), 0.16));
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, rgba(var(--tint-rgb), 0.28));
   box-shadow:

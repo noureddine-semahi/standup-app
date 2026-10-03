@@ -1594,43 +1594,61 @@ export default function TodayPage() {
 
             if (isCollapsed) {
               return (
-                <button
-                  key={g.id}
-                  type="button"
-                  data-goal-id={g.id}
-                  onClick={() => toggleExpandedDone(g.id)}
-                  className={`goal-row goal-row-done-collapsed${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
-                  style={
-                    {
-                      "--p-color": getPriorityMeta(p).color,
-                      "--done-color": doneColors.color,
-                      "--done-border": doneColors.border,
-                      "--done-bg": doneColors.bg,
-                      position: "relative",
-                    } as React.CSSProperties
-                  }
-                  title={t("today.clickToExpand")}
-                >
-                  <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
-                    {/* GoalNumberOrb is position:absolute (anchors to the
-                        card's own corner on the full .goal-row card) --
-                        this small relative wrapper, sized to match its
-                        footprint, lets it render inline next to the title
-                        here instead, same spot the old flat circle used
-                        to occupy. Same orb, same component, everywhere --
-                        see GoalNumberOrb.tsx. */}
-                    <div style={{ position: "relative", width: "34px", height: "34px", flexShrink: 0 }}>
-                      <GoalNumberOrb number={idx + 1} />
+                /* Phase 6: GoalNumberOrb now renders as a sibling BEFORE
+                   the button (not nested inside the small inline wrapper
+                   the digit-fix pass used), so its position:absolute
+                   anchors to THIS wrapper's corner instead of a 34x34
+                   slot -- letting it genuinely overlap the card's visual
+                   edge (~29% of its own width) instead of sitting fully
+                   inside it, per explicit request. The button keeps its
+                   own overflow:hidden (preserves the stamp's existing
+                   clip-to-rounded-corner behavior); the orb lives outside
+                   that box specifically so it is NOT clipped. Orb itself
+                   -- GoalNumberOrb.tsx, .goal-number-badge's own size/
+                   background/shadow -- is completely untouched; only the
+                   position override in .goal-row-done-collapsed-wrap
+                   .goal-number-badge (globals.css) changes where it sits. */
+                <div key={g.id} className="goal-row-done-collapsed-wrap">
+                  <GoalNumberOrb number={idx + 1} />
+                  <button
+                    type="button"
+                    data-goal-id={g.id}
+                    onClick={() => toggleExpandedDone(g.id)}
+                    className={`goal-row goal-row-done-collapsed${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
+                    style={
+                      {
+                        "--p-color": getPriorityMeta(p).color,
+                        "--done-color": doneColors.color,
+                        "--done-border": doneColors.border,
+                        "--done-bg": doneColors.bg,
+                        position: "relative",
+                      } as React.CSSProperties
+                    }
+                    title={t("today.clickToExpand")}
+                  >
+                    {/* Left padding reserves the orb's now-larger visual
+                        footprint (it's no longer an inline flex sibling).
+                        Right padding reserves the stamp's worst-case width
+                        across BOTH supported languages -- measured every
+                        possible status label in EN and ES (not just
+                        "Rescheduled"): ES "Reprogramado" is the actual
+                        widest at ~169px, wider than any English label,
+                        so a per-status pixel map would have been wrong
+                        for Spanish. One shared, generous reservation
+                        instead -- costs a little title width on short
+                        labels (e.g. "Blocked"), but guarantees the stamp
+                        never covers the title in either language. */}
+                    <div className="flex items-center" style={{ minWidth: 0, paddingLeft: "30px", paddingRight: "158px" }}>
+                      <div className="goal-done-title flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
+                        {g.title}
+                      </div>
                     </div>
-                    <div className="goal-done-title flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
-                      {g.title}
+                    <div className="goal-done-banner" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                      <StatusIcon status={effectiveStatus} size={11} />
+                      {statusLabel(effectiveStatus, t)}
                     </div>
-                  </div>
-                  <div className="goal-done-banner" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
-                    <StatusIcon status={effectiveStatus} size={15} />
-                    {statusLabel(effectiveStatus, t)}
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             }
 

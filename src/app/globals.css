@@ -3247,6 +3247,27 @@ select:focus {
   opacity: 0.6;
 }
 
+/* Phase 6: outer wrapper around a collapsed goal row, giving the orb a
+   position:relative ancestor to overlap the card's corner from OUTSIDE
+   the row's own overflow:hidden box (needed so the stamp still clips to
+   the row's rounded corner, unchanged, while the orb specifically is
+   never clipped). Pure layout plumbing -- no border/background/shadow
+   of its own. */
+.goal-row-done-collapsed-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* -10px/-10px (vs the expanded card's -5px/-5px default) -- roughly 29%
+   of the orb's 34px footprint protrudes past the wrapper's top-left
+   corner, within the requested 25-35% range. Position only; every other
+   .goal-number-badge property (size, background, box-shadow, the digit)
+   is untouched, inherited as-is from the shared rule. */
+.goal-row-done-collapsed-wrap .goal-number-badge {
+  top: -10px;
+  left: -10px;
+}
+
 /* Collapsed completed/canceled goal — a compact row with a large diagonal
    status stamp over it, in place of the full card. --done-color/-border/-bg
    come from statusChipColors() so the stamp matches the status chip's
@@ -3282,16 +3303,24 @@ select:focus {
   border-top-color: color-mix(in srgb, var(--metal-color) 30%, rgba(var(--tint-rgb), 0.28));
 }
 
+/* Phase 6: scaled down ~12% (padding/font-size/letter-spacing) and
+   rotation normalized to one shared -5deg -- within EVERY status's
+   requested range (Completed -4/-6, Blocked/Canceled/Rescheduled
+   -3/-5) rather than the previous hardcoded -6deg for all. Still the
+   same rectangular stamp-frame/uppercase/icon/glow personality, just
+   sized to stop crowding the title next to it. Only ever rendered in
+   Today's collapsed-done row (confirmed via grep -- no other
+   consumer), so this is a safe direct edit, no modifier class needed. */
 .goal-done-banner {
   position: absolute;
   top: 50%;
-  right: 1.25rem;
-  transform: translateY(-50%) rotate(-6deg);
-  padding: 0.4rem 1.5rem;
+  right: 0.9rem;
+  transform: translateY(-50%) rotate(-5deg);
+  padding: 0.28rem 0.8rem;
   border-radius: 6px;
   font-weight: 900;
-  font-size: 1rem;
-  letter-spacing: 0.1em;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
@@ -3304,6 +3333,20 @@ select:focus {
     0 4px 14px rgba(0, 0, 0, 0.35),
     0 0 10px -2px var(--done-border);
   pointer-events: none;
+}
+
+/* Light mode: same restraint already applied to every other glow in
+   this file -- flat black/white insets and the ambient shadow are
+   heavier on a light card than intended. Semantic color itself
+   (--done-color/-bg/-border, from statusChipColors()) is already
+   theme-correct; only the neutral shadow layers and outer bloom need
+   their own values here. */
+[data-theme="light"] .goal-done-banner {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 0 0 rgba(40, 32, 28, 0.14),
+    0 3px 10px rgba(40, 32, 28, 0.18),
+    0 0 6px -2px var(--done-border);
 }
 
 /* Flush with the card's own top-right corner, mirroring goal-number-badge's

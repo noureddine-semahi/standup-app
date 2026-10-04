@@ -5079,6 +5079,37 @@ select:focus {
   }
 }
 
+/* Phase 11C: found during final QA -- the text-overflow:ellipsis safety
+   net above (Phase 11B) was verified using element.scrollWidth, which
+   is misleading for an overflow:visible ancestor (scrollWidth reports
+   back clientWidth when there's no scrollable region to measure, since
+   overflow:visible never creates one -- it doesn't mean nothing is
+   overflowing). Re-checked with the correct method (the active tab's
+   own getBoundingClientRect().right against window.innerWidth) and
+   found the longest label ("Assigned Goals"/"Metas Asignadas") active
+   at narrow widths genuinely renders up to 60px past the right edge of
+   the viewport -- not just truncated, literally positioned off-screen,
+   with no scrollbar to reach it (overflow:visible content doesn't
+   register as scrollable overflow at the document level either, which
+   is why Phase 11B's document.documentElement.scrollWidth check also
+   read 0 and missed this). Checked per-language, not just EN: with the
+   120px cap above, EN's own spillover reaches exactly 0 at 380px, but
+   ES's longer "Metas Asignadas" only clears it at 388px -- using EN's
+   number alone would have left a real 0.5-7.5px spill for Spanish
+   specifically in between, caught by re-measuring both languages after
+   the first attempt instead of assuming EN's boundary covered ES too.
+   387px covers both with margin. 44px was the largest cap that kept a
+   verified margin (>=8px) at the worst case, 320px, confirmed
+   empirically across both languages (their longest labels converge to
+   the same truncated width once both exceed this cap). Declared after
+   the 859px block above so it wins the cascade where both conditions
+   match (equal selector specificity, later source order). */
+@media (max-width: 387px) {
+  .folder-tabbar-tools .folder-tab-tools.folder-tab-active span {
+    max-width: 44px;
+  }
+}
+
 /* Phase 11B: destructive/warning button tiers for Tools and
    Assignments. .btn itself stays semantically neutral -- it backs
    dozens of non-destructive actions app-wide -- so these are additive

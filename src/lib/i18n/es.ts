@@ -471,6 +471,14 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.failedAddTemplate": "Error al agregar la plantilla",
   "backlog.failedUpdateTemplate": "Error al actualizar la plantilla",
   "backlog.failedDeleteTemplate": "Error al eliminar la plantilla",
+  "backlog.recurringActive": "Activo",
+  "backlog.recurringRetired": "Retirado",
+  "backlog.recurringEveryDay": "Todos los días",
+  "backlog.recurringWeekdays": "Entre semana",
+  "backlog.recurringWeekends": "Fines de semana",
+  "backlog.confirmDeleteTemplateQuestion": "¿Eliminar esta plantilla permanentemente?",
+  "backlog.confirmDeleteTemplateYes": "Sí, eliminar",
+  "backlog.confirmDeleteTemplateNo": "No importa",
 
   // Standing lists (Backlog page)
   "backlog.listsTitle": "Listas",

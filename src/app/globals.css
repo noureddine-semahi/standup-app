@@ -4999,3 +4999,263 @@ select:focus {
   border-color: rgba(15, 118, 110, 0.4);
   color: #0f766e;
 }
+
+/* Phase 11B: Tools-scoped tab-bar fixes -- two issues diagnosed
+   together, both solved by the same change.
+
+   (1) Tab bar clips 641-825px (EN) / up to ~850px (ES): the icon-only/
+   active-label-unwrap treatment below only applies under
+   max-width:640px (the shared .folder-tab rule, also used by Social's
+   tab bar) -- above that, all 6 labels render at full width
+   simultaneously and need ~793-818px, but nothing guarantees that much
+   room exists before ~825-850px. Measured precisely: 184px overflow at
+   641px, shrinking to 0 at 825px (EN) / 850px (ES). Fixed by extending
+   the SAME already-proven icon-collapse pattern up through 859px --
+   scoped to this new .folder-tabbar-tools wrapper class rather than
+   editing the shared max-width:640px block Social also depends on.
+
+   (2) Real-device defect: a diffuse blue/white haze around the active
+   Backlog tab, reported as "looks oversized/clipped". Root cause
+   confirmed via computed style: .folder-tab-tools.folder-tab-active's
+   halo reaches ~34px blur + 13px spread, but .folder-tabbar only
+   reserves 10px of top padding before its own overflow-x:auto clips
+   it -- overflow-x:auto forces the y-axis to also become a clipping
+   context per spec (a box can't be "scroll x, visible y" at once), so
+   the halo gets cut off hard at that 10px boundary instead of fading
+   out, reading as a stray/broken glow rather than a restrained one.
+   Social already hit this exact problem on its own tab bar and already
+   fixed it for itself (see .folder-tabbar-community's overflow:visible
+   + 28px top padding, above) -- Tools was explicitly left clipped "as
+   shipped" at the time, per that rule's own comment. Fixable now
+   because (1) above means Tools no longer needs overflow-x:auto for
+   horizontal scroll at any width -- icon-only comfortably covers
+   0-859px (already proven down to 320px), full labels fit unaided
+   above 859px, so there is nothing left to scroll. */
+.folder-tabbar-tools {
+  overflow: visible;
+  padding-top: 28px;
+}
+
+@media (max-width: 859px) {
+  .folder-tabbar-tools {
+    gap: 2px;
+  }
+  .folder-tabbar-tools .folder-tab-tools {
+    gap: 0;
+    padding: 0.6rem 0.65rem;
+    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
+      box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  }
+  .folder-tabbar-tools .folder-tab-tools.folder-tab-active {
+    padding: 0.6rem 0.85rem;
+  }
+  /* text-overflow:ellipsis added as a defensive safety net, found while
+     verifying this exact rule for Phase 11B: with the single longest
+     tab label ("Assigned Goals"/"Metas Asignadas") active specifically
+     at <=390px, the unwrapped label's natural width can still exceed
+     its 120px cap by a measured 6-76px -- a narrow, pre-existing edge
+     case (present before this phase too, just never exercised by the
+     Phase 11A audit, which only checked the icon-collapse range with
+     "Backlog" active). Deliberately not resized/graduated further here
+     -- that's a real but separate, out-of-scope fix; this only
+     guarantees the overflow truncates visibly with "…" instead of
+     silently clipping, the same Calendar-derived lesson applied
+     defensively rather than left to repeat. */
+  .folder-tabbar-tools .folder-tab-tools span {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.2s ease 0.05s;
+  }
+  .folder-tabbar-tools .folder-tab-tools.folder-tab-active span {
+    max-width: 120px;
+    margin-left: 0.4rem;
+    opacity: 1;
+  }
+}
+
+/* Phase 11B: destructive/warning button tiers for Tools and
+   Assignments. .btn itself stays semantically neutral -- it backs
+   dozens of non-destructive actions app-wide -- so these are additive
+   modifier classes stacked alongside it (className="btn
+   tools-destructive-btn"), never a change to the shared rule. Reuses
+   the exact red/amber already established elsewhere (Calendar's
+   overdue badge, the goal-card delete-corner's hover state, the
+   Dashboard Phase 9B banner system's light-mode alpha/text values)
+   rather than inventing new hues. */
+.tools-destructive-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+.tools-destructive-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.55);
+}
+[data-theme="light"] .tools-destructive-btn {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(185, 28, 28, 0.4);
+  color: #b91c1c;
+}
+[data-theme="light"] .tools-destructive-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(185, 28, 28, 0.55);
+}
+
+.tools-warning-btn {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+.tools-warning-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.55);
+}
+[data-theme="light"] .tools-warning-btn {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(180, 83, 9, 0.4);
+  color: #b45309;
+}
+[data-theme="light"] .tools-warning-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(180, 83, 9, 0.55);
+}
+
+/* Phase 11B: Recurring row surface -- was a bare `flex items-center
+   justify-between` Tailwind div (the least mature surface found in the
+   Tools audit: no orb, no shared row class, state communicated only by
+   opacity). A restrained card-like row, consistent with the rest of
+   Tools' visual family, WITHOUT copying .goal-row wholesale -- a
+   recurring template isn't a dated goal and doesn't need a priority
+   edge or a number orb. Column layout below 480px (title/state/
+   weekdays stack above the actions) is what actually fixes the
+   squeezed-title-plus-7-line-weekday-wrap defect found in the audit --
+   combined with the compact weekday summary (below), both the row's
+   own structure and its content are now narrow-width-safe. */
+.recurring-row {
+  position: relative;
+  border-radius: 12px;
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: opacity 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+@media (min-width: 480px) {
+  .recurring-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+}
+.recurring-row[data-active="false"] {
+  background: rgba(var(--tint-rgb), 0.02);
+  border-color: rgba(var(--tint-rgb), 0.06);
+}
+
+/* Active/Retired -- textual, not color/opacity-only (the audit found
+   opacity:0.5 alone was the only existing signal). Compact chip, sized
+   and weighted below the title it sits beside, per the explicit
+   "visually subordinate to the title" requirement. */
+.recurring-state-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+.recurring-state-badge[data-active="false"] {
+  background: rgba(var(--tint-rgb), 0.05);
+  border-color: rgba(var(--tint-rgb), 0.14);
+  color: rgba(var(--tint-rgb), 0.45);
+}
+[data-theme="light"] .recurring-state-badge {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(4, 120, 87, 0.35);
+  color: #047857;
+}
+[data-theme="light"] .recurring-state-badge[data-active="false"] {
+  background: rgba(var(--tint-rgb), 0.06);
+  border-color: rgba(var(--tint-rgb), 0.2);
+  color: rgba(var(--tint-rgb), 0.5);
+}
+
+/* Phase 11B: Assignments row -- was a flat `flex items-center gap-3`
+   Tailwind row; fine for 2-3 children but the "assigned by you"
+   variant (priority chip + title + status chip + action) measurably
+   overflowed at 320px -- title truncated to a single character, the
+   action button clipped off the card entirely. Below 480px the row
+   becomes a deliberate 2-level stack (priority+title on one line,
+   status+action on the next) instead of 4 flex children fighting for
+   320px; at >=480px it's the original single-row layout, unchanged.
+   Layout only -- background/padding/radius stay the existing
+   `bg-white/5 rounded-lg px-3 py-2.5` Tailwind utilities already in
+   the markup. */
+.assignment-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.assignment-row-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.assignment-row-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+@media (max-width: 479px) {
+  .assignment-row-primary {
+    flex: 1 1 100%;
+  }
+  .assignment-row-secondary {
+    flex: 1 1 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+}
+
+/* Phase 11B: Backlog/Lists "Push to..." button. text-overflow:ellipsis
+   doesn't work when applied directly to a flex container using
+   justify-content:center -- a centered flex child has no single
+   well-defined overflow edge for the browser to ellipsize against, so
+   it silently clips from BOTH sides with no "..." shown at all
+   (confirmed: the real EN/ES strings, "-> Tomorrow"/"-> Mañana", don't
+   actually overflow this button at any supported width -- the Phase
+   11A finding was measured against a placeholder string that didn't
+   match the real i18n copy. This fix corrects the underlying
+   mechanism defensively, since the combination is a real latent bug
+   regardless of whether today's exact string triggers it). Moving
+   overflow/text-overflow/white-space onto this inline span instead of
+   the flex container gives the browser one unambiguous element to
+   ellipsize, while the button itself keeps centering it as a flex
+   child. */
+.tools-push-btn-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}

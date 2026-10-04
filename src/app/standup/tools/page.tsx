@@ -53,6 +53,20 @@ const WEEKDAY_KEYS: TranslationKey[] = [
   "calendar.daySat",
 ];
 
+// Phase 11B: a template active on most/all weekdays used to render its
+// stored days one-per-line at 320px (7 lines for an every-day template),
+// squeezing the title beside it. Common patterns get a named summary
+// instead of a literal day list; anything else still lists the actual
+// selected days (abbreviated, "Mon · Wed · Fri"), never a label that
+// doesn't match what's actually stored.
+function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): string {
+  const sorted = [...days].sort((a, b) => a - b);
+  if (sorted.length === 7) return t("backlog.recurringEveryDay");
+  if (sorted.length === 5 && sorted.every((d, i) => d === i + 1)) return t("backlog.recurringWeekdays");
+  if (sorted.length === 2 && sorted[0] === 0 && sorted[1] === 6) return t("backlog.recurringWeekends");
+  return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
+}
+
 type ToolsTab = "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "assignments";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
@@ -90,6 +104,12 @@ export default function ToolsPage() {
   const [newTemplateDays, setNewTemplateDays] = useState<Set<number>>(new Set());
   const [addingTemplate, setAddingTemplate] = useState(false);
   const [busyTemplateIds, setBusyTemplateIds] = useState<Set<string>>(new Set());
+  // Phase 11B: Delete is permanent (unlike Retire, which just toggles
+  // `active`) and previously fired with zero confirmation, styled
+  // identically to Retire -- at most one row's inline "are you sure"
+  // step open at a time, same pattern GoalAssignmentsPanel's cancel
+  // flow already established for this codebase.
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const [longTermMsg, setLongTermMsg] = useState<string | null>(null);
   const [ltDraftTitle, setLtDraftTitle] = useState("");
@@ -218,6 +238,7 @@ export default function ToolsPage() {
     try {
       await deleteRecurringGoalTemplate(template.id);
       setTemplates((prev) => prev.filter((t2) => t2.id !== template.id));
+      setConfirmingDeleteId((cur) => (cur === template.id ? null : cur));
     } catch (e: any) {
       setTemplateMsg(e?.message ?? t("backlog.failedDeleteTemplate"));
     } finally {
@@ -575,7 +596,7 @@ export default function ToolsPage() {
         tab bar sit flush against the card that follows it — see
         .folder-tabbar's negative margin-bottom in globals.css. */}
     <div>
-      <div className="folder-tabbar" role="tablist">
+      <div className="folder-tabbar folder-tabbar-tools" role="tablist">
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
           return (
@@ -711,17 +732,10 @@ export default function ToolsPage() {
                     onClick={() => handlePush(item, tomorrowISO)}
                     disabled={busy}
                     className="btn flex-1 min-w-0 flex items-center justify-center"
-                    style={{
-                      height: "36px",
-                      padding: "0 0.9rem",
-                      fontSize: "0.8rem",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
+                    style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
-                    {t("backlog.pushToTomorrow")}
+                    <span className="tools-push-btn-label">{t("backlog.pushToTomorrow")}</span>
                   </button>
                   <input
                     type="date"
@@ -979,38 +993,64 @@ export default function ToolsPage() {
         <div className="space-y-2">
           {templates.map((template) => {
             const busy = busyTemplateIds.has(template.id);
+            const confirmingDelete = confirmingDeleteId === template.id;
             return (
-              <div
-                key={template.id}
-                className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2"
-                style={{ opacity: template.active ? 1 : 0.5 }}
-              >
+              <div key={template.id} className="recurring-row" data-active={template.active}>
                 <div className="min-w-0">
-                  <div className="text-sm text-white/85 truncate">{template.title}</div>
-                  <div className="text-[11px] text-white/40">
-                    {template.days_of_week.map((d) => t(WEEKDAY_KEYS[d])).join(" ")}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-white/85 truncate">{template.title}</span>
+                    <span className="recurring-state-badge" data-active={template.active}>
+                      {template.active ? t("backlog.recurringActive") : t("backlog.recurringRetired")}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-white/40 mt-0.5">
+                    {summarizeWeekdays(template.days_of_week, t)}
                   </div>
                 </div>
-                <div className="flex gap-1.5 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleTemplateActive(template)}
-                    disabled={busy}
-                    className="btn"
-                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
-                  >
-                    {template.active ? t("backlog.retireTemplate") : t("backlog.reactivateTemplate")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteTemplate(template)}
-                    disabled={busy}
-                    className="btn"
-                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
-                  >
-                    {t("backlog.deleteTemplate")}
-                  </button>
-                </div>
+                {confirmingDelete ? (
+                  <div className="flex items-center gap-1.5 flex-wrap" style={{ flexShrink: 0 }}>
+                    <span className="text-xs text-white/60">{t("backlog.confirmDeleteTemplateQuestion")}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplate(template)}
+                      disabled={busy}
+                      className="btn tools-destructive-btn"
+                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                    >
+                      {t("backlog.confirmDeleteTemplateYes")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDeleteId(null)}
+                      disabled={busy}
+                      className="btn"
+                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                    >
+                      {t("backlog.confirmDeleteTemplateNo")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleTemplateActive(template)}
+                      disabled={busy}
+                      className="btn"
+                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                    >
+                      {template.active ? t("backlog.retireTemplate") : t("backlog.reactivateTemplate")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDeleteId(template.id)}
+                      disabled={busy}
+                      className="btn tools-destructive-btn"
+                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
+                    >
+                      {t("backlog.deleteTemplate")}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1094,17 +1134,10 @@ export default function ToolsPage() {
                     onClick={() => handlePushList(list, tomorrowISO)}
                     disabled={busy}
                     className="btn flex-1 min-w-0 flex items-center justify-center"
-                    style={{
-                      height: "36px",
-                      padding: "0 0.6rem",
-                      fontSize: "0.75rem",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
+                    style={{ height: "36px", padding: "0 0.6rem", fontSize: "0.75rem" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
-                    {t("backlog.pushToTomorrow")}
+                    <span className="tools-push-btn-label">{t("backlog.pushToTomorrow")}</span>
                   </button>
                   <input
                     type="date"

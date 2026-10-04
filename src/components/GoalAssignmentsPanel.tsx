@@ -116,10 +116,7 @@ export default function GoalAssignmentsPanel() {
   const assignedByYou = goalAssignments.filter((a) => a.direction === "assigned");
 
   return (
-    <div
-      className="card"
-      style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)" }}
-    >
+    <div className="card card-highlight">
       <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
         {t("social.goalAssignmentsTitle")}
       </div>
@@ -136,24 +133,26 @@ export default function GoalAssignmentsPanel() {
           ) : (
             <div className="space-y-1.5">
               {assignmentsForYou.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
-                  <div
-                    className="priority-chip-sm"
-                    style={{
-                      "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
-                      "--p-border": getPriorityMeta(a.snapshotPriority).border,
-                      "--p-color": getPriorityMeta(a.snapshotPriority).color,
-                    } as React.CSSProperties}
-                  >
-                    P{a.snapshotPriority}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
-                    <div className="text-[11px] text-white/50 truncate">
-                      {t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") })}
+                <div key={a.id} className="assignment-row rounded-lg bg-white/5 px-3 py-2.5">
+                  <div className="assignment-row-primary">
+                    <div
+                      className="priority-chip-sm"
+                      style={{
+                        "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
+                        "--p-border": getPriorityMeta(a.snapshotPriority).border,
+                        "--p-color": getPriorityMeta(a.snapshotPriority).color,
+                      } as React.CSSProperties}
+                    >
+                      P{a.snapshotPriority}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
+                      <div className="text-[11px] text-white/50 truncate">
+                        {t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") })}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-1.5 flex-shrink-0">
+                  <div className="assignment-row-secondary">
                     <button
                       type="button"
                       onClick={() => handleRespondAssignment(a.id, true)}
@@ -198,62 +197,66 @@ export default function GoalAssignmentsPanel() {
                     ? statusChipColors("canceled")
                     : statusChipColors(a.recipientGoalStatus ?? "not_started");
                 return (
-                  <div key={a.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
-                    <div
-                      className="priority-chip-sm"
-                      style={{
-                        "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
-                        "--p-border": getPriorityMeta(a.snapshotPriority).border,
-                        "--p-color": getPriorityMeta(a.snapshotPriority).color,
-                      } as React.CSSProperties}
-                    >
-                      P{a.snapshotPriority}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
-                      <div className="text-[11px] text-white/50 truncate inline-flex items-center gap-1">
-                        {a.assignmentType === "exclusive" ? <Lock size={10} /> : <Unlock size={10} />}
-                        {t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") })}
+                  <div key={a.id} className="assignment-row rounded-lg bg-white/5 px-3 py-2.5">
+                    <div className="assignment-row-primary">
+                      <div
+                        className="priority-chip-sm"
+                        style={{
+                          "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
+                          "--p-border": getPriorityMeta(a.snapshotPriority).border,
+                          "--p-color": getPriorityMeta(a.snapshotPriority).color,
+                        } as React.CSSProperties}
+                      >
+                        P{a.snapshotPriority}
                       </div>
-                      {a.status === "canceled" && a.cancelReason && (
-                        <div className="text-[11px] text-white/40 italic truncate">"{a.cancelReason}"</div>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
+                        <div className="text-[11px] text-white/50 truncate inline-flex items-center gap-1">
+                          {a.assignmentType === "exclusive" ? <Lock size={10} /> : <Unlock size={10} />}
+                          {t("social.assignedByLabel", { name: a.assignerDisplayName ?? t("social.anonymousUser") })}
+                        </div>
+                        {a.status === "canceled" && a.cancelReason && (
+                          <div className="text-[11px] text-white/40 italic truncate">"{a.cancelReason}"</div>
+                        )}
+                      </div>
                     </div>
-                    <div
-                      className="status-chip-sm"
-                      style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as React.CSSProperties}
-                    >
-                      {a.status === "declined" ? (
-                        <>
-                          <XCircle size={12} />
-                          <span>{t("social.assignmentDeclined")}</span>
-                        </>
-                      ) : a.status === "canceled" ? (
-                        <>
-                          <XCircle size={12} />
-                          <span>{t("social.assignmentCanceled")}</span>
-                        </>
-                      ) : (
-                        a.recipientGoalStatus && (
+                    <div className="assignment-row-secondary">
+                      <div
+                        className="status-chip-sm"
+                        style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as React.CSSProperties}
+                      >
+                        {a.status === "declined" ? (
                           <>
-                            <StatusIcon status={a.recipientGoalStatus} size={12} />
-                            <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                            <XCircle size={12} />
+                            <span>{t("social.assignmentDeclined")}</span>
                           </>
-                        )
-                      )}
+                        ) : a.status === "canceled" ? (
+                          <>
+                            <XCircle size={12} />
+                            <span>{t("social.assignmentCanceled")}</span>
+                          </>
+                        ) : (
+                          a.recipientGoalStatus && (
+                            <>
+                              <StatusIcon status={a.recipientGoalStatus} size={12} />
+                              <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                            </>
+                          )
+                        )}
+                      </div>
+                      <CancelOrDismissControl
+                        assignment={a}
+                        busy={busyAssignmentIds.has(a.id)}
+                        canceling={cancelingId === a.id}
+                        reasonDraft={cancelReasonDraft}
+                        onReasonDraftChange={setCancelReasonDraft}
+                        onStartCancel={() => startCancel(a.id)}
+                        onConfirmCancel={() => handleConfirmCancel(a.id)}
+                        onCancelCancel={stopCancel}
+                        onDismiss={() => handleDismissAssignment(a.id)}
+                        t={t}
+                      />
                     </div>
-                    <CancelOrDismissControl
-                      assignment={a}
-                      busy={busyAssignmentIds.has(a.id)}
-                      canceling={cancelingId === a.id}
-                      reasonDraft={cancelReasonDraft}
-                      onReasonDraftChange={setCancelReasonDraft}
-                      onStartCancel={() => startCancel(a.id)}
-                      onConfirmCancel={() => handleConfirmCancel(a.id)}
-                      onCancelCancel={stopCancel}
-                      onDismiss={() => handleDismissAssignment(a.id)}
-                      t={t}
-                    />
                   </div>
                 );
               })}
@@ -281,69 +284,73 @@ export default function GoalAssignmentsPanel() {
                     ? statusChipColors(a.recipientGoalStatus)
                     : null;
                 return (
-                  <div key={a.id} className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
-                    <div
-                      className="priority-chip-sm"
-                      style={{
-                        "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
-                        "--p-border": getPriorityMeta(a.snapshotPriority).border,
-                        "--p-color": getPriorityMeta(a.snapshotPriority).color,
-                      } as React.CSSProperties}
-                    >
-                      P{a.snapshotPriority}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
-                      <div className="text-[11px] text-white/50 truncate inline-flex items-center gap-1">
-                        {a.assignmentType === "exclusive" ? <Lock size={10} /> : <Unlock size={10} />}
-                        {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
-                      </div>
-                      {a.status === "canceled" && a.cancelReason && (
-                        <div className="text-[11px] text-white/40 italic truncate">"{a.cancelReason}"</div>
-                      )}
-                    </div>
-                    {chip && (
+                  <div key={a.id} className="assignment-row rounded-lg bg-white/5 px-3 py-2.5">
+                    <div className="assignment-row-primary">
                       <div
-                        className="status-chip-sm"
-                        style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as React.CSSProperties}
+                        className="priority-chip-sm"
+                        style={{
+                          "--p-bg": getPriorityMeta(a.snapshotPriority).bg,
+                          "--p-border": getPriorityMeta(a.snapshotPriority).border,
+                          "--p-color": getPriorityMeta(a.snapshotPriority).color,
+                        } as React.CSSProperties}
                       >
-                        {a.status === "pending" ? (
-                          <>
-                            <Hourglass size={12} />
-                            <span>{t("social.assignmentPending")}</span>
-                          </>
-                        ) : a.status === "declined" ? (
-                          <>
-                            <XCircle size={12} />
-                            <span>{t("social.assignmentDeclined")}</span>
-                          </>
-                        ) : a.status === "canceled" ? (
-                          <>
-                            <XCircle size={12} />
-                            <span>{t("social.assignmentCanceled")}</span>
-                          </>
-                        ) : (
-                          a.recipientGoalStatus && (
-                            <>
-                              <StatusIcon status={a.recipientGoalStatus} size={12} />
-                              <span>{statusLabel(a.recipientGoalStatus, t)}</span>
-                            </>
-                          )
+                        P{a.snapshotPriority}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-white/90 truncate">{a.snapshotTitle}</div>
+                        <div className="text-[11px] text-white/50 truncate inline-flex items-center gap-1">
+                          {a.assignmentType === "exclusive" ? <Lock size={10} /> : <Unlock size={10} />}
+                          {t("social.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
+                        </div>
+                        {a.status === "canceled" && a.cancelReason && (
+                          <div className="text-[11px] text-white/40 italic truncate">"{a.cancelReason}"</div>
                         )}
                       </div>
-                    )}
-                    <CancelOrDismissControl
-                      assignment={a}
-                      busy={busyAssignmentIds.has(a.id)}
-                      canceling={cancelingId === a.id}
-                      reasonDraft={cancelReasonDraft}
-                      onReasonDraftChange={setCancelReasonDraft}
-                      onStartCancel={() => startCancel(a.id)}
-                      onConfirmCancel={() => handleConfirmCancel(a.id)}
-                      onCancelCancel={stopCancel}
-                      onDismiss={() => handleDismissAssignment(a.id)}
-                      t={t}
-                    />
+                    </div>
+                    <div className="assignment-row-secondary">
+                      {chip && (
+                        <div
+                          className="status-chip-sm"
+                          style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as React.CSSProperties}
+                        >
+                          {a.status === "pending" ? (
+                            <>
+                              <Hourglass size={12} />
+                              <span>{t("social.assignmentPending")}</span>
+                            </>
+                          ) : a.status === "declined" ? (
+                            <>
+                              <XCircle size={12} />
+                              <span>{t("social.assignmentDeclined")}</span>
+                            </>
+                          ) : a.status === "canceled" ? (
+                            <>
+                              <XCircle size={12} />
+                              <span>{t("social.assignmentCanceled")}</span>
+                            </>
+                          ) : (
+                            a.recipientGoalStatus && (
+                              <>
+                                <StatusIcon status={a.recipientGoalStatus} size={12} />
+                                <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                              </>
+                            )
+                          )}
+                        </div>
+                      )}
+                      <CancelOrDismissControl
+                        assignment={a}
+                        busy={busyAssignmentIds.has(a.id)}
+                        canceling={cancelingId === a.id}
+                        reasonDraft={cancelReasonDraft}
+                        onReasonDraftChange={setCancelReasonDraft}
+                        onStartCancel={() => startCancel(a.id)}
+                        onConfirmCancel={() => handleConfirmCancel(a.id)}
+                        onCancelCancel={stopCancel}
+                        onDismiss={() => handleDismissAssignment(a.id)}
+                        t={t}
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -406,7 +413,7 @@ function CancelOrDismissControl({
           className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
           style={{ width: "140px" }}
         />
-        <button type="button" onClick={onConfirmCancel} disabled={busy} className="btn" style={ACTION_BTN_STYLE}>
+        <button type="button" onClick={onConfirmCancel} disabled={busy} className="btn tools-destructive-btn" style={ACTION_BTN_STYLE}>
           {t("social.confirmCancel")}
         </button>
         <button type="button" onClick={onCancelCancel} disabled={busy} className="btn" style={ACTION_BTN_STYLE}>
@@ -417,7 +424,7 @@ function CancelOrDismissControl({
   }
 
   return (
-    <button type="button" onClick={onStartCancel} disabled={busy} className="btn flex-shrink-0" style={ACTION_BTN_STYLE}>
+    <button type="button" onClick={onStartCancel} disabled={busy} className="btn tools-warning-btn flex-shrink-0" style={ACTION_BTN_STYLE}>
       {assignment.status === "pending" ? t("social.retractButton") : t("social.cancelAssignmentButton")}
     </button>
   );

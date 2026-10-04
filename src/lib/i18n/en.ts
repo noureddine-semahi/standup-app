@@ -473,6 +473,14 @@ export const en = {
   "backlog.failedAddTemplate": "Failed to add template",
   "backlog.failedUpdateTemplate": "Failed to update template",
   "backlog.failedDeleteTemplate": "Failed to delete template",
+  "backlog.recurringActive": "Active",
+  "backlog.recurringRetired": "Retired",
+  "backlog.recurringEveryDay": "Every day",
+  "backlog.recurringWeekdays": "Weekdays",
+  "backlog.recurringWeekends": "Weekends",
+  "backlog.confirmDeleteTemplateQuestion": "Delete this template permanently?",
+  "backlog.confirmDeleteTemplateYes": "Yes, delete",
+  "backlog.confirmDeleteTemplateNo": "Never mind",
 
   // Standing lists (Backlog page)
   "backlog.listsTitle": "Lists",

@@ -5040,27 +5040,35 @@ select:focus {
   .folder-tabbar-tools {
     gap: 2px;
   }
+  /* Inactive tabs are explicitly flex: 0 0 auto -- never grow, never
+     shrink -- so they stay a stable, predictable icon-only width. That
+     stability is what makes the active tab's own sizing below correct:
+     it can reliably claim "whatever's left in the row" because the
+     other 5 are guaranteed not to be contesting it. */
   .folder-tabbar-tools .folder-tab-tools {
+    flex: 0 0 auto;
     gap: 0;
     padding: 0.6rem 0.65rem;
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
       box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
   }
+  /* Post-freeze correction (superseding the Phase 11C fix below): that
+     fix capped the active label at a flat 44px under 387px, which
+     *contained* the real off-viewport spillover bug but overcorrected --
+     real-device review showed short labels like "Backlog"/"Payments"
+     truncating to "Back…"/"Paym…" even when the tab bar plainly had
+     room for them, because 44px was sized for the worst case (the
+     longest label) and applied to every label regardless of actual fit.
+     Replaced with genuine available-space sizing: flex: 1 1 0% makes
+     this tab consume exactly whatever width the row has left after the
+     5 fixed-width inactive tabs above, at every width, not a guessed
+     constant -- min-width keeps its own icon+padding comfortably
+     visible even in a hypothetical near-zero-space case. */
   .folder-tabbar-tools .folder-tab-tools.folder-tab-active {
+    flex: 1 1 0%;
+    min-width: 40px;
     padding: 0.6rem 0.85rem;
   }
-  /* text-overflow:ellipsis added as a defensive safety net, found while
-     verifying this exact rule for Phase 11B: with the single longest
-     tab label ("Assigned Goals"/"Metas Asignadas") active specifically
-     at <=390px, the unwrapped label's natural width can still exceed
-     its 120px cap by a measured 6-76px -- a narrow, pre-existing edge
-     case (present before this phase too, just never exercised by the
-     Phase 11A audit, which only checked the icon-collapse range with
-     "Backlog" active). Deliberately not resized/graduated further here
-     -- that's a real but separate, out-of-scope fix; this only
-     guarantees the overflow truncates visibly with "…" instead of
-     silently clipping, the same Calendar-derived lesson applied
-     defensively rather than left to repeat. */
   .folder-tabbar-tools .folder-tab-tools span {
     display: inline-block;
     max-width: 0;
@@ -5072,41 +5080,19 @@ select:focus {
     transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
       opacity 0.2s ease 0.05s;
   }
+  /* The label itself now fills whatever space its now-dynamically-sized
+     parent button actually has (flex: 1 1 auto + min-width: 0, instead
+     of the old fixed max-width), so a short label renders in full the
+     instant real room exists, and only the genuinely-too-long case
+     (still "Assigned Goals"/"Metas Asignadas" at the narrowest widths)
+     ellipsizes -- text-overflow:ellipsis above still guarantees that
+     truncation is always visible, never a silent clip. */
   .folder-tabbar-tools .folder-tab-tools.folder-tab-active span {
-    max-width: 120px;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
     margin-left: 0.4rem;
     opacity: 1;
-  }
-}
-
-/* Phase 11C: found during final QA -- the text-overflow:ellipsis safety
-   net above (Phase 11B) was verified using element.scrollWidth, which
-   is misleading for an overflow:visible ancestor (scrollWidth reports
-   back clientWidth when there's no scrollable region to measure, since
-   overflow:visible never creates one -- it doesn't mean nothing is
-   overflowing). Re-checked with the correct method (the active tab's
-   own getBoundingClientRect().right against window.innerWidth) and
-   found the longest label ("Assigned Goals"/"Metas Asignadas") active
-   at narrow widths genuinely renders up to 60px past the right edge of
-   the viewport -- not just truncated, literally positioned off-screen,
-   with no scrollbar to reach it (overflow:visible content doesn't
-   register as scrollable overflow at the document level either, which
-   is why Phase 11B's document.documentElement.scrollWidth check also
-   read 0 and missed this). Checked per-language, not just EN: with the
-   120px cap above, EN's own spillover reaches exactly 0 at 380px, but
-   ES's longer "Metas Asignadas" only clears it at 388px -- using EN's
-   number alone would have left a real 0.5-7.5px spill for Spanish
-   specifically in between, caught by re-measuring both languages after
-   the first attempt instead of assuming EN's boundary covered ES too.
-   387px covers both with margin. 44px was the largest cap that kept a
-   verified margin (>=8px) at the worst case, 320px, confirmed
-   empirically across both languages (their longest labels converge to
-   the same truncated width once both exceed this cap). Declared after
-   the 859px block above so it wins the cascade where both conditions
-   match (equal selector specificity, later source order). */
-@media (max-width: 387px) {
-  .folder-tabbar-tools .folder-tab-tools.folder-tab-active span {
-    max-width: 44px;
   }
 }
 

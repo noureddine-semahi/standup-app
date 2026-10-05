@@ -487,7 +487,7 @@ export default function SocialPage() {
                 aria-label={t(tab.labelKey)}
                 title={t(tab.labelKey)}
                 onClick={() => setActiveTab(tab.key)}
-                className={`folder-tab${isActive ? " folder-tab-active" : ""}`}
+                className={`folder-tab folder-tab-community${isActive ? " folder-tab-active" : ""}`}
                 style={{ "--tab-color": tab.color } as React.CSSProperties}
               >
                 <tab.icon size={15} />
@@ -773,7 +773,7 @@ export default function SocialPage() {
                     >
                       <Avatar avatarUrl={c.otherAvatarUrl} label={connectionDisplayName(c, t)} size={56} />
                       <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
-                      <div className="flex gap-1.5 w-full">
+                      <div className="conn-request-actions">
                         <button
                           type="button"
                           onClick={() => handleRespond(c.id, true)}

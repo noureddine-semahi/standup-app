@@ -5276,3 +5276,101 @@ select:focus {
   white-space: nowrap;
   max-width: 100%;
 }
+
+/* Phase 12B: Community tab-bar fix, applying the same architectural
+   lesson the Tools post-freeze correction (c66ed65) established --
+   available-space flexbox sizing, not a fixed label cap -- as its own
+   Community-scoped implementation. Does NOT reuse or touch
+   .folder-tab-tools; this is a new, separate modifier.
+
+   Root cause (Phase 12A): Community's tab buttons used the plain
+   shared .folder-tab with no modifier at all, so they only ever got
+   the base max-width:640px icon-collapse rule. Above 640px every full
+   label shows simultaneously and doesn't reliably fit -- measured via
+   position-based getBoundingClientRect (not scrollWidth, which read
+   misleadingly here too, same overflow:visible trap as Tools):
+   EN's own 6-label row needs enough room that spill reaches exactly 0
+   only at 730px; ES's longer labels ("Mis Publicaciones"/"Objetivos")
+   need 840px. Below 640px, the base icon-collapse rule's own fixed
+   120px active-label cap also spilled the longest label
+   ("Objetivos") off-viewport at the narrowest widths, same category
+   of bug as Tools' pre-11C defect, confirmed up to 61px real
+   spillover at 320px.
+
+   Fix: extend icon-collapse up through 849px (covering both
+   languages' full-label crossover with margin, mirroring exactly how
+   Tools' own breakpoint was chosen), using available-space sizing
+   throughout that whole range instead of a fixed cap -- inactive tabs
+   flex:0 0 auto (stable, predictable icon-only width), the active tab
+   flex:1 1 0% (consumes whatever the row has left after the 5 fixed
+   tabs), its label flex:1 1 auto with min-width:0/max-width:none
+   (renders full the instant real room exists, text-overflow:ellipsis
+   only firing when the actual available width is less than the
+   label's natural width -- never a silent clip). This single
+   mechanism handles both the tablet-range full-label overflow and the
+   narrowest-width longest-label spillover at once, with no separate
+   fixed-width tier needed for either. */
+@media (max-width: 849px) {
+  .folder-tabbar-community {
+    gap: 2px;
+  }
+  .folder-tabbar-community .folder-tab-community {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 0.6rem 0.65rem;
+    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
+      box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
+  }
+  .folder-tabbar-community .folder-tab-community.folder-tab-active {
+    flex: 1 1 0%;
+    min-width: 40px;
+    padding: 0.6rem 0.85rem;
+  }
+  .folder-tabbar-community .folder-tab-community span {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.2s ease 0.05s;
+  }
+  .folder-tabbar-community .folder-tab-community.folder-tab-active span {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0.4rem;
+    opacity: 1;
+  }
+}
+
+/* Phase 12B: connection-request Accept/Decline row. Root cause (Phase
+   12A): the request card sits in a `grid-cols-2 sm:grid-cols-3` grid,
+   so at narrow widths each card is itself only ~113-159px wide: the
+   old side-by-side `flex` row split that in half (~39-62px per
+   button), well under what "Accept"/"Decline" need (measured 56-63px
+   EN) and worse for the longer Spanish strings ("Aceptar"/"Rechazar",
+   63-70px) -- confirmed clipping (no ellipsis -- .btn's own
+   overflow:hidden, same root cause family as the Calendar/Tools
+   lessons) persisting up to 430px for Decline specifically, clearing
+   only at 440px where the card is finally wide enough.
+
+   Fix: stack the two buttons vertically below that measured
+   crossover, each then getting the card's FULL ~113-159px width
+   (plenty for either language) instead of half of it; reverts to the
+   original side-by-side row once genuinely safe. Avatar/name above
+   this row, and the rest of the card (incoming-request vs.
+   accepted-connection layouts), are untouched. */
+.conn-request-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  width: 100%;
+}
+@media (min-width: 440px) {
+  .conn-request-actions {
+    flex-direction: row;
+  }
+}

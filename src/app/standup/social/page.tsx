@@ -28,6 +28,7 @@ import {
   type Post,
   type PostVisibility,
   type DiscoverableUser,
+  type Profile,
 } from "@/lib/supabase/db";
 import { useRouter, useSearchParams } from "next/navigation";
 import PostCard from "@/components/PostCard";
@@ -37,7 +38,7 @@ import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
-import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, MoreVertical } from "lucide-react";
+import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, MoreVertical, Pencil, ChevronDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -71,6 +72,13 @@ export default function SocialPage() {
     return SOCIAL_TAB_VALUES.includes(tabParam as SocialTab) ? (tabParam as SocialTab) : "myFeed";
   });
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // Community landing header — the signed-in user's own profile card above
+  // the tab bar. Reuses the same getOrCreateProfile() call already made
+  // for the guidelines check below, so this adds no new query.
+  const [profile, setProfile] = useState<Profile | null>(null);
+  // Mirrors the connection-profile page's collapsed-by-default mobile About
+  // disclosure — desktop always shows About in its own column instead.
+  const [aboutExpanded, setAboutExpanded] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connError, setConnError] = useState<string | null>(null);
   // Per-row busy tracking so accepting/declining/removing one row doesn't
@@ -202,7 +210,10 @@ export default function SocialPage() {
     // out of Community entirely — this is a rules acknowledgment, not a
     // legal gate, so the safer failure mode is "let them in."
     getOrCreateProfile()
-      .then((p) => setGuidelinesAccepted(!!p.community_guidelines_accepted_at))
+      .then((p) => {
+        setGuidelinesAccepted(!!p.community_guidelines_accepted_at);
+        setProfile(p);
+      })
       .catch(() => setGuidelinesAccepted(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -466,6 +477,98 @@ export default function SocialPage() {
           onDecline={() => router.push("/standup/dashboard")}
         />
       )}
+      {/* Community landing header — the signed-in user's own profile,
+          sitting above the (unchanged) Phase 12B tab bar below. Desktop:
+          identity left, About center/right. Mobile: identity stacked
+          first, About collapsible below it — same disclosure pattern as
+          the connection-profile page. Posts/Connections stats reuse data
+          already loaded on this page (feed + connections); Goals/Streak
+          are deliberately omitted since no count for either is already
+          fetched here and adding one would mean a new query. */}
+      <div className="card card-highlight">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-6">
+          <div className="flex flex-col items-center text-center sm:items-start sm:text-left sm:w-48 sm:flex-shrink-0">
+            <div className="flex justify-center sm:justify-start w-full mb-3">
+              <Avatar avatarUrl={profile?.avatar_url ?? null} label={profile?.display_name ?? ""} size={72} />
+            </div>
+            <h1 className="text-xl font-bold mb-2">{profile?.display_name || t("social.anonymousUser")}</h1>
+            <Link
+              href="/standup/settings"
+              className="btn inline-flex items-center gap-1.5"
+              style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+            >
+              <Pencil size={12} /> {t("social.editProfile")}
+            </Link>
+          </div>
+
+          {/* About — desktop only; always visible, mirrors the
+              connection-profile page's own-column treatment. */}
+          <div className="hidden sm:block flex-1 min-w-0">
+            <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
+              {t("social.aboutTitle")}
+            </div>
+            <p className="text-sm text-white/80 whitespace-pre-wrap">
+              {profile?.bio || t("social.noBioYet")}
+            </p>
+          </div>
+
+          {/* Stats — desktop only, far right. */}
+          <div className="hidden sm:grid grid-cols-2 gap-2 sm:w-36 sm:flex-shrink-0">
+            <div
+              className="rounded-lg text-center py-2"
+              style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
+            >
+              <div className="text-lg font-bold">{myPosts.length}</div>
+              <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statPosts")}</div>
+            </div>
+            <div
+              className="rounded-lg text-center py-2"
+              style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
+            >
+              <div className="text-lg font-bold">{accepted.length}</div>
+              <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statConnections")}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats — mobile only. */}
+        <div className="sm:hidden grid grid-cols-2 gap-2 mt-4">
+          <div
+            className="rounded-lg text-center py-2"
+            style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
+          >
+            <div className="text-lg font-bold">{myPosts.length}</div>
+            <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statPosts")}</div>
+          </div>
+          <div
+            className="rounded-lg text-center py-2"
+            style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
+          >
+            <div className="text-lg font-bold">{accepted.length}</div>
+            <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statConnections")}</div>
+          </div>
+        </div>
+
+        {/* About — mobile only; collapsed by default below identity+stats
+            instead of a second column. */}
+        <div className="sm:hidden mt-4 pt-4" style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.08)" }}>
+          <button
+            type="button"
+            onClick={() => setAboutExpanded((v) => !v)}
+            aria-expanded={aboutExpanded}
+            className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-white/50 font-semibold"
+          >
+            {aboutExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            {t("social.aboutTitle")}
+          </button>
+          {aboutExpanded && (
+            <p className="text-sm text-white/80 whitespace-pre-wrap mt-2">
+              {profile?.bio || t("social.noBioYet")}
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Browser-tab / hanging-folder navigation, now sitting directly on
           top of (and visually merged with) the Community heading card
           right below it, same treatment as the Tools page — explicit

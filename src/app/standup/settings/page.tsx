@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [bio, setBio] = useState("");
   const [savingPersonalInfo, setSavingPersonalInfo] = useState(false);
   const [personalInfoMsg, setPersonalInfoMsg] = useState<string | null>(null);
   const [personalInfoErr, setPersonalInfoErr] = useState<string | null>(null);
@@ -137,6 +138,7 @@ export default function SettingsPage() {
         setDateOfBirth(profile.date_of_birth ?? "");
         setAddress(profile.address ?? "");
         setPhoneNumber(profile.phone_number ?? "");
+        setBio(profile.bio ?? "");
         setAvatarUrl(profile.avatar_url ?? null);
       } finally {
         setLoading(false);
@@ -171,7 +173,7 @@ export default function SettingsPage() {
     setPersonalInfoMsg(null);
     setPersonalInfoErr(null);
     try {
-      await updatePersonalInfo({ firstName, lastName, dateOfBirth, address, phoneNumber });
+      await updatePersonalInfo({ firstName, lastName, dateOfBirth, address, phoneNumber, bio });
       setPersonalInfoMsg(t("settings.personalInfoSaved"));
     } catch (err) {
       setPersonalInfoErr(errorMessage(err, t("settings.failedSavePersonalInfo")));
@@ -488,6 +490,22 @@ export default function SettingsPage() {
               disabled={savingPersonalInfo}
               placeholder={t("settings.addressPlaceholder")}
               className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="bio" className={labelClass}>
+              {t("settings.bio")}
+            </label>
+            <textarea
+              id="bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, 280))}
+              disabled={savingPersonalInfo}
+              placeholder={t("settings.bioPlaceholder")}
+              rows={3}
+              maxLength={280}
+              className={`${inputClass} resize-none`}
             />
           </div>
 

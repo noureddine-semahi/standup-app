@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   listConnections,
   removeConnection,
@@ -43,6 +44,9 @@ export default function ConnectionProfilePage() {
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removed, setRemoved] = useState(false);
+  // Desktop always shows About (it has its own column); this only governs
+  // the collapsed-by-default mobile disclosure below the identity block.
+  const [aboutExpanded, setAboutExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,47 +117,86 @@ export default function ConnectionProfilePage() {
         </div>
       ) : (
         <>
-          <div className="card card-highlight text-center">
-            <div className="flex justify-center mb-3">
-              <Avatar avatarUrl={connection.otherAvatarUrl} label={name} size={80} />
-            </div>
-            <h1 className="text-xl font-bold mb-2">{name}</h1>
-            <div className="flex justify-center mb-2">
-              <span
-                className={connection.status === "accepted" ? "conn-state-badge conn-state-connected" : "conn-state-badge conn-state-pending"}
-                style={{ position: "static" }}
-              >
-                {connection.status === "accepted" ? t("social.stateConnected") : t("social.statePending")}
-              </span>
-            </div>
-            {connection.status === "accepted" && (
-              <p className="text-sm text-white/50 mb-4">
-                {t("social.connectedSince", { date: formatDateTimeDisplay(connection.responded_at ?? connection.created_at) })}
-              </p>
-            )}
-
-            {connection.status === "accepted" && (
-              <div className="mt-2 flex flex-col items-center gap-2">
-                {!confirmingRemove ? (
-                  <button type="button" onClick={() => setConfirmingRemove(true)} className="btn social-destructive-btn">
-                    {t("social.removeConnection")}
-                  </button>
-                ) : (
-                  <>
-                    <p className="text-sm text-white/70">{t("social.removeConnectionConfirmQuestion")}</p>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={handleRemove} disabled={removing} className="btn social-destructive-btn">
-                        {removing ? t("social.removing") : t("social.removeConnectionConfirmYes")}
-                      </button>
-                      <button type="button" onClick={() => setConfirmingRemove(false)} disabled={removing} className="btn">
-                        {t("social.neverMind")}
-                      </button>
-                    </div>
-                  </>
+          <div className="card card-highlight">
+            {/* Desktop (sm:+): identity (left) and About (right) sit side
+                by side. Mobile: identity stays centered, full-width, as
+                before; About moves below as a collapsible disclosure
+                instead of a second column. */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-6">
+              <div className="flex flex-col items-center text-center sm:items-start sm:text-left sm:w-56 sm:flex-shrink-0">
+                <div className="flex justify-center sm:justify-start w-full mb-3">
+                  <Avatar avatarUrl={connection.otherAvatarUrl} label={name} size={80} />
+                </div>
+                <h1 className="text-xl font-bold mb-2">{name}</h1>
+                <div className="flex justify-center sm:justify-start w-full mb-2">
+                  <span
+                    className={connection.status === "accepted" ? "conn-state-badge conn-state-connected" : "conn-state-badge conn-state-pending"}
+                    style={{ position: "static" }}
+                  >
+                    {connection.status === "accepted" ? t("social.stateConnected") : t("social.statePending")}
+                  </span>
+                </div>
+                {connection.status === "accepted" && (
+                  <p className="text-sm text-white/50 mb-4">
+                    {t("social.connectedSince", { date: formatDateTimeDisplay(connection.responded_at ?? connection.created_at) })}
+                  </p>
                 )}
-                {removeError && <p className="text-xs text-red-300">{removeError}</p>}
+
+                {connection.status === "accepted" && (
+                  <div className="mt-2 flex flex-col items-center sm:items-start gap-2 w-full">
+                    {!confirmingRemove ? (
+                      <button type="button" onClick={() => setConfirmingRemove(true)} className="btn social-destructive-btn">
+                        {t("social.removeConnection")}
+                      </button>
+                    ) : (
+                      <>
+                        <p className="text-sm text-white/70">{t("social.removeConnectionConfirmQuestion")}</p>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={handleRemove} disabled={removing} className="btn social-destructive-btn">
+                            {removing ? t("social.removing") : t("social.removeConnectionConfirmYes")}
+                          </button>
+                          <button type="button" onClick={() => setConfirmingRemove(false)} disabled={removing} className="btn">
+                            {t("social.neverMind")}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {removeError && <p className="text-xs text-red-300">{removeError}</p>}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* About — desktop only; always visible (no collapse) since
+                  it has its own column and doesn't compete for space with
+                  the identity block the way it would stacked on mobile. */}
+              <div className="hidden sm:block flex-1 min-w-0">
+                <div className="text-xs uppercase tracking-wider text-white/50 font-semibold mb-2">
+                  {t("social.aboutTitle")}
+                </div>
+                <p className="text-sm text-white/80 whitespace-pre-wrap">
+                  {connection.otherBio || t("social.noBioYet")}
+                </p>
+              </div>
+            </div>
+
+            {/* About — mobile only; collapsed by default below the
+                identity block instead of always taking up scroll space. */}
+            <div className="sm:hidden mt-4 pt-4" style={{ borderTop: "1px solid rgba(var(--tint-rgb), 0.08)" }}>
+              <button
+                type="button"
+                onClick={() => setAboutExpanded((v) => !v)}
+                aria-expanded={aboutExpanded}
+                className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-white/50 font-semibold"
+              >
+                {aboutExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                {t("social.aboutTitle")}
+              </button>
+              {aboutExpanded && (
+                <p className="text-sm text-white/80 whitespace-pre-wrap mt-2">
+                  {connection.otherBio || t("social.noBioYet")}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="card card-highlight">

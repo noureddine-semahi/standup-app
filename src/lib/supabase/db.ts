@@ -54,6 +54,7 @@ export type Profile = {
   date_of_birth?: string | null; // YYYY-MM-DD
   address?: string | null;
   phone_number?: string | null;
+  bio?: string | null;
   avatar_url?: string | null;
   shared_at?: string | null;
   is_admin?: boolean;
@@ -85,6 +86,11 @@ export type Connection = {
   otherUserId: string;
   otherDisplayName: string | null;
   otherAvatarUrl: string | null;
+  // Only populated once get_my_connections() is updated to also select
+  // op.bio (see the migration this ships alongside) -- null/undefined
+  // until that RPC update is run, same as every other optional field
+  // here when its source column is missing.
+  otherBio: string | null;
   // Captured at request time (requester's own session email; the exact
   // text the recipient was found by) — a fallback for display_name, which
   // is optional at signup and often null.
@@ -2604,6 +2610,11 @@ export async function listConnections(): Promise<Connection[]> {
     requester_seen_at: string | null;
     other_display_name: string | null;
     other_avatar_url: string | null;
+    // Absent from the RPC's return shape until that function is updated
+    // to also select op.bio -- reads as undefined until then, which `??
+    // null` below handles the same way every other optional field here
+    // would if its source column were missing.
+    other_bio?: string | null;
   }[];
 
   return rows.map((r) => {
@@ -2618,6 +2629,7 @@ export async function listConnections(): Promise<Connection[]> {
       otherUserId,
       otherDisplayName: r.other_display_name,
       otherAvatarUrl: r.other_avatar_url,
+      otherBio: r.other_bio ?? null,
       otherEmail: isRequester ? r.recipient_email : r.requester_email,
       requesterSeenAt: r.requester_seen_at,
     };
@@ -3413,6 +3425,7 @@ export type PersonalInfo = {
   dateOfBirth: string; // YYYY-MM-DD, or "" to clear
   address: string;
   phoneNumber: string;
+  bio: string;
 };
 
 /**
@@ -3430,6 +3443,7 @@ export async function updatePersonalInfo(info: PersonalInfo) {
       date_of_birth: info.dateOfBirth || null,
       address: info.address.trim() || null,
       phone_number: info.phoneNumber.trim() || null,
+      bio: info.bio.trim() || null,
     })
     .eq("id", userId)
     .select("*")

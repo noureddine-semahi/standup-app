@@ -487,18 +487,24 @@ export default function SocialPage() {
           fetched here and adding one would mean a new query. */}
       <div className="card card-highlight">
         <div className="flex flex-col sm:flex-row sm:items-start gap-6">
-          <div className="flex flex-col items-center text-center sm:items-start sm:text-left sm:w-48 sm:flex-shrink-0">
-            <div className="flex justify-center sm:justify-start w-full mb-3">
+          <div className="flex flex-row items-center text-left gap-3 sm:flex-col sm:items-start sm:gap-0 sm:w-48 sm:flex-shrink-0">
+            <div className="flex-shrink-0 sm:flex sm:justify-start sm:w-full sm:mb-3">
               <Avatar avatarUrl={profile?.avatar_url ?? null} label={profile?.display_name ?? ""} size={72} />
             </div>
-            <h1 className="text-xl font-bold mb-2">{profile?.display_name || t("social.anonymousUser")}</h1>
-            <Link
-              href="/standup/settings"
-              className="btn inline-flex items-center gap-1.5"
-              style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
-            >
-              <Pencil size={12} /> {t("social.editProfile")}
-            </Link>
+            {/* display_name + Edit profile stacked beside the photo on
+                mobile; sm:contents drops this wrapper's own box at sm+ so
+                the two children fall back into the outer column exactly
+                as before, leaving the desktop layout untouched. */}
+            <div className="flex flex-col items-start sm:contents">
+              <h1 className="text-xl font-bold mb-2">{profile?.display_name || t("social.anonymousUser")}</h1>
+              <Link
+                href="/standup/settings"
+                className="btn inline-flex items-center gap-1.5"
+                style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+              >
+                <Pencil size={12} /> {t("social.editProfile")}
+              </Link>
+            </div>
           </div>
 
           {/* About — desktop only; always visible, mirrors the

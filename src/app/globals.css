@@ -5374,3 +5374,27 @@ select:focus {
     flex-direction: row;
   }
 }
+
+/* Connection profile page: Remove Connection as a standalone button
+   (not a dropdown menu item), reusing the exact same red treatment
+   .conn-card-menu-item-danger already uses for this identical action
+   in the Connections list menu -- same consequence, same semantic
+   color, just a full-size button here instead of a menu row. */
+.social-destructive-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+.social-destructive-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.55);
+}
+[data-theme="light"] .social-destructive-btn {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(185, 28, 28, 0.4);
+  color: #b91c1c;
+}
+[data-theme="light"] .social-destructive-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(185, 28, 28, 0.55);
+}

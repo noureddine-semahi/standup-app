@@ -1173,7 +1173,6 @@ export const en = {
   "social.statePending": "Pending",
   "social.viewProfile": "View profile",
   "social.moreActions": "More actions",
-  "social.closeProfile": "Close",
   "social.connectedSince": "Connected since {date}",
   "social.connectionEmailPlaceholder": "Their email address",
   "social.sendRequest": "Send Request",
@@ -1190,6 +1189,13 @@ export const en = {
   "social.failedLoadConnections": "Failed to load connections",
   "social.failedRespondRequest": "Failed to respond to request",
   "social.failedRemoveConnection": "Failed to remove connection",
+  "social.backToConnections": "← Connections",
+  "social.connectionNotFound": "This connection couldn't be found.",
+  "social.connectionRemoved": "Connection removed.",
+  "social.removeConnectionConfirmQuestion": "Remove this connection?",
+  "social.removeConnectionConfirmYes": "Yes, remove",
+  "social.removing": "Removing…",
+  "social.noActivityYet": "No activity to show yet.",
 
   // Goal sharing/assignment — Social page's Friends tab
   "social.goalAssignmentsTitle": "Goal Assignments",

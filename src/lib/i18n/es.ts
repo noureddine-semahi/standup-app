@@ -1170,7 +1170,6 @@ export const es: Record<keyof typeof en, string> = {
   "social.statePending": "Pendiente",
   "social.viewProfile": "Ver perfil",
   "social.moreActions": "Más acciones",
-  "social.closeProfile": "Cerrar",
   "social.connectedSince": "Conectado desde {date}",
   "social.connectionEmailPlaceholder": "Su correo electrónico",
   "social.sendRequest": "Enviar Solicitud",
@@ -1187,6 +1186,13 @@ export const es: Record<keyof typeof en, string> = {
   "social.failedLoadConnections": "Error al cargar las conexiones",
   "social.failedRespondRequest": "Error al responder a la solicitud",
   "social.failedRemoveConnection": "Error al eliminar la conexión",
+  "social.backToConnections": "← Conexiones",
+  "social.connectionNotFound": "No se pudo encontrar esta conexión.",
+  "social.connectionRemoved": "Conexión eliminada.",
+  "social.removeConnectionConfirmQuestion": "¿Eliminar esta conexión?",
+  "social.removeConnectionConfirmYes": "Sí, eliminar",
+  "social.removing": "Eliminando…",
+  "social.noActivityYet": "Aún no hay actividad para mostrar.",
 
   // Goal sharing/assignment — Social page's Friends tab
   "social.goalAssignmentsTitle": "Objetivos Asignados",

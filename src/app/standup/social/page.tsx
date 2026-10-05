@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   listConnections,
   respondToConnectionRequest,
@@ -37,7 +38,6 @@ import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, MoreVertical } from "lucide-react";
-import ConnectionProfileModal from "@/components/ConnectionProfileModal";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -82,7 +82,6 @@ export default function SocialPage() {
   // made the Connections list read as administrative rather than social.
   const [openConnMenuId, setOpenConnMenuId] = useState<string | null>(null);
   const connMenuRef = useRef<HTMLDivElement | null>(null);
-  const [viewingConnection, setViewingConnection] = useState<Connection | null>(null);
 
   const [discoverUsers, setDiscoverUsers] = useState<DiscoverableUser[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -853,14 +852,13 @@ export default function SocialPage() {
                       <div className="text-sm text-white/85 truncate w-full">{connectionDisplayName(c, t)}</div>
 
                       <div className="flex items-center gap-1.5 w-full">
-                        <button
-                          type="button"
-                          onClick={() => setViewingConnection(c)}
+                        <Link
+                          href={`/standup/social/profile/${c.otherUserId}`}
                           className="btn flex-1"
                           style={{ padding: "0.3rem 0.5rem", fontSize: "0.72rem" }}
                         >
                           {t("social.viewProfile")}
-                        </button>
+                        </Link>
                         {/* Remove now lives behind this menu instead of
                             being the card's one big visible action —
                             explicit user call ("Remove being the main
@@ -1070,10 +1068,6 @@ export default function SocialPage() {
             <GoalAssignmentsPanel />
           </div>
         </div>
-      )}
-
-      {viewingConnection && (
-        <ConnectionProfileModal connection={viewingConnection} onClose={() => setViewingConnection(null)} />
       )}
     </div>
   );

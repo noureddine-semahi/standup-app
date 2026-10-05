@@ -518,41 +518,50 @@ export default function SocialPage() {
             </p>
           </div>
 
-          {/* Stats — desktop only, far right. */}
+          {/* Stats — desktop only, far right. Clickable: each chip just
+              flips activeTab, same as a tab-bar click. */}
           <div className="hidden sm:grid grid-cols-2 gap-2 sm:w-36 sm:flex-shrink-0">
-            <div
+            <button
+              type="button"
+              onClick={() => setActiveTab("myPosts")}
               className="rounded-lg text-center py-2"
               style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
             >
               <div className="text-lg font-bold">{myPosts.length}</div>
               <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statPosts")}</div>
-            </div>
-            <div
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("friends")}
               className="rounded-lg text-center py-2"
               style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
             >
               <div className="text-lg font-bold">{accepted.length}</div>
               <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statConnections")}</div>
-            </div>
+            </button>
           </div>
         </div>
 
-        {/* Stats — mobile only. */}
+        {/* Stats — mobile only. Same clickable behavior as the desktop pair. */}
         <div className="sm:hidden grid grid-cols-2 gap-2 mt-4">
-          <div
+          <button
+            type="button"
+            onClick={() => setActiveTab("myPosts")}
             className="rounded-lg text-center py-2"
             style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
           >
             <div className="text-lg font-bold">{myPosts.length}</div>
             <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statPosts")}</div>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("friends")}
             className="rounded-lg text-center py-2"
             style={{ background: "rgba(var(--tint-rgb), 0.06)", border: "1px solid rgba(var(--tint-rgb), 0.12)" }}
           >
             <div className="text-lg font-bold">{accepted.length}</div>
             <div className="text-[10px] uppercase tracking-wide text-white/50">{t("social.statConnections")}</div>
-          </div>
+          </button>
         </div>
 
         {/* About — mobile only; collapsed by default below identity+stats

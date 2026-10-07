@@ -20,6 +20,8 @@ import {
   getMyMentions,
   getMyPostActivityNotifications,
   ensurePaymentReminderGoals,
+  getOutcomeGoals,
+  getGoalsByOutcomeGoalIds,
   type Goal,
   type Profile,
   type DailyPlan,
@@ -30,6 +32,8 @@ import {
   type GoalAssignment,
   type Mention,
   type PostActivityNotification,
+  type OutcomeGoal,
+  type ArchivedGoal,
 } from "@/lib/supabase/db";
 import PendingNotifications from "@/components/PendingNotifications";
 import PageLoadingState from "@/components/PageLoadingState";
@@ -195,6 +199,14 @@ export default function DashboardPage() {
   const [overdue, setOverdue] = useState<OverdueSummary>({ count: 0, oldestDate: null });
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
 
+  // Active Goals summary — the real outcome_goals layer, distinct from
+  // the daily Commitment cards below. Best-effort/non-blocking (like
+  // overdue/notes above): a failure here shouldn't sink the rest of the
+  // dashboard. Only the first 3 active Goals' Tasks are fetched (those
+  // are the only ones actually rendered), not all of them.
+  const [activeOutcomeGoals, setActiveOutcomeGoals] = useState<OutcomeGoal[]>([]);
+  const [outcomeGoalTasks, setOutcomeGoalTasks] = useState<ArchivedGoal[]>([]);
+
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
   // Welcome banner for brand-new accounts — dismissal is remembered per
@@ -285,6 +297,18 @@ export default function DashboardPage() {
         getOverdueSummary(todayISO)
           .then(setOverdue)
           .catch(() => {});
+
+        if (u) {
+          getOutcomeGoals()
+            .then((goals) => {
+              const active = goals.filter((g) => g.status === "active");
+              setActiveOutcomeGoals(active);
+              const shownIds = active.slice(0, 3).map((g) => g.id);
+              return shownIds.length > 0 ? getGoalsByOutcomeGoalIds(shownIds) : Promise.resolve([]);
+            })
+            .then(setOutcomeGoalTasks)
+            .catch(() => {});
+        }
 
         // Payment reminders are auto-created (not a tap-to-add suggestion
         // like recurring templates) -- explicit user call. Dashboard is
@@ -511,6 +535,50 @@ export default function DashboardPage() {
   const sortedTodayGoals = sortGoals(todayGoals);
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
 
+  // Active Goals summary cards — up to 3, each paired with its own Tasks
+  // (outcomeGoalTasks only ever contains Tasks for these shown Goals, see
+  // the fetch in load() above). Completion mirrors Review Today's own
+  // Goal-group-card math exactly (status==="completed" only; reviewed/
+  // rescheduled/canceled/blocked/in-progress never count as completed) --
+  // same semantics, not a second model.
+  const shownActiveGoals = activeOutcomeGoals.slice(0, 3);
+  const activeGoalCards = shownActiveGoals.map((goal) => {
+    const tasks = outcomeGoalTasks.filter((g) => (g as any).outcome_goal_id === goal.id);
+    const total = tasks.length;
+    const completed = tasks.filter((g) => g.status === "completed").length;
+    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    // Contextual line — prefers a Task actually scheduled today, then
+    // tomorrow, then (if neither) the nearest other still-unfinished one
+    // (closest plan_date to today, past or future). Canceled Tasks are
+    // never surfaced here (nothing to act on), though they still count
+    // toward `total` above same as any other non-completed status.
+    const unfinished = tasks.filter((g) => g.status !== "completed" && g.status !== "canceled");
+    const todayTask = unfinished.find((g) => g.plan_date === todayISO);
+    const tomorrowTask = !todayTask ? unfinished.find((g) => g.plan_date === tomorrowISO) : undefined;
+    let context: { kind: "today" | "tomorrow" | "next"; title: string } | null = null;
+    if (todayTask) {
+      context = { kind: "today", title: todayTask.title };
+    } else if (tomorrowTask) {
+      context = { kind: "tomorrow", title: tomorrowTask.title };
+    } else if (unfinished.length > 0) {
+      const todayTime = new Date(todayISO).getTime();
+      const dated = unfinished.filter((g) => !!g.plan_date);
+      const nextTask =
+        dated.length > 0
+          ? dated.reduce((best, g) =>
+              Math.abs(new Date(g.plan_date as string).getTime() - todayTime) <
+              Math.abs(new Date((best.plan_date as string)).getTime() - todayTime)
+                ? g
+                : best
+            )
+          : unfinished[0];
+      context = { kind: "next", title: nextTask.title };
+    }
+
+    return { goal, total, completed, pct, context };
+  });
+
   const levelInfo = getLevelInfo(profile?.points ?? 0);
 
   // Heuristic for "hasn't really used the app yet" — no points earned and
@@ -683,6 +751,63 @@ export default function DashboardPage() {
               </Link>
             </div>
           )}
+
+          {/* Active Goals — the real outcome_goals layer (Major Goals),
+              distinct from the daily Commitment cards further down.
+              Bridges the primary-action area above and the daily
+              execution metrics below: Goals -> Commitments -> Execution
+              -> Review. Read-only: no Goal-detail route exists yet
+              anywhere in the app, so cards are static (no Link/onClick),
+              not an invented destination. */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-white/60 inline-flex items-center gap-1.5">
+                <Target size={14} className="text-pink-400 flex-shrink-0" />
+                {t("dashboard.activeGoalsTitle")}
+              </h2>
+            </div>
+
+            {shownActiveGoals.length === 0 ? (
+              <div className="dashboard-goal-empty">
+                <div className="text-sm text-white/60">{t("dashboard.noActiveGoals")}</div>
+                <div className="mt-1 text-xs text-white/40">{t("dashboard.noActiveGoalsHint")}</div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  {activeGoalCards.map(({ goal, total, completed, pct, context }) => (
+                    <div key={goal.id} className="dashboard-goal-card min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Target size={13} className="text-pink-400 flex-shrink-0" />
+                        <span className="text-sm font-semibold text-white/90 truncate">{goal.title}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">
+                        <span>{t("dashboard.goalTasksStat", { completed, total })}</span>
+                        <span className="font-bold text-pink-300/85 flex-shrink-0">{pct}%</span>
+                      </div>
+                      <div className="dashboard-goal-progress-track">
+                        <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      {context && (
+                        <div className="mt-1.5 text-[11px] text-white/40 truncate">
+                          {context.kind === "today"
+                            ? t("dashboard.goalContextToday", { title: context.title })
+                            : context.kind === "tomorrow"
+                            ? t("dashboard.goalContextTomorrow", { title: context.title })
+                            : t("dashboard.goalContextNext", { title: context.title })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {activeOutcomeGoals.length > 3 && (
+                  <div className="mt-2 text-xs text-white/40 text-center">
+                    {t("dashboard.moreActiveGoals", { count: activeOutcomeGoals.length - 3 })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Stat tiles — two rows of three */}
           <div className="mt-3 grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-3">

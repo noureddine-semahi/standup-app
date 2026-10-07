@@ -694,7 +694,15 @@ export default function DynamicDatePage() {
   if (isPastDate) {
     const pastGoals = goals.filter((g) => (g.title ?? "").trim().length > 0);
     const isMissed = planStatus === "submitted" && !planReviewedAt && !planClearedAt && !coveredByPass;
-    const canUseStreakPass = (isMissed || !!planClearedAt) && !coveredByPass;
+    // Matches use_streak_pass's own eligibility exactly (see that RPC):
+    // a past day, never reviewed, not already covered. Deliberately NOT
+    // gated on planStatus/isMissed/cleared like the UI copy above is --
+    // a day whose goals were all individually rescheduled away (instead
+    // of being formally submitted/reviewed/cleared) still has
+    // reviewed_at = null and is still fully eligible server-side, but
+    // was previously hidden here since planStatus never reached
+    // "submitted" in that case.
+    const canUseStreakPass = !planReviewedAt && !coveredByPass;
     // Whole-day re-attempt only offered when nothing on this day has been
     // touched at all — if even one goal was already completed or
     // individually rescheduled, a blanket "move everything" would carry

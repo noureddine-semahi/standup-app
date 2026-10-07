@@ -1132,6 +1132,86 @@ export async function promoteBacklogGoal(backlog: BacklogGoal, planDateISO: stri
   return created as Goal;
 }
 
+// ── Outcome goals (Goal Engine Phase 1) ─────────────────────────────────
+// A persistent Goal/Outcome, deliberately separate from goal_backlog --
+// see supabase/migrations/20261006000100_outcome_goals.sql for why reusing
+// goal_backlog was rejected. Phase 1 is the standalone entity + its own
+// lifecycle only: no linking to `goals` rows (Tasks) yet, no progress/
+// milestones/proof/sharing. Those are later phases.
+
+export type OutcomeGoalStatus = "active" | "completed" | "abandoned";
+
+export type OutcomeGoal = {
+  id: string;
+  user_id: string;
+  title: string;
+  details: string | null;
+  priority: number;
+  status: OutcomeGoalStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function getOutcomeGoals(): Promise<OutcomeGoal[]> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("outcome_goals")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as OutcomeGoal[];
+}
+
+export async function createOutcomeGoal(
+  title: string,
+  details: string | null = null,
+  priority = 3
+): Promise<OutcomeGoal> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("outcome_goals")
+    .insert({ user_id: userId, title, details, priority })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as OutcomeGoal;
+}
+
+/** Title/details/priority edits — not status (see setOutcomeGoalStatus). */
+export async function updateOutcomeGoal(
+  id: string,
+  patch: Partial<Pick<OutcomeGoal, "title" | "details" | "priority">>
+): Promise<OutcomeGoal> {
+  const { data, error } = await supabase
+    .from("outcome_goals")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as OutcomeGoal;
+}
+
+export async function setOutcomeGoalStatus(
+  id: string,
+  status: OutcomeGoalStatus
+): Promise<OutcomeGoal> {
+  const { data, error } = await supabase
+    .from("outcome_goals")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as OutcomeGoal;
+}
+
+export async function deleteOutcomeGoal(id: string): Promise<void> {
+  const { error } = await supabase.from("outcome_goals").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ── Recurring goal templates ──────────────────────────────────────────
 
 export async function getRecurringGoalTemplates(): Promise<RecurringGoalTemplate[]> {

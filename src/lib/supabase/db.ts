@@ -253,6 +253,10 @@ export type Goal = {
   // quick-action dropdown checks this to route completion through the
   // payment-confirmation modal instead of a plain status update.
   source_payment_account_id?: string | null;
+  // Goal Engine Phase 2: optional parent Outcome (outcome_goals.id). No
+  // write path/UI yet — this just lets existing `select("*")` reads
+  // surface the column once a later phase starts setting it.
+  outcome_goal_id?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;

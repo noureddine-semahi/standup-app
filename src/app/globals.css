@@ -4342,6 +4342,16 @@ select:focus {
   white-space: nowrap;
 }
 
+/* .status-chip-sm's base 116px fixed width (needed elsewhere for column
+   alignment in a vertical list of rows) wasted most of a Task row's
+   width on every short status label -- content-width here instead, so
+   the Task title gets whatever the chip doesn't need. Text+icon still
+   force nowrap via the base rule; only the width/padding change. */
+.dashboard-goal-task-row .status-chip-sm {
+  width: auto;
+  padding: 0 0.45rem;
+}
+
 /* Success state for a submitted plan — replaces what used to be a
    disabled-looking primary button with weak, brownish text. A real
    green glass status card instead, same family as .plan-submitted's

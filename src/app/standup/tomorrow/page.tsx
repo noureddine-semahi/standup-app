@@ -66,7 +66,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target, Trash2, ArrowRightLeft } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target, Trash2, ArrowRightLeft, Clock } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -134,6 +134,13 @@ export default function TomorrowGoalsPage() {
   // single-ref click-outside pattern as Social's connection-card menu.
   const [openPrivacyMenuId, setOpenPrivacyMenuId] = useState<string | null>(null);
   const privacyMenuRef = useRef<HTMLDivElement | null>(null);
+  // Assign control, same pattern as Exclusive/Shared above -- replaces the
+  // old native <select> (whose own rendered text couldn't be kept from
+  // truncating/colliding with its overlaid icon) with a button + dropdown
+  // menu listing connections, so the button's own label is just the
+  // short, never-truncated word "Assign".
+  const [openAssignMenuId, setOpenAssignMenuId] = useState<string | null>(null);
+  const assignMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Goal Engine Phase 3 — optional Task -> Outcome Goal link. Loaded once
   // (all statuses, so an already-linked Task can still show a Goal that's
@@ -318,6 +325,17 @@ export default function TomorrowGoalsPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openGoalPickerId]);
+
+  useEffect(() => {
+    if (!openAssignMenuId) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (assignMenuRef.current && !assignMenuRef.current.contains(e.target as Node)) {
+        setOpenAssignMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openAssignMenuId]);
 
   function refreshGoalAssignments() {
     return getMyGoalAssignments()
@@ -1338,89 +1356,64 @@ export default function TomorrowGoalsPage() {
                   </div>
                 )}
 
-                {/* Exclusive/Shared + Assign — same row now
-                    instead of a separate line below; both only
-                    show pre-assignment, same as before
-                    (assignment/received replace them with the
+                {/* Exclusive/Shared — Assign itself now lives in the
+                    scheduling row below, alongside Time/All day, instead
+                    of here; this control only shows pre-assignment, same
+                    as before (assignment/received replace it with the
                     status line underneath). */}
                 {!assignment && !received && g.id && acceptedConnections.length > 0 && (
-                  <>
-                    <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
-                        className="btn goal-toolbar-btn"
-                      >
-                        {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive" ? (
-                          <Lock size={13} />
-                        ) : (
-                          <Unlock size={13} />
-                        )}
-                        <span className="goal-toolbar-label">
-                          {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive"
-                            ? t("goalAssign.exclusiveShort")
-                            : t("goalAssign.sharedShort")}
-                        </span>
-                        <ChevronDown size={12} className="text-white/40" />
-                      </button>
-                      {openPrivacyMenuId === g.id && (
-                        <div className="conn-card-menu" style={{ minWidth: "210px" }}>
-                          {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => {
-                                setAssignTypeByGoalId((prev) => ({ ...prev, [g.id as string]: option }));
-                                setOpenPrivacyMenuId(null);
-                              }}
-                              className="conn-card-menu-item"
-                              style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
-                            >
-                              <span className="inline-flex items-center gap-1.5">
-                                {option === "exclusive" ? <Lock size={12} /> : <Unlock size={12} />}
-                                {option === "exclusive" ? t("goalAssign.exclusiveShort") : t("goalAssign.sharedShort")}
-                                {(assignTypeByGoalId[g.id as string] ?? "exclusive") === option && (
-                                  <Check size={12} className="text-emerald-400" />
-                                )}
-                              </span>
-                              <span className="text-[10px] text-white/45">
-                                {option === "exclusive" ? t("goalAssign.exclusiveDesc") : t("goalAssign.sharedDesc")}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+                  <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
+                      className="btn goal-toolbar-btn"
+                    >
+                      {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive" ? (
+                        <Lock size={13} />
+                      ) : (
+                        <Unlock size={13} />
                       )}
-                    </div>
-
-                    <div className="relative inline-flex items-center">
-                      <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
-                      <select
-                        value=""
-                        disabled={assigningGoalIds.has(g.id as string) || locked}
-                        onChange={(e) => {
-                          const recipientId = e.target.value;
-                          if (recipientId) handleAssignGoal(g.id as string, recipientId);
-                        }}
-                        className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
-                        style={{ paddingLeft: "1.7rem" }}
-                      >
-                        <option value="" disabled>
-                          {t("goalAssign.placeholder")}
-                        </option>
-                        {acceptedConnections.map((c) => (
-                          <option key={c.otherUserId} value={c.otherUserId}>
-                            {connectionDisplayName(c, t)}
-                          </option>
+                      <span className="goal-toolbar-label">
+                        {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive"
+                          ? t("goalAssign.exclusiveShort")
+                          : t("goalAssign.sharedShort")}
+                      </span>
+                      <ChevronDown size={12} className="text-white/40" />
+                    </button>
+                    {openPrivacyMenuId === g.id && (
+                      <div className="conn-card-menu" style={{ minWidth: "210px" }}>
+                        {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setAssignTypeByGoalId((prev) => ({ ...prev, [g.id as string]: option }));
+                              setOpenPrivacyMenuId(null);
+                            }}
+                            className="conn-card-menu-item"
+                            style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              {option === "exclusive" ? <Lock size={12} /> : <Unlock size={12} />}
+                              {option === "exclusive" ? t("goalAssign.exclusiveShort") : t("goalAssign.sharedShort")}
+                              {(assignTypeByGoalId[g.id as string] ?? "exclusive") === option && (
+                                <Check size={12} className="text-emerald-400" />
+                              )}
+                            </span>
+                            <span className="text-[10px] text-white/45">
+                              {option === "exclusive" ? t("goalAssign.exclusiveDesc") : t("goalAssign.sharedDesc")}
+                            </span>
+                          </button>
                         ))}
-                      </select>
-                    </div>
-                  </>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
               {/* Assignment status — once assigned (either
-                  direction), replaces the Exclusive/Shared+Assign
-                  controls above with a read-only status line. */}
+                  direction), replaces the Exclusive/Shared control
+                  above with a read-only status line. */}
               {(assignment || received) && (
                 <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
                   {assignment ? (
@@ -1474,41 +1467,100 @@ export default function TomorrowGoalsPage() {
                 />
               )}
 
-              {/* Scheduling area — time + all-day consolidated into one
-                  tight, consistently-sized row (was a wide unconstrained
-                  native time input next to a separately-floating button).
-                  Same state/handlers/autosave as before; only the time
-                  input's width and the row's grouping changed, so the
-                  native clock glyph sits snug against the HH:MM value
-                  instead of floating in empty space. */}
+              {/* Scheduling/control row — Assign (moved down from the
+                  toolbar above) + a compact clock-icon time trigger +
+                  All day, all three on one row so they read as a single
+                  group instead of Assign competing with
+                  Checklist/Files/Link/Exclusive-Shared up top. */}
               <div className="mt-2 flex items-center flex-wrap gap-1.5">
-                {!(g as any).is_all_day && (
-                  <input
-                    type="time"
-                    value={g.time_of_day?.slice(0, 5) ?? ""}
-                    disabled={locked || submitting || isExclusive}
-                    onBlur={() => {
-                      if (skipNextBlurAutosaveRef.current) {
-                        skipNextBlurAutosaveRef.current = false;
-                        return;
-                      }
-                      if (priorityChangeInProgressRef.current) {
-                        return;
-                      }
-                      scheduleAutoSave();
-                    }}
-                    onChange={(e) =>
-                      setGoals((prev) =>
-                        prev.map((x, i) =>
-                          i === idx ? { ...x, time_of_day: e.target.value || null } : x
-                        )
-                      )
-                    }
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
-                    style={{ width: "6.4rem", flexShrink: 0 }}
-                    title={t("tomorrow.optionalTimeTitle")}
-                  />
+                {!assignment && !received && g.id && acceptedConnections.length > 0 && (
+                  <div
+                    className="relative inline-flex items-center"
+                    ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
+                  >
+                    <button
+                      type="button"
+                      disabled={assigningGoalIds.has(g.id as string) || locked}
+                      onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
+                      className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
+                    >
+                      <UserPlus size={13} className="flex-shrink-0" />
+                      <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
+                      <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                    </button>
+                    {openAssignMenuId === g.id && (
+                      <div
+                        className="conn-card-menu"
+                        style={{ left: 0, right: "auto", minWidth: "180px", maxWidth: "min(240px, calc(100vw - 4rem))" }}
+                      >
+                        {acceptedConnections.map((c) => (
+                          <button
+                            key={c.otherUserId}
+                            type="button"
+                            onClick={() => {
+                              handleAssignGoal(g.id as string, c.otherUserId);
+                              setOpenAssignMenuId(null);
+                            }}
+                            className="conn-card-menu-item"
+                            title={connectionDisplayName(c, t)}
+                          >
+                            <span className="truncate min-w-0 flex-1">{connectionDisplayName(c, t)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
+
+                {/* Time — a compact clock-icon trigger instead of the
+                    wide native "--:--" box. The real <input type="time">
+                    is still here with its exact original value/onChange/
+                    onBlur/autosave; it's just layered invisibly
+                    (opacity:0, absolutely filling this wrapper) over the
+                    icon, so tapping anywhere on it opens the browser's
+                    native time picker exactly as before -- no new
+                    trigger logic, same element, same handlers. Hidden
+                    when all-day, same condition as before. */}
+                {!(g as any).is_all_day && (
+                  <div
+                    className={`btn relative${g.time_of_day ? " btn-tint btn-amber-tint" : ""}`}
+                    style={{
+                      padding: "0.2rem 0.55rem",
+                      fontSize: "0.7rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      flexShrink: 0,
+                      opacity: locked || submitting || isExclusive ? 0.5 : 1,
+                    }}
+                  >
+                    <Clock size={13} />
+                    <input
+                      type="time"
+                      value={g.time_of_day?.slice(0, 5) ?? ""}
+                      disabled={locked || submitting || isExclusive}
+                      onBlur={() => {
+                        if (skipNextBlurAutosaveRef.current) {
+                          skipNextBlurAutosaveRef.current = false;
+                          return;
+                        }
+                        if (priorityChangeInProgressRef.current) {
+                          return;
+                        }
+                        scheduleAutoSave();
+                      }}
+                      onChange={(e) =>
+                        setGoals((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                          )
+                        )
+                      }
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0 }}
+                      title={t("tomorrow.optionalTimeTitle")}
+                    />
+                  </div>
+                )}
+
                 <button
                   type="button"
                   disabled={locked || submitting || isExclusive}
@@ -1537,6 +1589,7 @@ export default function TomorrowGoalsPage() {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "0.3rem",
+                    flexShrink: 0,
                   }}
                   title={t("tomorrow.allDayTitleTask")}
                 >

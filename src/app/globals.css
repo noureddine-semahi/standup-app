@@ -4359,19 +4359,13 @@ select:focus {
     min-height: 28px;
   }
 
-  select.goal-toolbar-btn {
-    max-width: 92px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   /* A nested Major Goal child's toolbar sits inside extra padding layers
      (.goal-group-card + .goal-group-card-children + the child-row
-     connector rail) a standalone .goal-row never pays, so the same 92px
-     Assign cap that fits standalone still wraps it alone onto its own
-     line here -- reading as a detached second row rather than the last
-     item of one wrapping group. Scoped to .goal-child-expanded only;
-     standalone's own 92px above is untouched. */
+     connector rail) a standalone .goal-row never pays -- tightened
+     further here so Checklist/Files/Link/Exclusive-Shared/Assign all
+     still fit on one row despite that extra overhead. Scoped to
+     .goal-child-expanded only; standalone's own spacing above is
+     untouched. */
   .goal-child-expanded .goal-toolbar {
     gap: 0.2rem;
   }
@@ -4381,8 +4375,20 @@ select:focus {
     gap: 0.25rem;
   }
 
-  .goal-child-expanded select.goal-toolbar-btn {
-    max-width: 60px;
+  /* .status-chip's fixed 128px (needed elsewhere for column alignment
+     in list views like History/date-detail) left no room for Reviewed +
+     Comment to stay on the same line beside it inside this narrower
+     nested card -- auto-sizing it here only, scoped the same way as the
+     toolbar overrides above, keeps Status | Reviewed | Comment together
+     with Pending review (the least essential of the four) the one that
+     wraps to its own line when space runs out. */
+  .goal-child-expanded-status-row {
+    gap: 0.3rem;
+  }
+
+  .goal-child-expanded .status-chip {
+    width: auto;
+    padding: 0 0.45rem;
   }
 }
 

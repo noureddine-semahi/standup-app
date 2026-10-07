@@ -1262,7 +1262,7 @@ export const es: Record<keyof typeof en, string> = {
   "social.failedCancelAssignment": "Error al cancelar la asignación",
 
   // Goal sharing/assignment — the "Assign to" control on Tomorrow/Today
-  "goalAssign.placeholder": "Asignar a…",
+  "goalAssign.assignShort": "Asignar",
   "goalAssign.pendingBadge": "Asignado a {name} — pendiente",
   "goalAssign.assignedToLabel": "Tú se lo asignaste a {name}",
   "goalAssign.failed": "Error al asignar el objetivo",

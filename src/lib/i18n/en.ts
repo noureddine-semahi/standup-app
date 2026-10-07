@@ -1269,7 +1269,7 @@ export const en = {
   "social.failedCancelAssignment": "Failed to cancel assignment",
 
   // Goal sharing/assignment — the "Assign to" control on Tomorrow/Today
-  "goalAssign.placeholder": "Assign to…",
+  "goalAssign.assignShort": "Assign",
   "goalAssign.pendingBadge": "Assigned to {name} — pending",
   "goalAssign.assignedToLabel": "You assigned this to {name}",
   "goalAssign.failed": "Failed to assign goal",

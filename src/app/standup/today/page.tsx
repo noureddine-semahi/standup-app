@@ -231,6 +231,13 @@ export default function TodayPage() {
   // single-ref click-outside pattern as Social's connection-card menu.
   const [openPrivacyMenuId, setOpenPrivacyMenuId] = useState<string | null>(null);
   const privacyMenuRef = useRef<HTMLDivElement | null>(null);
+  // Assign control, same pattern as Exclusive/Shared above -- replaces the
+  // old native <select> (whose own rendered text couldn't be kept from
+  // truncating/colliding with its overlaid icon) with a button + dropdown
+  // menu listing connections, so the button's own label is just the
+  // short, never-truncated word "Assign".
+  const [openAssignMenuId, setOpenAssignMenuId] = useState<string | null>(null);
+  const assignMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Notes + the derived history facts render as one merged timeline below
   // the goal now (see the entries computation in the render below) instead
@@ -388,6 +395,17 @@ export default function TodayPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openPrivacyMenuId]);
+
+  useEffect(() => {
+    if (!openAssignMenuId) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (assignMenuRef.current && !assignMenuRef.current.contains(e.target as Node)) {
+        setOpenAssignMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openAssignMenuId]);
 
   // Goal Engine — Goal hierarchy/grouping. Loaded once (all statuses, so
   // a Task linked to a Goal that's since gone completed/abandoned still
@@ -1613,6 +1631,18 @@ export default function TodayPage() {
                   {reviewed ? <SquareCheck size={14} /> : <Square size={14} />}
                 </button>
               )}
+              {/* Comment/add-note toggle — moved up beside Reviewed
+                  (was a separate button down by Actions & Notes,
+                  rendered only once, same handler/state either way). */}
+              <button
+                type="button"
+                onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                className="actions-toggle"
+                data-open={!!showNoteInput[g.id]}
+                title={t("today.addNoteTitle")}
+              >
+                <MessageCircle size={14} />
+              </button>
               {!reviewed && (
                 <span className="goal-child-pending-tag">
                   <Hourglass size={10} /> {t("today.pendingReview")}
@@ -1784,27 +1814,44 @@ export default function TodayPage() {
                     )}
                   </div>
 
-                  <div className="relative inline-flex items-center">
-                    <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
-                    <select
-                      value=""
+                  {/* Assign — a button + dropdown menu (not a native
+                      <select>) so its own label is the short, fixed word
+                      "Assign", never the select's own truncation-prone
+                      rendered text, and the icon/chevron are normal flex
+                      children (flex-shrink:0) instead of an absolutely-
+                      positioned overlay that could collide with it. */}
+                  <div
+                    className="relative inline-flex items-center"
+                    ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
+                  >
+                    <button
+                      type="button"
                       disabled={assigningGoalIds.has(g.id) || dayClosed}
-                      onChange={(e) => {
-                        const recipientId = e.target.value;
-                        if (recipientId) handleAssignGoal(g.id, recipientId);
-                      }}
+                      onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : g.id))}
                       className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
-                      style={{ paddingLeft: "1.7rem" }}
                     >
-                      <option value="" disabled>
-                        {t("goalAssign.placeholder")}
-                      </option>
-                      {acceptedConnections.map((c) => (
-                        <option key={c.otherUserId} value={c.otherUserId}>
-                          {connectionDisplayName(c, t)}
-                        </option>
-                      ))}
-                    </select>
+                      <UserPlus size={13} className="flex-shrink-0" />
+                      <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
+                      <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                    </button>
+                    {openAssignMenuId === g.id && (
+                      <div className="conn-card-menu" style={{ minWidth: "130px", maxWidth: "min(150px, calc(100vw - 4rem))" }}>
+                        {acceptedConnections.map((c) => (
+                          <button
+                            key={c.otherUserId}
+                            type="button"
+                            onClick={() => {
+                              handleAssignGoal(g.id, c.otherUserId);
+                              setOpenAssignMenuId(null);
+                            }}
+                            className="conn-card-menu-item"
+                            title={connectionDisplayName(c, t)}
+                          >
+                            <span className="truncate min-w-0 flex-1">{connectionDisplayName(c, t)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -1855,22 +1902,11 @@ export default function TodayPage() {
               />
             )}
 
-            {/* GoalTimeline's own toggle already reads "Actions & notes
-                (N)" -- the static heading that used to sit above it just
-                repeated that same label, so only the comment/add-note
-                button (not part of GoalTimeline) stays, now flush right. */}
+            {/* The comment/add-note toggle now lives up in the status
+                row beside Reviewed; GoalTimeline's own toggle already
+                reads "Actions & notes (N)", so nothing else is needed
+                here. */}
             <div>
-              <div className="flex items-center justify-end gap-2 mb-1">
-                <button
-                  type="button"
-                  onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
-                  className="actions-toggle"
-                  data-open={!!showNoteInput[g.id]}
-                  title={t("today.addNoteTitle")}
-                >
-                  <MessageCircle size={14} />
-                </button>
-              </div>
               <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
               {showNoteInput[g.id] && (
                 <div className="mt-2 flex gap-2">
@@ -2063,27 +2099,44 @@ export default function TodayPage() {
                     )}
                   </div>
 
-                  <div className="relative inline-flex items-center">
-                    <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
-                    <select
-                      value=""
+                  {/* Assign — a button + dropdown menu (not a native
+                      <select>) so its own label is the short, fixed word
+                      "Assign", never the select's own truncation-prone
+                      rendered text, and the icon/chevron are normal flex
+                      children (flex-shrink:0) instead of an absolutely-
+                      positioned overlay that could collide with it. */}
+                  <div
+                    className="relative inline-flex items-center"
+                    ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
+                  >
+                    <button
+                      type="button"
                       disabled={assigningGoalIds.has(g.id) || dayClosed}
-                      onChange={(e) => {
-                        const recipientId = e.target.value;
-                        if (recipientId) handleAssignGoal(g.id, recipientId);
-                      }}
+                      onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : g.id))}
                       className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
-                      style={{ paddingLeft: "1.7rem" }}
                     >
-                      <option value="" disabled>
-                        {t("goalAssign.placeholder")}
-                      </option>
-                      {acceptedConnections.map((c) => (
-                        <option key={c.otherUserId} value={c.otherUserId}>
-                          {connectionDisplayName(c, t)}
-                        </option>
-                      ))}
-                    </select>
+                      <UserPlus size={13} className="flex-shrink-0" />
+                      <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
+                      <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                    </button>
+                    {openAssignMenuId === g.id && (
+                      <div className="conn-card-menu" style={{ minWidth: "130px", maxWidth: "min(150px, calc(100vw - 4rem))" }}>
+                        {acceptedConnections.map((c) => (
+                          <button
+                            key={c.otherUserId}
+                            type="button"
+                            onClick={() => {
+                              handleAssignGoal(g.id, c.otherUserId);
+                              setOpenAssignMenuId(null);
+                            }}
+                            className="conn-card-menu-item"
+                            title={connectionDisplayName(c, t)}
+                          >
+                            <span className="truncate min-w-0 flex-1">{connectionDisplayName(c, t)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </>
               )}

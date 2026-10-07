@@ -52,6 +52,7 @@ import {
   createOutcomeGoal,
   getOutcomeGoals,
   getConceptualTasksByOutcomeGoalIds,
+  representativeTaskRow,
   type PaymentAccount,
   type ChecklistItem,
   type DailyPlan,
@@ -2990,28 +2991,39 @@ export default function TodayPage() {
               }).length;
             }
 
+
             return (
               <>
                 {Array.from(grouped.entries()).map(([goalId, items]) => {
                   const goalTitle = outcomeGoalTitleById.get(goalId) ?? "";
                   // goalChildrenById holds CONCEPTUAL Tasks (collapseGoalLineages,
                   // via getConceptualTasksByOutcomeGoalIds), one per reschedule
-                  // chain rather than one per physical row -- a Task rescheduled
-                  // once or several times counts once here, using its chain's
-                  // terminal (current/display) row, with the chain's dead
-                  // ancestor rows never surfacing as separate open work. Dedupe
-                  // against `items` (the live, reactive today's rows) by each
-                  // conceptual Task's terminal id, so a Task never renders
-                  // twice and today's rows always use the live version, not a
-                  // possibly-stale fetched snapshot.
-                  const todayIds = new Set(items.map(({ g }) => g.id));
-                  const historicalOnly = (goalChildrenById[goalId] ?? [])
-                    .filter((ct) => !todayIds.has(ct.terminal.id))
-                    .map((ct) => ct.terminal);
+                  // chain rather than one per physical row. Each chain
+                  // contributes exactly ONE row (representativeRow above) --
+                  // never both an ancestor (e.g. one of today's own live
+                  // rows) and its continuation as separate entries, which is
+                  // what previously let a rescheduled-then-completed Task
+                  // inflate totalCount while its auto-canceled continuation
+                  // dragged completedCount back down. `todayLiveById` keyed
+                  // by id (not just by the chain's terminal id) catches a
+                  // representative at ANY position in the chain, so today's
+                  // live version is used whenever it applies.
+                  const todayLiveById = new Map(items.map(({ g }) => [g.id, g]));
+                  const conceptualTasks = goalChildrenById[goalId];
+                  const representativeRows = conceptualTasks !== undefined ? conceptualTasks.map(representativeTaskRow) : [];
+                  // Historical section only ever shows a conceptual Task
+                  // whose representative ISN'T already one of today's own
+                  // live rows (those already get their own card below) --
+                  // same identity used for the stats, so a Task never shows
+                  // up as independent entries in both places.
+                  const historicalOnly = representativeRows.filter((rep) => !todayLiveById.has(rep.id));
                   // Falls back to just today's items while the historical
                   // fetch is still in flight -- a sensible loading state,
                   // not an error (stats just catch up once it resolves).
-                  const allChildren: Goal[] = [...items.map(({ g }) => g), ...historicalOnly];
+                  const allChildren: Goal[] =
+                    conceptualTasks !== undefined
+                      ? representativeRows.map((rep) => todayLiveById.get(rep.id) ?? rep)
+                      : items.map(({ g }) => g);
                   const totalCount = allChildren.length;
                   // Completion tracks status==="completed" only -- kept
                   // fully separate from "reviewed" below (a reviewed or

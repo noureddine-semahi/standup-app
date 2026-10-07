@@ -2222,6 +2222,22 @@ export function collapseGoalLineages<T extends { id: string; status: string }>(
 }
 
 /**
+ * The one physical row that represents a conceptual Task's real
+ * resolution, by canonical lineage identity (the chain collapseGoalLineages
+ * already built), never by title/date matching. Normally that's the
+ * chain's terminal -- but completing an EARLIER row in the chain (not the
+ * terminal) auto-cancels its now-orphaned later continuation (see
+ * cancelOrphanedReschedules above), and that cancellation is cleanup, not
+ * an independent decision. It must never outrank a real completion that
+ * already happened earlier in the same chain, so any Completed row
+ * anywhere in the chain wins; only when none exists does the terminal's
+ * own status/plan_date stand for the Task (unchanged from before).
+ */
+export function representativeTaskRow<T extends { id: string; status: string }>(ct: ConceptualTask<T>): T {
+  return ct.chain.find((g) => g.status === "completed") ?? ct.terminal;
+}
+
+/**
  * Cancels every still-unresolved materialized continuation of
  * `sourceGoalId`, walking the goal_reschedules lineage forward through
  * however many hops exist (A -> B -> C -> ...). A Task that was rescheduled

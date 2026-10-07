@@ -32,6 +32,7 @@ import {
   useStreakPass,
   rescheduleGoalToDate,
   getOutcomeGoals,
+  createOutcomeGoal,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
@@ -142,6 +143,37 @@ export default function TomorrowGoalsPage() {
   const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
   const [openGoalPickerId, setOpenGoalPickerId] = useState<string | null>(null);
   const goalPickerMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Goal Engine Phase 4 — "+ Add" entry point now offers Task (existing
+  // addMoreGoal(), unchanged) or Goal (minimal title-only outcome_goal
+  // create). Plain booleans, not a ref-based floating menu: this whole
+  // action row is rendered twice (desktop inline + mobile portal, see
+  // `content` below) sharing one state, and a single ref object would get
+  // fought over by both physical mounts -- a conditional button swap
+  // avoids that entirely, same safe pattern this row's own isDirty
+  // ternary already uses.
+  const [showAddChoice, setShowAddChoice] = useState(false);
+  const [showGoalCreateInput, setShowGoalCreateInput] = useState(false);
+  const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [creatingGoal, setCreatingGoal] = useState(false);
+  const [goalCreateError, setGoalCreateError] = useState<string | null>(null);
+
+  async function handleCreateOutcomeGoal() {
+    const title = newGoalTitle.trim();
+    if (!title || creatingGoal) return;
+    setCreatingGoal(true);
+    setGoalCreateError(null);
+    try {
+      const created = await createOutcomeGoal(title);
+      setOutcomeGoals((prev) => [created, ...prev]);
+      setNewGoalTitle("");
+      setShowGoalCreateInput(false);
+    } catch (e: any) {
+      setGoalCreateError(e?.message ?? t("tomorrow.goalCreateFailed"));
+    } finally {
+      setCreatingGoal(false);
+    }
+  }
 
   const inputRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
@@ -1517,16 +1549,55 @@ export default function TomorrowGoalsPage() {
                   saveDraftOrChanges are untouched) -- only whether an
                   already-inert control renders as a button at all. */}
               <div className="tomorrow-action-secondary">
-                <button
-                  className="btn hover-scale"
-                  onClick={addMoreGoal}
-                  disabled={!canAddMore}
-                  title={
-                    goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
-                  }
-                >
-                  {t("tomorrow.addGoal")}
-                </button>
+                {!showAddChoice ? (
+                  <button
+                    className="btn hover-scale"
+                    onClick={() => setShowAddChoice(true)}
+                    disabled={!canAddMore}
+                    title={
+                      goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
+                    }
+                  >
+                    {t("tomorrow.addGoal")}
+                  </button>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="btn hover-scale"
+                      style={{ padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}
+                      onClick={() => {
+                        setShowAddChoice(false);
+                        addMoreGoal();
+                      }}
+                    >
+                      {t("tomorrow.addChoiceTask")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn hover-scale"
+                      style={{ padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}
+                      onClick={() => {
+                        setShowAddChoice(false);
+                        setGoalCreateError(null);
+                        setShowGoalCreateInput(true);
+                      }}
+                    >
+                      <Target size={13} className="inline -mt-0.5 mr-1" />
+                      {t("tomorrow.addChoiceGoal")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn hover-scale"
+                      style={{ padding: "0.45rem 0.55rem" }}
+                      onClick={() => setShowAddChoice(false)}
+                      title={t("tomorrow.neverMind")}
+                      aria-label={t("tomorrow.neverMind")}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
 
                 {isDirty ? (
                   <button
@@ -1544,6 +1615,57 @@ export default function TomorrowGoalsPage() {
                   </span>
                 )}
               </div>
+
+              {/* Minimal Goal-creation form — title only, status defaults
+                  to 'active' server-side (createOutcomeGoal). Reuses the
+                  same inline-input styling as the Link-URL field above
+                  rather than a modal; the new Goal is prepended to
+                  outcomeGoals on success, making it immediately selectable
+                  in every goal's existing Goal picker without a refetch. */}
+              {showGoalCreateInput && (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newGoalTitle}
+                    disabled={creatingGoal}
+                    onChange={(e) => setNewGoalTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCreateOutcomeGoal();
+                      }
+                    }}
+                    placeholder={t("tomorrow.goalTitlePlaceholder")}
+                    autoFocus
+                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary hover-scale"
+                    style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
+                    disabled={creatingGoal || !newGoalTitle.trim()}
+                    onClick={handleCreateOutcomeGoal}
+                  >
+                    {creatingGoal ? t("tomorrow.creatingGoal") : t("tomorrow.createGoalButton")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn hover-scale"
+                    style={{ padding: "0.4rem 0.55rem" }}
+                    disabled={creatingGoal}
+                    onClick={() => {
+                      setShowGoalCreateInput(false);
+                      setNewGoalTitle("");
+                      setGoalCreateError(null);
+                    }}
+                    title={t("tomorrow.neverMind")}
+                    aria-label={t("tomorrow.neverMind")}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+              {goalCreateError && <div className="mt-1 text-[11px] text-red-400">{goalCreateError}</div>}
 
               {/* Primary tier — Submit Plan (or the submitted card) always
                   gets its own full-width row on mobile, so it's never the

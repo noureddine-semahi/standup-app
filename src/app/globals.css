@@ -3205,13 +3205,13 @@ select:focus {
        below (not the --metal-color semantic reflection in ::after,
        which is a separate, unrelated per-card tint). */
     inset 0 0 6px 1px rgba(255, 92, 20, 0.16),
-    /* Outer rim -- thinned from 1.5px/0.8 opacity to 1px/0.5, still a
-       real dark separation from the card but no longer the dominant
-       feature of the sphere (explicit "noticeably thinner and less
-       dominant" call). Reflection ring right outside it shrinks to
-       match, same gap ratio as before. */
-    0 0 0 1px rgba(8, 9, 11, 0.5),
-    0 0 0 1.8px rgba(255, 255, 255, 0.08),
+    /* Outer rim -- one more subtle step down from 1px/0.5 opacity to
+       1px/0.38, per explicit "reduce the remaining rim one more subtle
+       step" follow-up. Still a real, visible dark separation from the
+       card -- the metallic sphere's own shading now does more of the
+       work of defining the shape. */
+    0 0 0 1px rgba(8, 9, 11, 0.38),
+    0 0 0 1.7px rgba(255, 255, 255, 0.08),
     0 1px 0 0 rgba(0, 0, 0, 0.5),
     0 3px 6px -1px rgba(0, 0, 0, 0.55),
     /* Ambient glow -- retuned from yellow-gold (255,176,0) to the same
@@ -3250,15 +3250,17 @@ select:focus {
   font-weight: 900;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  /* Hot amber-orange leaning red (StandUp's accent family), replacing
-     the previous yellow/gold-leaning gradient -- warm pale core so the
-     glyph still reads as illuminated rather than flat-painted, through
-     a hot orange mid-tone, to a red-orange edge. Never pure/flat red,
-     per explicit "avoid a flat solid-red appearance" call. */
-  background-image: radial-gradient(circle at 50% 32%, #ffe3c2 0%, #ff7a1f 38%, #ff4d0f 68%, #e32e05 100%);
+  /* Hot orange-red LED (StandUp's accent family), pushed further off
+     yellow/gold/beige than the previous pass -- "reads too beige/gold"
+     feedback traced to the core stop being a pale cream (#ffe3c2, low
+     saturation) rather than a genuinely hot pale ORANGE, so the core is
+     now a saturated orange instead of a near-white/cream tone, through
+     vivid orange, to a red-orange edge. Never pure/flat red, per
+     explicit "avoid a flat solid-red appearance" call. */
+  background-image: radial-gradient(circle at 50% 32%, #ffb366 0%, #ff6a1a 35%, #ff3d0a 65%, #d62c00 100%);
   -webkit-background-clip: text;
   background-clip: text;
-  color: #ff5a1a;
+  color: #ff5214;
   -webkit-text-fill-color: transparent;
   /* Crisp outline, tuned to sharpen the now-thicker glyph without
      swallowing its interior -- "the stroke exists to sharpen the
@@ -3266,11 +3268,16 @@ select:focus {
   -webkit-text-stroke: 1px rgba(0, 0, 0, 0.92);
   /* Restrained warm glow around the numeral -- three tight layers
      (crisp core / mid bloom / faint outer reach) instead of a wide
-     single blur, so it reads as an illuminated LED rather than neon. */
+     single blur, so it reads as an illuminated LED rather than neon.
+     Core layer recolored from pale cream (the other "beige" culprit)
+     to a saturated orange, and strengthened slightly tighter-in per
+     explicit "strengthen the glow immediately around the digit" call;
+     the outer bloom layer is intentionally left alone (already
+     restrained) so the halo doesn't grow. */
   text-shadow:
-    0 0 2px rgba(255, 227, 194, 0.9),
-    0 0 6px rgba(255, 90, 20, 0.65),
-    0 0 10px rgba(227, 46, 5, 0.35),
+    0 0 2px rgba(255, 170, 100, 0.95),
+    0 0 5px rgba(255, 90, 20, 0.75),
+    0 0 9px rgba(214, 44, 0, 0.35),
     0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
@@ -3330,8 +3337,8 @@ select:focus {
     inset 0 -3px 4px rgba(40, 42, 48, 0.4),
     inset 2px 0 2px rgba(255, 255, 255, 0.3),
     inset 0 0 6px 1px rgba(255, 92, 20, 0.12),
-    0 0 0 1px rgba(8, 9, 11, 0.55),
-    0 0 0 1.8px rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(8, 9, 11, 0.42),
+    0 0 0 1.7px rgba(255, 255, 255, 0.5),
     0 1px 0 0 rgba(40, 42, 48, 0.16),
     0 3px 6px -1px rgba(40, 32, 28, 0.32),
     0 0 8px 1px rgba(255, 90, 20, 0.16);

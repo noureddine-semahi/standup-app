@@ -66,7 +66,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target, Trash2 } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -144,30 +144,110 @@ export default function TomorrowGoalsPage() {
   const [openGoalPickerId, setOpenGoalPickerId] = useState<string | null>(null);
   const goalPickerMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Goal Engine Phase 4 — "+ Add" entry point now offers Task (existing
-  // addMoreGoal(), unchanged) or Goal (minimal title-only outcome_goal
-  // create). Plain booleans, not a ref-based floating menu: this whole
-  // action row is rendered twice (desktop inline + mobile portal, see
-  // `content` below) sharing one state, and a single ref object would get
-  // fought over by both physical mounts -- a conditional button swap
-  // avoids that entirely, same safe pattern this row's own isDirty
-  // ternary already uses.
-  const [showAddChoice, setShowAddChoice] = useState(false);
-  const [showGoalCreateInput, setShowGoalCreateInput] = useState(false);
+  // Goal Engine Phase 4C — "+ Add" is now a type-first, structured flow:
+  // tap it, pick Standalone Task or Major Goal, THEN fill a small
+  // validated form (title [+ tasks for a Goal]) before anything gets
+  // created. One state machine instead of Phase 4's two booleans, same
+  // "plain conditional render, no ref-based floating menu" reasoning as
+  // before -- this whole action row still renders twice (desktop inline +
+  // mobile portal), and a shared ref would get fought over by both
+  // physical mounts.
+  type AddFlowStep = "closed" | "choice" | "task" | "goal";
+  const [addFlowStep, setAddFlowStep] = useState<AddFlowStep>("closed");
+
+  // Standalone Task form.
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState(DEFAULT_PRIORITY);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
+
+  // Major Goal form — goal title + >=2 task rows (title + priority each).
   const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
+    { title: "", priority: DEFAULT_PRIORITY },
+    { title: "", priority: DEFAULT_PRIORITY },
+  ]);
   const [creatingGoal, setCreatingGoal] = useState(false);
   const [goalCreateError, setGoalCreateError] = useState<string | null>(null);
 
-  async function handleCreateOutcomeGoal() {
+  function resetAddFlow() {
+    setAddFlowStep("closed");
+    setNewTaskTitle("");
+    setNewTaskPriority(DEFAULT_PRIORITY);
+    setTaskCreateError(null);
+    setNewGoalTitle("");
+    setNewGoalTasks([
+      { title: "", priority: DEFAULT_PRIORITY },
+      { title: "", priority: DEFAULT_PRIORITY },
+    ]);
+    setGoalCreateError(null);
+  }
+
+  // Appends a new draft row directly via goalsRef (not just setGoals) so
+  // the immediate persistGoals(true) call right after actually sees it --
+  // persistGoals always reads goalsRef.current, which otherwise only
+  // catches up to a same-tick setGoals one render later (see goalsRef's
+  // own sync effect below). Returns false (and sets the shared "max
+  // goals" message) if it wouldn't fit.
+  function appendDraftRow(row: { title: string; priority: number; outcome_goal_id: string | null }): boolean {
+    if (goalsRef.current.length >= MAX_GOALS) {
+      setMsg(t("tomorrow.maxGoals", { max: MAX_GOALS }));
+      return false;
+    }
+    const next = [...goalsRef.current, { ...row, sort_order: goalsRef.current.length }];
+    goalsRef.current = next;
+    setGoals(next);
+    return true;
+  }
+
+  async function handleCreateStandaloneTask() {
+    const title = newTaskTitle.trim();
+    if (!title || creatingTask) return;
+    setCreatingTask(true);
+    setTaskCreateError(null);
+    try {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      if (!appendDraftRow({ title, priority: newTaskPriority, outcome_goal_id: null })) return;
+      await persistGoals(true);
+      resetAddFlow();
+    } catch (e: any) {
+      setTaskCreateError(e?.message ?? t("tomorrow.taskCreateFailed"));
+    } finally {
+      setCreatingTask(false);
+    }
+  }
+
+  const validGoalTaskCount = newGoalTasks.filter((tk) => tk.title.trim().length > 0).length;
+  const canCreateMajorGoal = newGoalTitle.trim().length > 0 && validGoalTaskCount >= 2 && !creatingGoal;
+
+  async function handleCreateMajorGoal() {
     const title = newGoalTitle.trim();
-    if (!title || creatingGoal) return;
+    const validTasks = newGoalTasks
+      .map((tk) => ({ title: tk.title.trim(), priority: tk.priority }))
+      .filter((tk) => tk.title.length > 0);
+    if (!title || validTasks.length < 2 || creatingGoal) return;
     setCreatingGoal(true);
     setGoalCreateError(null);
     try {
+      if (goalsRef.current.length + validTasks.length > MAX_GOALS) {
+        setGoalCreateError(t("tomorrow.maxGoals", { max: MAX_GOALS }));
+        return;
+      }
       const created = await createOutcomeGoal(title);
       setOutcomeGoals((prev) => [created, ...prev]);
-      setNewGoalTitle("");
-      setShowGoalCreateInput(false);
+
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      for (const tk of validTasks) {
+        appendDraftRow({ title: tk.title, priority: tk.priority, outcome_goal_id: created.id });
+      }
+      await persistGoals(true);
+      resetAddFlow();
     } catch (e: any) {
       setGoalCreateError(e?.message ?? t("tomorrow.goalCreateFailed"));
     } finally {
@@ -1664,10 +1744,10 @@ export default function TomorrowGoalsPage() {
                   saveDraftOrChanges are untouched) -- only whether an
                   already-inert control renders as a button at all. */}
               <div className="tomorrow-action-secondary">
-                {!showAddChoice ? (
+                {addFlowStep === "closed" && (
                   <button
                     className="btn hover-scale"
-                    onClick={() => setShowAddChoice(true)}
+                    onClick={() => setAddFlowStep("choice")}
                     disabled={!canAddMore}
                     title={
                       goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
@@ -1675,16 +1755,15 @@ export default function TomorrowGoalsPage() {
                   >
                     {t("tomorrow.addGoal")}
                   </button>
-                ) : (
+                )}
+
+                {addFlowStep === "choice" && (
                   <div className="inline-flex items-center gap-1.5">
                     <button
                       type="button"
                       className="btn hover-scale"
                       style={{ padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}
-                      onClick={() => {
-                        setShowAddChoice(false);
-                        addMoreGoal();
-                      }}
+                      onClick={() => setAddFlowStep("task")}
                     >
                       {t("tomorrow.addChoiceTask")}
                     </button>
@@ -1692,11 +1771,7 @@ export default function TomorrowGoalsPage() {
                       type="button"
                       className="btn hover-scale"
                       style={{ padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}
-                      onClick={() => {
-                        setShowAddChoice(false);
-                        setGoalCreateError(null);
-                        setShowGoalCreateInput(true);
-                      }}
+                      onClick={() => setAddFlowStep("goal")}
                     >
                       <Target size={13} className="inline -mt-0.5 mr-1" />
                       {t("tomorrow.addChoiceGoal")}
@@ -1705,7 +1780,7 @@ export default function TomorrowGoalsPage() {
                       type="button"
                       className="btn hover-scale"
                       style={{ padding: "0.45rem 0.55rem" }}
-                      onClick={() => setShowAddChoice(false)}
+                      onClick={resetAddFlow}
                       title={t("tomorrow.neverMind")}
                       aria-label={t("tomorrow.neverMind")}
                     >
@@ -1731,56 +1806,192 @@ export default function TomorrowGoalsPage() {
                 )}
               </div>
 
-              {/* Minimal Goal-creation form — title only, status defaults
-                  to 'active' server-side (createOutcomeGoal). Reuses the
-                  same inline-input styling as the Link-URL field above
-                  rather than a modal; the new Goal is prepended to
-                  outcomeGoals on success, making it immediately selectable
-                  in every goal's existing Goal picker without a refetch. */}
-              {showGoalCreateInput && (
-                <div className="mt-2 flex items-center gap-2">
+              {/* Goal Engine Phase 4C — Standalone Task structured form:
+                  title (required) + the same priority-select control/
+                  pattern every task card already uses. Saved through the
+                  normal draft-row + persistGoals/upsertGoals path, not a
+                  separate insert -- no new save logic. */}
+              {addFlowStep === "task" && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="text"
+                      value={newTaskTitle}
+                      disabled={creatingTask}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCreateStandaloneTask();
+                        }
+                      }}
+                      placeholder={t("tomorrow.taskTitlePlaceholder")}
+                      autoFocus
+                      className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    />
+                    <select
+                      value={newTaskPriority}
+                      disabled={creatingTask}
+                      onChange={(e) => setNewTaskPriority(Number(e.target.value))}
+                      className="priority-select"
+                      style={{
+                        "--p-bg": getPriorityMeta(newTaskPriority).bg,
+                        "--p-border": getPriorityMeta(newTaskPriority).border,
+                        "--p-color": getPriorityMeta(newTaskPriority).color,
+                        flexShrink: 0,
+                      } as React.CSSProperties}
+                    >
+                      {[1, 2, 3, 4, 5].map((v) => (
+                        <option key={v} value={v}>
+                          P{v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-primary hover-scale"
+                      style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
+                      disabled={creatingTask || !newTaskTitle.trim()}
+                      onClick={handleCreateStandaloneTask}
+                    >
+                      {creatingTask ? t("tomorrow.creatingTask") : t("tomorrow.createTaskButton")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn hover-scale"
+                      style={{ padding: "0.4rem 0.55rem" }}
+                      disabled={creatingTask}
+                      onClick={resetAddFlow}
+                      title={t("tomorrow.neverMind")}
+                      aria-label={t("tomorrow.neverMind")}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                  {taskCreateError && <div className="text-[11px] text-red-400">{taskCreateError}</div>}
+                </div>
+              )}
+
+              {/* Goal Engine Phase 4C — Major Goal structured form: Goal
+                  title + at least 2 valid Tasks (each title + priority,
+                  same pattern as above). createOutcomeGoal() first, then
+                  each valid task is appended as a normal draft row with
+                  outcome_goal_id already set to the new Goal, saved
+                  through the same persistGoals/upsertGoals path. Once
+                  outcomeGoals/goals update, Phase 4B's existing Goal-card
+                  grouping renders it with its Tasks nested automatically
+                  -- no separate render path needed here. */}
+              {addFlowStep === "goal" && (
+                <div className="mt-2 space-y-2">
                   <input
                     type="text"
                     value={newGoalTitle}
                     disabled={creatingGoal}
                     onChange={(e) => setNewGoalTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleCreateOutcomeGoal();
-                      }
-                    }}
                     placeholder={t("tomorrow.goalTitlePlaceholder")}
                     autoFocus
-                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                   />
+
+                  <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
+                    {t("tomorrow.goalTasksLabel")}
+                  </div>
+                  <div className="space-y-2">
+                    {newGoalTasks.map((tk, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={tk.title}
+                          disabled={creatingGoal}
+                          onChange={(e) =>
+                            setNewGoalTasks((prev) =>
+                              prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x))
+                            )
+                          }
+                          placeholder={t("tomorrow.goalTaskPlaceholder", { n: i + 1 })}
+                          className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                        />
+                        <select
+                          value={tk.priority}
+                          disabled={creatingGoal}
+                          onChange={(e) =>
+                            setNewGoalTasks((prev) =>
+                              prev.map((x, j) => (j === i ? { ...x, priority: Number(e.target.value) } : x))
+                            )
+                          }
+                          className="priority-select"
+                          style={{
+                            "--p-bg": getPriorityMeta(tk.priority).bg,
+                            "--p-border": getPriorityMeta(tk.priority).border,
+                            "--p-color": getPriorityMeta(tk.priority).color,
+                            flexShrink: 0,
+                          } as React.CSSProperties}
+                        >
+                          {[1, 2, 3, 4, 5].map((v) => (
+                            <option key={v} value={v}>
+                              P{v}
+                            </option>
+                          ))}
+                        </select>
+                        {newGoalTasks.length > 2 && (
+                          <button
+                            type="button"
+                            disabled={creatingGoal}
+                            onClick={() => setNewGoalTasks((prev) => prev.filter((_, j) => j !== i))}
+                            className="btn flex-shrink-0"
+                            style={{ padding: "0.35rem" }}
+                            title={t("tomorrow.removeGoalTask")}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                   <button
                     type="button"
-                    className="btn btn-primary hover-scale"
-                    style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
-                    disabled={creatingGoal || !newGoalTitle.trim()}
-                    onClick={handleCreateOutcomeGoal}
-                  >
-                    {creatingGoal ? t("tomorrow.creatingGoal") : t("tomorrow.createGoalButton")}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn hover-scale"
-                    style={{ padding: "0.4rem 0.55rem" }}
                     disabled={creatingGoal}
-                    onClick={() => {
-                      setShowGoalCreateInput(false);
-                      setNewGoalTitle("");
-                      setGoalCreateError(null);
-                    }}
-                    title={t("tomorrow.neverMind")}
-                    aria-label={t("tomorrow.neverMind")}
+                    onClick={() => setNewGoalTasks((prev) => [...prev, { title: "", priority: DEFAULT_PRIORITY }])}
+                    className="btn hover-scale inline-flex items-center gap-1.5"
+                    style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                   >
-                    <X size={13} />
+                    <Plus size={13} /> {t("tomorrow.addAnotherGoalTask")}
                   </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-primary hover-scale"
+                      style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
+                      disabled={!canCreateMajorGoal}
+                      onClick={handleCreateMajorGoal}
+                      title={
+                        !newGoalTitle.trim()
+                          ? t("tomorrow.goalNeedsTitle")
+                          : validGoalTaskCount < 2
+                          ? t("tomorrow.goalNeedsTwoTasks")
+                          : ""
+                      }
+                    >
+                      {creatingGoal ? t("tomorrow.creatingGoal") : t("tomorrow.createGoalButton")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn hover-scale"
+                      style={{ padding: "0.4rem 0.55rem" }}
+                      disabled={creatingGoal}
+                      onClick={resetAddFlow}
+                      title={t("tomorrow.neverMind")}
+                      aria-label={t("tomorrow.neverMind")}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                  {goalCreateError && <div className="text-[11px] text-red-400">{goalCreateError}</div>}
                 </div>
               )}
-              {goalCreateError && <div className="mt-1 text-[11px] text-red-400">{goalCreateError}</div>}
 
               {/* Primary tier — Submit Plan (or the submitted card) always
                   gets its own full-width row on mobile, so it's never the

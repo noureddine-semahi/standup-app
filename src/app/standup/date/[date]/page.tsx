@@ -29,11 +29,13 @@ import {
   getStreakPassCoveredDates,
   useStreakPass,
   rescheduleGoalToDate,
+  getOutcomeGoals,
   type ChecklistItem,
   type Goal,
   type GoalAttachment,
   type RecurringGoalTemplate,
   type StreakPassBalance,
+  type OutcomeGoal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -57,7 +59,7 @@ import PageLoadingState from "@/components/PageLoadingState";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { Clock, Link2, Plus, Sun, Redo2, X, Ticket } from "lucide-react";
+import { Clock, Link2, Plus, Sun, Redo2, X, Ticket, Target } from "lucide-react";
 
 export default function DynamicDatePage() {
   const { t } = useLanguage();
@@ -104,6 +106,20 @@ export default function DynamicDatePage() {
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
   const [attachments, setAttachments] = useState<Record<string, GoalAttachment[]>>({});
+  // Parent Major Goal titles -- resolves the (already-present on each row)
+  // outcome_goal_id to its Goal's title, same id->title lookup pattern as
+  // Today/Tomorrow. All statuses, not just active, so a Goal that's since
+  // gone completed/abandoned still shows its real title on an old linked
+  // Task instead of silently losing its label (same reasoning those pages
+  // use). This page intentionally does NOT group by Goal -- see the flat
+  // `goals` array / raw-index numbering below -- so this label is the only
+  // place that context is shown.
+  const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
+  const outcomeGoalTitleById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of outcomeGoals) map.set(o.id, o.title);
+    return map;
+  }, [outcomeGoals]);
   const [showLinkInput, setShowLinkInput] = useState<Record<number, boolean>>({});
 
   const inputRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
@@ -305,6 +321,14 @@ export default function DynamicDatePage() {
     const rows = compactForUI(goalsWithData);
     setGoals(rows);
     lastSavedHashRef.current = computeHashForSave(rows);
+
+    // Best-effort, non-blocking -- only resolves the parent-Goal label on
+    // already-loaded rows (point 3 above), doesn't gate the page's own
+    // load/save/submit critical path. Same "all statuses" fetch Today/
+    // Tomorrow already use for this exact id->title resolution.
+    getOutcomeGoals()
+      .then(setOutcomeGoals)
+      .catch(() => {});
 
     if (!silent) setLoading(false);
   }
@@ -926,7 +950,7 @@ export default function DynamicDatePage() {
             {t("tomorrow.minRequiredPart1")}<b>3</b>{t("tomorrow.minRequiredPart2")}
           </p>
           <p className="text-sm text-white/50">
-            {t("tomorrow.currentPriorityGoals")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
+            {t("tomorrow.currentPriorityCommitments")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
             {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
           </p>
           {coveredByPass && (
@@ -1052,6 +1076,21 @@ export default function DynamicDatePage() {
 
                 <div className="goal-row-body">
                 <div className="goal-row-cols">
+                  {/* Parent Major Goal context -- only for a linked Task
+                      (outcome_goal_id non-null); standalone Tasks render
+                      nothing here. Presentation only: does not affect
+                      ordering, numbering, or which column this Task sits
+                      in -- the card below is untouched otherwise. */}
+                  {(g as any).outcome_goal_id && outcomeGoalTitleById.get((g as any).outcome_goal_id) && (
+                    <div style={{ flexBasis: "100%", padding: "0 1.5rem" }}>
+                      <div className="goal-task-label mb-1">
+                        <Target size={12} className="flex-shrink-0" />
+                        <span className="goal-task-label-text truncate">
+                          {outcomeGoalTitleById.get((g as any).outcome_goal_id)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   {/* Goal input - takes up most space */}
                   <textarea
                     ref={(el) => {
@@ -1281,7 +1320,7 @@ export default function DynamicDatePage() {
             onClick={addMoreGoal}
             disabled={!canAddMore}
             title={
-              goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
+              goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
             }
           >
             {t("tomorrow.addGoal")}

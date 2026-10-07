@@ -44,7 +44,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
   MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket, Lock, Unlock,
-  Sunrise, ChevronRight,
+  Sunrise, ChevronRight, ChevronDown,
 } from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -206,6 +206,9 @@ export default function DashboardPage() {
   // are the only ones actually rendered), not all of them.
   const [activeOutcomeGoals, setActiveOutcomeGoals] = useState<OutcomeGoal[]>([]);
   const [outcomeGoalTasks, setOutcomeGoalTasks] = useState<ArchivedGoal[]>([]);
+  // Which Active Goal cards are expanded to show their Task breakdown --
+  // local UI state only, never persisted. Any number may be open at once.
+  const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
 
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
@@ -576,7 +579,21 @@ export default function DashboardPage() {
       context = { kind: "next", title: nextTask.title };
     }
 
-    return { goal, total, completed, pct, context };
+    // Expanded-row order: today's unfinished Tasks, then tomorrow's, then
+    // other still-unfinished ones, then completed/canceled last --
+    // regardless of date, a finished Task sinks to the bottom. Each
+    // .filter() preserves `tasks`' own existing order (already newest-
+    // first from getGoalsByOutcomeGoalIds), so ordering within a group is
+    // stable without a separate sort.
+    const todayUnfinished = tasks.filter((g) => g.plan_date === todayISO && g.status !== "completed" && g.status !== "canceled");
+    const tomorrowUnfinished = tasks.filter((g) => g.plan_date === tomorrowISO && g.status !== "completed" && g.status !== "canceled");
+    const otherUnfinished = tasks.filter(
+      (g) => g.status !== "completed" && g.status !== "canceled" && g.plan_date !== todayISO && g.plan_date !== tomorrowISO
+    );
+    const doneOrCanceled = tasks.filter((g) => g.status === "completed" || g.status === "canceled");
+    const sortedTasks = [...todayUnfinished, ...tomorrowUnfinished, ...otherUnfinished, ...doneOrCanceled];
+
+    return { goal, total, completed, pct, context, sortedTasks };
   });
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
@@ -775,30 +792,77 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {activeGoalCards.map(({ goal, total, completed, pct, context }) => (
-                    <div key={goal.id} className="dashboard-goal-card min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Target size={13} className="text-pink-400 flex-shrink-0" />
-                        <span className="text-sm font-semibold text-white/90 truncate">{goal.title}</span>
-                      </div>
-                      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">
-                        <span>{t("dashboard.goalTasksStat", { completed, total })}</span>
-                        <span className="font-bold text-pink-300/85 flex-shrink-0">{pct}%</span>
-                      </div>
-                      <div className="dashboard-goal-progress-track">
-                        <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      {context && (
-                        <div className="mt-1.5 text-[11px] text-white/40 truncate">
-                          {context.kind === "today"
-                            ? t("dashboard.goalContextToday", { title: context.title })
-                            : context.kind === "tomorrow"
-                            ? t("dashboard.goalContextTomorrow", { title: context.title })
-                            : t("dashboard.goalContextNext", { title: context.title })}
+                  {activeGoalCards.map(({ goal, total, completed, pct, context, sortedTasks }) => {
+                    const isExpanded = expandedGoalIds.has(goal.id);
+                    return (
+                      <div key={goal.id} className="dashboard-goal-card min-w-0">
+                        {/* Entire header toggles expansion -- nothing else
+                            on this card is interactive, so there's no
+                            conflict; the chevron is just the visual cue. */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedGoalIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(goal.id)) next.delete(goal.id);
+                              else next.add(goal.id);
+                              return next;
+                            })
+                          }
+                          className="flex items-center gap-1.5 min-w-0 w-full text-left"
+                          aria-expanded={isExpanded}
+                        >
+                          <Target size={13} className="text-pink-400 flex-shrink-0" />
+                          <span className="text-sm font-semibold text-white/90 truncate flex-1">{goal.title}</span>
+                          <ChevronDown
+                            size={14}
+                            className="text-white/40 flex-shrink-0"
+                            style={{ transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }}
+                          />
+                        </button>
+                        <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">
+                          <span>{t("dashboard.goalTasksStat", { completed, total })}</span>
+                          <span className="font-bold text-pink-300/85 flex-shrink-0">{pct}%</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        <div className="dashboard-goal-progress-track">
+                          <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                        {context && (
+                          <div className="mt-1.5 text-[11px] text-white/40 truncate">
+                            {context.kind === "today"
+                              ? t("dashboard.goalContextToday", { title: context.title })
+                              : context.kind === "tomorrow"
+                              ? t("dashboard.goalContextTomorrow", { title: context.title })
+                              : t("dashboard.goalContextNext", { title: context.title })}
+                          </div>
+                        )}
+                        {isExpanded && (
+                          <div className="dashboard-goal-tasks">
+                            {sortedTasks.length === 0 ? (
+                              <div className="text-[11px] text-white/40 py-1">{t("dashboard.goalNoTasks")}</div>
+                            ) : (
+                              sortedTasks.map((task) => (
+                                <div key={task.id} className="dashboard-goal-task-row">
+                                  <span className="truncate">{task.title}</span>
+                                  <span
+                                    className="status-chip-sm flex-shrink-0"
+                                    style={{
+                                      "--chip-bg": statusChipColors(task.status).bg,
+                                      "--chip-border": statusChipColors(task.status).border,
+                                      "--chip-color": statusChipColors(task.status).color,
+                                    } as React.CSSProperties}
+                                  >
+                                    <span>{statusLabel(task.status, t)}</span>
+                                    <StatusIcon status={task.status} size={11} />
+                                  </span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 {activeOutcomeGoals.length > 3 && (
                   <div className="mt-2 text-xs text-white/40 text-center">

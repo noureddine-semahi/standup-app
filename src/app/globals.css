@@ -4312,6 +4312,36 @@ select:focus {
   text-align: center;
 }
 
+/* Expanded Task breakdown -- compact read-only rows, deliberately not the
+   full Task card (no number sphere/toolbar/notes/checklist). A thin top
+   border separates it from the summary above; each row gets its own
+   hairline so a long list still reads as distinct Tasks at a glance. */
+.dashboard-goal-tasks {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(var(--tint-rgb), 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dashboard-goal-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.76rem;
+  color: rgba(var(--tint-rgb), 0.75);
+}
+
+.dashboard-goal-task-row > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Success state for a submitted plan — replaces what used to be a
    disabled-looking primary button with weak, brownish text. A real
    green glass status card instead, same family as .plan-submitted's

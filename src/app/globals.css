@@ -4320,7 +4320,13 @@ select:focus {
    The Exclusive/Shared control keeps its label at every width (it's
    short enough, and the mockup explicitly keeps it legible). */
 @media (max-width: 480px) {
-  .goal-toolbar-label {
+  /* Goal Engine final cleanup: Move (the linked-Task reassignment
+     control) keeps its label at every width, same treatment the
+     Exclusive/Shared control's comment above already describes --
+     "Move" alone read as a bare icon+chevron with no indication of
+     what it does, worse than the other controls here since its icon
+     (a swap arrow) is less self-explanatory than Checklist/Link's. */
+  .goal-toolbar-label:not(.goal-toolbar-label-keep) {
     display: none;
   }
 

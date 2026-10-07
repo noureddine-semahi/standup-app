@@ -1292,7 +1292,7 @@ export default function TomorrowGoalsPage() {
                       title={t("tomorrow.moveTask")}
                     >
                       <ArrowRightLeft size={13} />
-                      <span className="goal-toolbar-label">{t("tomorrow.moveTask")}</span>
+                      <span className="goal-toolbar-label goal-toolbar-label-keep">{t("tomorrow.moveTask")}</span>
                       <ChevronDown size={12} className="text-white/40" />
                     </button>
                     {openGoalPickerId === g.id && (
@@ -1750,7 +1750,7 @@ export default function TomorrowGoalsPage() {
                       disabled={!canAddMore}
                       title={goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""}
                     >
-                      <Plus size={13} /> {t("tomorrow.addTaskToGoal")}
+                      {t("tomorrow.addTaskToGoal")}
                     </button>
                   </div>
                 );

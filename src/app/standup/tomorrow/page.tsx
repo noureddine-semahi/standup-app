@@ -558,7 +558,7 @@ export default function TomorrowGoalsPage() {
       setSuggestedTemplates((prev) => prev.filter((t2) => t2.id !== template.id));
       await refresh({ silent: true });
     } catch (e: any) {
-      setMsg(e?.message ?? t("tomorrow.failedAddSuggested"));
+      setMsg(e?.message ?? t("tomorrow.failedAddSuggestedTask"));
     } finally {
       setAddingTemplateId(null);
     }
@@ -1022,7 +1022,7 @@ export default function TomorrowGoalsPage() {
           <div className="my-6 flex items-center gap-4">
             <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
             <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-              {t("tomorrow.optionalGoals")}
+              {t("tomorrow.optionalTasksDivider")}
             </div>
             <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
           </div>
@@ -1076,7 +1076,7 @@ export default function TomorrowGoalsPage() {
               onClick={() => removeGoal(idx)}
               disabled={submitting}
               className="goal-delete-corner-btn"
-              title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
+              title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityTask") : t("tomorrow.removeTask")}
             >
               <X size={12} />
             </button>
@@ -1118,7 +1118,7 @@ export default function TomorrowGoalsPage() {
                     );
                     autoResizeTextarea(e.target);
                   }}
-                  placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
+                  placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityTaskPlaceholder", { p }) : t("tomorrow.optionalTaskPlaceholder")}
                   className="goal-title-input flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
                   style={{ overflow: "hidden", lineHeight: 1.3 }}
                 />
@@ -1527,7 +1527,7 @@ export default function TomorrowGoalsPage() {
                     alignItems: "center",
                     gap: "0.3rem",
                   }}
-                  title={t("tomorrow.allDayTitle")}
+                  title={t("tomorrow.allDayTitleTask")}
                 >
                   {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
                 </button>
@@ -1620,10 +1620,10 @@ export default function TomorrowGoalsPage() {
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">{t("tomorrow.title")}</h1>
             <p className="text-white/70 mb-2">
-              {t("tomorrow.minRequiredPart1")}<b>3</b>{t("tomorrow.minRequiredPart2")}
+              {t("tomorrow.minRequiredPart1")}<b>3</b>{t("tomorrow.minRequiredPart2Commitments")}
             </p>
             <p className="text-sm text-white/50">
-              {t("tomorrow.currentPriorityGoals")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
+              {t("tomorrow.currentPriorityCommitments")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
               {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
             </p>
 
@@ -1748,7 +1748,7 @@ export default function TomorrowGoalsPage() {
                       style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
                       onClick={() => addTaskLinkedToGoal(goal.id)}
                       disabled={!canAddMore}
-                      title={goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""}
+                      title={goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""}
                     >
                       <Plus size={13} /> {t("tomorrow.addTaskToGoal")}
                     </button>
@@ -1817,7 +1817,7 @@ export default function TomorrowGoalsPage() {
                     onClick={() => setAddFlowStep("choice")}
                     disabled={!canAddMore}
                     title={
-                      goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""
+                      goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
                     }
                   >
                     {t("tomorrow.addGoal")}

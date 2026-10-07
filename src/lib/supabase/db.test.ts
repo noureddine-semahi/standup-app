@@ -7,6 +7,9 @@ import {
   computeLongestStreak,
   formatDateDisplay,
   formatTimeOfDay,
+  walkMaterializedChain,
+  filterUnresolvedDescendants,
+  collapseGoalLineages,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -172,5 +175,211 @@ describe("getLevelInfo", () => {
     expect(info.nextLevelPoints).toBeNull();
     expect(info.pointsToNext).toBeNull();
     expect(info.progressPct).toBe(100);
+  });
+});
+
+describe("walkMaterializedChain", () => {
+  // Real ids confirmed via the live-data P1 regression trace: 8732b169
+  // ("Paint the hubcaps", 09-28, postponed) was rescheduled forward and
+  // materialized onto 4528697c (09-29, not_started), which was never
+  // itself rescheduled further.
+  const SOURCE = "8732b169-dabb-4a47-9d72-ecb395951e4d";
+  const CONTINUATION = "4528697c-3d7e-4a05-b52a-df0fb52829a9";
+
+  it("returns the single continuation for a one-hop chain (confirmed regression case)", () => {
+    const rows = [
+      { from_goal_id: SOURCE, materialized_goal_id: CONTINUATION },
+    ];
+    expect(walkMaterializedChain(rows, SOURCE)).toEqual([CONTINUATION]);
+  });
+
+  it("returns an empty array when the source was never rescheduled", () => {
+    expect(walkMaterializedChain([], SOURCE)).toEqual([]);
+  });
+
+  it("returns an empty array when the source's only continuation has no further reschedule", () => {
+    const rows = [{ from_goal_id: SOURCE, materialized_goal_id: CONTINUATION }];
+    expect(walkMaterializedChain(rows, CONTINUATION)).toEqual([]);
+  });
+
+  it("walks a multi-hop chain A -> B -> C -> D in order", () => {
+    const rows = [
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "B", materialized_goal_id: "C" },
+      { from_goal_id: "C", materialized_goal_id: "D" },
+    ];
+    expect(walkMaterializedChain(rows, "A")).toEqual(["B", "C", "D"]);
+  });
+
+  it("ignores rows for unrelated goals", () => {
+    const rows = [
+      { from_goal_id: SOURCE, materialized_goal_id: CONTINUATION },
+      { from_goal_id: "unrelated-1", materialized_goal_id: "unrelated-2" },
+    ];
+    expect(walkMaterializedChain(rows, SOURCE)).toEqual([CONTINUATION]);
+  });
+
+  it("does not infinite-loop on a cycle (defensive guard)", () => {
+    const rows = [
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "B", materialized_goal_id: "A" }, // malformed/impossible in practice
+    ];
+    expect(walkMaterializedChain(rows, "A")).toEqual(["B"]);
+  });
+
+  it("when a from_goal_id has multiple materialized rows, the most recently materialized one wins", () => {
+    // Caller is expected to pass rows already sorted by materialized_at
+    // ascending -- later entries in the array override earlier ones for
+    // the same from_goal_id, matching an "order by materialized_at desc
+    // limit 1" per-hop query.
+    const rows = [
+      { from_goal_id: "A", materialized_goal_id: "B-stale" },
+      { from_goal_id: "A", materialized_goal_id: "B-latest" },
+    ];
+    expect(walkMaterializedChain(rows, "A")).toEqual(["B-latest"]);
+  });
+
+  it("ignores rows with a null materialized_goal_id", () => {
+    const rows = [{ from_goal_id: "A", materialized_goal_id: null }];
+    expect(walkMaterializedChain(rows, "A")).toEqual([]);
+  });
+});
+
+describe("filterUnresolvedDescendants", () => {
+  it("keeps not_started/in_progress/blocked/postponed descendants", () => {
+    const descendants = [
+      { id: "1", status: "not_started" },
+      { id: "2", status: "in_progress" },
+      { id: "3", status: "blocked" },
+      { id: "4", status: "postponed" },
+    ];
+    expect(filterUnresolvedDescendants(descendants)).toEqual(descendants);
+  });
+
+  it("excludes already-completed descendants (idempotency: a real user decision survives)", () => {
+    const descendants = [
+      { id: "1", status: "not_started" },
+      { id: "2", status: "completed" },
+    ];
+    expect(filterUnresolvedDescendants(descendants)).toEqual([
+      { id: "1", status: "not_started" },
+    ]);
+  });
+
+  it("excludes already-canceled descendants (idempotency: re-running finds nothing left to do)", () => {
+    const descendants = [{ id: "1", status: "canceled" }];
+    expect(filterUnresolvedDescendants(descendants)).toEqual([]);
+  });
+
+  it("returns an empty array when every descendant is already resolved", () => {
+    const descendants = [
+      { id: "1", status: "completed" },
+      { id: "2", status: "canceled" },
+    ];
+    expect(filterUnresolvedDescendants(descendants)).toEqual([]);
+  });
+});
+
+describe("collapseGoalLineages", () => {
+  function edge(from: string, to: string | null) {
+    return { from_goal_id: from, materialized_goal_id: to };
+  }
+
+  it("a Task with no reschedule lineage stands alone as its own conceptual Task", () => {
+    const A = { id: "A", status: "not_started" };
+    const tasks = collapseGoalLineages([A], []);
+    expect(tasks).toEqual([{ terminal: A, chain: [A] }]);
+  });
+
+  it("A -> B where the continuation is still unresolved collapses to 1 Task, terminal = B", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "not_started" };
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal).toBe(B);
+    expect(tasks[0].chain).toEqual([A, B]);
+  });
+
+  it("A -> B where B is Completed collapses to 1 Task reported Completed (A never fakes completion)", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "completed" };
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal.status).toBe("completed");
+    expect(tasks[0].terminal).toBe(B);
+  });
+
+  it("A -> B -> C (multi-hop) where C is Completed collapses all 3 physical rows to 1 Task", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "postponed" };
+    const C = { id: "C", status: "completed" };
+    const tasks = collapseGoalLineages([A, B, C], [edge("A", "B"), edge("B", "C")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal).toBe(C);
+    expect(tasks[0].chain).toEqual([A, B, C]);
+  });
+
+  it("a canceled terminal collapses the Task to Canceled, not Completed or unresolved", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "canceled" };
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal.status).toBe("canceled");
+  });
+
+  it("multiple independent Tasks under the same Goal stay separate — one rescheduled chain plus two standalone Tasks", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "completed" };
+    const D = { id: "D", status: "not_started" };
+    const E = { id: "E", status: "completed" };
+    const tasks = collapseGoalLineages([A, B, D, E], [edge("A", "B")]);
+    expect(tasks).toHaveLength(3);
+    expect(tasks.map((t) => t.terminal.id).sort()).toEqual(["B", "D", "E"]);
+  });
+
+  it("the House tasks regression: Wash the dishes (rescheduled, completed) + 2 standalone Tasks reports 3 conceptual Tasks, 3 completed — not 4/3", () => {
+    const washOriginal = { id: "wash-1", status: "not_started" };
+    const washContinuation = { id: "wash-2", status: "completed" };
+    const cleanLivingRoom = { id: "clean-1", status: "completed" };
+    const cutGrass = { id: "grass-1", status: "completed" };
+    const tasks = collapseGoalLineages(
+      [washOriginal, washContinuation, cleanLivingRoom, cutGrass],
+      [edge("wash-1", "wash-2")]
+    );
+    expect(tasks).toHaveLength(3); // not 4 — the dead original row doesn't inflate the count
+    const completed = tasks.filter((t) => t.terminal.status === "completed");
+    expect(completed).toHaveLength(3); // Wash the dishes (via its continuation), Clean living room, Cut grass
+  });
+
+  it("ignores an edge with a null materialized_goal_id (unmaterialized reschedule intent) without crashing", () => {
+    const A = { id: "A", status: "postponed" };
+    const tasks = collapseGoalLineages([A], [edge("A", null)]);
+    expect(tasks).toEqual([{ terminal: A, chain: [A] }]);
+  });
+
+  it("ignores an edge pointing outside the given set (dangling/unfetched target) — the source stands alone, nothing crashes", () => {
+    const A = { id: "A", status: "postponed" };
+    const tasks = collapseGoalLineages([A], [edge("A", "not-in-this-set")]);
+    expect(tasks).toEqual([{ terminal: A, chain: [A] }]);
+  });
+
+  it("ignores an edge entirely unrelated to the given goals, leaving them untouched", () => {
+    const A = { id: "A", status: "not_started" };
+    const B = { id: "B", status: "completed" };
+    const tasks = collapseGoalLineages([A, B], [edge("other-1", "other-2")]);
+    expect(tasks).toHaveLength(2);
+    expect(tasks.map((t) => t.terminal.id).sort()).toEqual(["A", "B"]);
+  });
+
+  it("a malformed duplicate edge (two different sources both claiming the same target) assigns the target once — no duplication, no drop", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "postponed" };
+    const X = { id: "X", status: "completed" };
+    const tasks = collapseGoalLineages([A, B, X], [edge("A", "X"), edge("B", "X")]);
+    expect(tasks).toHaveLength(2); // X collapsed into exactly one chain, B stands alone
+    const allTerminalIds = tasks.map((t) => t.terminal.id);
+    expect(allTerminalIds.filter((id) => id === "X")).toHaveLength(1); // X appears exactly once across all chains
+    const allRowIds = tasks.flatMap((t) => t.chain.map((g) => g.id));
+    expect(allRowIds.sort()).toEqual(["A", "B", "X"]); // every input row is represented exactly once
   });
 });

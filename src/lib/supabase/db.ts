@@ -956,6 +956,14 @@ export async function getPlanWithGoals(planDateISO: string) {
 
 /**
  * ✅ Upsert goals with priority support
+ *
+ * The `status` field here is a passthrough for the draft-array save flows
+ * (Tomorrow/date-detail autosave, Today's add-new-Task/Goal) that call this
+ * -- none of them currently let a caller change an existing row's status.
+ * Any real status transition, especially into completed/canceled, must go
+ * through updateGoalStatus()/updateGoalStatusAction() so reschedule-chain
+ * reconciliation (cancelOrphanedReschedules) actually runs. Do not add a
+ * status-editing control that writes here instead.
  */
 export async function upsertGoals(
   planId: string,
@@ -1666,6 +1674,20 @@ export async function getPaymentTransactions(accountId: string): Promise<Payment
 export async function confirmPaymentGoalCompletion(goalId: string, amount: number): Promise<number> {
   const { data, error } = await supabase.rpc("confirm_payment_goal_completion", { p_goal_id: goalId, p_amount: amount });
   if (error) throw error;
+
+  // The RPC sets status = 'completed' directly in SQL, bypassing
+  // updateGoalStatus() -- so this goal, like any other completed goal, may
+  // itself be the source of a reschedule chain (see cancelOrphanedReschedules
+  // above). Same awaited-but-wrapped semantics as updateGoalStatus: a real
+  // data-integrity cleanup, not a nicety, but a failure here can never make
+  // an otherwise-successful payment confirmation look like it failed -- the
+  // RPC above has already committed by this point regardless.
+  try {
+    await cancelOrphanedReschedules(goalId);
+  } catch (e) {
+    console.error("Failed to reconcile rescheduled continuations", e);
+  }
+
   return Number(data);
 }
 
@@ -2075,6 +2097,188 @@ const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   canceled: "Canceled",
 };
 
+/**
+ * Pure chain walk: given every materialized goal_reschedules row the
+ * caller has (any order), returns `sourceGoalId`'s full descendant chain
+ * (A -> B -> C -> ...) as an ordered list of ids, stopping at the first
+ * id with no further materialized reschedule. Rows are sorted by
+ * `materialized_at` ascending before indexing, so if a `from_goal_id`
+ * somehow has more than one materialized row (not expected, but not
+ * schema-enforced either), the MOST RECENT one wins -- same tie-break a
+ * `order by materialized_at desc limit 1` per-hop query would give.
+ * Exported standalone (no Supabase calls) so this is unit-testable
+ * without mocking the network.
+ */
+export function walkMaterializedChain(
+  rows: { from_goal_id: string; materialized_goal_id: string | null }[],
+  sourceGoalId: string
+): string[] {
+  const nextByFromId = new Map<string, string>();
+  for (const r of rows) {
+    if (r.materialized_goal_id) nextByFromId.set(r.from_goal_id, r.materialized_goal_id);
+  }
+
+  const descendants: string[] = [];
+  const visited = new Set<string>([sourceGoalId]); // cycle guard, defensive only
+  let currentId = sourceGoalId;
+
+  while (true) {
+    const nextId = nextByFromId.get(currentId);
+    if (!nextId || visited.has(nextId)) break;
+    visited.add(nextId);
+    descendants.push(nextId);
+    currentId = nextId;
+  }
+
+  return descendants;
+}
+
+/**
+ * The idempotency/safety guard: of a chain's descendants, only the ones
+ * that haven't independently reached their own terminal state should ever
+ * be touched -- a continuation the user already completed or canceled
+ * themselves (including one a prior run of this same reconciliation
+ * already canceled) represents a real decision and must survive untouched.
+ * Pure and exported for the same reason as walkMaterializedChain above.
+ */
+export function filterUnresolvedDescendants<T extends { status: string }>(descendants: T[]): T[] {
+  return descendants.filter((d) => d.status !== "completed" && d.status !== "canceled");
+}
+
+/** One conceptual Task collapsed from a reschedule lineage (A -> B -> C).
+ * `terminal` is the current/display row (status, plan_date, title, etc
+ * all come from it); `chain` is every physical row root-to-terminal, kept
+ * only for callers that need the full history -- display code should
+ * only ever look at `terminal`. */
+export type ConceptualTask<T extends { id: string; status: string }> = {
+  terminal: T;
+  chain: T[];
+};
+
+/**
+ * Pure lineage-collapse: given a flat list of Goal/Task rows that share an
+ * outcome_goal_id and the materialized goal_reschedules edges connecting
+ * them, groups each reschedule chain (A -> B, A -> B -> C, ...) into ONE
+ * conceptual Task. A row that was never rescheduled, or whose predecessor
+ * isn't among `goals`, stands alone as its own conceptual Task of one.
+ *
+ * This is what getGoalsByOutcomeGoalIds' callers were missing: that
+ * function (like every other goals query) returns every physical row with
+ * no idea that two of them are really "the same Task, after a reschedule" --
+ * so Goal progress/children summaries built directly off it double-count a
+ * rescheduled Task's dead original row as separate open work even after its
+ * continuation is done. See collapseGoalLineages' callers below.
+ *
+ * An edge only collapses two rows when BOTH ends are present in `goals` --
+ * an edge pointing outside the given set (a predecessor that wasn't
+ * fetched, a dangling/malformed row) is ignored rather than risking a row
+ * silently vanishing from the output. A `claimed` guard likewise stops a
+ * row already placed into one chain from being pulled into a second one if
+ * the input ever contains a duplicate/malformed edge -- every row in
+ * `goals` appears in exactly one conceptual Task's chain, never zero, never
+ * two. Never mutates its input.
+ */
+export function collapseGoalLineages<T extends { id: string; status: string }>(
+  goals: T[],
+  edges: { from_goal_id: string; materialized_goal_id: string | null }[]
+): ConceptualTask<T>[] {
+  const goalById = new Map(goals.map((g) => [g.id, g]));
+
+  // Last materialized_goal_id per from_goal_id wins -- same "caller sorts
+  // ascending by materialized_at" convention as walkMaterializedChain.
+  const nextByFromId = new Map<string, string>();
+  for (const e of edges) {
+    if (e.materialized_goal_id) nextByFromId.set(e.from_goal_id, e.materialized_goal_id);
+  }
+
+  const incoming = new Set<string>();
+  for (const [fromId, toId] of nextByFromId) {
+    if (goalById.has(fromId) && goalById.has(toId)) incoming.add(toId);
+  }
+
+  const claimed = new Set<string>();
+  const tasks: ConceptualTask<T>[] = [];
+
+  for (const g of goals) {
+    if (incoming.has(g.id) || claimed.has(g.id)) continue; // a continuation, not a chain start
+    claimed.add(g.id);
+
+    const chain: T[] = [g];
+    const visited = new Set<string>([g.id]);
+    let currentId = g.id;
+    while (true) {
+      const nextId = nextByFromId.get(currentId);
+      if (!nextId || !goalById.has(nextId) || visited.has(nextId) || claimed.has(nextId)) break;
+      visited.add(nextId);
+      claimed.add(nextId);
+      chain.push(goalById.get(nextId)!);
+      currentId = nextId;
+    }
+
+    tasks.push({ terminal: chain[chain.length - 1], chain });
+  }
+
+  return tasks;
+}
+
+/**
+ * Cancels every still-unresolved materialized continuation of
+ * `sourceGoalId`, walking the goal_reschedules lineage forward through
+ * however many hops exist (A -> B -> C -> ...). A Task that was rescheduled
+ * forward and is LATER resolved (completed/canceled) at its original,
+ * already-postponed row would otherwise leave its future continuation(s)
+ * sitting on their target date(s) as live, actionable duplicates forever --
+ * nothing else in the app ever revisits that lineage once materialized.
+ *
+ * Cancels rather than deletes: a continuation stays visible/inspectable
+ * (with its own "Automatically canceled" timeline entry, same logGoalEvent
+ * mechanism every other status change already uses) instead of silently
+ * vanishing, and canceling is a plain status UPDATE -- no FK/cascade
+ * surface to reason about, unlike delete. This never writes to
+ * goal_reschedules itself, so the from_goal_id/materialized_goal_id/
+ * materialized_at/snapshot_* audit trail is completely untouched.
+ *
+ * Two queries total regardless of chain length (fetch every materialized
+ * reschedule once, walk it in memory, then fetch+filter descendant
+ * statuses once) rather than one round trip per hop. Standalone
+ * continuations (outcome_goal_id null) are handled identically to
+ * Goal-linked ones -- the walk never looks at outcome_goal_id at all.
+ */
+async function cancelOrphanedReschedules(sourceGoalId: string) {
+  const { data: rows, error: lineageErr } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, materialized_goal_id, materialized_at")
+    .eq("materialized", true)
+    .not("materialized_goal_id", "is", null)
+    .order("materialized_at", { ascending: true });
+  if (lineageErr) throw lineageErr;
+
+  const descendantIds = walkMaterializedChain(rows ?? [], sourceGoalId);
+  if (descendantIds.length === 0) return;
+
+  const { data: descendantRows, error: statusErr } = await supabase
+    .from("goals")
+    .select("id, status")
+    .in("id", descendantIds);
+  if (statusErr) throw statusErr;
+
+  const stillUnresolved = filterUnresolvedDescendants(descendantRows ?? []);
+
+  for (const d of stillUnresolved) {
+    const { error: cancelErr } = await supabase
+      .from("goals")
+      .update({ status: "canceled" })
+      .eq("id", d.id);
+    if (cancelErr) throw cancelErr;
+    // Not awaited -- see updateGoalStatus's own comment on logGoalEvent.
+    logGoalEvent(
+      d.id,
+      "status_change",
+      "Automatically canceled — the rescheduled Task it continues was resolved"
+    );
+  }
+}
+
 export async function updateGoalStatus(goalId: string, status: GoalStatus) {
   const { error } = await supabase.from("goals").update({ status }).eq("id", goalId);
   if (error) throw error;
@@ -2083,6 +2287,20 @@ export async function updateGoalStatus(goalId: string, status: GoalStatus) {
   // sit through a second sequential round-trip just to log it. This alone
   // roughly halves the latency of every goal action across the app.
   logGoalEvent(goalId, "status_change", `Status changed to ${GOAL_STATUS_LABELS[status] ?? status}`);
+
+  // A Task resolved to Completed or Canceled may itself be the SOURCE of a
+  // reschedule chain -- see cancelOrphanedReschedules above. Awaited
+  // (unlike logGoalEvent's pure timeline entry) because this is a real data-
+  // integrity cleanup, not a nicety -- but wrapped so a failure here can
+  // never make an otherwise-successful status change look like it failed;
+  // the primary update above has already committed by this point regardless.
+  if (status === "completed" || status === "canceled") {
+    try {
+      await cancelOrphanedReschedules(goalId);
+    } catch (e) {
+      console.error("Failed to reconcile rescheduled continuations", e);
+    }
+  }
 }
 
 /** Updates a goal's priority and logs it as a timestamped timeline event (see logGoalEvent). */
@@ -2532,6 +2750,31 @@ export async function getGoalsByOutcomeGoalIds(outcomeGoalIds: string[]): Promis
   }
 
   return rows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null })) as ArchivedGoal[];
+}
+
+/**
+ * Same Tasks as getGoalsByOutcomeGoalIds, collapsed into conceptual Tasks
+ * via collapseGoalLineages -- the canonical read model for any Goal
+ * progress/children display (Dashboard's Active Goals, Review Today's
+ * Major Goal cards). Only fetches the materialized reschedule edges
+ * originating from these specific Tasks (not every materialized reschedule
+ * in the account, unlike cancelOrphanedReschedules' intentionally broader
+ * query, which doesn't get to start from a known candidate set).
+ */
+export async function getConceptualTasksByOutcomeGoalIds(
+  outcomeGoalIds: string[]
+): Promise<ConceptualTask<ArchivedGoal>[]> {
+  const goals = await getGoalsByOutcomeGoalIds(outcomeGoalIds);
+  if (goals.length === 0) return [];
+
+  const { data: edges, error } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, materialized_goal_id")
+    .eq("materialized", true)
+    .in("from_goal_id", goals.map((g) => g.id));
+  if (error) throw error;
+
+  return collapseGoalLineages(goals, edges ?? []);
 }
 
 /**

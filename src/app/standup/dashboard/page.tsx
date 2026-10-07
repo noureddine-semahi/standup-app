@@ -21,7 +21,7 @@ import {
   getMyPostActivityNotifications,
   ensurePaymentReminderGoals,
   getOutcomeGoals,
-  getGoalsByOutcomeGoalIds,
+  getConceptualTasksByOutcomeGoalIds,
   type Goal,
   type Profile,
   type DailyPlan,
@@ -34,6 +34,7 @@ import {
   type PostActivityNotification,
   type OutcomeGoal,
   type ArchivedGoal,
+  type ConceptualTask,
 } from "@/lib/supabase/db";
 import PendingNotifications from "@/components/PendingNotifications";
 import PageLoadingState from "@/components/PageLoadingState";
@@ -205,7 +206,7 @@ export default function DashboardPage() {
   // dashboard. Only the first 3 active Goals' Tasks are fetched (those
   // are the only ones actually rendered), not all of them.
   const [activeOutcomeGoals, setActiveOutcomeGoals] = useState<OutcomeGoal[]>([]);
-  const [outcomeGoalTasks, setOutcomeGoalTasks] = useState<ArchivedGoal[]>([]);
+  const [outcomeGoalTasks, setOutcomeGoalTasks] = useState<ConceptualTask<ArchivedGoal>[]>([]);
   // Which Active Goal cards are expanded to show their Task breakdown --
   // local UI state only, never persisted. Any number may be open at once.
   const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
@@ -307,7 +308,7 @@ export default function DashboardPage() {
               const active = goals.filter((g) => g.status === "active");
               setActiveOutcomeGoals(active);
               const shownIds = active.slice(0, 3).map((g) => g.id);
-              return shownIds.length > 0 ? getGoalsByOutcomeGoalIds(shownIds) : Promise.resolve([]);
+              return shownIds.length > 0 ? getConceptualTasksByOutcomeGoalIds(shownIds) : Promise.resolve([]);
             })
             .then(setOutcomeGoalTasks)
             .catch(() => {});
@@ -540,13 +541,22 @@ export default function DashboardPage() {
 
   // Active Goals summary cards — up to 3, each paired with its own Tasks
   // (outcomeGoalTasks only ever contains Tasks for these shown Goals, see
-  // the fetch in load() above). Completion mirrors Review Today's own
-  // Goal-group-card math exactly (status==="completed" only; reviewed/
-  // rescheduled/canceled/blocked/in-progress never count as completed) --
-  // same semantics, not a second model.
+  // the fetch in load() above). outcomeGoalTasks holds CONCEPTUAL Tasks
+  // (collapseGoalLineages, via getConceptualTasksByOutcomeGoalIds) rather
+  // than raw goal rows, so a Task that got rescheduled once (or several
+  // times) counts once here, not once per physical row, and its dead
+  // original "postponed" row never shows up as separate open work once the
+  // continuation that replaced it is done — see collapseGoalLineages'
+  // own comment for why. Everything below reads only `.terminal` (the
+  // current/display row of each conceptual Task). Completion mirrors
+  // Review Today's own Goal-group-card math exactly (status==="completed"
+  // only; reviewed/rescheduled/canceled/blocked/in-progress never count as
+  // completed) — same semantics, not a second model.
   const shownActiveGoals = activeOutcomeGoals.slice(0, 3);
   const activeGoalCards = shownActiveGoals.map((goal) => {
-    const tasks = outcomeGoalTasks.filter((g) => (g as any).outcome_goal_id === goal.id);
+    const tasks = outcomeGoalTasks
+      .filter((ct) => (ct.terminal as any).outcome_goal_id === goal.id)
+      .map((ct) => ct.terminal);
     const total = tasks.length;
     const completed = tasks.filter((g) => g.status === "completed").length;
     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;

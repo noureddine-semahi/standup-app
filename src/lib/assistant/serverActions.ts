@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { walkMaterializedChain, filterUnresolvedDescendants } from "@/lib/supabase/db";
 
 // Server-side mirrors of a handful of src/lib/supabase/db.ts functions, for
 // the assistant's API route (src/app/api/assistant/route.ts) to call against
@@ -12,6 +13,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // getOrCreatePlan normally triggers — that's idempotent and re-runs the
 // next time the user actually opens that day's page, so deferring it here
 // doesn't lose anything, just delays a call the real page load already makes.
+//
+// walkMaterializedChain/filterUnresolvedDescendants ARE imported directly
+// from db.ts (not reimplemented here) -- they're pure functions with no
+// Supabase client reference at all, so unlike every status/table query in
+// this file they carry no client-context risk. Reusing them is how the
+// reschedule-reconciliation DECISION logic stays in exactly one place
+// (db.ts's own cancelOrphanedReschedules) while the I/O around it is still
+// done against this file's own per-request client, same as everything else
+// here.
 
 type GoalStatus = "not_started" | "in_progress" | "completed" | "attempted" | "postponed" | "blocked" | "canceled";
 
@@ -113,6 +123,50 @@ export async function addGoalAction(supabase: SupabaseClient, userId: string, pa
   return { kind: "scheduled" as const, goal: created, dateISO: params.dateISO };
 }
 
+/**
+ * Server-side mirror of db.ts's cancelOrphanedReschedules() -- same two
+ * queries, same decision logic (reused directly via the two pure
+ * imports, not reimplemented), just run against this file's own
+ * per-request client instead of the browser singleton db.ts is
+ * hard-wired to. See updateGoalStatusAction below for why this matters:
+ * without it, an Assistant-triggered Completed/Canceled on a previously-
+ * rescheduled Task would leave its materialized future continuation(s)
+ * active forever, the same bug the canonical db.ts path now closes for
+ * every other caller.
+ */
+async function cancelOrphanedReschedulesAction(supabase: SupabaseClient, userId: string, sourceGoalId: string) {
+  const { data: rows, error: lineageErr } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, materialized_goal_id, materialized_at")
+    .eq("materialized", true)
+    .not("materialized_goal_id", "is", null)
+    .order("materialized_at", { ascending: true });
+  if (lineageErr) throw lineageErr;
+
+  const descendantIds = walkMaterializedChain(rows ?? [], sourceGoalId);
+  if (descendantIds.length === 0) return;
+
+  const { data: descendantRows, error: statusErr } = await supabase
+    .from("goals")
+    .select("id, status")
+    .in("id", descendantIds);
+  if (statusErr) throw statusErr;
+
+  const stillUnresolved = filterUnresolvedDescendants(descendantRows ?? []);
+
+  for (const d of stillUnresolved) {
+    const { error: cancelErr } = await supabase.from("goals").update({ status: "canceled" }).eq("id", d.id);
+    if (cancelErr) throw cancelErr;
+    await logGoalEvent(
+      supabase,
+      userId,
+      d.id,
+      "status_change",
+      "Automatically canceled — the rescheduled Task it continues was resolved"
+    );
+  }
+}
+
 export async function updateGoalStatusAction(
   supabase: SupabaseClient,
   userId: string,
@@ -165,6 +219,19 @@ export async function updateGoalStatusAction(
   if (status === "blocked") {
     const trimmed = (blockedReason ?? "").trim();
     await supabase.from("goal_notes").insert({ user_id: userId, goal_id: goalId, note: trimmed, kind: "note" });
+  }
+
+  // Same canonical reconciliation db.ts's updateGoalStatus() now runs for
+  // every other caller -- see cancelOrphanedReschedulesAction above. Wrapped
+  // so a reconciliation failure can never change this action's existing
+  // success/error behavior or response shape; the primary status update
+  // above has already committed by this point regardless.
+  if (status === "completed" || status === "canceled") {
+    try {
+      await cancelOrphanedReschedulesAction(supabase, userId, goalId);
+    } catch (e) {
+      console.error("Failed to reconcile rescheduled continuations", e);
+    }
   }
 
   return { goalId, title: goal.title as string, status };

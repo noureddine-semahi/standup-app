@@ -51,7 +51,7 @@ import {
   confirmPaymentGoalCompletion,
   createOutcomeGoal,
   getOutcomeGoals,
-  getGoalsByOutcomeGoalIds,
+  getConceptualTasksByOutcomeGoalIds,
   type PaymentAccount,
   type ChecklistItem,
   type DailyPlan,
@@ -64,6 +64,7 @@ import {
   type GoalAssignmentType,
   type OutcomeGoal,
   type ArchivedGoal,
+  type ConceptualTask,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
@@ -440,22 +441,22 @@ export default function TodayPage() {
   }, [goals]);
   const activeGoalIdsTodayKey = activeGoalIdsToday.join(",");
 
-  const [goalChildrenById, setGoalChildrenById] = useState<Record<string, ArchivedGoal[]>>({});
+  const [goalChildrenById, setGoalChildrenById] = useState<Record<string, ConceptualTask<ArchivedGoal>[]>>({});
   useEffect(() => {
     if (activeGoalIdsToday.length === 0) {
       setGoalChildrenById({});
       return;
     }
     let cancelled = false;
-    getGoalsByOutcomeGoalIds(activeGoalIdsToday)
-      .then((rows) => {
+    getConceptualTasksByOutcomeGoalIds(activeGoalIdsToday)
+      .then((tasks) => {
         if (cancelled) return;
-        const byGoal: Record<string, ArchivedGoal[]> = {};
-        for (const r of rows) {
-          const gid = (r as any).outcome_goal_id as string | null | undefined;
+        const byGoal: Record<string, ConceptualTask<ArchivedGoal>[]> = {};
+        for (const ct of tasks) {
+          const gid = (ct.terminal as any).outcome_goal_id as string | null | undefined;
           if (!gid) continue;
           if (!byGoal[gid]) byGoal[gid] = [];
-          byGoal[gid].push(r);
+          byGoal[gid].push(ct);
         }
         setGoalChildrenById(byGoal);
       })
@@ -2993,13 +2994,20 @@ export default function TodayPage() {
               <>
                 {Array.from(grouped.entries()).map(([goalId, items]) => {
                   const goalTitle = outcomeGoalTitleById.get(goalId) ?? "";
-                  // getGoalsByOutcomeGoalIds returns EVERY Task ever linked
-                  // to this Goal, including today's -- dedupe against
-                  // `items` (the live, reactive today's rows) so a task
-                  // never renders twice and today's rows always use the
-                  // live version, not a possibly-stale fetched snapshot.
+                  // goalChildrenById holds CONCEPTUAL Tasks (collapseGoalLineages,
+                  // via getConceptualTasksByOutcomeGoalIds), one per reschedule
+                  // chain rather than one per physical row -- a Task rescheduled
+                  // once or several times counts once here, using its chain's
+                  // terminal (current/display) row, with the chain's dead
+                  // ancestor rows never surfacing as separate open work. Dedupe
+                  // against `items` (the live, reactive today's rows) by each
+                  // conceptual Task's terminal id, so a Task never renders
+                  // twice and today's rows always use the live version, not a
+                  // possibly-stale fetched snapshot.
                   const todayIds = new Set(items.map(({ g }) => g.id));
-                  const historicalOnly = (goalChildrenById[goalId] ?? []).filter((hg) => !todayIds.has(hg.id));
+                  const historicalOnly = (goalChildrenById[goalId] ?? [])
+                    .filter((ct) => !todayIds.has(ct.terminal.id))
+                    .map((ct) => ct.terminal);
                   // Falls back to just today's items while the historical
                   // fetch is still in flight -- a sensible loading state,
                   // not an error (stats just catch up once it resolves).

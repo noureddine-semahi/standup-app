@@ -217,7 +217,7 @@ export const en = {
   "tomorrow.loading": "Loading…",
   "tomorrow.title": "Tomorrow's Commitments",
   "tomorrow.minRequiredPart1": "Minimum ",
-  "tomorrow.minRequiredPart2": " priority goals required (P1, P2, or P3).",
+  "tomorrow.minRequiredPart2": " priority commitments required (P1, P2, or P3).",
   // Plan Tomorrow-only duplicates of the two keys above -- date/[date]/page.tsx
   // shares minRequiredPart1/minRequiredPart2/currentPriorityGoals/optionalGoals
   // and is out of scope for the Phase 5 terminology cleanup, so new keys were

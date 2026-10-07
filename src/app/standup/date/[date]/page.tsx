@@ -939,6 +939,371 @@ export default function DynamicDatePage() {
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
+  // The one existing Task card, extracted verbatim from the old flat
+  // .map() so it can be called both from the unchanged flat/editMode list
+  // below AND from the new grouped-by-Goal view -- same JSX, same
+  // handlers, same `idx` (the row's real position in the flat `goals`
+  // array), nothing duplicated. `showParentLabel` only controls whether
+  // the small inline "◎ Goal title" line renders on THIS card -- false
+  // when the card is already inside a group wrapper that shows the same
+  // title once as its own header, so it isn't repeated.
+  function renderGoalRow(g: DraftGoal, idx: number, opts?: { showParentLabel?: boolean }) {
+    const showParentLabel = opts?.showParentLabel !== false;
+    const p =
+      typeof g.priority === "number" && Number.isFinite(g.priority)
+        ? g.priority
+        : DEFAULT_PRIORITY;
+    const opt = getPriorityMeta(p);
+
+    return (
+      <div
+        draggable={editMode && !locked && !submitting}
+        onDragStart={() => handleDragStart(idx)}
+        onDragOver={(e) => handleDragOver(e, idx)}
+        onDragEnd={handleDragEnd}
+        className="goal-row"
+        style={{
+          "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
+          cursor: editMode ? "move" : "default",
+          opacity: draggedIdx === idx ? 0.5 : 1,
+        } as React.CSSProperties}
+      >
+        {/* Drag handle */}
+        {editMode && (
+          <div
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
+            style={{ color: "rgba(var(--tint-rgb),0.3)" }}
+          >
+            ⋮⋮
+          </div>
+        )}
+
+        {/* Number badge — a small corner tag flush with the card's
+            own top-left border/radius. */}
+        <GoalNumberOrb number={idx + 1} />
+        {/* Mirrors the number badge on the opposite corner — moved
+            here from an inline button next to the priority select,
+            same as Today's goal-delete-corner-btn. */}
+        {!locked && (
+          <button
+            type="button"
+            onClick={() => removeGoal(idx)}
+            disabled={submitting}
+            className="goal-delete-corner-btn"
+            title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
+          >
+            <X size={12} />
+          </button>
+        )}
+
+        <div className="goal-row-body">
+        <div className="goal-row-cols">
+          {/* Parent Major Goal context -- only for a linked Task
+              (outcome_goal_id non-null) when NOT already shown once as
+              a group header above (showParentLabel). Presentation only:
+              does not affect ordering, numbering, or which column this
+              Task sits in -- the card below is untouched otherwise. */}
+          {showParentLabel && (g as any).outcome_goal_id && outcomeGoalTitleById.get((g as any).outcome_goal_id) && (
+            <div style={{ flexBasis: "100%", padding: "0 1.5rem" }}>
+              <div className="goal-task-label mb-1">
+                <Target size={12} className="flex-shrink-0" />
+                <span className="goal-task-label-text truncate">
+                  {outcomeGoalTitleById.get((g as any).outcome_goal_id)}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* Goal input - takes up most space */}
+          <textarea
+            ref={(el) => {
+              inputRefs.current[idx] = el;
+              autoResizeTextarea(el);
+            }}
+            rows={1}
+            value={g.title ?? ""}
+            disabled={locked || submitting}
+            onKeyDown={(e) => onGoalKeyDown(e, idx)}
+            onBlur={() => {
+              if (skipNextBlurAutosaveRef.current) {
+                skipNextBlurAutosaveRef.current = false;
+                return;
+              }
+              if (priorityChangeInProgressRef.current) {
+                return;
+              }
+              scheduleAutoSave();
+            }}
+            onChange={(e) => {
+              setGoals((prev) =>
+                prev.map((x, i) =>
+                  i === idx ? { ...x, title: e.target.value } : x
+                )
+              );
+              autoResizeTextarea(e.target);
+            }}
+            placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
+            style={{ padding: "0 1.5rem", overflow: "hidden", lineHeight: 1.3 }}
+            className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
+          />
+
+          {/* Compact quick-add row — checklist, files, and an
+              optional link, right under the goal title. */}
+          <div
+            className="flex items-center gap-1"
+            style={{ flexBasis: "100%", padding: "0 1.5rem", flexWrap: "nowrap", overflowX: "auto" }}
+          >
+            {g.id && (
+              <>
+                <GoalChecklist
+                  compact
+                  goalId={g.id}
+                  items={checklistItems[g.id] ?? []}
+                  onItemsChange={(items) =>
+                    setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                  }
+                  readOnly={locked}
+                />
+                <GoalAttachments
+                  compact
+                  goalId={g.id}
+                  items={attachments[g.id] ?? []}
+                  onItemsChange={(items) =>
+                    setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
+                  }
+                  readOnly={locked}
+                />
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+              className="btn"
+              style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
+              title={(g as any).link_url ? (g as any).link_url : t("tomorrow.attachLink")}
+            >
+              {(g as any).link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("tomorrow.link")}
+            </button>
+          </div>
+
+          {showLinkInput[idx] && (
+            <div style={{ padding: "0 1.5rem", flexBasis: "100%" }}>
+              <input
+                type="url"
+                value={(g as any).link_url ?? ""}
+                disabled={locked || submitting}
+                onChange={(e) =>
+                  setGoals((prev) =>
+                    prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
+                  )
+                }
+                onBlur={() => {
+                  if (skipNextBlurAutosaveRef.current) {
+                    skipNextBlurAutosaveRef.current = false;
+                    return;
+                  }
+                  scheduleAutoSave();
+                }}
+                placeholder={t("tomorrow.urlPlaceholder")}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+              />
+            </div>
+          )}
+
+          <div className="flex-shrink-0 flex items-center gap-2">
+            {!(g as any).is_all_day && (
+              <input
+                type="time"
+                value={g.time_of_day?.slice(0, 5) ?? ""}
+                disabled={locked || submitting}
+                onBlur={() => {
+                  if (skipNextBlurAutosaveRef.current) {
+                    skipNextBlurAutosaveRef.current = false;
+                    return;
+                  }
+                  if (priorityChangeInProgressRef.current) {
+                    return;
+                  }
+                  scheduleAutoSave();
+                }}
+                onChange={(e) =>
+                  setGoals((prev) =>
+                    prev.map((x, i) =>
+                      i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                    )
+                  )
+                }
+                className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                title={t("tomorrow.optionalTimeTitle")}
+              />
+            )}
+            <button
+              type="button"
+              disabled={locked || submitting}
+              onClick={() => {
+                setGoals((prev) =>
+                  prev.map((x, i) =>
+                    i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
+                  )
+                );
+                scheduleAutoSave();
+              }}
+              className="btn"
+              style={{
+                padding: "0.2rem 0.55rem",
+                fontSize: "0.7rem",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
+                borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
+              }}
+              title={t("tomorrow.allDayTitle")}
+            >
+              {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
+            </button>
+          </div>
+
+          {/* Show if this goal was rescheduled FROM another date */}
+          {g.id && g.rescheduled_from_date && (
+            <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
+              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+                <Redo2 className="text-amber-300" size={18} />
+                <div>
+                  <div className="text-xs font-semibold text-amber-300">
+                    {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
+                  </div>
+                  {g.reschedule_reason && (
+                    <div className="text-xs text-amber-300/70 italic mt-0.5">
+                      "{g.reschedule_reason}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Previous actions/comments */}
+          {g.id && g.previous_actions && g.previous_actions.length > 0 && (
+            <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
+              <details className="text-xs">
+                <summary className="text-emerald-400 cursor-pointer hover:text-emerald-300">
+                  {t(g.previous_actions.length === 1 ? "datePage.previousActions.one" : "datePage.previousActions.other", { count: g.previous_actions.length })}
+                </summary>
+                <div className="mt-2 space-y-1 pl-4">
+                  {g.previous_actions.map((action, i) => (
+                    <div key={i} className="text-white/60 border-l-2 border-white/10 pl-2">
+                      {action.note}
+                      <div className="text-white/40 text-[10px]">{new Date(action.created_at).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          )}
+
+          {/* Priority + Remove — grouped together, same fashion, always visible
+              regardless of priority value (P4/P5 must stay changeable/visible). */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <select
+              value={p}
+              disabled={locked || submitting}
+              onChange={(e) => {
+                priorityChangeInProgressRef.current = true;
+                const v = Number(e.target.value);
+                setGoals((prev) => applyPriorityChange(prev, idx, v));
+              }}
+              className="priority-select"
+              style={{
+                "--p-bg": opt.bg,
+                "--p-border": opt.border,
+                "--p-color": opt.color,
+              } as React.CSSProperties}
+            >
+              {[1, 2, 3, 4, 5].map((v) => (
+                <option key={v} value={v}>
+                  P{v}
+                </option>
+              ))}
+            </select>
+
+          </div>
+        </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Divider between priority (idx 0-2) and optional (idx 3+) Tasks -- same
+  // trigger condition as before (only shown when there IS a 4th+ Task),
+  // just pulled out so both the flat and grouped render paths below can
+  // show it at the exact same boundary without duplicating the markup.
+  function renderOptionalDivider() {
+    return (
+      <div className="my-6 flex items-center gap-4">
+        <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+        <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
+          {t("tomorrow.optionalGoals")}
+        </div>
+        <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+      </div>
+    );
+  }
+
+  // Groups a slice of (Task, real-array-index) pairs by outcome_goal_id,
+  // for the read-only (!editMode) view only -- see the call site below.
+  // A Goal's Tasks are pulled together into one wrapper card at the
+  // position of the FIRST member encountered (e.g. Task #5 renders next
+  // to #1/#2 instead of in its own later slot); a standalone Task (no
+  // outcome_goal_id, or a Goal whose title hasn't resolved yet) renders
+  // individually in its own natural position, unchanged. This never
+  // reorders `goals` itself or crosses the slice boundary the caller
+  // passes in (priority vs optional) -- the caller calls this once per
+  // side of that boundary, so a Goal with Tasks on both sides correctly
+  // gets its own header rendered once in each section instead of pulling
+  // a Task across the priority/optional line.
+  function renderGroupedSection(items: { g: DraftGoal; idx: number }[]) {
+    const seen = new Set<string>();
+    const nodes: React.ReactNode[] = [];
+
+    for (const item of items) {
+      const gid = (item.g as any).outcome_goal_id as string | null | undefined;
+      const title = gid ? outcomeGoalTitleById.get(gid) : undefined;
+
+      if (!gid || !title) {
+        nodes.push(
+          <div key={item.g.id ?? `row-${item.idx}`}>{renderGoalRow(item.g, item.idx)}</div>
+        );
+        continue;
+      }
+      if (seen.has(gid)) continue; // already rendered as part of an earlier cluster
+      seen.add(gid);
+
+      const clusterItems = items.filter(
+        (x) => (x.g as any).outcome_goal_id === gid && outcomeGoalTitleById.get(gid)
+      );
+
+      nodes.push(
+        <div
+          key={`group-${gid}-${item.idx}`}
+          className="rounded-2xl"
+          style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)", padding: "1rem" }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Target size={16} className="text-pink-400 flex-shrink-0" />
+            <h3 className="text-base font-semibold text-white truncate">{title}</h3>
+          </div>
+          <div className="space-y-4">
+            {clusterItems.map(({ g, idx }) => (
+              <div key={g.id ?? `row-${idx}`}>{renderGoalRow(g, idx, { showParentLabel: false })}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return nodes;
+  }
+
   return (
     <div
       className="card card-highlight"
@@ -1014,304 +1379,40 @@ export default function DynamicDatePage() {
       )}
 
       <div className="space-y-4">
-        {goals.map((g, idx) => {
-          const p =
-            typeof g.priority === "number" && Number.isFinite(g.priority)
-              ? g.priority
-              : DEFAULT_PRIORITY;
-          const opt = getPriorityMeta(p);
-
-          return (
+        {editMode ? (
+          // Reorder mode — unchanged flat list, exact same markup/order as
+          // before grouping existed. Dragging only reads/writes raw array
+          // indices (handleDragStart/handleDragOver both splice `goals` by
+          // idx), so it only ever runs against this ungrouped view; the
+          // grouped view below is always non-draggable (draggable is
+          // gated on editMode), so there's no index-vs-visual-position
+          // conflict to reconcile.
+          goals.map((g, idx) => (
             <div key={g.id ?? `row-${idx}`}>
-              {idx === 3 && (
-                <div className="my-6 flex items-center gap-4">
-                  <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-                  <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-                    {t("tomorrow.optionalGoals")}
-                  </div>
-                  <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-                </div>
-              )}
-
-              {/* Goal row with drag-drop support */}
-              <div
-                draggable={editMode && !locked && !submitting}
-                onDragStart={() => handleDragStart(idx)}
-                onDragOver={(e) => handleDragOver(e, idx)}
-                onDragEnd={handleDragEnd}
-                className="goal-row"
-                style={{
-                  "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
-                  cursor: editMode ? "move" : "default",
-                  opacity: draggedIdx === idx ? 0.5 : 1,
-                } as React.CSSProperties}
-              >
-                {/* Drag handle */}
-                {editMode && (
-                  <div
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
-                    style={{ color: "rgba(var(--tint-rgb),0.3)" }}
-                  >
-                    ⋮⋮
-                  </div>
-                )}
-
-                {/* Number badge — a small corner tag flush with the card's
-                    own top-left border/radius. */}
-                <GoalNumberOrb number={idx + 1} />
-                {/* Mirrors the number badge on the opposite corner — moved
-                    here from an inline button next to the priority select,
-                    same as Today's goal-delete-corner-btn. */}
-                {!locked && (
-                  <button
-                    type="button"
-                    onClick={() => removeGoal(idx)}
-                    disabled={submitting}
-                    className="goal-delete-corner-btn"
-                    title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-
-                <div className="goal-row-body">
-                <div className="goal-row-cols">
-                  {/* Parent Major Goal context -- only for a linked Task
-                      (outcome_goal_id non-null); standalone Tasks render
-                      nothing here. Presentation only: does not affect
-                      ordering, numbering, or which column this Task sits
-                      in -- the card below is untouched otherwise. */}
-                  {(g as any).outcome_goal_id && outcomeGoalTitleById.get((g as any).outcome_goal_id) && (
-                    <div style={{ flexBasis: "100%", padding: "0 1.5rem" }}>
-                      <div className="goal-task-label mb-1">
-                        <Target size={12} className="flex-shrink-0" />
-                        <span className="goal-task-label-text truncate">
-                          {outcomeGoalTitleById.get((g as any).outcome_goal_id)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {/* Goal input - takes up most space */}
-                  <textarea
-                    ref={(el) => {
-                      inputRefs.current[idx] = el;
-                      autoResizeTextarea(el);
-                    }}
-                    rows={1}
-                    value={g.title ?? ""}
-                    disabled={locked || submitting}
-                    onKeyDown={(e) => onGoalKeyDown(e, idx)}
-                    onBlur={() => {
-                      if (skipNextBlurAutosaveRef.current) {
-                        skipNextBlurAutosaveRef.current = false;
-                        return;
-                      }
-                      if (priorityChangeInProgressRef.current) {
-                        return;
-                      }
-                      scheduleAutoSave();
-                    }}
-                    onChange={(e) => {
-                      setGoals((prev) =>
-                        prev.map((x, i) =>
-                          i === idx ? { ...x, title: e.target.value } : x
-                        )
-                      );
-                      autoResizeTextarea(e.target);
-                    }}
-                    placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
-                    style={{ padding: "0 1.5rem", overflow: "hidden", lineHeight: 1.3 }}
-                    className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
-                  />
-
-                  {/* Compact quick-add row — checklist, files, and an
-                      optional link, right under the goal title. */}
-                  <div
-                    className="flex items-center gap-1"
-                    style={{ flexBasis: "100%", padding: "0 1.5rem", flexWrap: "nowrap", overflowX: "auto" }}
-                  >
-                    {g.id && (
-                      <>
-                        <GoalChecklist
-                          compact
-                          goalId={g.id}
-                          items={checklistItems[g.id] ?? []}
-                          onItemsChange={(items) =>
-                            setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
-                          }
-                          readOnly={locked}
-                        />
-                        <GoalAttachments
-                          compact
-                          goalId={g.id}
-                          items={attachments[g.id] ?? []}
-                          onItemsChange={(items) =>
-                            setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
-                          }
-                          readOnly={locked}
-                        />
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }))}
-                      className="btn"
-                      style={{ padding: "0.15rem 0.4rem", fontSize: "0.65rem", whiteSpace: "nowrap", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
-                      title={(g as any).link_url ? (g as any).link_url : t("tomorrow.attachLink")}
-                    >
-                      {(g as any).link_url ? <Link2 size={11} /> : <Plus size={11} />} {t("tomorrow.link")}
-                    </button>
-                  </div>
-
-                  {showLinkInput[idx] && (
-                    <div style={{ padding: "0 1.5rem", flexBasis: "100%" }}>
-                      <input
-                        type="url"
-                        value={(g as any).link_url ?? ""}
-                        disabled={locked || submitting}
-                        onChange={(e) =>
-                          setGoals((prev) =>
-                            prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
-                          )
-                        }
-                        onBlur={() => {
-                          if (skipNextBlurAutosaveRef.current) {
-                            skipNextBlurAutosaveRef.current = false;
-                            return;
-                          }
-                          scheduleAutoSave();
-                        }}
-                        placeholder={t("tomorrow.urlPlaceholder")}
-                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex-shrink-0 flex items-center gap-2">
-                    {!(g as any).is_all_day && (
-                      <input
-                        type="time"
-                        value={g.time_of_day?.slice(0, 5) ?? ""}
-                        disabled={locked || submitting}
-                        onBlur={() => {
-                          if (skipNextBlurAutosaveRef.current) {
-                            skipNextBlurAutosaveRef.current = false;
-                            return;
-                          }
-                          if (priorityChangeInProgressRef.current) {
-                            return;
-                          }
-                          scheduleAutoSave();
-                        }}
-                        onChange={(e) =>
-                          setGoals((prev) =>
-                            prev.map((x, i) =>
-                              i === idx ? { ...x, time_of_day: e.target.value || null } : x
-                            )
-                          )
-                        }
-                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
-                        title={t("tomorrow.optionalTimeTitle")}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      disabled={locked || submitting}
-                      onClick={() => {
-                        setGoals((prev) =>
-                          prev.map((x, i) =>
-                            i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
-                          )
-                        );
-                        scheduleAutoSave();
-                      }}
-                      className="btn"
-                      style={{
-                        padding: "0.2rem 0.55rem",
-                        fontSize: "0.7rem",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.3rem",
-                        background: (g as any).is_all_day ? "rgba(245, 158, 11, 0.25)" : undefined,
-                        borderColor: (g as any).is_all_day ? "rgba(245, 158, 11, 0.6)" : undefined,
-                      }}
-                      title={t("tomorrow.allDayTitle")}
-                    >
-                      {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
-                    </button>
-                  </div>
-
-                  {/* Show if this goal was rescheduled FROM another date */}
-                  {g.id && g.rescheduled_from_date && (
-                    <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
-                      <div className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
-                        <Redo2 className="text-amber-300" size={18} />
-                        <div>
-                          <div className="text-xs font-semibold text-amber-300">
-                            {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
-                          </div>
-                          {g.reschedule_reason && (
-                            <div className="text-xs text-amber-300/70 italic mt-0.5">
-                              "{g.reschedule_reason}"
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Previous actions/comments */}
-                  {g.id && g.previous_actions && g.previous_actions.length > 0 && (
-                    <div className="mt-2 mb-3" style={{ padding: "0 1.5rem" }}>
-                      <details className="text-xs">
-                        <summary className="text-emerald-400 cursor-pointer hover:text-emerald-300">
-                          {t(g.previous_actions.length === 1 ? "datePage.previousActions.one" : "datePage.previousActions.other", { count: g.previous_actions.length })}
-                        </summary>
-                        <div className="mt-2 space-y-1 pl-4">
-                          {g.previous_actions.map((action, i) => (
-                            <div key={i} className="text-white/60 border-l-2 border-white/10 pl-2">
-                              {action.note}
-                              <div className="text-white/40 text-[10px]">{new Date(action.created_at).toLocaleString()}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    </div>
-                  )}
-
-                  {/* Priority + Remove — grouped together, same fashion, always visible
-                      regardless of priority value (P4/P5 must stay changeable/visible). */}
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <select
-                      value={p}
-                      disabled={locked || submitting}
-                      onChange={(e) => {
-                        priorityChangeInProgressRef.current = true;
-                        const v = Number(e.target.value);
-                        setGoals((prev) => applyPriorityChange(prev, idx, v));
-                      }}
-                      className="priority-select"
-                      style={{
-                        "--p-bg": opt.bg,
-                        "--p-border": opt.border,
-                        "--p-color": opt.color,
-                      } as React.CSSProperties}
-                    >
-                      {[1, 2, 3, 4, 5].map((v) => (
-                        <option key={v} value={v}>
-                          P{v}
-                        </option>
-                      ))}
-                    </select>
-
-                  </div>
-                </div>
-                </div>
-              </div>
+              {idx === 3 && renderOptionalDivider()}
+              {renderGoalRow(g, idx)}
             </div>
-          );
-        })}
+          ))
+        ) : (
+          // Grouped-by-Goal view. Priority (idx 0-2) and optional (idx 3+)
+          // are grouped SEPARATELY so a Goal spanning both sides renders
+          // its header once per side rather than pulling a Task across
+          // the boundary -- see renderGroupedSection's own comment.
+          (() => {
+            const indexed = goals.map((g, idx) => ({ g, idx }));
+            const priorityItems = indexed.slice(0, 3);
+            const optionalItems = indexed.slice(3);
+            return (
+              <>
+                {renderGroupedSection(priorityItems)}
+                {optionalItems.length > 0 && renderOptionalDivider()}
+                {renderGroupedSection(optionalItems)}
+              </>
+            );
+          })()
+        )}
       </div>
+
 
       {!locked && (
         <div className="mt-8 flex flex-wrap gap-4 items-center">

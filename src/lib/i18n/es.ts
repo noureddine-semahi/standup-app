@@ -215,7 +215,7 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.loading": "Cargando…",
   "tomorrow.title": "Compromisos de Mañana",
   "tomorrow.minRequiredPart1": "Mínimo ",
-  "tomorrow.minRequiredPart2": " objetivos prioritarios requeridos (P1, P2 o P3).",
+  "tomorrow.minRequiredPart2": " compromisos prioritarios requeridos (P1, P2 o P3).",
   "tomorrow.minRequiredPart2Commitments": " compromisos prioritarios requeridos (P1, P2 o P3).",
   "tomorrow.currentPriorityCommitments": "Compromisos prioritarios actuales: ",
   "tomorrow.extra": " (+{count} extra)",

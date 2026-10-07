@@ -48,6 +48,7 @@ import {
   ensurePaymentReminderGoals,
   getPaymentAccounts,
   confirmPaymentGoalCompletion,
+  createOutcomeGoal,
   type PaymentAccount,
   type ChecklistItem,
   type DailyPlan,
@@ -67,6 +68,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
+  Target, Trash2,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -242,14 +244,39 @@ export default function TodayPage() {
   // Per-goal "Attach a link" input, toggled from the compact Checklist/Files/Link row.
   const [showLinkInput, setShowLinkInput] = useState<Record<string, boolean>>({});
   
-  // Quick Add state
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [quickAddGoals, setQuickAddGoals] = useState([
-    { title: "", priority: 1, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
-    { title: "", priority: 2, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
-    { title: "", priority: 3, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
+  // Quick Add state -- Goal Engine: type-first flow (same model as Plan
+  // Tomorrow's Phase 4C), replacing the old fixed 3-row batch form.
+  // "closed" collapses to just the trigger button; "choice" shows the
+  // Standalone Task / Major Goal picker; "task"/"goal" show that type's
+  // structured form.
+  type AddFlowStep = "closed" | "choice" | "task" | "goal";
+  const [addFlowStep, setAddFlowStep] = useState<AddFlowStep>("closed");
+
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState(3);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
+
+  const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
+    { title: "", priority: 3 },
+    { title: "", priority: 3 },
   ]);
-  const [addingGoals, setAddingGoals] = useState(false);
+  const [creatingGoal, setCreatingGoal] = useState(false);
+  const [goalCreateError, setGoalCreateError] = useState<string | null>(null);
+
+  function resetAddFlow() {
+    setAddFlowStep("closed");
+    setNewTaskTitle("");
+    setNewTaskPriority(3);
+    setTaskCreateError(null);
+    setNewGoalTitle("");
+    setNewGoalTasks([
+      { title: "", priority: 3 },
+      { title: "", priority: 3 },
+    ]);
+    setGoalCreateError(null);
+  }
 
   // Transient (not permanent) in-flight guard: the awareness-award trigger
   // reads plan.awareness_awarded from React state, which only updates after
@@ -1010,89 +1037,82 @@ export default function TodayPage() {
     }
   }
 
-  // Quick Add Goals function
-  async function handleQuickAdd() {
-    if (!plan?.id || addingGoals) return;
-
-    const filledGoals = quickAddGoals.filter(g => g.title.trim().length > 0);
-    
-    if (filledGoals.length === 0) {
-      setMsg(t("today.addAtLeastOne"));
-      return;
-    }
-
-    setAddingGoals(true);
-    setMsg(t("today.addingGoalsMsg"));
-
+  // Goal Engine current-day Add flow -- both paths below go through the
+  // exact same upsertGoals(plan.id, rows)/enforceSingleP1 mechanism the
+  // old handleQuickAdd used, against the same current-day plan.id, with
+  // the same status/sort_order defaults. That's what makes a Task added
+  // here indistinguishable from any other goal added today: same
+  // plan_id, same created_at-is-now, same P1-dedup safeguard -- nothing
+  // new was introduced to mark "added via this flow" specially.
+  async function handleCreateStandaloneTask() {
+    if (!plan?.id || creatingTask) return;
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    setCreatingTask(true);
+    setTaskCreateError(null);
     try {
-      // Keep at most one P1 in this batch — later entries win.
-      let seenP1 = false;
-      const dedupedGoals = [...filledGoals].reverse().map((g) => {
-        if (g.priority === 1) {
-          if (seenP1) return { ...g, priority: 2 };
-          seenP1 = true;
-        }
-        return g;
-      }).reverse();
-
-      const goalsToAdd = dedupedGoals.map((g, idx) => ({
-        title: g.title.trim(),
-        priority: g.priority,
-        sort_order: goals.length + idx,
-        status: "not_started" as GoalStatus,
-        time_of_day: g.time_of_day || null,
-      }));
-
       const existingIds = new Set(goals.map((g) => g.id));
-      const saved = await upsertGoals(plan.id, goalsToAdd);
+      const saved = await upsertGoals(plan.id, [
+        {
+          title,
+          priority: newTaskPriority,
+          sort_order: goals.length,
+          status: "not_started" as GoalStatus,
+          time_of_day: null,
+          outcome_goal_id: null,
+        },
+      ]);
       const newP1 = saved.find((g) => g.priority === 1 && !existingIds.has(g.id));
       if (newP1) {
         await enforceSingleP1(plan.id, newP1.id);
       }
-
-      // Match each newly-inserted goal back to the quick-add row it came
-      // from via sort_order (unique per row in this batch — goalsToAdd set
-      // it to goals.length + idx) so a recipient picked before the goal had
-      // a real id can still be assigned once it does.
-      const sortOrderToGoalId = new Map(
-        saved.filter((g) => !existingIds.has(g.id)).map((g) => [g.sort_order, g.id])
-      );
-      let assignmentFailed = false;
-      let anyAssignmentAttempted = false;
-      for (let idx = 0; idx < dedupedGoals.length; idx++) {
-        const assigneeId = dedupedGoals[idx].assigneeId;
-        if (!assigneeId) continue;
-        const goalId = sortOrderToGoalId.get(goalsToAdd[idx].sort_order);
-        if (!goalId) continue;
-        anyAssignmentAttempted = true;
-        try {
-          await createGoalAssignment(goalId, assigneeId, dedupedGoals[idx].assigneeType);
-        } catch {
-          assignmentFailed = true;
-        }
-      }
-      if (anyAssignmentAttempted) {
-        await refreshGoalAssignments();
-        notifyNotificationsUpdated();
-      }
-
-      setMsg(
-        assignmentFailed
-          ? t("today.addedGoalsAssignFailed", { count: filledGoals.length })
-          : t("today.addedGoals", { count: filledGoals.length })
-      );
-      setShowQuickAdd(false);
-      setQuickAddGoals([
-        { title: "", priority: 1, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
-        { title: "", priority: 2, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
-        { title: "", priority: 3, time_of_day: "", assigneeId: "", assigneeType: "exclusive" as GoalAssignmentType },
-      ]);
-
+      setMsg(t("today.addedGoals", { count: 1 }));
+      resetAddFlow();
       await refresh({ silent: true });
     } catch (e: any) {
-      setMsg(e?.message ?? t("today.failedAddGoals"));
+      setTaskCreateError(e?.message ?? t("tomorrow.taskCreateFailed"));
     } finally {
-      setAddingGoals(false);
+      setCreatingTask(false);
+    }
+  }
+
+  const validTodayGoalTaskCount = newGoalTasks.filter((tk) => tk.title.trim().length > 0).length;
+  const canCreateTodayMajorGoal =
+    newGoalTitle.trim().length > 0 && validTodayGoalTaskCount >= 2 && !creatingGoal;
+
+  async function handleCreateMajorGoal() {
+    if (!plan?.id || creatingGoal) return;
+    const title = newGoalTitle.trim();
+    const validTasks = newGoalTasks
+      .map((tk) => ({ title: tk.title.trim(), priority: tk.priority }))
+      .filter((tk) => tk.title.length > 0);
+    if (!title || validTasks.length < 2) return;
+    setCreatingGoal(true);
+    setGoalCreateError(null);
+    try {
+      const created = await createOutcomeGoal(title);
+
+      const existingIds = new Set(goals.map((g) => g.id));
+      const rows = validTasks.map((tk, idx) => ({
+        title: tk.title,
+        priority: tk.priority,
+        sort_order: goals.length + idx,
+        status: "not_started" as GoalStatus,
+        time_of_day: null,
+        outcome_goal_id: created.id,
+      }));
+      const saved = await upsertGoals(plan.id, rows);
+      const newP1 = saved.find((g) => g.priority === 1 && !existingIds.has(g.id));
+      if (newP1) {
+        await enforceSingleP1(plan.id, newP1.id);
+      }
+      setMsg(t("today.addedGoals", { count: validTasks.length }));
+      resetAddFlow();
+      await refresh({ silent: true });
+    } catch (e: any) {
+      setGoalCreateError(e?.message ?? t("tomorrow.goalCreateFailed"));
+    } finally {
+      setCreatingGoal(false);
     }
   }
 
@@ -1380,9 +1400,9 @@ export default function TodayPage() {
                     {t("today.forgotYesterday")}
                   </p>
                 </div>
-                {!showQuickAdd && (
+                {addFlowStep === "closed" && (
                   <button
-                    onClick={() => setShowQuickAdd(true)}
+                    onClick={() => setAddFlowStep("choice")}
                     className="btn btn-primary"
                     style={{
                       padding: "0.75rem 1.5rem",
@@ -1400,9 +1420,9 @@ export default function TodayPage() {
               <div>
                 <h3 className="text-sm font-bold text-amber-300">{t("today.needMoreGoals")}</h3>
               </div>
-              {!showQuickAdd && (
+              {addFlowStep === "closed" && (
                 <button
-                  onClick={() => setShowQuickAdd(true)}
+                  onClick={() => setAddFlowStep("choice")}
                   className="btn day-action-btn-sm metal-orange"
                   style={{
                     padding: "0.5rem 1rem",
@@ -1415,18 +1435,54 @@ export default function TodayPage() {
             </div>
           )}
 
-          {showQuickAdd && !dayClosed && (
+          {/* Goal Engine current-day Add flow -- type-first, same model as
+              Plan Tomorrow's Phase 4C: pick Standalone Task or Major Goal
+              before any title input appears, then a validated structured
+              form. Priority control reuses this page's own existing
+              PRIORITY_OPTIONS select (unchanged visual language) rather
+              than importing Plan Tomorrow's -- only the interaction
+              pattern is shared, not the styling, per "do not redesign the
+              rest of Review Today". */}
+          {addFlowStep !== "closed" && !dayClosed && (
               <div className="space-y-3 mt-4">
-                {quickAddGoals.map((g, idx) => (
-                  <div key={idx} className="space-y-2">
+                {addFlowStep === "choice" && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAddFlowStep("task")}
+                      className="btn"
+                      style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
+                    >
+                      {t("tomorrow.addChoiceTask")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddFlowStep("goal")}
+                      className="btn inline-flex items-center gap-1.5"
+                      style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
+                    >
+                      <Target size={13} /> {t("tomorrow.addChoiceGoal")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetAddFlow}
+                      className="btn btn-ghost"
+                      style={{ padding: "0.5rem 0.6rem" }}
+                      title={t("today.cancel")}
+                      aria-label={t("today.cancel")}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {addFlowStep === "task" && (
+                  <div className="space-y-2">
                     <div className="flex items-center gap-4">
                       <select
-                        value={g.priority}
-                        onChange={(e) => {
-                          const newGoals = [...quickAddGoals];
-                          newGoals[idx].priority = Number(e.target.value);
-                          setQuickAddGoals(newGoals);
-                        }}
+                        value={newTaskPriority}
+                        disabled={creatingTask}
+                        onChange={(e) => setNewTaskPriority(Number(e.target.value))}
                         className="appearance-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white/30"
                       >
                         {PRIORITY_OPTIONS.map((opt) => (
@@ -1437,83 +1493,129 @@ export default function TodayPage() {
                       </select>
                       <input
                         type="text"
-                        value={g.title}
-                        onChange={(e) => {
-                          const newGoals = [...quickAddGoals];
-                          newGoals[idx].title = e.target.value;
-                          setQuickAddGoals(newGoals);
+                        value={newTaskTitle}
+                        disabled={creatingTask}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCreateStandaloneTask();
+                          }
                         }}
-                        placeholder={t("today.goalPlaceholder", { n: idx + 1 })}
+                        placeholder={t("tomorrow.taskTitlePlaceholder")}
+                        autoFocus
                         className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
                       />
                     </div>
-                    {/* Stacked below rather than sharing the row above — a
-                        native time input has a minimum width it won't
-                        shrink past, which left the title almost no room on
-                        narrow phones when all three shared one flex row. */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="time"
-                        value={g.time_of_day}
-                        onChange={(e) => {
-                          const newGoals = [...quickAddGoals];
-                          newGoals[idx].time_of_day = e.target.value;
-                          setQuickAddGoals(newGoals);
-                        }}
-                        className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
-                        title={t("today.optionalTimeTitle")}
-                      />
-                      {acceptedConnections.length > 0 && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newGoals = [...quickAddGoals];
-                              newGoals[idx].assigneeType = newGoals[idx].assigneeType === "exclusive" ? "shared" : "exclusive";
-                              setQuickAddGoals(newGoals);
-                            }}
-                            className="rounded-lg border border-white/20 bg-white/10 px-1.5 py-1 text-white outline-none focus:border-white/40"
-                            title={g.assigneeType === "exclusive" ? t("goalAssign.exclusiveHint") : t("goalAssign.sharedHint")}
-                          >
-                            {g.assigneeType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                          </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleCreateStandaloneTask}
+                        disabled={creatingTask || !newTaskTitle.trim()}
+                        className="btn btn-primary"
+                      >
+                        {creatingTask ? t("today.adding") : t("tomorrow.createTaskButton")}
+                      </button>
+                      <button onClick={resetAddFlow} className="btn btn-ghost">
+                        {t("today.cancel")}
+                      </button>
+                    </div>
+                    {taskCreateError && <div className="text-xs text-red-400">{taskCreateError}</div>}
+                  </div>
+                )}
+
+                {addFlowStep === "goal" && (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={newGoalTitle}
+                      disabled={creatingGoal}
+                      onChange={(e) => setNewGoalTitle(e.target.value)}
+                      placeholder={t("tomorrow.goalTitlePlaceholder")}
+                      autoFocus
+                      className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
+                    />
+
+                    <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
+                      {t("tomorrow.goalTasksLabel")}
+                    </div>
+                    <div className="space-y-2">
+                      {newGoalTasks.map((tk, i) => (
+                        <div key={i} className="flex items-center gap-2">
                           <select
-                            value={g.assigneeId}
-                            onChange={(e) => {
-                              const newGoals = [...quickAddGoals];
-                              newGoals[idx].assigneeId = e.target.value;
-                              setQuickAddGoals(newGoals);
-                            }}
-                            className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-white text-xs outline-none focus:border-white/40"
+                            value={tk.priority}
+                            disabled={creatingGoal}
+                            onChange={(e) =>
+                              setNewGoalTasks((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, priority: Number(e.target.value) } : x))
+                              )
+                            }
+                            className="appearance-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-white/30"
                           >
-                            <option value="">{t("goalAssign.placeholder")}</option>
-                            {acceptedConnections.map((c) => (
-                              <option key={c.otherUserId} value={c.otherUserId}>
-                                {connectionDisplayName(c, t)}
+                            {PRIORITY_OPTIONS.map((opt) => (
+                              <option key={opt.v} value={opt.v}>
+                                {opt.icon} P{opt.v}
                               </option>
                             ))}
                           </select>
-                        </>
-                      )}
+                          <input
+                            type="text"
+                            value={tk.title}
+                            disabled={creatingGoal}
+                            onChange={(e) =>
+                              setNewGoalTasks((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x))
+                              )
+                            }
+                            placeholder={t("tomorrow.goalTaskPlaceholder", { n: i + 1 })}
+                            className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
+                          />
+                          {newGoalTasks.length > 2 && (
+                            <button
+                              type="button"
+                              disabled={creatingGoal}
+                              onClick={() => setNewGoalTasks((prev) => prev.filter((_, j) => j !== i))}
+                              className="btn flex-shrink-0"
+                              style={{ padding: "0.45rem" }}
+                              title={t("tomorrow.removeGoalTask")}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
+                    <button
+                      type="button"
+                      disabled={creatingGoal}
+                      onClick={() => setNewGoalTasks((prev) => [...prev, { title: "", priority: 3 }])}
+                      className="btn"
+                      style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
+                    >
+                      {t("tomorrow.addAnotherGoalTask")}
+                    </button>
 
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={handleQuickAdd}
-                    disabled={addingGoals}
-                    className="btn btn-primary"
-                  >
-                    {addingGoals ? t("today.adding") : t("today.addGoalsAction")}
-                  </button>
-                  <button
-                    onClick={() => setShowQuickAdd(false)}
-                    className="btn btn-ghost"
-                  >
-                    {t("today.cancel")}
-                  </button>
-                </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleCreateMajorGoal}
+                        disabled={!canCreateTodayMajorGoal}
+                        title={
+                          !newGoalTitle.trim()
+                            ? t("tomorrow.goalNeedsTitle")
+                            : validTodayGoalTaskCount < 2
+                            ? t("tomorrow.goalNeedsTwoTasks")
+                            : ""
+                        }
+                        className="btn btn-primary"
+                      >
+                        {creatingGoal ? t("today.adding") : t("tomorrow.createGoalButton")}
+                      </button>
+                      <button onClick={resetAddFlow} className="btn btn-ghost">
+                        {t("today.cancel")}
+                      </button>
+                    </div>
+                    {goalCreateError && <div className="text-xs text-red-400">{goalCreateError}</div>}
+                  </div>
+                )}
               </div>
             )}
         </div>
@@ -1556,7 +1658,7 @@ export default function TodayPage() {
 
         {/* Goals List with Beautiful Cards */}
         <div className="space-y-4">
-          {sortedGoals.length === 0 && !showQuickAdd && (
+          {sortedGoals.length === 0 && addFlowStep === "closed" && (
             <div className="text-white/70 text-center py-12">
               <ClipboardList className="mx-auto mb-4 text-white/40" size={40} strokeWidth={1.5} />
               <p className="text-lg mb-2">{t("today.noGoalsTodayEmpty")}</p>

@@ -1523,17 +1523,12 @@ export default function TomorrowGoalsPage() {
                     when all-day, same condition as before. */}
                 {!(g as any).is_all_day && (
                   <div
-                    className={`btn relative${g.time_of_day ? " btn-tint btn-amber-tint" : ""}`}
+                    className={`btn goal-toolbar-btn relative${g.time_of_day ? " btn-tint btn-amber-tint" : ""}`}
                     style={{
-                      padding: "0.2rem 0.55rem",
-                      fontSize: "0.7rem",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      flexShrink: 0,
                       opacity: locked || submitting || isExclusive ? 0.5 : 1,
                     }}
                   >
-                    <Clock size={13} />
+                    <Clock size={13} className="flex-shrink-0" />
                     <input
                       type="time"
                       value={g.time_of_day?.slice(0, 5) ?? ""}
@@ -1582,18 +1577,10 @@ export default function TomorrowGoalsPage() {
                   // uses) instead of a one-off inline color, so
                   // Time + All Day read as the same family of
                   // scheduling control.
-                  className={`btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
-                  style={{
-                    padding: "0.2rem 0.55rem",
-                    fontSize: "0.7rem",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.3rem",
-                    flexShrink: 0,
-                  }}
+                  className={`btn goal-toolbar-btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
                   title={t("tomorrow.allDayTitleTask")}
                 >
-                  {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
+                  {(g as any).is_all_day && <Sun size={12} className="flex-shrink-0" />} {t("tomorrow.allDay")}
                 </button>
               </div>
 

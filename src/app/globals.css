@@ -3200,11 +3200,24 @@ select:focus {
     inset 0 2px 2px rgba(255, 255, 255, 0.3),
     inset 0 -3px 4px rgba(0, 0, 0, 0.55),
     inset 2px 0 2px rgba(255, 255, 255, 0.08),
-    0 0 0 1.5px rgba(8, 9, 11, 0.8),
-    0 0 0 2.5px rgba(255, 255, 255, 0.08),
+    /* Warm bounce-light off the inner metal from the numeral's own glow
+       -- subtle, inset, same hot amber-orange/red family as the digit
+       below (not the --metal-color semantic reflection in ::after,
+       which is a separate, unrelated per-card tint). */
+    inset 0 0 6px 1px rgba(255, 92, 20, 0.16),
+    /* Outer rim -- thinned from 1.5px/0.8 opacity to 1px/0.5, still a
+       real dark separation from the card but no longer the dominant
+       feature of the sphere (explicit "noticeably thinner and less
+       dominant" call). Reflection ring right outside it shrinks to
+       match, same gap ratio as before. */
+    0 0 0 1px rgba(8, 9, 11, 0.5),
+    0 0 0 1.8px rgba(255, 255, 255, 0.08),
     0 1px 0 0 rgba(0, 0, 0, 0.5),
     0 3px 6px -1px rgba(0, 0, 0, 0.55),
-    0 0 11px 2px rgba(255, 176, 0, 0.32);
+    /* Ambient glow -- retuned from yellow-gold (255,176,0) to the same
+       hot amber-orange/red as the digit, opacity trimmed slightly so
+       it reads as restrained illumination, not neon bloom. */
+    0 0 11px 2px rgba(255, 90, 20, 0.28);
   z-index: 3;
   pointer-events: none;
 }
@@ -3237,18 +3250,27 @@ select:focus {
   font-weight: 900;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  background-image: radial-gradient(circle at 50% 32%, #fff4b0 0%, #ffc21a 36%, #ffb000 66%, #ff8a00 100%);
+  /* Hot amber-orange leaning red (StandUp's accent family), replacing
+     the previous yellow/gold-leaning gradient -- warm pale core so the
+     glyph still reads as illuminated rather than flat-painted, through
+     a hot orange mid-tone, to a red-orange edge. Never pure/flat red,
+     per explicit "avoid a flat solid-red appearance" call. */
+  background-image: radial-gradient(circle at 50% 32%, #ffe3c2 0%, #ff7a1f 38%, #ff4d0f 68%, #e32e05 100%);
   -webkit-background-clip: text;
   background-clip: text;
-  color: #ffc21a;
+  color: #ff5a1a;
   -webkit-text-fill-color: transparent;
   /* Crisp outline, tuned to sharpen the now-thicker glyph without
      swallowing its interior -- "the stroke exists to sharpen the
      shape, not dominate it." */
   -webkit-text-stroke: 1px rgba(0, 0, 0, 0.92);
+  /* Restrained warm glow around the numeral -- three tight layers
+     (crisp core / mid bloom / faint outer reach) instead of a wide
+     single blur, so it reads as an illuminated LED rather than neon. */
   text-shadow:
-    0 0 2px rgba(255, 244, 176, 0.9),
-    0 0 5px rgba(255, 178, 0, 0.6),
+    0 0 2px rgba(255, 227, 194, 0.9),
+    0 0 6px rgba(255, 90, 20, 0.65),
+    0 0 10px rgba(227, 46, 5, 0.35),
     0 1px 1px rgba(0, 0, 0, 0.4);
 }
 
@@ -3307,11 +3329,12 @@ select:focus {
     inset 0 2px 2px rgba(255, 255, 255, 0.8),
     inset 0 -3px 4px rgba(40, 42, 48, 0.4),
     inset 2px 0 2px rgba(255, 255, 255, 0.3),
-    0 0 0 1.5px rgba(8, 9, 11, 0.85),
-    0 0 0 2.5px rgba(255, 255, 255, 0.5),
+    inset 0 0 6px 1px rgba(255, 92, 20, 0.12),
+    0 0 0 1px rgba(8, 9, 11, 0.55),
+    0 0 0 1.8px rgba(255, 255, 255, 0.5),
     0 1px 0 0 rgba(40, 42, 48, 0.16),
     0 3px 6px -1px rgba(40, 32, 28, 0.32),
-    0 0 8px 1px rgba(255, 176, 0, 0.16);
+    0 0 8px 1px rgba(255, 90, 20, 0.16);
 }
 
 .goal-row:hover {

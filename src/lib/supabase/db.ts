@@ -970,6 +970,7 @@ export async function upsertGoals(
         time_of_day: g.time_of_day || null,
         is_all_day: !!(g as any).is_all_day,
         link_url: (g as any).link_url || null,
+        outcome_goal_id: (g as any).outcome_goal_id || null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;
@@ -995,6 +996,7 @@ export async function upsertGoals(
         time_of_day: g.time_of_day || null,
         is_all_day: !!(g as any).is_all_day,
         link_url: (g as any).link_url || null,
+        outcome_goal_id: (g as any).outcome_goal_id || null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;

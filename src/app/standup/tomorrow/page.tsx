@@ -31,6 +31,7 @@ import {
   getStreakPassCoveredDates,
   useStreakPass,
   rescheduleGoalToDate,
+  getOutcomeGoals,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
@@ -39,6 +40,7 @@ import {
   type GoalAssignmentType,
   type Goal,
   type StreakPassBalance,
+  type OutcomeGoal,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -63,7 +65,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -132,6 +134,15 @@ export default function TomorrowGoalsPage() {
   const [openPrivacyMenuId, setOpenPrivacyMenuId] = useState<string | null>(null);
   const privacyMenuRef = useRef<HTMLDivElement | null>(null);
 
+  // Goal Engine Phase 3 — optional Task -> Outcome Goal link. Loaded once
+  // (all statuses, so an already-linked Task can still show a Goal that's
+  // since gone completed/abandoned); the picker's own option list filters
+  // to active only, per spec. Same single-ref click-outside pattern as the
+  // Exclusive/Shared menu above.
+  const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
+  const [openGoalPickerId, setOpenGoalPickerId] = useState<string | null>(null);
+  const goalPickerMenuRef = useRef<HTMLDivElement | null>(null);
+
   const inputRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
 
@@ -159,6 +170,12 @@ export default function TomorrowGoalsPage() {
   }, []);
 
   useEffect(() => {
+    getOutcomeGoals()
+      .then(setOutcomeGoals)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (scrolledToHighlightRef.current || loading || !highlightGoalId) return;
     const el = document.querySelector(`[data-goal-id="${highlightGoalId}"]`);
     if (el) {
@@ -178,6 +195,17 @@ export default function TomorrowGoalsPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openPrivacyMenuId]);
+
+  useEffect(() => {
+    if (!openGoalPickerId) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (goalPickerMenuRef.current && !goalPickerMenuRef.current.contains(e.target as Node)) {
+        setOpenGoalPickerId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openGoalPickerId]);
 
   function refreshGoalAssignments() {
     return getMyGoalAssignments()
@@ -1097,6 +1125,81 @@ export default function TomorrowGoalsPage() {
                             {(g as any).link_url ? <Link2 size={13} /> : <Plus size={13} />}
                             <span className="goal-toolbar-label">{t("tomorrow.link")}</span>
                           </button>
+                        )}
+
+                        {/* Goal Engine Phase 3 — optional link to an
+                            Outcome Goal. Same conn-card-menu dropdown
+                            pattern as the Exclusive/Shared picker below,
+                            single-select over active Outcome Goals plus a
+                            "No Goal" clear option. */}
+                        {g.id && (
+                          <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
+                            <button
+                              type="button"
+                              disabled={locked || isExclusive}
+                              onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
+                              className="btn goal-toolbar-btn"
+                              title={
+                                (g as any).outcome_goal_id
+                                  ? outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title
+                                  : t("tomorrow.goalPickerLabel")
+                              }
+                            >
+                              <Target size={13} />
+                              <span
+                                className="goal-toolbar-label truncate"
+                                style={{ maxWidth: "110px", display: "inline-block" }}
+                              >
+                                {(g as any).outcome_goal_id
+                                  ? (outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title ?? t("tomorrow.goalPickerLabel"))
+                                  : t("tomorrow.goalPickerLabel")}
+                              </span>
+                              <ChevronDown size={12} className="text-white/40" />
+                            </button>
+                            {openGoalPickerId === g.id && (
+                              <div className="conn-card-menu" style={{ minWidth: "200px", maxWidth: "260px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setGoals((prev) =>
+                                      prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: null } : x))
+                                    );
+                                    setOpenGoalPickerId(null);
+                                    scheduleAutoSave();
+                                  }}
+                                  className="conn-card-menu-item"
+                                  style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                                >
+                                  <span className="inline-flex items-center gap-1.5">
+                                    {t("tomorrow.goalPickerNoGoal")}
+                                    {!(g as any).outcome_goal_id && <Check size={12} className="text-emerald-400" />}
+                                  </span>
+                                  <span className="text-[10px] text-white/45">{t("tomorrow.goalPickerNoGoalDesc")}</span>
+                                </button>
+                                {outcomeGoals
+                                  .filter((o) => o.status === "active")
+                                  .map((o) => (
+                                    <button
+                                      key={o.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setGoals((prev) =>
+                                          prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: o.id } : x))
+                                        );
+                                        setOpenGoalPickerId(null);
+                                        scheduleAutoSave();
+                                      }}
+                                      className="conn-card-menu-item"
+                                    >
+                                      <span className="truncate min-w-0 flex-1">{o.title}</span>
+                                      {(g as any).outcome_goal_id === o.id && (
+                                        <Check size={12} className="text-emerald-400 flex-shrink-0" />
+                                      )}
+                                    </button>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {/* Exclusive/Shared + Assign — same row now

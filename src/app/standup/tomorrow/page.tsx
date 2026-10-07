@@ -2024,7 +2024,7 @@ export default function TomorrowGoalsPage() {
                     className="btn hover-scale inline-flex items-center gap-1.5"
                     style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                   >
-                    <Plus size={13} /> {t("tomorrow.addAnotherGoalTask")}
+                    {t("tomorrow.addAnotherGoalTask")}
                   </button>
 
                   <div className="flex items-center gap-2">

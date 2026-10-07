@@ -748,6 +748,22 @@ async function materializeReschedules(planId: string, planDateISO: string) {
     if (existingErr) throw existingErr;
     let nextSortOrder = existingGoals && existingGoals.length > 0 ? existingGoals[0].sort_order + 1 : 0;
 
+    // A rescheduled Task that belongs to a Major/Outcome Goal must keep
+    // that membership on the new day's row -- the original goal row (never
+    // deleted, only marked postponed) still carries it, so it's looked up
+    // here rather than snapshotted onto goal_reschedules (no schema change
+    // needed). A standalone Task's from_goal_id simply has no entry in this
+    // map, so it stays standalone (outcome_goal_id ends up null below).
+    const fromGoalIds = Array.from(new Set(pending.map((item) => item.from_goal_id)));
+    const { data: originGoals, error: originErr } = await supabase
+      .from("goals")
+      .select("id, outcome_goal_id")
+      .in("id", fromGoalIds);
+    if (originErr) throw originErr;
+    const outcomeGoalIdByFromGoalId = new Map(
+      (originGoals ?? []).map((og) => [og.id, og.outcome_goal_id as string | null])
+    );
+
     let materializedCount = 0;
     for (const item of pending) {
       const { data: already, error: alreadyErr } = await supabase
@@ -771,6 +787,7 @@ async function materializeReschedules(planId: string, planDateISO: string) {
           status: "not_started",
           sort_order: nextSortOrder++,
           priority: typeof item.snapshot_priority === "number" ? item.snapshot_priority : 3,
+          outcome_goal_id: outcomeGoalIdByFromGoalId.get(item.from_goal_id) ?? null,
         })
         .select("id")
         .single();

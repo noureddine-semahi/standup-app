@@ -582,6 +582,33 @@ export default function TomorrowGoalsPage() {
     });
   }
 
+  // Goal Engine Phase 4B — "+ Add Task" nested inside a Goal card. Exact
+  // mirror of addMoreGoal() above, the only difference is the new row
+  // starts pre-linked to that Goal. inputRefs/pendingFocusIndex are plain
+  // index-keyed arrays/state, not tied to DOM position, so the usual
+  // focus-the-new-row behavior works identically even though this row
+  // renders inside a Goal card instead of the flat list.
+  function addTaskLinkedToGoal(outcomeGoalId: string) {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    setGoals((prev) => {
+      if (prev.length >= MAX_GOALS) {
+        setMsg(t("tomorrow.maxGoals", { max: MAX_GOALS }));
+        return prev;
+      }
+      const nextIndex = prev.length;
+      const next = [
+        ...prev,
+        { title: "", sort_order: nextIndex, priority: DEFAULT_PRIORITY, outcome_goal_id: outcomeGoalId },
+      ];
+      setPendingFocusIndex(nextIndex);
+      return next;
+    });
+  }
+
   // Goal titles are editable textareas, not inputs, so a long auto-generated
   // title (e.g. a payment reminder's "Pay X — $Y min due Z") wraps instead
   // of silently scrolling off the visible width. Grows to fit its content
@@ -871,6 +898,573 @@ export default function TomorrowGoalsPage() {
   const totalGoalsFilled = normalized.filter((g) => (g.title ?? "").trim().length > 0).length;
   const goalsProgressPercent = Math.min(100, Math.round((totalGoalsFilled / MAX_GOALS) * 100));
 
+  // Goal Engine Phase 4B — the per-task card, extracted verbatim out of
+  // what used to be a single inline .map() callback so it can be called
+  // from three places (the unchanged flat/editMode list, each active
+  // Goal's nested task list, and the standalone-tasks list) without a
+  // second copy of this markup ever existing. `cardNumber` replaces the
+  // old `displayIdx + 1` (now computed per-section instead of globally --
+  // a continuous 1..N badge across multiple Goal cards plus a standalone
+  // section wouldn't read sensibly once the list is grouped).
+  // `showOptionalDivider` replaces the old `displayIdx === 3` check the
+  // same way -- callers decide whether/where their own section's
+  // required/optional boundary falls.
+  function renderTaskCard(
+    { g, originalIdx }: { g: DraftGoal; originalIdx: number },
+    cardNumber: number,
+    showOptionalDivider: boolean
+  ) {
+    const idx = originalIdx;
+    const p =
+      typeof g.priority === "number" && Number.isFinite(g.priority)
+        ? g.priority
+        : DEFAULT_PRIORITY;
+    const opt = getPriorityMeta(p);
+    // Set once this goal has been assigned out to a connection
+    // (and they haven't declined) — shows the recipient's live
+    // status either way. "shared" always stays fully editable.
+    // "exclusive" only locks these still-being-drafted fields once
+    // the recipient has actually accepted — while pending, nothing
+    // has been handed off yet. Locking title/time/priority for
+    // exclusive here (unlike Today, which only locks checklist/
+    // attachments/link/priority) matters because these fields are
+    // still live-editable up until submission -- continuing to
+    // edit them after acceptance would silently diverge from the
+    // frozen snapshot the recipient already has, since assignment
+    // never re-syncs.
+    const assignment = g.id ? assignedOutByGoalId.get(g.id) : undefined;
+    const received = g.id ? receivedByGoalId.get(g.id) : undefined;
+    const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+
+    return (
+      <div key={g.id ?? `row-${idx}`}>
+        {showOptionalDivider && (
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+            <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
+              {t("tomorrow.optionalGoals")}
+            </div>
+            <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
+          </div>
+        )}
+
+        {/* Goal row with drag-drop support */}
+        <div
+          draggable={editMode && !locked && !submitting}
+          onDragStart={() => handleDragStart(idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDragEnd={handleDragEnd}
+          data-goal-id={g.id}
+          className={`goal-row${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
+          // Phase 8B: reuses the exact "quiet" edge-weight tier
+          // Phase 7B already built for Today's P3 cards (see
+          // globals.css) -- P3/amber reads louder than every other
+          // priority at the shared border-mix ratio purely because
+          // its hue has much higher perceived luminance, not
+          // because P3 is meant to outweigh P1/P2. Tomorrow never
+          // had this attribute wired in, so its P3 cards had the
+          // same un-corrected imbalance Today's did before Phase
+          // 7B. No new CSS -- same tier, same class, just applied
+          // here too.
+          data-edge-weight={p === 3 ? "quiet" : undefined}
+          style={{
+            "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
+            cursor: editMode ? "move" : "default",
+            opacity: draggedIdx === idx ? 0.5 : 1,
+          } as React.CSSProperties}
+        >
+          {/* Drag handle */}
+          {editMode && (
+            <div
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
+              style={{ color: "rgba(var(--tint-rgb),0.3)" }}
+            >
+              ⋮⋮
+            </div>
+          )}
+
+          {/* Number badge — a small corner tag flush with the card's
+              own top-left border/radius, instead of a free-floating
+              circle competing with the goal title for horizontal space. */}
+          <GoalNumberOrb number={cardNumber} />
+          {/* Mirrors the number badge on the opposite corner —
+              moved here from an inline button next to the priority
+              select, same as Today's goal-delete-corner-btn. */}
+          {!locked && !isExclusive && (
+            <button
+              type="button"
+              onClick={() => removeGoal(idx)}
+              disabled={submitting}
+              className="goal-delete-corner-btn"
+              title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
+            >
+              <X size={12} />
+            </button>
+          )}
+
+          <div className="goal-row-body">
+          <div className="goal-row-cols">
+            {/* Goal — static, ~45% */}
+            <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
+              {/* Priority sits right beside the title now — it's
+                  important-enough information that a user
+                  shouldn't have to scan all the way down the card
+                  to find it (explicit user call). */}
+              <div className="flex items-start gap-2">
+                <textarea
+                  ref={(el) => {
+                    inputRefs.current[idx] = el;
+                    autoResizeTextarea(el);
+                  }}
+                  rows={1}
+                  value={g.title ?? ""}
+                  disabled={locked || submitting || isExclusive}
+                  onKeyDown={(e) => onGoalKeyDown(e, idx)}
+                  onBlur={() => {
+                    if (skipNextBlurAutosaveRef.current) {
+                      skipNextBlurAutosaveRef.current = false;
+                      return;
+                    }
+                    if (priorityChangeInProgressRef.current) {
+                      return;
+                    }
+                    scheduleAutoSave();
+                  }}
+                  onChange={(e) => {
+                    setGoals((prev) =>
+                      prev.map((x, i) =>
+                        i === idx ? { ...x, title: e.target.value } : x
+                      )
+                    );
+                    autoResizeTextarea(e.target);
+                  }}
+                  placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
+                  className="goal-title-input flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
+                  style={{ overflow: "hidden", lineHeight: 1.3 }}
+                />
+                <select
+                  value={p}
+                  disabled={locked || submitting || isExclusive}
+                  onChange={(e) => {
+                    priorityChangeInProgressRef.current = true;
+                    const v = Number(e.target.value);
+                    setGoals((prev) => applyPriorityChange(prev, idx, v));
+                  }}
+                  className="priority-select"
+                  style={{
+                    "--p-bg": opt.bg,
+                    "--p-border": opt.border,
+                    "--p-color": opt.color,
+                    flexShrink: 0,
+                    marginTop: "2px",
+                  } as React.CSSProperties}
+                >
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <option key={v} value={v}>
+                      P{v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Goal toolbar — Checklist/Files/Link/Exclusive-or-
+                  Shared/Assign, redesigned into one integrated row
+                  (was two separate rows of plain gray buttons).
+                  Visual/layout only: every control below still
+                  calls the exact same handlers as before. */}
+              <div className="goal-toolbar">
+                {g.id && (
+                  <>
+                    <GoalChecklist
+                      compact
+                      goalId={g.id}
+                      items={checklistItems[g.id] ?? []}
+                      onItemsChange={(items) =>
+                        setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                      }
+                      readOnly={locked || isExclusive}
+                    />
+                    <GoalAttachments
+                      compact
+                      goalId={g.id}
+                      items={attachments[g.id] ?? []}
+                      onItemsChange={(items) =>
+                        setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
+                      }
+                      readOnly={locked || isExclusive}
+                    />
+                  </>
+                )}
+                {((g as any).link_url || !isExclusive) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isExclusive) {
+                        if ((g as any).link_url) window.open((g as any).link_url, "_blank", "noopener,noreferrer");
+                        return;
+                      }
+                      setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }));
+                    }}
+                    className="btn btn-tint btn-teal goal-toolbar-btn"
+                    title={(g as any).link_url ? (g as any).link_url : t("tomorrow.attachLink")}
+                  >
+                    {(g as any).link_url ? <Link2 size={13} /> : <Plus size={13} />}
+                    <span className="goal-toolbar-label">{t("tomorrow.link")}</span>
+                  </button>
+                )}
+
+                {/* Goal Engine Phase 3 — optional link to an
+                    Outcome Goal. Same conn-card-menu dropdown
+                    pattern as the Exclusive/Shared picker below,
+                    single-select over active Outcome Goals plus a
+                    "No Goal" clear option. */}
+                {g.id && (
+                  <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
+                    <button
+                      type="button"
+                      disabled={locked || isExclusive}
+                      onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
+                      className="btn goal-toolbar-btn"
+                      title={
+                        (g as any).outcome_goal_id
+                          ? outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title
+                          : t("tomorrow.goalPickerLabel")
+                      }
+                    >
+                      <Target size={13} />
+                      <span
+                        className="goal-toolbar-label truncate"
+                        style={{ maxWidth: "110px", display: "inline-block" }}
+                      >
+                        {(g as any).outcome_goal_id
+                          ? (outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title ?? t("tomorrow.goalPickerLabel"))
+                          : t("tomorrow.goalPickerLabel")}
+                      </span>
+                      <ChevronDown size={12} className="text-white/40" />
+                    </button>
+                    {openGoalPickerId === g.id && (
+                      <div className="conn-card-menu" style={{ minWidth: "200px", maxWidth: "260px" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGoals((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: null } : x))
+                            );
+                            setOpenGoalPickerId(null);
+                            scheduleAutoSave();
+                          }}
+                          className="conn-card-menu-item"
+                          style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            {t("tomorrow.goalPickerNoGoal")}
+                            {!(g as any).outcome_goal_id && <Check size={12} className="text-emerald-400" />}
+                          </span>
+                          <span className="text-[10px] text-white/45">{t("tomorrow.goalPickerNoGoalDesc")}</span>
+                        </button>
+                        {outcomeGoals
+                          .filter((o) => o.status === "active")
+                          .map((o) => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => {
+                                setGoals((prev) =>
+                                  prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: o.id } : x))
+                                );
+                                setOpenGoalPickerId(null);
+                                scheduleAutoSave();
+                              }}
+                              className="conn-card-menu-item"
+                            >
+                              <span className="truncate min-w-0 flex-1">{o.title}</span>
+                              {(g as any).outcome_goal_id === o.id && (
+                                <Check size={12} className="text-emerald-400 flex-shrink-0" />
+                              )}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Exclusive/Shared + Assign — same row now
+                    instead of a separate line below; both only
+                    show pre-assignment, same as before
+                    (assignment/received replace them with the
+                    status line underneath). */}
+                {!assignment && !received && g.id && acceptedConnections.length > 0 && (
+                  <>
+                    <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
+                        className="btn goal-toolbar-btn"
+                      >
+                        {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive" ? (
+                          <Lock size={13} />
+                        ) : (
+                          <Unlock size={13} />
+                        )}
+                        <span className="goal-toolbar-label">
+                          {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive"
+                            ? t("goalAssign.exclusiveShort")
+                            : t("goalAssign.sharedShort")}
+                        </span>
+                        <ChevronDown size={12} className="text-white/40" />
+                      </button>
+                      {openPrivacyMenuId === g.id && (
+                        <div className="conn-card-menu" style={{ minWidth: "210px" }}>
+                          {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => {
+                                setAssignTypeByGoalId((prev) => ({ ...prev, [g.id as string]: option }));
+                                setOpenPrivacyMenuId(null);
+                              }}
+                              className="conn-card-menu-item"
+                              style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                            >
+                              <span className="inline-flex items-center gap-1.5">
+                                {option === "exclusive" ? <Lock size={12} /> : <Unlock size={12} />}
+                                {option === "exclusive" ? t("goalAssign.exclusiveShort") : t("goalAssign.sharedShort")}
+                                {(assignTypeByGoalId[g.id as string] ?? "exclusive") === option && (
+                                  <Check size={12} className="text-emerald-400" />
+                                )}
+                              </span>
+                              <span className="text-[10px] text-white/45">
+                                {option === "exclusive" ? t("goalAssign.exclusiveDesc") : t("goalAssign.sharedDesc")}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative inline-flex items-center">
+                      <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
+                      <select
+                        value=""
+                        disabled={assigningGoalIds.has(g.id as string) || locked}
+                        onChange={(e) => {
+                          const recipientId = e.target.value;
+                          if (recipientId) handleAssignGoal(g.id as string, recipientId);
+                        }}
+                        className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
+                        style={{ paddingLeft: "1.7rem" }}
+                      >
+                        <option value="" disabled>
+                          {t("goalAssign.placeholder")}
+                        </option>
+                        {acceptedConnections.map((c) => (
+                          <option key={c.otherUserId} value={c.otherUserId}>
+                            {connectionDisplayName(c, t)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Assignment status — once assigned (either
+                  direction), replaces the Exclusive/Shared+Assign
+                  controls above with a read-only status line. */}
+              {(assignment || received) && (
+                <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
+                  {assignment ? (
+                    <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                      {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                      {t("goalAssign.assignedToLabel", {
+                        name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                      })}
+                      {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                      {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                        <span className="inline-flex items-center gap-1">
+                          · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
+                          {statusLabel(assignment.recipientGoalStatus, t)}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    // A goal that's itself the product of an
+                    // assignment I received -- locked from being
+                    // re-assigned onward (see receivedByGoalId above).
+                    <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                      <Lock size={11} />
+                      {t("social.assignedByLabel", {
+                        name: received!.assignerDisplayName ?? t("social.anonymousUser"),
+                      })}
+                    </span>
+                  )}
+                </div>
+              )}
+              {assignError && <div className="mt-1 text-[11px] text-red-400">{assignError}</div>}
+
+              {!isExclusive && showLinkInput[idx] && (
+                <input
+                  type="url"
+                  value={(g as any).link_url ?? ""}
+                  disabled={locked || submitting}
+                  onChange={(e) =>
+                    setGoals((prev) =>
+                      prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
+                    )
+                  }
+                  onBlur={() => {
+                    if (skipNextBlurAutosaveRef.current) {
+                      skipNextBlurAutosaveRef.current = false;
+                      return;
+                    }
+                    scheduleAutoSave();
+                  }}
+                  placeholder={t("tomorrow.urlPlaceholder")}
+                  className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                />
+              )}
+
+              <div className="mt-2 flex items-center gap-2">
+                {!(g as any).is_all_day && (
+                  <input
+                    type="time"
+                    value={g.time_of_day?.slice(0, 5) ?? ""}
+                    disabled={locked || submitting || isExclusive}
+                    onBlur={() => {
+                      if (skipNextBlurAutosaveRef.current) {
+                        skipNextBlurAutosaveRef.current = false;
+                        return;
+                      }
+                      if (priorityChangeInProgressRef.current) {
+                        return;
+                      }
+                      scheduleAutoSave();
+                    }}
+                    onChange={(e) =>
+                      setGoals((prev) =>
+                        prev.map((x, i) =>
+                          i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                        )
+                      )
+                    }
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                    title={t("tomorrow.optionalTimeTitle")}
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={locked || submitting || isExclusive}
+                  onClick={() => {
+                    setGoals((prev) =>
+                      prev.map((x, i) =>
+                        i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
+                      )
+                    );
+                    scheduleAutoSave();
+                  }}
+                  // Phase 8B: was a plain .btn with an inline
+                  // background/borderColor override for the
+                  // selected state -- the exact "bypasses the
+                  // shared system" pattern found and fixed on
+                  // Today's buttons in earlier phases. Reuses the
+                  // existing .btn-tint/.btn-amber-tint combo (the
+                  // same amber accent the Assign control already
+                  // uses) instead of a one-off inline color, so
+                  // Time + All Day read as the same family of
+                  // scheduling control.
+                  className={`btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
+                  style={{
+                    padding: "0.2rem 0.55rem",
+                    fontSize: "0.7rem",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                  }}
+                  title={t("tomorrow.allDayTitle")}
+                >
+                  {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
+                </button>
+              </div>
+
+              {g.rescheduled_from_date && (
+                <div className="mt-2 flex items-start gap-2">
+                  <Redo2 className="text-yellow-400 mt-0.5" size={13} />
+                  <div>
+                    <div className="text-xs text-yellow-300/90 font-medium">
+                      {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
+                    </div>
+                    {g.reschedule_reason && (
+                      <div className="text-xs text-white/60 italic mt-0.5">
+                        "{g.reschedule_reason}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* History & notes — merged chronological timeline, same
+                component as Review Today and the Calendar archive
+                view, instead of separate Notes/History tabs. */}
+            <div style={{ flex: "1 1 40%", minWidth: "220px" }}>
+              {!g.id ? (
+                <div className="text-xs text-white/30 italic">{t("tomorrow.saveToAddNotes")}</div>
+              ) : (
+                <>
+                  <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [], t)} />
+                  {showNoteInput[g.id] && (
+                    <div className="mt-3 flex gap-2">
+                      <input
+                        type="text"
+                        value={noteDraft[g.id] ?? ""}
+                        onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id as string]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") submitNote(g.id as string, idx);
+                        }}
+                        placeholder={t("tomorrow.addNotePlaceholder")}
+                        disabled={!!savingNote[g.id]}
+                        autoFocus
+                        className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => submitNote(g.id as string, idx)}
+                        disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
+                        className="btn"
+                        style={{ padding: "0.375rem 1rem" }}
+                      >
+                        {savingNote[g.id] ? t("tomorrow.adding") : t("tomorrow.add")}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Comment/note toggle — the one remaining control in
+                this column now that priority lives beside the
+                title; a secondary icon action, not competing with
+                priority/status for visual weight. */}
+            {g.id && (
+              <div className="flex items-center justify-end flex-shrink-0 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id as string]: !prev[g.id as string] }))}
+                  className="actions-toggle"
+                  data-open={!!showNoteInput[g.id]}
+                  title={t("tomorrow.addNoteTitle")}
+                >
+                  <MessageCircle size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="card card-highlight tomorrow-page-card"
@@ -958,559 +1552,80 @@ export default function TomorrowGoalsPage() {
           </div>
         )}
 
-        <div className="space-y-4">
-          {sortedForDisplay.map(({ g, originalIdx }, displayIdx) => {
-            const idx = originalIdx;
-            const p =
-              typeof g.priority === "number" && Number.isFinite(g.priority)
-                ? g.priority
-                : DEFAULT_PRIORITY;
-            const opt = getPriorityMeta(p);
-            // Set once this goal has been assigned out to a connection
-            // (and they haven't declined) — shows the recipient's live
-            // status either way. "shared" always stays fully editable.
-            // "exclusive" only locks these still-being-drafted fields once
-            // the recipient has actually accepted — while pending, nothing
-            // has been handed off yet. Locking title/time/priority for
-            // exclusive here (unlike Today, which only locks checklist/
-            // attachments/link/priority) matters because these fields are
-            // still live-editable up until submission -- continuing to
-            // edit them after acceptance would silently diverge from the
-            // frozen snapshot the recipient already has, since assignment
-            // never re-syncs.
-            const assignment = g.id ? assignedOutByGoalId.get(g.id) : undefined;
-            const received = g.id ? receivedByGoalId.get(g.id) : undefined;
-            const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
-
-            return (
-              <div key={g.id ?? `row-${idx}`}>
-                {displayIdx === 3 && (
-                  <div className="my-6 flex items-center gap-4">
-                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-                    <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-                      {t("tomorrow.optionalGoals")}
+        {editMode ? (
+          // Reorder mode — unchanged flat list. handleDragOver splices the
+          // real `goals` array by raw index and has no concept of Goal
+          // grouping, so reordering stays on the simple view it already
+          // works correctly against rather than inventing cross-card drag
+          // semantics Phase 4B never asked for.
+          <div className="space-y-4">
+            {sortedForDisplay.map(({ g, originalIdx }, displayIdx) =>
+              renderTaskCard({ g, originalIdx }, displayIdx + 1, displayIdx === 3)
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Goal Engine Phase 4B — every active Outcome Goal gets its
+                own minimal card: title + its linked Tasks (reusing
+                renderTaskCard exactly, same as the standalone list below)
+                + a Goal-scoped "+ Add Task" that creates a normal Task
+                pre-linked to this Goal (addTaskLinkedToGoal). A freshly
+                created Goal with zero Tasks still renders its card, so
+                "+ Add Task" is reachable immediately. */}
+            {outcomeGoals
+              .filter((goal) => goal.status === "active")
+              .map((goal) => {
+                const items = sortedForDisplay.filter(({ g }) => (g as any).outcome_goal_id === goal.id);
+                return (
+                  <div
+                    key={goal.id}
+                    className="rounded-2xl"
+                    style={{
+                      background: "rgba(var(--tint-rgb), 0.03)",
+                      border: "1px solid rgba(var(--tint-rgb), 0.08)",
+                      padding: "1rem",
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Target size={16} className="text-pink-400 flex-shrink-0" />
+                      <h3 className="text-base font-semibold text-white truncate">{goal.title}</h3>
                     </div>
-                    <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-                  </div>
-                )}
-
-                {/* Goal row with drag-drop support */}
-                <div
-                  draggable={editMode && !locked && !submitting}
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDragEnd={handleDragEnd}
-                  data-goal-id={g.id}
-                  className={`goal-row${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
-                  // Phase 8B: reuses the exact "quiet" edge-weight tier
-                  // Phase 7B already built for Today's P3 cards (see
-                  // globals.css) -- P3/amber reads louder than every other
-                  // priority at the shared border-mix ratio purely because
-                  // its hue has much higher perceived luminance, not
-                  // because P3 is meant to outweigh P1/P2. Tomorrow never
-                  // had this attribute wired in, so its P3 cards had the
-                  // same un-corrected imbalance Today's did before Phase
-                  // 7B. No new CSS -- same tier, same class, just applied
-                  // here too.
-                  data-edge-weight={p === 3 ? "quiet" : undefined}
-                  style={{
-                    "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
-                    cursor: editMode ? "move" : "default",
-                    opacity: draggedIdx === idx ? 0.5 : 1,
-                  } as React.CSSProperties}
-                >
-                  {/* Drag handle */}
-                  {editMode && (
-                    <div
-                      className="absolute left-2 top-1/2 -translate-y-1/2 text-3xl pointer-events-none"
-                      style={{ color: "rgba(var(--tint-rgb),0.3)" }}
-                    >
-                      ⋮⋮
-                    </div>
-                  )}
-
-                  {/* Number badge — a small corner tag flush with the card's
-                      own top-left border/radius, instead of a free-floating
-                      circle competing with the goal title for horizontal space. */}
-                  <GoalNumberOrb number={displayIdx + 1} />
-                  {/* Mirrors the number badge on the opposite corner —
-                      moved here from an inline button next to the priority
-                      select, same as Today's goal-delete-corner-btn. */}
-                  {!locked && !isExclusive && (
-                    <button
-                      type="button"
-                      onClick={() => removeGoal(idx)}
-                      disabled={submitting}
-                      className="goal-delete-corner-btn"
-                      title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityGoal") : t("tomorrow.removeGoal")}
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-
-                  <div className="goal-row-body">
-                  <div className="goal-row-cols">
-                    {/* Goal — static, ~45% */}
-                    <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
-                      {/* Priority sits right beside the title now — it's
-                          important-enough information that a user
-                          shouldn't have to scan all the way down the card
-                          to find it (explicit user call). */}
-                      <div className="flex items-start gap-2">
-                        <textarea
-                          ref={(el) => {
-                            inputRefs.current[idx] = el;
-                            autoResizeTextarea(el);
-                          }}
-                          rows={1}
-                          value={g.title ?? ""}
-                          disabled={locked || submitting || isExclusive}
-                          onKeyDown={(e) => onGoalKeyDown(e, idx)}
-                          onBlur={() => {
-                            if (skipNextBlurAutosaveRef.current) {
-                              skipNextBlurAutosaveRef.current = false;
-                              return;
-                            }
-                            if (priorityChangeInProgressRef.current) {
-                              return;
-                            }
-                            scheduleAutoSave();
-                          }}
-                          onChange={(e) => {
-                            setGoals((prev) =>
-                              prev.map((x, i) =>
-                                i === idx ? { ...x, title: e.target.value } : x
-                              )
-                            );
-                            autoResizeTextarea(e.target);
-                          }}
-                          placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
-                          className="goal-title-input flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
-                          style={{ overflow: "hidden", lineHeight: 1.3 }}
-                        />
-                        <select
-                          value={p}
-                          disabled={locked || submitting || isExclusive}
-                          onChange={(e) => {
-                            priorityChangeInProgressRef.current = true;
-                            const v = Number(e.target.value);
-                            setGoals((prev) => applyPriorityChange(prev, idx, v));
-                          }}
-                          className="priority-select"
-                          style={{
-                            "--p-bg": opt.bg,
-                            "--p-border": opt.border,
-                            "--p-color": opt.color,
-                            flexShrink: 0,
-                            marginTop: "2px",
-                          } as React.CSSProperties}
-                        >
-                          {[1, 2, 3, 4, 5].map((v) => (
-                            <option key={v} value={v}>
-                              P{v}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Goal toolbar — Checklist/Files/Link/Exclusive-or-
-                          Shared/Assign, redesigned into one integrated row
-                          (was two separate rows of plain gray buttons).
-                          Visual/layout only: every control below still
-                          calls the exact same handlers as before. */}
-                      <div className="goal-toolbar">
-                        {g.id && (
-                          <>
-                            <GoalChecklist
-                              compact
-                              goalId={g.id}
-                              items={checklistItems[g.id] ?? []}
-                              onItemsChange={(items) =>
-                                setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
-                              }
-                              readOnly={locked || isExclusive}
-                            />
-                            <GoalAttachments
-                              compact
-                              goalId={g.id}
-                              items={attachments[g.id] ?? []}
-                              onItemsChange={(items) =>
-                                setAttachments((prev) => ({ ...prev, [g.id as string]: items }))
-                              }
-                              readOnly={locked || isExclusive}
-                            />
-                          </>
-                        )}
-                        {((g as any).link_url || !isExclusive) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isExclusive) {
-                                if ((g as any).link_url) window.open((g as any).link_url, "_blank", "noopener,noreferrer");
-                                return;
-                              }
-                              setShowLinkInput((prev) => ({ ...prev, [idx]: !prev[idx] }));
-                            }}
-                            className="btn btn-tint btn-teal goal-toolbar-btn"
-                            title={(g as any).link_url ? (g as any).link_url : t("tomorrow.attachLink")}
-                          >
-                            {(g as any).link_url ? <Link2 size={13} /> : <Plus size={13} />}
-                            <span className="goal-toolbar-label">{t("tomorrow.link")}</span>
-                          </button>
-                        )}
-
-                        {/* Goal Engine Phase 3 — optional link to an
-                            Outcome Goal. Same conn-card-menu dropdown
-                            pattern as the Exclusive/Shared picker below,
-                            single-select over active Outcome Goals plus a
-                            "No Goal" clear option. */}
-                        {g.id && (
-                          <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
-                            <button
-                              type="button"
-                              disabled={locked || isExclusive}
-                              onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
-                              className="btn goal-toolbar-btn"
-                              title={
-                                (g as any).outcome_goal_id
-                                  ? outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title
-                                  : t("tomorrow.goalPickerLabel")
-                              }
-                            >
-                              <Target size={13} />
-                              <span
-                                className="goal-toolbar-label truncate"
-                                style={{ maxWidth: "110px", display: "inline-block" }}
-                              >
-                                {(g as any).outcome_goal_id
-                                  ? (outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title ?? t("tomorrow.goalPickerLabel"))
-                                  : t("tomorrow.goalPickerLabel")}
-                              </span>
-                              <ChevronDown size={12} className="text-white/40" />
-                            </button>
-                            {openGoalPickerId === g.id && (
-                              <div className="conn-card-menu" style={{ minWidth: "200px", maxWidth: "260px" }}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setGoals((prev) =>
-                                      prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: null } : x))
-                                    );
-                                    setOpenGoalPickerId(null);
-                                    scheduleAutoSave();
-                                  }}
-                                  className="conn-card-menu-item"
-                                  style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
-                                >
-                                  <span className="inline-flex items-center gap-1.5">
-                                    {t("tomorrow.goalPickerNoGoal")}
-                                    {!(g as any).outcome_goal_id && <Check size={12} className="text-emerald-400" />}
-                                  </span>
-                                  <span className="text-[10px] text-white/45">{t("tomorrow.goalPickerNoGoalDesc")}</span>
-                                </button>
-                                {outcomeGoals
-                                  .filter((o) => o.status === "active")
-                                  .map((o) => (
-                                    <button
-                                      key={o.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setGoals((prev) =>
-                                          prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: o.id } : x))
-                                        );
-                                        setOpenGoalPickerId(null);
-                                        scheduleAutoSave();
-                                      }}
-                                      className="conn-card-menu-item"
-                                    >
-                                      <span className="truncate min-w-0 flex-1">{o.title}</span>
-                                      {(g as any).outcome_goal_id === o.id && (
-                                        <Check size={12} className="text-emerald-400 flex-shrink-0" />
-                                      )}
-                                    </button>
-                                  ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Exclusive/Shared + Assign — same row now
-                            instead of a separate line below; both only
-                            show pre-assignment, same as before
-                            (assignment/received replace them with the
-                            status line underneath). */}
-                        {!assignment && !received && g.id && acceptedConnections.length > 0 && (
-                          <>
-                            <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
-                              <button
-                                type="button"
-                                onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
-                                className="btn goal-toolbar-btn"
-                              >
-                                {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive" ? (
-                                  <Lock size={13} />
-                                ) : (
-                                  <Unlock size={13} />
-                                )}
-                                <span className="goal-toolbar-label">
-                                  {(assignTypeByGoalId[g.id as string] ?? "exclusive") === "exclusive"
-                                    ? t("goalAssign.exclusiveShort")
-                                    : t("goalAssign.sharedShort")}
-                                </span>
-                                <ChevronDown size={12} className="text-white/40" />
-                              </button>
-                              {openPrivacyMenuId === g.id && (
-                                <div className="conn-card-menu" style={{ minWidth: "210px" }}>
-                                  {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
-                                    <button
-                                      key={option}
-                                      type="button"
-                                      onClick={() => {
-                                        setAssignTypeByGoalId((prev) => ({ ...prev, [g.id as string]: option }));
-                                        setOpenPrivacyMenuId(null);
-                                      }}
-                                      className="conn-card-menu-item"
-                                      style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
-                                    >
-                                      <span className="inline-flex items-center gap-1.5">
-                                        {option === "exclusive" ? <Lock size={12} /> : <Unlock size={12} />}
-                                        {option === "exclusive" ? t("goalAssign.exclusiveShort") : t("goalAssign.sharedShort")}
-                                        {(assignTypeByGoalId[g.id as string] ?? "exclusive") === option && (
-                                          <Check size={12} className="text-emerald-400" />
-                                        )}
-                                      </span>
-                                      <span className="text-[10px] text-white/45">
-                                        {option === "exclusive" ? t("goalAssign.exclusiveDesc") : t("goalAssign.sharedDesc")}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="relative inline-flex items-center">
-                              <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
-                              <select
-                                value=""
-                                disabled={assigningGoalIds.has(g.id as string) || locked}
-                                onChange={(e) => {
-                                  const recipientId = e.target.value;
-                                  if (recipientId) handleAssignGoal(g.id as string, recipientId);
-                                }}
-                                className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
-                                style={{ paddingLeft: "1.7rem" }}
-                              >
-                                <option value="" disabled>
-                                  {t("goalAssign.placeholder")}
-                                </option>
-                                {acceptedConnections.map((c) => (
-                                  <option key={c.otherUserId} value={c.otherUserId}>
-                                    {connectionDisplayName(c, t)}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Assignment status — once assigned (either
-                          direction), replaces the Exclusive/Shared+Assign
-                          controls above with a read-only status line. */}
-                      {(assignment || received) && (
-                        <div className="mt-1.5 flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
-                          {assignment ? (
-                            <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
-                              {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                              {t("goalAssign.assignedToLabel", {
-                                name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                              })}
-                              {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                              {assignment.status === "accepted" && assignment.recipientGoalStatus && (
-                                <span className="inline-flex items-center gap-1">
-                                  · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
-                                  {statusLabel(assignment.recipientGoalStatus, t)}
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            // A goal that's itself the product of an
-                            // assignment I received -- locked from being
-                            // re-assigned onward (see receivedByGoalId above).
-                            <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
-                              <Lock size={11} />
-                              {t("social.assignedByLabel", {
-                                name: received!.assignerDisplayName ?? t("social.anonymousUser"),
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {assignError && <div className="mt-1 text-[11px] text-red-400">{assignError}</div>}
-
-                      {!isExclusive && showLinkInput[idx] && (
-                        <input
-                          type="url"
-                          value={(g as any).link_url ?? ""}
-                          disabled={locked || submitting}
-                          onChange={(e) =>
-                            setGoals((prev) =>
-                              prev.map((x, i) => (i === idx ? { ...x, link_url: e.target.value || null } : x))
-                            )
-                          }
-                          onBlur={() => {
-                            if (skipNextBlurAutosaveRef.current) {
-                              skipNextBlurAutosaveRef.current = false;
-                              return;
-                            }
-                            scheduleAutoSave();
-                          }}
-                          placeholder={t("tomorrow.urlPlaceholder")}
-                          className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                        />
-                      )}
-
-                      <div className="mt-2 flex items-center gap-2">
-                        {!(g as any).is_all_day && (
-                          <input
-                            type="time"
-                            value={g.time_of_day?.slice(0, 5) ?? ""}
-                            disabled={locked || submitting || isExclusive}
-                            onBlur={() => {
-                              if (skipNextBlurAutosaveRef.current) {
-                                skipNextBlurAutosaveRef.current = false;
-                                return;
-                              }
-                              if (priorityChangeInProgressRef.current) {
-                                return;
-                              }
-                              scheduleAutoSave();
-                            }}
-                            onChange={(e) =>
-                              setGoals((prev) =>
-                                prev.map((x, i) =>
-                                  i === idx ? { ...x, time_of_day: e.target.value || null } : x
-                                )
-                              )
-                            }
-                            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
-                            title={t("tomorrow.optionalTimeTitle")}
-                          />
-                        )}
-                        <button
-                          type="button"
-                          disabled={locked || submitting || isExclusive}
-                          onClick={() => {
-                            setGoals((prev) =>
-                              prev.map((x, i) =>
-                                i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
-                              )
-                            );
-                            scheduleAutoSave();
-                          }}
-                          // Phase 8B: was a plain .btn with an inline
-                          // background/borderColor override for the
-                          // selected state -- the exact "bypasses the
-                          // shared system" pattern found and fixed on
-                          // Today's buttons in earlier phases. Reuses the
-                          // existing .btn-tint/.btn-amber-tint combo (the
-                          // same amber accent the Assign control already
-                          // uses) instead of a one-off inline color, so
-                          // Time + All Day read as the same family of
-                          // scheduling control.
-                          className={`btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
-                          style={{
-                            padding: "0.2rem 0.55rem",
-                            fontSize: "0.7rem",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.3rem",
-                          }}
-                          title={t("tomorrow.allDayTitle")}
-                        >
-                          {(g as any).is_all_day && <Sun size={12} />} {t("tomorrow.allDay")}
-                        </button>
-                      </div>
-
-                      {g.rescheduled_from_date && (
-                        <div className="mt-2 flex items-start gap-2">
-                          <Redo2 className="text-yellow-400 mt-0.5" size={13} />
-                          <div>
-                            <div className="text-xs text-yellow-300/90 font-medium">
-                              {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
-                            </div>
-                            {g.reschedule_reason && (
-                              <div className="text-xs text-white/60 italic mt-0.5">
-                                "{g.reschedule_reason}"
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* History & notes — merged chronological timeline, same
-                        component as Review Today and the Calendar archive
-                        view, instead of separate Notes/History tabs. */}
-                    <div style={{ flex: "1 1 40%", minWidth: "220px" }}>
-                      {!g.id ? (
-                        <div className="text-xs text-white/30 italic">{t("tomorrow.saveToAddNotes")}</div>
-                      ) : (
-                        <>
-                          <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [], t)} />
-                          {showNoteInput[g.id] && (
-                            <div className="mt-3 flex gap-2">
-                              <input
-                                type="text"
-                                value={noteDraft[g.id] ?? ""}
-                                onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id as string]: e.target.value }))}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") submitNote(g.id as string, idx);
-                                }}
-                                placeholder={t("tomorrow.addNotePlaceholder")}
-                                disabled={!!savingNote[g.id]}
-                                autoFocus
-                                className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => submitNote(g.id as string, idx)}
-                                disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
-                                className="btn"
-                                style={{ padding: "0.375rem 1rem" }}
-                              >
-                                {savingNote[g.id] ? t("tomorrow.adding") : t("tomorrow.add")}
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    {/* Comment/note toggle — the one remaining control in
-                        this column now that priority lives beside the
-                        title; a secondary icon action, not competing with
-                        priority/status for visual weight. */}
-                    {g.id && (
-                      <div className="flex items-center justify-end flex-shrink-0 w-full sm:w-auto">
-                        <button
-                          type="button"
-                          onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id as string]: !prev[g.id as string] }))}
-                          className="actions-toggle"
-                          data-open={!!showNoteInput[g.id]}
-                          title={t("tomorrow.addNoteTitle")}
-                        >
-                          <MessageCircle size={14} />
-                        </button>
+                    {items.length > 0 && (
+                      <div className="space-y-4 mb-3">
+                        {items.map(({ g, originalIdx }, i) => renderTaskCard({ g, originalIdx }, i + 1, false))}
                       </div>
                     )}
+                    <button
+                      type="button"
+                      className="btn hover-scale inline-flex items-center gap-1.5"
+                      style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
+                      onClick={() => addTaskLinkedToGoal(goal.id)}
+                      disabled={!canAddMore}
+                      title={goals.length >= MAX_GOALS ? t("tomorrow.maxGoalsReached", { max: MAX_GOALS }) : ""}
+                    >
+                      <Plus size={13} /> {t("tomorrow.addTaskToGoal")}
+                    </button>
                   </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+
+            {/* Standalone tasks — the exact same flat list/behavior as
+                before, filtered to whatever isn't linked to a Goal card
+                above. The required/optional divider now falls wherever
+                it lands within THIS filtered list instead of the full
+                array, so it still marks a real required→optional
+                transition even if one of the first 3 slots got linked
+                to a Goal and moved into a card above. */}
+            {(() => {
+              const standalone = sortedForDisplay.filter(({ g }) => !(g as any).outcome_goal_id);
+              const hasRequiredSlot = standalone.some(({ originalIdx }) => originalIdx < 3);
+              const firstOptionalPos = standalone.findIndex(({ originalIdx }) => originalIdx >= 3);
+              return standalone.map(({ g, originalIdx }, i) =>
+                renderTaskCard({ g, originalIdx }, i + 1, hasRequiredSlot && i === firstOptionalPos)
+              );
+            })()}
+          </div>
+        )}
 
         {!locked && (() => {
           // Phase 8A.1: the mobile bar used to be a `position: fixed`

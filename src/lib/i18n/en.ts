@@ -234,6 +234,7 @@ export const en = {
   "tomorrow.addGoal": "+ Add",
   "tomorrow.addChoiceTask": "Task",
   "tomorrow.addChoiceGoal": "Goal",
+  "tomorrow.addTaskToGoal": "+ Add Task",
   "tomorrow.neverMind": "Never mind",
   "tomorrow.goalTitlePlaceholder": "Goal title",
   "tomorrow.creatingGoal": "Creating…",

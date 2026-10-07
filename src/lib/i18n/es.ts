@@ -232,6 +232,7 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.addGoal": "+ Agregar",
   "tomorrow.addChoiceTask": "Tarea",
   "tomorrow.addChoiceGoal": "Meta",
+  "tomorrow.addTaskToGoal": "+ Agregar tarea",
   "tomorrow.neverMind": "Cancelar",
   "tomorrow.goalTitlePlaceholder": "Título de la meta",
   "tomorrow.creatingGoal": "Creando…",

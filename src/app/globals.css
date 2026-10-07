@@ -5728,20 +5728,72 @@ select:focus {
   background: rgba(var(--tint-rgb), 0.03);
 }
 
-.goal-child-collapse-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: rgba(var(--tint-rgb), 0.45);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.2rem 0;
-  margin-bottom: 0.5rem;
+/* Expanded state of a compact nested row -- same width as the collapsed
+   row above it (never the standalone .goal-row card/GoalNumberOrb
+   treatment), so a Task reads as "this sibling, opened" rather than a
+   second card inserted into the Goal. */
+.goal-child-expanded {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(var(--tint-rgb), 0.045);
+  border: 1px solid color-mix(in srgb, var(--p-color, var(--metal-edge-neutral)) 18%, rgba(var(--tint-rgb), 0.1));
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  /* No overflow:hidden here -- it would clip .conn-card-menu, which is
+     an absolutely-positioned dropdown meant to overflow below this
+     card. Horizontal containment instead comes from min-width:0 on
+     every row/flex child plus overflow-wrap on the title. */
 }
 
-.goal-child-collapse-btn:hover {
+.goal-child-expanded[data-pending="true"] {
+  background: rgba(var(--tint-rgb), 0.065);
+}
+
+.goal-child-expanded-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.goal-child-expanded-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(var(--tint-rgb), 0.95);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.goal-child-collapse-chevron {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  color: rgba(var(--tint-rgb), 0.4);
+  cursor: pointer;
+}
+
+.goal-child-collapse-chevron:hover {
+  background: rgba(var(--tint-rgb), 0.08);
   color: rgba(var(--tint-rgb), 0.7);
+}
+
+.goal-child-expanded-status-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
 }

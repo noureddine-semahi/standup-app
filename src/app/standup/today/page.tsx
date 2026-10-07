@@ -1248,7 +1248,12 @@ export default function TodayPage() {
       effectiveStatus === "blocked" ||
       effectiveStatus === "in_progress" ||
       effectiveStatus === "postponed";
-    const isCollapsed = isCollapsible && !expandedDoneIds.has(g.id);
+    // Nested (compact) Tasks track their own reopen/collapse via
+    // expandedCompactTaskIds -- the same set goal-child-expanded reads --
+    // so a reopened completed nested Task lands on the dedicated expanded
+    // layout instead of the compact row. Standalone Tasks are unaffected,
+    // still driven entirely by expandedDoneIds as before.
+    const isCollapsed = isCollapsible && !(compact ? expandedCompactTaskIds.has(g.id) : expandedDoneIds.has(g.id));
     const doneColors = statusChipColors(effectiveStatus);
     // Phase 7B: corrects perceived card-edge visual WEIGHT, not
     // color identity -- P3's yellow and Completed's green read
@@ -1269,14 +1274,6 @@ export default function TodayPage() {
       : p === 3
         ? "quiet"
         : undefined;
-
-    // Goal Engine — compact Goal label shown on every linked Task (both
-    // collapsed and expanded), so a Task never loses its Goal context.
-    // Looked up against the full outcomeGoals list (not status-filtered),
-    // same reasoning as Plan Tomorrow's Link to Goal picker: a Goal that's
-    // since gone completed/abandoned should still show its real title.
-    const linkedGoalId = (g as any).outcome_goal_id as string | null | undefined;
-    const linkedGoalTitle = linkedGoalId ? outcomeGoalTitleById.get(linkedGoalId) : undefined;
 
     if (isCollapsed) {
       return (
@@ -1299,7 +1296,11 @@ export default function TodayPage() {
           <button
             type="button"
             data-goal-id={g.id}
-            onClick={() => toggleExpandedDone(g.id)}
+            onClick={() =>
+              compact
+                ? setExpandedCompactTaskIds((prev) => new Set(prev).add(g.id))
+                : toggleExpandedDone(g.id)
+            }
             className={`goal-row goal-row-done-collapsed${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
             style={
               {
@@ -1330,12 +1331,6 @@ export default function TodayPage() {
               <div className="goal-done-title flex-1 text-left text-white/50 text-base truncate" style={{ minWidth: 0 }}>
                 {g.title}
               </div>
-              {linkedGoalTitle && (
-                <div className="goal-task-label goal-task-label-compact" style={{ color: "rgba(244, 114, 182, 0.75)" }}>
-                  <Target size={10} className="flex-shrink-0" />
-                  <MarqueeText text={linkedGoalTitle} className="goal-task-label-text" />
-                </div>
-              )}
             </div>
             <div className="goal-done-banner" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
               <StatusIcon status={effectiveStatus} size={11} />
@@ -1373,9 +1368,6 @@ export default function TodayPage() {
             title={t("today.clickToExpand")}
           >
             <span className="goal-child-number">{idx + 1}</span>
-            {linkedGoalTitle && (
-              <Target size={11} className="flex-shrink-0" style={{ color: "rgba(244, 114, 182, 0.8)" }} aria-label={linkedGoalTitle} />
-            )}
 
             <div className="goal-child-main">
               <div className="goal-child-title">{g.title}</div>
@@ -1507,6 +1499,400 @@ export default function TodayPage() {
       );
     }
 
+    // Dedicated nested-expanded Task layout (NOT the standalone .goal-row
+    // card reused in a box) -- same width as the compact row above, no
+    // second large card frame, no GoalNumberOrb, no repeated parent Goal
+    // name/icon (the Goal card header above already shows it). Every
+    // control below calls the exact same handler/state this function
+    // already uses elsewhere (updateGoalPriority, selectQuickAction,
+    // showActions, GoalChecklist/GoalAttachments, showLinkInput,
+    // openPrivacyMenuId/assignTypeByGoalId/handleAssignGoal, GoalTimeline,
+    // showNoteInput/submitNote) -- nothing here is new business logic,
+    // only new markup wrapping it.
+    if (compact && expandedCompactTaskIds.has(g.id)) {
+      return (
+        <div key={g.id} className="goal-child-row-wrap" data-goal-id={g.id}>
+          <div
+            className={`goal-child-expanded${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
+            data-pending={!reviewed}
+            style={{ "--p-color": getPriorityMeta(p).color } as React.CSSProperties}
+          >
+            {/* Header: number + full wrapping title + priority + collapse */}
+            <div className="goal-child-expanded-header">
+              <span className="goal-child-number flex-shrink-0">{idx + 1}</span>
+              <div className="goal-child-expanded-title">
+                {g.title}
+                {g.time_of_day && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-xs font-normal text-white/50">
+                    <Clock size={12} />
+                    {formatTimeOfDay(g.time_of_day)}
+                  </span>
+                )}
+              </div>
+              <select
+                value={p}
+                disabled={locked || dayClosed || isExclusive}
+                onChange={async (e) => {
+                  const newPriority = Number(e.target.value);
+                  if (!plan?.id) return;
+                  markGoalBusy(g.id);
+                  try {
+                    await updateGoalPriority(g.id, plan.id, newPriority);
+                    await refresh({ silent: true });
+                  } catch (e: any) {
+                    setMsg(e?.message ?? t("today.failedUpdatePriority"));
+                  } finally {
+                    clearGoalBusy(g.id);
+                  }
+                }}
+                className="priority-select flex-shrink-0"
+                style={{
+                  "--p-bg": getPriorityMeta(p).bg,
+                  "--p-border": getPriorityMeta(p).border,
+                  "--p-color": getPriorityMeta(p).color,
+                } as React.CSSProperties}
+                title={t("today.priorityTitle", { p })}
+              >
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <option key={v} value={v}>
+                    P{v}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedCompactTaskIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(g.id);
+                    return next;
+                  })
+                }
+                className="goal-child-collapse-chevron"
+                title={t("today.collapseTitle")}
+                aria-label={t("today.collapseTitle")}
+              >
+                <ChevronUp size={14} />
+              </button>
+            </div>
+
+            {g.details && <div className="text-xs text-white/60">{g.details}</div>}
+
+            {/* Status/review — directly below the header */}
+            <div className="goal-child-expanded-status-row">
+              <div
+                className="status-chip"
+                style={{
+                  "--chip-bg": statusChipColors(effectiveStatus).bg,
+                  "--chip-border": statusChipColors(effectiveStatus).border,
+                  "--chip-color": statusChipColors(effectiveStatus).color,
+                } as React.CSSProperties}
+              >
+                <StatusIcon status={effectiveStatus} size={13} />
+                <span>{statusLabel(effectiveStatus, t)}</span>
+              </div>
+              {!dayClosed && !isExclusive && (
+                <button
+                  type="button"
+                  onClick={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                  disabled={locked}
+                  className="actions-toggle"
+                  data-open={!!showActions[g.id]}
+                  title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
+                >
+                  {reviewed ? <SquareCheck size={14} /> : <Square size={14} />}
+                </button>
+              )}
+              {!reviewed && (
+                <span className="goal-child-pending-tag">
+                  <Hourglass size={10} /> {t("today.pendingReview")}
+                </span>
+              )}
+            </div>
+
+            {/* Status action menu — width:100% of this nested child,
+                never viewport/card width, per spec. */}
+            {!dayClosed && !isExclusive && showActions[g.id] && (
+              <div className="goal-child-quick-actions" style={{ width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "completed")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "completed"}
+                  style={{
+                    "--btn-bg": g.status === "completed" ? "var(--status-completed-bg-active)" : "var(--status-completed-bg)",
+                    "--btn-border": g.status === "completed" ? "var(--status-completed-border-active)" : "var(--status-completed-border)",
+                    "--btn-color": "var(--status-completed)",
+                  } as React.CSSProperties}
+                >
+                  <CheckCircle2 size={14} />
+                  <span>{t("status.completed")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "in_progress")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "in_progress"}
+                  style={{
+                    "--btn-bg": g.status === "in_progress" ? "var(--status-in-progress-bg-active)" : "var(--status-in-progress-bg)",
+                    "--btn-border": g.status === "in_progress" ? "var(--status-in-progress-border-active)" : "var(--status-in-progress-border)",
+                    "--btn-color": "var(--status-in-progress)",
+                  } as React.CSSProperties}
+                >
+                  <Settings2 size={14} />
+                  <span>{t("today.inProgressAction")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "blocked")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "blocked"}
+                  style={{
+                    "--btn-bg": g.status === "blocked" ? "var(--status-blocked-bg-active)" : "var(--status-blocked-bg)",
+                    "--btn-border": g.status === "blocked" ? "var(--status-blocked-border-active)" : "var(--status-blocked-border)",
+                    "--btn-color": "var(--status-blocked)",
+                  } as React.CSSProperties}
+                >
+                  <Ban size={14} />
+                  <span>{t("status.blocked")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "canceled")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "canceled"}
+                  style={{
+                    "--btn-bg": g.status === "canceled" ? "var(--status-canceled-bg-active)" : "var(--status-canceled-bg)",
+                    "--btn-border": g.status === "canceled" ? "var(--status-canceled-border-active)" : "var(--status-canceled-border)",
+                    "--btn-color": "var(--status-canceled)",
+                  } as React.CSSProperties}
+                >
+                  <XCircle size={14} />
+                  <span>{t("status.canceled")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "reschedule")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={!!g.rescheduled_to}
+                  style={{
+                    "--btn-bg": g.rescheduled_to ? "var(--status-postponed-bg-active)" : "var(--status-postponed-bg)",
+                    "--btn-border": g.rescheduled_to ? "var(--status-postponed-border-active)" : "var(--status-postponed-border)",
+                    "--btn-color": "var(--status-postponed)",
+                  } as React.CSSProperties}
+                >
+                  <CalendarClock size={14} />
+                  <span>{g.rescheduled_to ? t("today.rescheduledTo", { date: formatDateDisplay(g.rescheduled_to) }) : t("status.rescheduled")}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Checklist / Files / Link / Assign — same wrapping compact
+                toolbar and handlers as the standalone card. */}
+            <div className="goal-toolbar">
+              <GoalChecklist
+                compact
+                goalId={g.id}
+                items={checklistItems[g.id] ?? []}
+                onItemsChange={(items) => setChecklistItems((prev) => ({ ...prev, [g.id]: items }))}
+                readOnly={dayClosed || isExclusive}
+              />
+              <GoalAttachments
+                compact
+                goalId={g.id}
+                items={attachments[g.id] ?? []}
+                onItemsChange={(items) => setAttachments((prev) => ({ ...prev, [g.id]: items }))}
+                readOnly={dayClosed || isExclusive}
+              />
+              {(g.link_url || (!dayClosed && !isExclusive)) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (dayClosed || isExclusive) {
+                      if (g.link_url) window.open(g.link_url, "_blank", "noopener,noreferrer");
+                      return;
+                    }
+                    setShowLinkInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }));
+                  }}
+                  className="btn btn-tint btn-teal goal-toolbar-btn"
+                  title={g.link_url || t("today.attachLink")}
+                >
+                  {g.link_url ? <Link2 size={13} /> : <Plus size={13} />}
+                  <span className="goal-toolbar-label">{t("today.link")}</span>
+                </button>
+              )}
+
+              {!assignment && !received && acceptedConnections.length > 0 && (
+                <>
+                  <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : g.id))}
+                      className="btn goal-toolbar-btn"
+                    >
+                      {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
+                        <Lock size={13} />
+                      ) : (
+                        <Unlock size={13} />
+                      )}
+                      <span className="goal-toolbar-label">
+                        {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
+                          ? t("goalAssign.exclusiveShort")
+                          : t("goalAssign.sharedShort")}
+                      </span>
+                      <ChevronDown size={12} className="text-white/40" />
+                    </button>
+                    {openPrivacyMenuId === g.id && (
+                      <div className="conn-card-menu" style={{ minWidth: "170px", maxWidth: "min(240px, calc(100vw - 4rem))" }}>
+                        {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setAssignTypeByGoalId((prev) => ({ ...prev, [g.id]: option }));
+                              setOpenPrivacyMenuId(null);
+                            }}
+                            className="conn-card-menu-item"
+                            style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              {option === "exclusive" ? <Lock size={12} /> : <Unlock size={12} />}
+                              {option === "exclusive" ? t("goalAssign.exclusiveShort") : t("goalAssign.sharedShort")}
+                              {(assignTypeByGoalId[g.id] ?? "exclusive") === option && <Check size={12} className="text-emerald-400" />}
+                            </span>
+                            <span className="text-[10px] text-white/45">
+                              {option === "exclusive" ? t("goalAssign.exclusiveDesc") : t("goalAssign.sharedDesc")}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative inline-flex items-center">
+                    <UserPlus size={13} className="pointer-events-none text-amber-300/80" style={{ position: "absolute", left: "0.55rem" }} />
+                    <select
+                      value=""
+                      disabled={assigningGoalIds.has(g.id) || dayClosed}
+                      onChange={(e) => {
+                        const recipientId = e.target.value;
+                        if (recipientId) handleAssignGoal(g.id, recipientId);
+                      }}
+                      className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
+                      style={{ paddingLeft: "1.7rem" }}
+                    >
+                      <option value="" disabled>
+                        {t("goalAssign.placeholder")}
+                      </option>
+                      {acceptedConnections.map((c) => (
+                        <option key={c.otherUserId} value={c.otherUserId}>
+                          {connectionDisplayName(c, t)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {(assignment || received) && (
+              <div className="flex items-center gap-1" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
+                {assignment ? (
+                  <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                    {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+                    {t("goalAssign.assignedToLabel", {
+                      name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+                    })}
+                    {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+                    {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                      <span className="inline-flex items-center gap-1">
+                        · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
+                        {statusLabel(assignment.recipientGoalStatus, t)}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-white/50 whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1">
+                    <Lock size={11} />
+                    {t("social.assignedByLabel", {
+                      name: received!.assignerDisplayName ?? t("social.anonymousUser"),
+                    })}
+                  </span>
+                )}
+              </div>
+            )}
+            {assignError && <div className="text-[11px] text-red-400">{assignError}</div>}
+
+            {!dayClosed && !isExclusive && showLinkInput[g.id] && (
+              <input
+                type="url"
+                value={g.link_url ?? ""}
+                onChange={(e) =>
+                  setGoals((prev) => prev.map((x) => (x.id === g.id ? { ...x, link_url: e.target.value || null } : x)))
+                }
+                onBlur={() => {
+                  updateGoalLink(g.id, g.link_url || null).catch((err) =>
+                    setMsg(err?.message ?? t("today.failedSaveLink"))
+                  );
+                }}
+                placeholder={t("today.urlPlaceholder")}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25"
+              />
+            )}
+
+            {/* Actions & Notes */}
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
+                  {t("today.actionsAndNotesLabel")}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                  className="actions-toggle"
+                  data-open={!!showNoteInput[g.id]}
+                  title={t("today.addNoteTitle")}
+                >
+                  <MessageCircle size={14} />
+                </button>
+              </div>
+              <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
+              {showNoteInput[g.id] && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={noteDraft[g.id] ?? ""}
+                    onChange={(e) => setNoteDraft((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submitNote(g.id);
+                    }}
+                    placeholder={t("today.addNotePlaceholder")}
+                    disabled={!!savingNote[g.id]}
+                    autoFocus
+                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => submitNote(g.id)}
+                    disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
+                    className="btn"
+                    style={{ padding: "0.375rem 1rem" }}
+                  >
+                    {savingNote[g.id] ? t("today.addingNote") : t("today.add")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         key={g.id}
@@ -1552,21 +1938,6 @@ export default function TodayPage() {
         <GoalNumberOrb number={idx + 1} />
 
         <div className="goal-row-body">
-        {compact && (
-          <button
-            type="button"
-            onClick={() =>
-              setExpandedCompactTaskIds((prev) => {
-                const next = new Set(prev);
-                next.delete(g.id);
-                return next;
-              })
-            }
-            className="goal-child-collapse-btn"
-          >
-            <ChevronUp size={12} /> {t("today.collapseTitle")}
-          </button>
-        )}
         <div className="goal-row-cols">
           {/* Goal content */}
           <div className="flex-1" style={{ minWidth: 0 }}>
@@ -1577,13 +1948,6 @@ export default function TodayPage() {
                 </span>
               )}
             </div>
-
-            {linkedGoalTitle && (
-              <div className="goal-task-label mb-1">
-                <Target size={12} className="flex-shrink-0" />
-                <MarqueeText text={linkedGoalTitle} className="goal-task-label-text" />
-              </div>
-            )}
 
             <div className="text-white text-lg sm:text-xl font-medium mb-2">
               {g.title}

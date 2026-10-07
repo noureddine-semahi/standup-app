@@ -355,6 +355,7 @@ export const es: Record<keyof typeof en, string> = {
   "today.pendingReview": "Revisión pendiente",
   "today.clickToExpand": "Clic para expandir",
   "today.collapseTitle": "Colapsar",
+  "today.actionsAndNotesLabel": "Acciones y notas",
   "today.goalCompletionStat": "{completed}/{total} completadas",
   "today.goalPercentStat": "{pct}%",
   "today.goalReviewedStat": "{reviewed} revisadas",

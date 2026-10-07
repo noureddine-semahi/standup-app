@@ -1530,6 +1530,18 @@ h1, h2, h3, h4, h5, h6 {
   .goal-done-title {
     padding-right: 72px;
   }
+
+  /* Every collapsed-done row (see today/page.tsx's isCollapsed branch,
+     standalone and nested alike): cancels most of the OUTER wrapper's
+     desktop-sized per-status reservation (up to 152px, never shrinks
+     with the stamp) at this width, leaving .goal-done-title's own 72px
+     above -- already sized for the stamp at ITS mobile dimensions --
+     plus this small margin as the real clearance. Verified against all
+     5 collapsible statuses (including the two longest labels, "In
+     Progress" and "Rescheduled") with no title/stamp collision. */
+  .goal-done-title-wrap-tight {
+    padding-right: 46px !important;
+  }
 }
 
 /* Dashboard's 6 stat tiles stay 2-per-row all the way up to the lg: grid
@@ -4351,6 +4363,26 @@ select:focus {
     max-width: 92px;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* A nested Major Goal child's toolbar sits inside extra padding layers
+     (.goal-group-card + .goal-group-card-children + the child-row
+     connector rail) a standalone .goal-row never pays, so the same 92px
+     Assign cap that fits standalone still wraps it alone onto its own
+     line here -- reading as a detached second row rather than the last
+     item of one wrapping group. Scoped to .goal-child-expanded only;
+     standalone's own 92px above is untouched. */
+  .goal-child-expanded .goal-toolbar {
+    gap: 0.2rem;
+  }
+
+  .goal-child-expanded .goal-toolbar-btn {
+    padding: 0.2rem 0.3rem !important;
+    gap: 0.25rem;
+  }
+
+  .goal-child-expanded select.goal-toolbar-btn {
+    max-width: 60px;
   }
 }
 

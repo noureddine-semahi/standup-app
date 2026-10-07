@@ -1086,11 +1086,37 @@ export default function TomorrowGoalsPage() {
           <div className="goal-row-cols">
             {/* Goal — static, ~45% */}
             <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
-              {/* Priority sits right beside the title now — it's
-                  important-enough information that a user
-                  shouldn't have to scan all the way down the card
-                  to find it (explicit user call). */}
+              {/* Priority leads the title row as a compact tag directly
+                  attached to the task — moved ahead of the (flexible,
+                  stretching) title textarea instead of trailing after
+                  it, so it reads as "this task's priority" rather than
+                  a control stranded at the far edge of a wide row
+                  (explicit user call, nested-card layout cleanup). Same
+                  select/handler, only its position changed. */}
               <div className="flex items-start gap-2">
+                <select
+                  value={p}
+                  disabled={locked || submitting || isExclusive}
+                  onChange={(e) => {
+                    priorityChangeInProgressRef.current = true;
+                    const v = Number(e.target.value);
+                    setGoals((prev) => applyPriorityChange(prev, idx, v));
+                  }}
+                  className="priority-select"
+                  style={{
+                    "--p-bg": opt.bg,
+                    "--p-border": opt.border,
+                    "--p-color": opt.color,
+                    flexShrink: 0,
+                    marginTop: "2px",
+                  } as React.CSSProperties}
+                >
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <option key={v} value={v}>
+                      P{v}
+                    </option>
+                  ))}
+                </select>
                 <textarea
                   ref={(el) => {
                     inputRefs.current[idx] = el;
@@ -1122,29 +1148,6 @@ export default function TomorrowGoalsPage() {
                   className="goal-title-input flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
                   style={{ overflow: "hidden", lineHeight: 1.3 }}
                 />
-                <select
-                  value={p}
-                  disabled={locked || submitting || isExclusive}
-                  onChange={(e) => {
-                    priorityChangeInProgressRef.current = true;
-                    const v = Number(e.target.value);
-                    setGoals((prev) => applyPriorityChange(prev, idx, v));
-                  }}
-                  className="priority-select"
-                  style={{
-                    "--p-bg": opt.bg,
-                    "--p-border": opt.border,
-                    "--p-color": opt.color,
-                    flexShrink: 0,
-                    marginTop: "2px",
-                  } as React.CSSProperties}
-                >
-                  {[1, 2, 3, 4, 5].map((v) => (
-                    <option key={v} value={v}>
-                      P{v}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {/* Goal toolbar — Checklist/Files/Link/Exclusive-or-
@@ -1471,7 +1474,14 @@ export default function TomorrowGoalsPage() {
                 />
               )}
 
-              <div className="mt-2 flex items-center gap-2">
+              {/* Scheduling area — time + all-day consolidated into one
+                  tight, consistently-sized row (was a wide unconstrained
+                  native time input next to a separately-floating button).
+                  Same state/handlers/autosave as before; only the time
+                  input's width and the row's grouping changed, so the
+                  native clock glyph sits snug against the HH:MM value
+                  instead of floating in empty space. */}
+              <div className="mt-2 flex items-center flex-wrap gap-1.5">
                 {!(g as any).is_all_day && (
                   <input
                     type="time"
@@ -1495,6 +1505,7 @@ export default function TomorrowGoalsPage() {
                       )
                     }
                     className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70 outline-none focus:border-white/25 disabled:opacity-50"
+                    style={{ width: "6.4rem", flexShrink: 0 }}
                     title={t("tomorrow.optionalTimeTitle")}
                   />
                 )}

@@ -361,7 +361,6 @@ export const en = {
   "today.pendingReview": "Pending review",
   "today.clickToExpand": "Click to expand",
   "today.collapseTitle": "Collapse",
-  "today.actionsAndNotesLabel": "Actions & Notes",
   "today.goalCompletionStat": "{completed}/{total} completed",
   "today.goalPercentStat": "{pct}%",
   "today.goalReviewedStat": "{reviewed} reviewed",

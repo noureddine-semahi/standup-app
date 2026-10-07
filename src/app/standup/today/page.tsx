@@ -1319,9 +1319,19 @@ export default function TodayPage() {
                 of one blanket worst-case value -- a short label
                 like "Blocked" no longer pays Reprogramado's full
                 reservation. See COLLAPSED_STAMP_RESERVE_PX above
-                for how each number was measured. */}
+                for how each number was measured. This per-status value
+                was measured against the full-size (desktop) stamp and
+                never shrinks with it -- .goal-done-banner itself gets
+                smaller below 480px (see globals.css), where
+                .goal-done-title's own 72px already covers that smaller
+                stamp on its own. Stacking both just over-truncated every
+                collapsed title below 480px; goal-done-title-wrap-tight
+                cancels most of this outer reservation at that width,
+                leaving the already-correct 72px (plus a small shared
+                margin) as the real clearance -- same class for standalone
+                and nested now, since both were affected the same way. */}
             <div
-              className="flex flex-col"
+              className="flex flex-col goal-done-title-wrap-tight"
               style={{
                 minWidth: 0,
                 paddingLeft: "30px",
@@ -1845,12 +1855,12 @@ export default function TodayPage() {
               />
             )}
 
-            {/* Actions & Notes */}
+            {/* GoalTimeline's own toggle already reads "Actions & notes
+                (N)" -- the static heading that used to sit above it just
+                repeated that same label, so only the comment/add-note
+                button (not part of GoalTimeline) stays, now flush right. */}
             <div>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
-                  {t("today.actionsAndNotesLabel")}
-                </div>
+              <div className="flex items-center justify-end gap-2 mb-1">
                 <button
                   type="button"
                   onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}

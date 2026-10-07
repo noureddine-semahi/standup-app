@@ -217,6 +217,8 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.urlPlaceholder": "https://...",
   "tomorrow.optionalTimeTitle": "Hora opcional",
   "tomorrow.linkToGoal": "Vincular a una meta",
+  "tomorrow.moveTask": "Mover",
+  "tomorrow.makeStandalone": "Hacer independiente",
   "tomorrow.goalPickerNoGoal": "Sin Meta",
   "tomorrow.goalPickerNoGoalDesc": "Tarea independiente",
   "tomorrow.allDayTitle": "Marcar este objetivo como una tarea de todo el día en lugar de una hora específica",

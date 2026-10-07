@@ -219,6 +219,8 @@ export const en = {
   "tomorrow.urlPlaceholder": "https://...",
   "tomorrow.optionalTimeTitle": "Optional time",
   "tomorrow.linkToGoal": "Link to Goal",
+  "tomorrow.moveTask": "Move",
+  "tomorrow.makeStandalone": "Make Standalone",
   "tomorrow.goalPickerNoGoal": "No Goal",
   "tomorrow.goalPickerNoGoalDesc": "Standalone Task",
   "tomorrow.allDayTitle": "Mark this goal as an all-day task instead of a specific time",

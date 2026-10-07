@@ -66,7 +66,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target, Trash2 } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target, Trash2, ArrowRightLeft } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -1263,6 +1263,71 @@ export default function TomorrowGoalsPage() {
                               {(g as any).outcome_goal_id === o.id && (
                                 <Check size={12} className="text-emerald-400 flex-shrink-0" />
                               )}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Goal Engine Phase 4E — compact reassignment for a
+                    Task already linked (rendered inside its Goal card,
+                    Phase 4B). Same conn-card-menu + openGoalPickerId
+                    state as the Link to Goal picker above (mutually
+                    exclusive with it, never both shown for one Task),
+                    just a different trigger and option list: Make
+                    Standalone + every OTHER active Goal -- the Task's
+                    current Goal is excluded rather than shown
+                    disabled, so there's nothing to select that
+                    wouldn't actually change anything. Same setGoals +
+                    scheduleAutoSave data path as every other
+                    link/unlink action here, nothing new. */}
+                {g.id && (g as any).outcome_goal_id && (
+                  <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
+                    <button
+                      type="button"
+                      disabled={locked || isExclusive}
+                      onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
+                      className="btn goal-toolbar-btn"
+                      title={t("tomorrow.moveTask")}
+                    >
+                      <ArrowRightLeft size={13} />
+                      <span className="goal-toolbar-label">{t("tomorrow.moveTask")}</span>
+                      <ChevronDown size={12} className="text-white/40" />
+                    </button>
+                    {openGoalPickerId === g.id && (
+                      <div className="conn-card-menu" style={{ minWidth: "200px", maxWidth: "260px" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGoals((prev) =>
+                              prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: null } : x))
+                            );
+                            setOpenGoalPickerId(null);
+                            scheduleAutoSave();
+                          }}
+                          className="conn-card-menu-item"
+                          style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                        >
+                          <span>{t("tomorrow.makeStandalone")}</span>
+                          <span className="text-[10px] text-white/45">{t("tomorrow.goalPickerNoGoalDesc")}</span>
+                        </button>
+                        {outcomeGoals
+                          .filter((o) => o.status === "active" && o.id !== (g as any).outcome_goal_id)
+                          .map((o) => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => {
+                                setGoals((prev) =>
+                                  prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: o.id } : x))
+                                );
+                                setOpenGoalPickerId(null);
+                                scheduleAutoSave();
+                              }}
+                              className="conn-card-menu-item"
+                            >
+                              <span className="truncate min-w-0 flex-1">{o.title}</span>
                             </button>
                           ))}
                       </div>

@@ -1197,28 +1197,30 @@ export default function TomorrowGoalsPage() {
                     Outcome Goal. Same conn-card-menu dropdown
                     pattern as the Exclusive/Shared picker below,
                     single-select over active Outcome Goals plus a
-                    "No Goal" clear option. */}
-                {g.id && (
+                    "No Goal" clear option.
+                    4C follow-up: only shown for a standalone Task
+                    (no outcome_goal_id) -- once linked, the Task
+                    renders inside its Goal card instead (Phase 4B),
+                    where re-showing this same picker would be
+                    redundant. The underlying link/unlink data path
+                    (the "No Goal" menu item's setGoals call below)
+                    is untouched, just no longer reachable from here
+                    once a Task is already linked. */}
+                {g.id && !(g as any).outcome_goal_id && (
                   <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
                     <button
                       type="button"
                       disabled={locked || isExclusive}
                       onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
                       className="btn goal-toolbar-btn"
-                      title={
-                        (g as any).outcome_goal_id
-                          ? outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title
-                          : t("tomorrow.goalPickerLabel")
-                      }
+                      title={t("tomorrow.linkToGoal")}
                     >
                       <Target size={13} />
                       <span
                         className="goal-toolbar-label truncate"
                         style={{ maxWidth: "110px", display: "inline-block" }}
                       >
-                        {(g as any).outcome_goal_id
-                          ? (outcomeGoals.find((o) => o.id === (g as any).outcome_goal_id)?.title ?? t("tomorrow.goalPickerLabel"))
-                          : t("tomorrow.goalPickerLabel")}
+                        {t("tomorrow.linkToGoal")}
                       </span>
                       <ChevronDown size={12} className="text-white/40" />
                     </button>

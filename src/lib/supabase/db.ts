@@ -2479,6 +2479,45 @@ export async function getGoalsByFilter(
 }
 
 /**
+ * Every Task (goals row) linked to any of the given Outcome Goals, across
+ * every day -- not just the caller's current plan. Backs Review Today's
+ * Major Goal cards, which need to represent a Goal's full ongoing
+ * progress (completed/total, reviewed count) rather than only whatever
+ * happens to be loaded for today's review. Same goals+daily_plans
+ * plan_date join as getGoalsByFilter above -- reuses ArchivedGoal rather
+ * than introducing a new shape.
+ */
+export async function getGoalsByOutcomeGoalIds(outcomeGoalIds: string[]): Promise<ArchivedGoal[]> {
+  if (outcomeGoalIds.length === 0) return [];
+  const userId = await getCurrentUserId();
+
+  const { data: goalRows, error } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", userId)
+    .in("outcome_goal_id", outcomeGoalIds)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const rows = goalRows ?? [];
+  const planIds = [...new Set(rows.map((g) => g.plan_id).filter(Boolean))];
+
+  const planDateById: Record<string, string> = {};
+  if (planIds.length > 0) {
+    const { data: plans, error: plansErr } = await supabase
+      .from("daily_plans")
+      .select("id, plan_date")
+      .in("id", planIds);
+    if (plansErr) throw plansErr;
+    (plans ?? []).forEach((p) => {
+      planDateById[p.id] = p.plan_date;
+    });
+  }
+
+  return rows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null })) as ArchivedGoal[];
+}
+
+/**
  * Notes + logged history events for a batch of goals — feeds
  * buildGoalTimeline for each. Goes through the get_goal_notes RPC rather
  * than a plain client query: for any requested goal the caller has

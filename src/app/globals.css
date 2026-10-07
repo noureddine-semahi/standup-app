@@ -5404,3 +5404,344 @@ select:focus {
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(185, 28, 28, 0.55);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Goal Engine — Review Today Goal hierarchy/grouping (presentation only,
+   see today/page.tsx). Parent Major Goal cards wrap their linked Tasks;
+   every linked Task (expanded, collapsed, or the parent card's own
+   title) carries a compact Goal label using MarqueeText so a long Goal
+   name is never permanently truncated -- static when it fits, a slow
+   reveal-and-return scroll only when it actually overflows.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.marquee-text {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
+}
+
+.marquee-text-track {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.marquee-text.is-overflowing .marquee-text-track {
+  animation: marqueeReveal 8s ease-in-out infinite;
+}
+
+@keyframes marqueeReveal {
+  0%, 12% { transform: translateX(0); }
+  45%, 58% { transform: translateX(var(--marquee-shift, 0)); }
+  92%, 100% { transform: translateX(0); }
+}
+
+/* Readable fallback: no motion, no truncation -- let it wrap instead. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-text {
+    white-space: normal;
+    overflow: visible;
+  }
+  .marquee-text-track {
+    display: inline;
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Compact per-Task Goal label — "◎ Get healthy" above/beside a linked
+   Task's own title, same pink/Target accent already used for the Goal
+   concept on Plan Tomorrow (Link to Goal / Move / Goal cards). */
+.goal-task-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #f472b6;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.goal-task-label-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Smaller variant for the collapsed/done row, which is otherwise a
+   single tight line — this adds a second, shorter line rather than
+   competing with the already-truncated title for the same line. */
+.goal-task-label-compact {
+  font-size: 0.66rem;
+  gap: 0.25rem;
+  margin-top: 1px;
+}
+
+/* Parent Major Goal card — same minimal nested-panel treatment Plan
+   Tomorrow's own Goal cards use (Phase 4B), reused here rather than
+   inventing a second visual language for the same concept. */
+.goal-group-card {
+  border-radius: 1rem;
+  background: rgba(var(--tint-rgb), 0.035);
+  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  /* A slightly heavier, Goal-colored left edge so the whole card reads
+     as one enclosing container at a glance, not just a header sitting
+     above an unrelated list of equally-weighted Task cards. */
+  border-left: 3px solid rgba(244, 114, 182, 0.4);
+  padding: 1rem;
+}
+
+/* Review Today visual nesting correction: today's child Task cards keep
+   their own full .goal-row border/gradient/glow (unchanged, shared with
+   every standalone Task) -- so the fix isn't a weaker child, it's a
+   visibly RECESSED tray around them. The dark inset background + inner
+   shadow reads as a cavity the cards visibly sit inside, instead of a
+   loose list in open space that only a thin outer border separates from
+   the rest of the page. History stays outside this tray (see
+   today/page.tsx) -- it's already compact/subdued text rows, not full
+   cards, so it never had this containment problem. */
+.goal-group-card-children {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.875rem;
+  background: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] .goal-group-card-children {
+  background: rgba(40, 32, 28, 0.04);
+  box-shadow: inset 0 1px 3px rgba(40, 32, 28, 0.08);
+}
+
+.goal-group-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.goal-group-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Goal Engine — incremental update: collapsible Major Goal card header +
+   always-visible summary (completion/reviewed stats + progress bar) +
+   the historical-children section shown when expanded. */
+
+.goal-group-card-header-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.goal-group-card-summary {
+  margin-bottom: 0.75rem;
+}
+
+.goal-group-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  font-size: 0.72rem;
+  color: rgba(var(--tint-rgb), 0.55);
+  margin-bottom: 0.4rem;
+}
+
+.goal-history-section {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(var(--tint-rgb), 0.08);
+}
+
+.goal-history-section-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: rgba(var(--tint-rgb), 0.4);
+  margin-bottom: 0.4rem;
+}
+
+.goal-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.goal-history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(var(--tint-rgb), 0.025);
+  color: rgba(var(--tint-rgb), 0.6);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.goal-history-row:hover {
+  background: rgba(var(--tint-rgb), 0.06);
+}
+
+.goal-history-row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-history-row-date {
+  font-size: 0.7rem;
+  color: rgba(var(--tint-rgb), 0.4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Review Today — compact nested Task rows (rendering-treatment
+   correction). A Task linked to a Goal defaults to THIS compact row
+   instead of the full .goal-row card (see renderTaskCard's `compact`
+   param in today/page.tsx) -- a dedicated, deliberately smaller
+   presentation, not the full card in a smaller box. Tapping the chevron
+   still reveals the exact same full card/controls, unchanged.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.goal-child-row-wrap {
+  /* The left connector is the sibling-relationship cue the spec calls
+     for -- every compact row (and its quick-action panel, below) lines
+     up against the same rail, reading as "these belong to this Goal"
+     independent of each row's own compact border. */
+  border-left: 2px solid rgba(244, 114, 182, 0.2);
+  padding-left: 0.6rem;
+}
+
+.goal-child-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid color-mix(in srgb, var(--p-color, var(--metal-edge-neutral)) 16%, rgba(var(--tint-rgb), 0.08));
+  cursor: pointer;
+}
+
+.goal-child-row:hover {
+  background: rgba(var(--tint-rgb), 0.07);
+}
+
+.goal-child-row[data-pending="true"] {
+  background: rgba(var(--tint-rgb), 0.06);
+}
+
+.goal-child-number {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.08);
+  color: rgba(var(--tint-rgb), 0.55);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.goal-child-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.goal-child-title {
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(var(--tint-rgb), 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-child-priority {
+  flex-shrink: 0;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--p-bg);
+  border: 1px solid var(--p-border);
+  color: var(--p-color);
+}
+
+.goal-child-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: rgba(var(--tint-rgb), 0.5);
+}
+
+.goal-child-pending-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.goal-child-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.goal-child-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  padding: 0.5rem;
+  border-radius: 10px;
+  background: rgba(var(--tint-rgb), 0.03);
+}
+
+.goal-child-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(var(--tint-rgb), 0.45);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.goal-child-collapse-btn:hover {
+  color: rgba(var(--tint-rgb), 0.7);
+}

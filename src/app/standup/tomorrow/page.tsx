@@ -1710,20 +1710,34 @@ export default function TomorrowGoalsPage() {
               renderTaskCard({ g, originalIdx }, displayIdx + 1, displayIdx === 3)
             )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Goal Engine Phase 4B — every active Outcome Goal gets its
-                own minimal card: title + its linked Tasks (reusing
-                renderTaskCard exactly, same as the standalone list below)
-                + a Goal-scoped "+ Add Task" that creates a normal Task
-                pre-linked to this Goal (addTaskLinkedToGoal). A freshly
-                created Goal with zero Tasks still renders its card, so
-                "+ Add Task" is reachable immediately. */}
-            {outcomeGoals
-              .filter((goal) => goal.status === "active")
-              .map((goal) => {
-                const items = sortedForDisplay.filter(({ g }) => (g as any).outcome_goal_id === goal.id);
-                return (
+        ) : (() => {
+          // Goal Engine — placement adjustment: a Goal only earns a full
+          // card in the plan once it has >=1 Task actually committed to
+          // tomorrow. An active Goal with zero tomorrow Tasks moves to
+          // the compact Quick Add from Goals row instead (below), so an
+          // empty container never eats space in the main plan. This is
+          // the SAME activeGoals/items split Phase 4B already computed
+          // per-goal, just partitioned once up front instead of
+          // rendering every active Goal unconditionally.
+          const activeGoals = outcomeGoals.filter((goal) => goal.status === "active");
+          const goalsWithItems: { goal: OutcomeGoal; items: typeof sortedForDisplay }[] = [];
+          const goalsWithoutItems: OutcomeGoal[] = [];
+          for (const goal of activeGoals) {
+            const items = sortedForDisplay.filter(({ g }) => (g as any).outcome_goal_id === goal.id);
+            if (items.length > 0) goalsWithItems.push({ goal, items });
+            else goalsWithoutItems.push(goal);
+          }
+
+          return (
+            <>
+              <div className="space-y-4">
+                {/* Goal Engine Phase 4B — every Goal with >=1 tomorrow
+                    Task gets its own minimal card: title + its linked
+                    Tasks (reusing renderTaskCard exactly, same as the
+                    standalone list below) + a Goal-scoped "+ Add Task"
+                    that creates a normal Task pre-linked to this Goal
+                    (addTaskLinkedToGoal). */}
+                {goalsWithItems.map(({ goal, items }) => (
                   <div
                     key={goal.id}
                     className="rounded-2xl"
@@ -1737,11 +1751,9 @@ export default function TomorrowGoalsPage() {
                       <Target size={16} className="text-pink-400 flex-shrink-0" />
                       <h3 className="text-base font-semibold text-white truncate">{goal.title}</h3>
                     </div>
-                    {items.length > 0 && (
-                      <div className="space-y-4 mb-3">
-                        {items.map(({ g, originalIdx }, i) => renderTaskCard({ g, originalIdx }, i + 1, false))}
-                      </div>
-                    )}
+                    <div className="space-y-4 mb-3">
+                      {items.map(({ g, originalIdx }, i) => renderTaskCard({ g, originalIdx }, i + 1, false))}
+                    </div>
                     <button
                       type="button"
                       className="btn hover-scale inline-flex items-center gap-1.5"
@@ -1753,26 +1765,70 @@ export default function TomorrowGoalsPage() {
                       {t("tomorrow.addTaskToGoal")}
                     </button>
                   </div>
-                );
-              })}
+                ))}
 
-            {/* Standalone tasks — the exact same flat list/behavior as
-                before, filtered to whatever isn't linked to a Goal card
-                above. The required/optional divider now falls wherever
-                it lands within THIS filtered list instead of the full
-                array, so it still marks a real required→optional
-                transition even if one of the first 3 slots got linked
-                to a Goal and moved into a card above. */}
-            {(() => {
-              const standalone = sortedForDisplay.filter(({ g }) => !(g as any).outcome_goal_id);
-              const hasRequiredSlot = standalone.some(({ originalIdx }) => originalIdx < 3);
-              const firstOptionalPos = standalone.findIndex(({ originalIdx }) => originalIdx >= 3);
-              return standalone.map(({ g, originalIdx }, i) =>
-                renderTaskCard({ g, originalIdx }, i + 1, hasRequiredSlot && i === firstOptionalPos)
-              );
-            })()}
-          </div>
-        )}
+                {/* Standalone tasks — the exact same flat list/behavior as
+                    before, filtered to whatever isn't linked to a Goal card
+                    above. The required/optional divider now falls wherever
+                    it lands within THIS filtered list instead of the full
+                    array, so it still marks a real required→optional
+                    transition even if one of the first 3 slots got linked
+                    to a Goal and moved into a card above. */}
+                {(() => {
+                  const standalone = sortedForDisplay.filter(({ g }) => !(g as any).outcome_goal_id);
+                  const hasRequiredSlot = standalone.some(({ originalIdx }) => originalIdx < 3);
+                  const firstOptionalPos = standalone.findIndex(({ originalIdx }) => originalIdx >= 3);
+                  return standalone.map(({ g, originalIdx }, i) =>
+                    renderTaskCard({ g, originalIdx }, i + 1, hasRequiredSlot && i === firstOptionalPos)
+                  );
+                })()}
+              </div>
+
+              {/* Quick Add from Goals — active Goals with no tomorrow
+                  Task yet. Shortcuts only: no goals row exists for these
+                  yet, so they already don't touch totalGoalsFilled/
+                  priorityGoalsFilled/MAX_GOALS/canSubmit (all derived
+                  from `goals`, never from outcomeGoals) -- nothing extra
+                  needed to keep them out of commitment/priority counts,
+                  limits, progress, validation, or submission. Clicking
+                  one calls the exact same addTaskLinkedToGoal() the full
+                  Goal card's own "+ Add Task" uses -- once that Task
+                  lands in sortedForDisplay, this same goal naturally has
+                  items.length > 0 next render and moves itself into the
+                  real Goal-card list above; no separate state to sync. */}
+              {goalsWithoutItems.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold mb-2">
+                    {t("tomorrow.quickAddFromGoalsLabel")}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {goalsWithoutItems.map((goal) => (
+                      <button
+                        key={goal.id}
+                        type="button"
+                        onClick={() => addTaskLinkedToGoal(goal.id)}
+                        disabled={!canAddMore}
+                        className="btn hover-scale inline-flex items-center gap-1.5"
+                        style={{ padding: "0.35rem 0.7rem", fontSize: "0.78rem" }}
+                        title={
+                          goals.length >= MAX_GOALS
+                            ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS })
+                            : t("tomorrow.quickAddFromGoalHint", { goal: goal.title })
+                        }
+                      >
+                        <Target size={12} className="text-pink-400 flex-shrink-0" />
+                        <span className="truncate" style={{ maxWidth: "140px" }}>
+                          {goal.title}
+                        </span>
+                        <Plus size={12} className="flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {!locked && (() => {
           // Phase 8A.1: the mobile bar used to be a `position: fixed`

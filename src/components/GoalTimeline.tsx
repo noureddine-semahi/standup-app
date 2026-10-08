@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatDateTimeDisplay } from "@/lib/supabase/db";
 import type { TimelineEntry } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
-/** Renders a goal's chronological history/notes list with a collapse toggle. Shared by Review Today, a past day's archive view, and the Data & Metrics goal lists. */
+/** Renders a goal's chronological history/notes list with a collapse toggle. Shared by Review Today, a past day's archive view, and the Data & Metrics goal lists.
+ * `trailing` is optional extra content (e.g. a comment button) rendered on the
+ * same row as the toggle, sharing it via flex-wrap when width allows -- every
+ * existing caller that omits it gets byte-identical layout to before, since a
+ * flex row with one child renders the same as no flex row at all. */
 export default function GoalTimeline({
   entries,
   defaultExpanded = true,
+  trailing,
 }: {
   entries: TimelineEntry[];
   defaultExpanded?: boolean;
+  trailing?: ReactNode;
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -34,15 +40,18 @@ export default function GoalTimeline({
 
   return (
     <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="text-xs text-white/50 hover:text-white/80 transition"
-      >
-        <span className="inline-flex items-center gap-1">
-          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("goalTimeline.toggle")}{entries.length > 0 ? ` (${entries.length})` : ""}
-        </span>
-      </button>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs text-white/50 hover:text-white/80 transition"
+        >
+          <span className="inline-flex items-center gap-1">
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("goalTimeline.toggle")}{entries.length > 0 ? ` (${entries.length})` : ""}
+          </span>
+        </button>
+        {trailing}
+      </div>
 
       {expanded && (
         <div className="mt-2 space-y-2">

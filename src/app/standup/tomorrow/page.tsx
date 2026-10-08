@@ -1612,13 +1612,33 @@ export default function TomorrowGoalsPage() {
 
             {/* History & notes — merged chronological timeline, same
                 component as Review Today and the Calendar archive
-                view, instead of separate Notes/History tabs. */}
-            <div style={{ flex: "1 1 40%", minWidth: "220px" }}>
+                view, instead of separate Notes/History tabs. The
+                comment/note toggle now renders as GoalTimeline's own
+                `trailing` content (sharing its "Actions & notes" row)
+                instead of a separate stacked column -- on mobile,
+                .goal-row-cols wraps each column onto its own line, so
+                that extra column was previously an almost-empty row of
+                its own (just one small icon, full width, pushed to the
+                end) plus another inter-column gap above it. */}
+            <div style={{ flex: "1 1 40%", minWidth: "220px" }} className="tomorrow-task-notes-col">
               {!g.id ? (
                 <div className="text-xs text-white/30 italic">{t("tomorrow.saveToAddNotes")}</div>
               ) : (
                 <>
-                  <GoalTimeline entries={buildGoalTimeline(g, g.previous_actions ?? [], t)} />
+                  <GoalTimeline
+                    entries={buildGoalTimeline(g, g.previous_actions ?? [], t)}
+                    trailing={
+                      <button
+                        type="button"
+                        onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id as string]: !prev[g.id as string] }))}
+                        className="actions-toggle"
+                        data-open={!!showNoteInput[g.id]}
+                        title={t("tomorrow.addNoteTitle")}
+                      >
+                        <MessageCircle size={14} />
+                      </button>
+                    }
+                  />
                   {showNoteInput[g.id] && (
                     <div className="mt-3 flex gap-2">
                       <input
@@ -1647,24 +1667,6 @@ export default function TomorrowGoalsPage() {
                 </>
               )}
             </div>
-
-            {/* Comment/note toggle — the one remaining control in
-                this column now that priority lives beside the
-                title; a secondary icon action, not competing with
-                priority/status for visual weight. */}
-            {g.id && (
-              <div className="flex items-center justify-end flex-shrink-0 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setShowNoteInput((prev) => ({ ...prev, [g.id as string]: !prev[g.id as string] }))}
-                  className="actions-toggle"
-                  data-open={!!showNoteInput[g.id]}
-                  title={t("tomorrow.addNoteTitle")}
-                >
-                  <MessageCircle size={14} />
-                </button>
-              </div>
-            )}
           </div>
           </div>
         </div>

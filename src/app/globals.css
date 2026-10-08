@@ -3151,6 +3151,18 @@ select:focus {
   .goal-row-cols {
     flex-direction: column;
   }
+
+  /* Plan Tomorrow only (scoped to this one wrapper class): once the
+     columns above stack, GoalTimeline's own `mt-3` margin on its root
+     stacks ON TOP of .goal-row-cols' own inter-column gap -- a doubled
+     gap landing right before "Actions & notes", on top of what used to
+     be a near-empty extra stacked column just for the comment button
+     (now merged into this same row via GoalTimeline's `trailing` prop).
+     Cancelled only here, only on mobile; every other GoalTimeline caller
+     (Review Today, date-detail, Data & Metrics) is unaffected. */
+  .tomorrow-task-notes-col > .mt-3:first-child {
+    margin-top: 0;
+  }
 }
 
 /* Goal number marker -- a metallic hemisphere/domed stud mounted at the

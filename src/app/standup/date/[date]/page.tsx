@@ -1286,16 +1286,18 @@ export default function DynamicDatePage() {
       );
 
       nodes.push(
-        <div
-          key={`group-${gid}-${item.idx}`}
-          className="rounded-2xl"
-          style={{ background: "rgba(var(--tint-rgb), 0.03)", border: "1px solid rgba(var(--tint-rgb), 0.08)", padding: "1rem" }}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Target size={16} className="text-pink-400 flex-shrink-0" />
-            <h3 className="text-base font-semibold text-white truncate">{title}</h3>
+        // Reuses Review Today's own .goal-group-card treatment (header +
+        // children tray) rather than a separate ad-hoc design -- no
+        // .goal-group-card-summary/-stats here, since this page doesn't
+        // duplicate Goal progress/counting (unchanged, intentional).
+        <div key={`group-${gid}-${item.idx}`} className="goal-group-card">
+          <div className="goal-group-card-header">
+            <div className="goal-group-card-title">
+              <Target size={16} className="flex-shrink-0" style={{ color: "#f472b6" }} />
+              <h3 className="text-base font-semibold text-white truncate">{title}</h3>
+            </div>
           </div>
-          <div className="space-y-4">
+          <div className="goal-group-card-children space-y-4">
             {clusterItems.map(({ g, idx }) => (
               <div key={g.id ?? `row-${idx}`}>{renderGoalRow(g, idx, { showParentLabel: false })}</div>
             ))}

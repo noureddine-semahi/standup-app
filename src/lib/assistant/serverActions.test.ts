@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { updateGoalStatusAction } from "./serverActions";
+import { updateGoalStatusAction, removeGoalAction, moveGoalToBacklogAction } from "./serverActions";
+import { GoalDeleteBlockedError } from "@/lib/supabase/db";
 
 // Real ids from the confirmed live-data P1 regression trace: SOURCE
 // ("Paint the hubcaps", postponed) was rescheduled forward and
@@ -22,7 +23,11 @@ type Row = Record<string, any>;
  * db.test.ts) actually wires reconciliation in, end to end, against an
  * in-memory fixture instead of any live database.
  */
-function createFakeSupabase(tables: { goals: Row[]; goal_reschedules: Row[]; goal_notes: Row[]; daily_plans: Row[] }) {
+function createFakeSupabase(
+  tables: { goals: Row[]; goal_reschedules: Row[]; goal_notes: Row[]; daily_plans: Row[] } & Partial<
+    Record<"goal_assignments" | "goal_backlog", Row[]>
+  >
+) {
   function builder(table: string) {
     const rows: Row[] = (tables as any)[table] ?? [];
     const filters: Array<(r: Row) => boolean> = [];
@@ -66,14 +71,42 @@ function createFakeSupabase(tables: { goals: Row[]; goal_reschedules: Row[]; goa
           },
         };
       },
-      async insert(obj: Row) {
-        rows.push(obj);
-        return { error: null };
+      // Supports both the plain `await ...insert(obj)` shape already used
+      // elsewhere in this file AND moveGoalToBacklogAction's
+      // `...insert(obj).select().single()` chain -- the row is pushed
+      // eagerly either way (matching real Postgres: the write happens
+      // regardless of whether the caller asks `.select()` for it back).
+      insert(obj: Row) {
+        const withId = { id: obj.id ?? `fake-id-${rows.length}-${Math.random().toString(36).slice(2, 8)}`, ...obj };
+        rows.push(withId);
+        return {
+          then(resolve: (v: { error: null }) => void) {
+            resolve({ error: null });
+          },
+          select() {
+            return {
+              async single() {
+                return { data: withId, error: null };
+              },
+            };
+          },
+        };
+      },
+      // removeGoalAction/moveGoalToBacklogAction's `.delete().eq(...)`.
+      delete() {
+        return {
+          async eq(col: string, val: any) {
+            const idx = rows.findIndex((r) => r[col] === val);
+            if (idx >= 0) rows.splice(idx, 1);
+            return { error: null };
+          },
+        };
       },
       // Plain `await supabase.from(...).select(...)...` with no terminal
       // .single()/.maybeSingle() (used for the batched array fetches in
-      // cancelOrphanedReschedulesAction) -- making `api` itself thenable
-      // lets `await` resolve it directly.
+      // cancelOrphanedReschedulesAction, and for assertGoalDeletable's
+      // four `.limit(1)` existence checks) -- making `api` itself
+      // thenable lets `await` resolve it directly.
       then(resolve: (v: { data: Row[]; error: null }) => void) {
         const found = rows.filter((r) => filters.every((f) => f(r)));
         resolve({ data: found, error: null });
@@ -180,5 +213,134 @@ describe("updateGoalStatusAction — reschedule reconciliation", () => {
 
     const continuation = fixture.goals.find((g) => g.id === CONTINUATION);
     expect(continuation?.status).toBe("not_started"); // untouched by an unrelated completion
+  });
+});
+
+// Lifecycle-integrity fix: deleteGoal() (db.ts) and these two mirrors now
+// refuse to hard-delete a goal that participates in a reschedule or
+// assignment relationship -- see findGoalDeleteBlockReason/
+// GoalDeleteBlockedError in db.ts. These tests exercise the real
+// production code path (not just the pure decision helper already
+// covered in db.test.ts) against an in-memory fixture, same reasoning as
+// the updateGoalStatusAction suite above.
+describe("removeGoalAction / moveGoalToBacklogAction — delete-safety guard", () => {
+  const DISPOSABLE = "disposable-1";
+  const ASSIGN_SOURCE = "assign-source-1";
+  const ASSIGN_RECIPIENT = "assign-recipient-1";
+  const RESCHEDULE_SOURCE = "reschedule-source-1";
+  const RESCHEDULE_TARGET = "reschedule-target-1";
+
+  function makeDeleteFixture() {
+    return {
+      goals: [
+        { id: DISPOSABLE, plan_id: "plan-1", title: "Ordinary disposable task", status: "not_started" },
+        { id: ASSIGN_SOURCE, plan_id: "plan-1", title: "Assigned out", status: "postponed" },
+        { id: ASSIGN_RECIPIENT, plan_id: "plan-2", title: "Assigned to me", status: "completed" },
+        { id: RESCHEDULE_SOURCE, plan_id: "plan-1", title: "Rescheduled task", status: "postponed" },
+        { id: RESCHEDULE_TARGET, plan_id: "plan-3", title: "Rescheduled task", status: "not_started" },
+      ],
+      goal_reschedules: [
+        { from_goal_id: RESCHEDULE_SOURCE, materialized_goal_id: RESCHEDULE_TARGET, materialized: true },
+      ],
+      goal_notes: [] as Row[],
+      daily_plans: [] as Row[],
+      goal_assignments: [
+        {
+          id: "assignment-1",
+          assigner_id: "owner-1",
+          recipient_id: "nino-1",
+          assigner_goal_id: ASSIGN_SOURCE,
+          recipient_goal_id: ASSIGN_RECIPIENT,
+          status: "accepted",
+        },
+      ],
+      goal_backlog: [] as Row[],
+    };
+  }
+
+  let fixture: ReturnType<typeof makeDeleteFixture>;
+
+  beforeEach(() => {
+    fixture = makeDeleteFixture();
+  });
+
+  it("an ordinary disposable/unlinked Task can still be deleted", async () => {
+    const supabase = createFakeSupabase(fixture);
+    const result = await removeGoalAction(supabase, USER_ID, DISPOSABLE);
+
+    expect(result).toEqual({ title: "Ordinary disposable task" });
+    expect(fixture.goals.find((g) => g.id === DISPOSABLE)).toBeUndefined();
+  });
+
+  it("an assignment SOURCE Task (assigner_goal_id) cannot be destructively deleted", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, ASSIGN_SOURCE)).rejects.toMatchObject({
+      reason: "assignment",
+    });
+  });
+
+  it("an assignment RECIPIENT Task (recipient_goal_id) cannot be destructively deleted -- the Share-1 scenario", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, ASSIGN_RECIPIENT)).rejects.toMatchObject({
+      reason: "assignment",
+    });
+  });
+
+  it("a reschedule SOURCE cannot be destructively deleted", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, RESCHEDULE_SOURCE)).rejects.toMatchObject({
+      reason: "reschedule",
+    });
+  });
+
+  it("a materialized reschedule descendant cannot be deleted if it would corrupt chain history", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, RESCHEDULE_TARGET)).rejects.toMatchObject({
+      reason: "reschedule",
+    });
+  });
+
+  it("a blocked delete leaves the original goals row intact", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, ASSIGN_RECIPIENT)).rejects.toBeInstanceOf(GoalDeleteBlockedError);
+
+    expect(fixture.goals.find((g) => g.id === ASSIGN_RECIPIENT)).toBeDefined();
+  });
+
+  it("a blocked delete leaves the assignment relationship intact", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, ASSIGN_SOURCE)).rejects.toBeInstanceOf(GoalDeleteBlockedError);
+
+    const assignment = fixture.goal_assignments.find((a) => a.id === "assignment-1");
+    expect(assignment?.assigner_goal_id).toBe(ASSIGN_SOURCE);
+    expect(assignment?.recipient_goal_id).toBe(ASSIGN_RECIPIENT);
+  });
+
+  it("a blocked delete leaves the reschedule relationship intact", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(removeGoalAction(supabase, USER_ID, RESCHEDULE_SOURCE)).rejects.toBeInstanceOf(GoalDeleteBlockedError);
+
+    const edge = fixture.goal_reschedules[0];
+    expect(edge.from_goal_id).toBe(RESCHEDULE_SOURCE);
+    expect(edge.materialized_goal_id).toBe(RESCHEDULE_TARGET);
+  });
+
+  it("moveGoalToBacklogAction is guarded the same way -- an assignment-linked Task is not moved to backlog or deleted", async () => {
+    const supabase = createFakeSupabase(fixture);
+    await expect(moveGoalToBacklogAction(supabase, USER_ID, ASSIGN_RECIPIENT)).rejects.toMatchObject({
+      reason: "assignment",
+    });
+
+    expect(fixture.goals.find((g) => g.id === ASSIGN_RECIPIENT)).toBeDefined();
+    expect(fixture.goal_backlog.length).toBe(0); // no backlog copy was created either
+  });
+
+  it("moveGoalToBacklogAction still works for an ordinary, unlinked Task", async () => {
+    const supabase = createFakeSupabase(fixture);
+    const result = await moveGoalToBacklogAction(supabase, USER_ID, DISPOSABLE);
+
+    expect(result.title).toBe("Ordinary disposable task");
+    expect(fixture.goals.find((g) => g.id === DISPOSABLE)).toBeUndefined();
+    expect(fixture.goal_backlog.length).toBe(1);
   });
 });

@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { walkMaterializedChain, filterUnresolvedDescendants } from "@/lib/supabase/db";
+import {
+  walkMaterializedChain,
+  filterUnresolvedDescendants,
+  findGoalDeleteBlockReason,
+  GoalDeleteBlockedError,
+} from "@/lib/supabase/db";
 
 // Server-side mirrors of a handful of src/lib/supabase/db.ts functions, for
 // the assistant's API route (src/app/api/assistant/route.ts) to call against
@@ -283,6 +288,42 @@ export async function rescheduleGoalAction(
   return { goalId, title: goal.title as string, toDateISO };
 }
 
+/**
+ * Server-side mirror of db.ts's deleteGoal() own pre-delete guard --
+ * same findGoalDeleteBlockReason decision function (imported, not
+ * reimplemented, same reasoning as walkMaterializedChain/
+ * filterUnresolvedDescendants above), just run against this file's own
+ * per-request client. Both of this file's hard-delete actions
+ * (moveGoalToBacklogAction, removeGoalAction) call this before their
+ * `.delete()` -- without it, either would bypass db.ts's protection
+ * entirely, since neither goes through deleteGoal() itself.
+ */
+async function assertGoalDeletable(supabase: SupabaseClient, goalId: string) {
+  const [
+    { data: rescheduleAsSource, error: rsErr },
+    { data: rescheduleAsTarget, error: rtErr },
+    { data: assignmentAsSource, error: asErr },
+    { data: assignmentAsRecipient, error: arErr },
+  ] = await Promise.all([
+    supabase.from("goal_reschedules").select("id").eq("from_goal_id", goalId).limit(1),
+    supabase.from("goal_reschedules").select("id").eq("materialized_goal_id", goalId).limit(1),
+    supabase.from("goal_assignments").select("id").eq("assigner_goal_id", goalId).limit(1),
+    supabase.from("goal_assignments").select("id").eq("recipient_goal_id", goalId).limit(1),
+  ]);
+  if (rsErr) throw rsErr;
+  if (rtErr) throw rtErr;
+  if (asErr) throw asErr;
+  if (arErr) throw arErr;
+
+  const reason = findGoalDeleteBlockReason({
+    isRescheduleSource: (rescheduleAsSource ?? []).length > 0,
+    isRescheduleTarget: (rescheduleAsTarget ?? []).length > 0,
+    isAssignmentSource: (assignmentAsSource ?? []).length > 0,
+    isAssignmentRecipient: (assignmentAsRecipient ?? []).length > 0,
+  });
+  if (reason) throw new GoalDeleteBlockedError(reason);
+}
+
 export async function moveGoalToBacklogAction(supabase: SupabaseClient, userId: string, goalId: string) {
   const { data: goal, error: goalErr } = await supabase
     .from("goals")
@@ -290,6 +331,8 @@ export async function moveGoalToBacklogAction(supabase: SupabaseClient, userId: 
     .eq("id", goalId)
     .single();
   if (goalErr) throw goalErr;
+
+  await assertGoalDeletable(supabase, goalId);
 
   const { data: created, error: insertErr } = await supabase
     .from("goal_backlog")
@@ -310,8 +353,9 @@ export async function moveGoalToBacklogAction(supabase: SupabaseClient, userId: 
 }
 
 /**
- * Mirrors deleteGoal() in db.ts exactly — a plain row delete. Tomorrow's
- * own removeGoal() uses this same uniform delete-outright semantics for
+ * Mirrors deleteGoal() in db.ts exactly — a plain row delete, now
+ * guarded by the same assertGoalDeletable() check above. Tomorrow's own
+ * removeGoal() uses this same uniform delete-outright semantics for
  * every position now too (no slot is structurally protected under the
  * locked 3-10 commitment model), so this was never a special case to
  * begin with. If this leaves a plan under 3 goals, the next time that
@@ -324,6 +368,8 @@ export async function moveGoalToBacklogAction(supabase: SupabaseClient, userId: 
 export async function removeGoalAction(supabase: SupabaseClient, _userId: string, goalId: string) {
   const { data: goal, error: goalErr } = await supabase.from("goals").select("id, title").eq("id", goalId).single();
   if (goalErr) throw goalErr;
+
+  await assertGoalDeletable(supabase, goalId);
 
   const { error: deleteErr } = await supabase.from("goals").delete().eq("id", goalId);
   if (deleteErr) throw deleteErr;

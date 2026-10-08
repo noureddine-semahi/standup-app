@@ -716,6 +716,22 @@ export default function DynamicDatePage() {
   async function removeGoal(idx: number) {
     const g = goals[idx];
 
+    // deleteGoal() (db.ts) now blocks a hard delete that would destroy
+    // reschedule/assignment history (GoalDeleteBlockedError). Checked
+    // BEFORE touching UI state (was previously removed from `goals`
+    // optimistically, then deleted with the result silently swallowed)
+    // specifically so a blocked delete leaves the card visible with a
+    // clear reason instead of vanishing from the screen while the row
+    // actually survives untouched in the database.
+    if (g.id) {
+      try {
+        await deleteGoal(g.id);
+      } catch (e: any) {
+        setMsg(e?.message ?? t("today.failedDeleteGoal"));
+        return;
+      }
+    }
+
     // Every position uses the same removal semantics -- no slot is
     // structurally protected. Deletes the row outright (and its DB
     // record, if it has one). If this drops the plan below 3 real
@@ -727,12 +743,6 @@ export default function DynamicDatePage() {
         .filter((_, i) => i !== idx)
         .map((x, i) => ({ ...x, sort_order: i }))
     );
-
-    if (g.id) {
-      try {
-        await deleteGoal(g.id);
-      } catch {}
-    }
 
     scheduleAutoSave();
   }

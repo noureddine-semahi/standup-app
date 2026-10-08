@@ -1042,7 +1042,97 @@ export async function upsertGoals(
   return (data ?? []) as Goal[];
 }
 
+/**
+ * Why a goal can't be hard-deleted -- "reschedule" if it's a reschedule
+ * SOURCE (from_goal_id; deleting it CASCADEs the whole goal_reschedules
+ * edge row away, reason/snapshot/materialized_goal_id all gone with it)
+ * or a materialized reschedule TARGET (materialized_goal_id; deleting it
+ * only nulls that one column via ON DELETE SET NULL, but that's exactly
+ * what breaks collapseGoalLineages' chain walk -- the edge "disappears"
+ * for chain-walking purposes and the Task before it incorrectly
+ * resurrects as the current/terminal one). "assignment" if it's either
+ * side of a goal_assignments row (assigner_goal_id or recipient_goal_id)
+ * -- deleting it silently nulls that link (ON DELETE SET NULL) with no
+ * trace left that the work/assignment ever existed, and goal_notes' ON
+ * DELETE CASCADE means any completion/activity history on the row is
+ * destroyed in the same instant.
+ */
+export type GoalDeleteBlockReason = "reschedule" | "assignment";
+
+const GOAL_DELETE_BLOCK_MESSAGES: Record<GoalDeleteBlockReason, string> = {
+  reschedule: "This task is part of a reschedule history and can't be permanently deleted.",
+  assignment: "This task is linked to an assignment and can't be permanently deleted.",
+};
+
+export class GoalDeleteBlockedError extends Error {
+  reason: GoalDeleteBlockReason;
+  constructor(reason: GoalDeleteBlockReason) {
+    super(GOAL_DELETE_BLOCK_MESSAGES[reason]);
+    this.reason = reason;
+  }
+}
+
+/**
+ * Pure decision logic -- no Supabase client, just the four existence
+ * checks a caller already had to run to know whether it's safe to
+ * hard-delete this goal. Same "decision logic lives in exactly one
+ * place, I/O is duplicated per caller's own client" pattern
+ * cancelOrphanedReschedules/cancelOrphanedReschedulesAction already
+ * established (see serverActions.ts's own comment on
+ * walkMaterializedChain/filterUnresolvedDescendants for why) -- reused
+ * by deleteGoal() below AND by the assistant's removeGoalAction/
+ * moveGoalToBacklogAction (src/lib/assistant/serverActions.ts), which
+ * have their own raw `.delete()` calls against a different client and
+ * would otherwise bypass this guard entirely.
+ */
+export function findGoalDeleteBlockReason(flags: {
+  isRescheduleSource: boolean;
+  isRescheduleTarget: boolean;
+  isAssignmentSource: boolean;
+  isAssignmentRecipient: boolean;
+}): GoalDeleteBlockReason | null {
+  if (flags.isRescheduleSource || flags.isRescheduleTarget) return "reschedule";
+  if (flags.isAssignmentSource || flags.isAssignmentRecipient) return "assignment";
+  return null;
+}
+
+/**
+ * Before this guard: a completed assignment recipient Task (or any
+ * reschedule source/target) could be hard-deleted through the same "X"
+ * button as any disposable Task -- silently destroying the only record
+ * that the work (and, via goal_notes' CASCADE, its completion history)
+ * ever existed, and in the reschedule case, corrupting
+ * collapseGoalLineages' chain walk for every other Task still linked to
+ * it. This blocks the delete outright (GoalDeleteBlockedError) rather
+ * than reinterpreting it as a status change -- deciding what "remove
+ * from view" should mean for a protected Task is a separate, later
+ * design question, not something to improvise here.
+ */
 export async function deleteGoal(goalId: string) {
+  const [
+    { data: rescheduleAsSource, error: rsErr },
+    { data: rescheduleAsTarget, error: rtErr },
+    { data: assignmentAsSource, error: asErr },
+    { data: assignmentAsRecipient, error: arErr },
+  ] = await Promise.all([
+    supabase.from("goal_reschedules").select("id").eq("from_goal_id", goalId).limit(1),
+    supabase.from("goal_reschedules").select("id").eq("materialized_goal_id", goalId).limit(1),
+    supabase.from("goal_assignments").select("id").eq("assigner_goal_id", goalId).limit(1),
+    supabase.from("goal_assignments").select("id").eq("recipient_goal_id", goalId).limit(1),
+  ]);
+  if (rsErr) throw rsErr;
+  if (rtErr) throw rtErr;
+  if (asErr) throw asErr;
+  if (arErr) throw arErr;
+
+  const reason = findGoalDeleteBlockReason({
+    isRescheduleSource: (rescheduleAsSource ?? []).length > 0,
+    isRescheduleTarget: (rescheduleAsTarget ?? []).length > 0,
+    isAssignmentSource: (assignmentAsSource ?? []).length > 0,
+    isAssignmentRecipient: (assignmentAsRecipient ?? []).length > 0,
+  });
+  if (reason) throw new GoalDeleteBlockedError(reason);
+
   const { error } = await supabase.from("goals").delete().eq("id", goalId);
   if (error) throw error;
 }

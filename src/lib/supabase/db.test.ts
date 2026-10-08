@@ -12,6 +12,8 @@ import {
   collapseGoalLineages,
   resolveLineageOwners,
   findOrphanedContinuationIds,
+  findGoalDeleteBlockReason,
+  GoalDeleteBlockedError,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -662,5 +664,81 @@ describe("findOrphanedContinuationIds", () => {
     expect(orphanIds.has("day1-continuation")).toBe(true); // excluded from that day's active count
     expect(orphanIds.has("day3-continuation")).toBe(false); // source unresolved -- still a real, active Task
     expect(orphanIds.has("day2-ordinary-canceled")).toBe(false); // never referenced by any edge, untouched
+  });
+});
+
+describe("findGoalDeleteBlockReason", () => {
+  it("allows deletion of an ordinary, disposable Task with no reschedule/assignment links", () => {
+    const reason = findGoalDeleteBlockReason({
+      isRescheduleSource: false,
+      isRescheduleTarget: false,
+      isAssignmentSource: false,
+      isAssignmentRecipient: false,
+    });
+    expect(reason).toBeNull();
+  });
+
+  it("blocks a reschedule SOURCE (from_goal_id) -- deleting it would CASCADE the whole edge row away", () => {
+    const reason = findGoalDeleteBlockReason({
+      isRescheduleSource: true,
+      isRescheduleTarget: false,
+      isAssignmentSource: false,
+      isAssignmentRecipient: false,
+    });
+    expect(reason).toBe("reschedule");
+  });
+
+  it("blocks a materialized reschedule TARGET -- deleting it would null materialized_goal_id and resurrect its predecessor as current", () => {
+    const reason = findGoalDeleteBlockReason({
+      isRescheduleSource: false,
+      isRescheduleTarget: true,
+      isAssignmentSource: false,
+      isAssignmentRecipient: false,
+    });
+    expect(reason).toBe("reschedule");
+  });
+
+  it("blocks an assignment SOURCE (assigner_goal_id)", () => {
+    const reason = findGoalDeleteBlockReason({
+      isRescheduleSource: false,
+      isRescheduleTarget: false,
+      isAssignmentSource: true,
+      isAssignmentRecipient: false,
+    });
+    expect(reason).toBe("assignment");
+  });
+
+  it("blocks an assignment RECIPIENT (recipient_goal_id) -- the exact Share-1 failure mode from the investigation", () => {
+    const reason = findGoalDeleteBlockReason({
+      isRescheduleSource: false,
+      isRescheduleTarget: false,
+      isAssignmentSource: false,
+      isAssignmentRecipient: true,
+    });
+    expect(reason).toBe("assignment");
+  });
+
+  it("prefers 'reschedule' when a Task is somehow both reschedule- and assignment-linked (reason is informational only; both relationships still exist regardless of which one is named)", () => {
+    const reason = findGoalDeleteBlockReason({
+      isRescheduleSource: true,
+      isRescheduleTarget: false,
+      isAssignmentSource: true,
+      isAssignmentRecipient: false,
+    });
+    expect(reason).toBe("reschedule");
+  });
+});
+
+describe("GoalDeleteBlockedError", () => {
+  it("carries the reason and a matching human-readable message for 'reschedule'", () => {
+    const err = new GoalDeleteBlockedError("reschedule");
+    expect(err.reason).toBe("reschedule");
+    expect(err.message).toMatch(/reschedule history/i);
+  });
+
+  it("carries the reason and a matching human-readable message for 'assignment'", () => {
+    const err = new GoalDeleteBlockedError("assignment");
+    expect(err.reason).toBe("assignment");
+    expect(err.message).toMatch(/assignment/i);
   });
 });

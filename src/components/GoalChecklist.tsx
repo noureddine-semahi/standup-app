@@ -143,7 +143,7 @@ export default function GoalChecklist({
   }
 
   return (
-    <div className={compact ? "" : "mt-3"}>
+    <div className={compact ? (expanded ? "goal-toolbar-expandable goal-toolbar-expandable-open" : "goal-toolbar-expandable") : "mt-3"}>
       {compact ? (
         <button
           type="button"

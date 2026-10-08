@@ -1803,7 +1803,7 @@ export default function TomorrowGoalsPage() {
                 {goalsWithItems.map(({ goal, items }) => (
                   <div
                     key={goal.id}
-                    className="rounded-2xl"
+                    className="rounded-2xl tomorrow-goal-group-card"
                     style={{
                       background: "rgba(var(--tint-rgb), 0.03)",
                       border: "1px solid rgba(var(--tint-rgb), 0.08)",

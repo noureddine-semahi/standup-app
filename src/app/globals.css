@@ -4446,6 +4446,19 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* Checklist/Attachments in compact mode render their toggle button AND
+   (once expanded) a full list/input panel as one .goal-toolbar child.
+   Collapsed, that child is just a button like any other toolbar item --
+   but expanded, its content can be much wider/taller than a button, and
+   flex-wrap was wrapping it mid-row, shoving every toolbar item that
+   comes after it (in DOM order) onto a broken, partial-width line. This
+   forces the expanded panel onto its own full-width line instead, so
+   whatever follows it resumes on a clean row directly underneath. */
+.goal-toolbar-expandable-open {
+  flex-basis: 100%;
+  width: 100%;
+}
+
 /* Icon+label controls collapse to icon-only (title attr carries the
    label for a11y/tooltip) below ~480px -- explicit user call, keeps the
    toolbar from wrapping onto several lines or overflowing on a phone.
@@ -4493,6 +4506,16 @@ select:focus {
   .goal-child-expanded .goal-toolbar-btn {
     padding: 0.2rem 0.3rem !important;
     gap: 0.25rem;
+  }
+
+  /* Plan Tomorrow's own Major-Goal grouping (a different wrapper than
+     .goal-group-card/.goal-child-expanded above, but the same problem):
+     its 1rem padding eats width a standalone .goal-row never loses,
+     making a Goal-child Task card wrap its toolbar/controls at a wider
+     breakpoint than an otherwise-identical standalone card. Tightened
+     here so both reach the same available width at the same viewport. */
+  .tomorrow-goal-group-card {
+    padding: 0.5rem !important;
   }
 
   /* .status-chip's fixed 128px (needed elsewhere for column alignment

@@ -4395,6 +4395,28 @@ select:focus {
   padding: 0 0.45rem;
 }
 
+/* Broken conceptual Task (lifecycle: "broken" -- its recorded reschedule
+   evidence points at a continuation that no longer exists). Stacks the
+   normal title+chip row with a second line (explanatory hint + Resolve
+   trigger) instead of forcing that extra context into the single-line
+   row every other Task uses -- same .dashboard-goal-task-row look for
+   line one, so it still reads as part of the same list. */
+.dashboard-goal-task-row-broken {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.3rem 0;
+  border-top: 1px dashed rgba(245, 158, 11, 0.15);
+  border-bottom: 1px dashed rgba(245, 158, 11, 0.15);
+}
+
+.dashboard-goal-task-broken-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 /* Success state for a submitted plan — replaces what used to be a
    disabled-looking primary button with weak, brownish text. A real
    green glass status card instead, same family as .plan-submitted's
@@ -5897,6 +5919,24 @@ select:focus {
   color: rgba(var(--tint-rgb), 0.4);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* Broken conceptual Task (lifecycle: "broken") inside Review Today's
+   history list -- reuses .goal-history-row unchanged for the main line
+   (icon/title/badge), same compact family every other history row
+   already uses, with one small muted hint line underneath instead of a
+   bigger standalone treatment. No Resolve action here -- Dashboard's
+   Active Goals card is the only place that offers it. */
+.goal-history-row-broken {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.goal-history-row-broken-hint {
+  font-size: 0.65rem;
+  color: rgba(var(--tint-rgb), 0.35);
+  padding: 0 0.6rem;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

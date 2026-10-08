@@ -2268,14 +2268,34 @@ export function findOrphanedContinuationIds(
   return orphanIds;
 }
 
+/** A conceptual Task's resolved lifecycle -- what any consumer (Dashboard's
+ * Active Goals, Review Today) should actually DO with it, distinct from the
+ * raw GoalStatus of whichever physical row happens to be `terminal`:
+ *   - "completed" / "canceled": a real resolved outcome, taken directly
+ *     from `terminal.status` (unchanged from before this type existed).
+ *   - "broken": the chain's own recorded reschedule evidence (a
+ *     materialized goal_reschedules edge) points at a continuation that no
+ *     longer exists -- `terminal` is a STALE PREDECESSOR, not a normal
+ *     current Task, and must never be read as "pending"/"rescheduled" by
+ *     anything that doesn't explicitly handle this case.
+ *   - "active": everything else -- a genuinely current, in-progress, or
+ *     not-yet-started Task.
+ */
+export type ConceptualTaskLifecycle = "active" | "completed" | "canceled" | "broken";
+
 /** One conceptual Task collapsed from a reschedule lineage (A -> B -> C).
  * `terminal` is the current/display row (status, plan_date, title, etc
  * all come from it); `chain` is every physical row root-to-terminal, kept
  * only for callers that need the full history -- display code should
- * only ever look at `terminal`. */
+ * only ever look at `terminal`. `lifecycle` is the one field every
+ * consumer should actually branch display logic on (see
+ * ConceptualTaskLifecycle) -- `terminal.status` alone is NOT enough once
+ * "broken" exists, since a broken chain's terminal is just whatever
+ * status its stale predecessor happened to be left in. */
 export type ConceptualTask<T extends { id: string; status: string }> = {
   terminal: T;
   chain: T[];
+  lifecycle: ConceptualTaskLifecycle;
 };
 
 /**
@@ -2311,10 +2331,29 @@ export type ConceptualTask<T extends { id: string; status: string }> = {
  * the input ever contains a duplicate/malformed edge -- every row in
  * `goals` appears in exactly one conceptual Task's chain, never zero, never
  * two. Never mutates its input.
+ *
+ * `edges`' optional `materialized` flag is what makes a chain's
+ * `lifecycle` resolve to "broken" rather than silently falling back to
+ * the last reachable row as if it were current: materializeReschedules()
+ * only ever INSERTS a `materialized: true` row carrying a real, just-
+ * created `materialized_goal_id` -- it never updates one in place -- so
+ * the ONLY way an already-materialized edge's `materialized_goal_id`
+ * later becomes null is goals.id's own `ON DELETE SET NULL` firing
+ * because that continuation was hard-deleted. A `materialized: false`
+ * row (a reschedule intent recorded but not yet materialized onto its
+ * target day) is explicitly NOT broken -- that's the normal, expected
+ * pre-materialization state, not lost history. Deliberately does NOT
+ * treat "materialized_goal_id points outside the given `goals` set" as
+ * broken on its own (see the paragraph above) -- that stays a silent,
+ * harmless stop, since a caller's own fetch scope (not deletion) is the
+ * far more common reason for that, and getConceptualTasksByOutcomeGoalIds
+ * already fetches every genuinely reachable continuation before calling
+ * this, so a real deletion always surfaces via the materialized/null
+ * signal instead.
  */
 export function collapseGoalLineages<T extends { id: string; status: string }>(
   goals: T[],
-  edges: { from_goal_id: string; materialized_goal_id: string | null }[]
+  edges: { from_goal_id: string; materialized_goal_id: string | null; materialized?: boolean }[]
 ): ConceptualTask<T>[] {
   const goalById = new Map(goals.map((g) => [g.id, g]));
 
@@ -2323,6 +2362,18 @@ export function collapseGoalLineages<T extends { id: string; status: string }>(
   const nextByFromId = new Map<string, string>();
   for (const e of edges) {
     if (e.materialized_goal_id) nextByFromId.set(e.from_goal_id, e.materialized_goal_id);
+  }
+
+  // A from_goal_id whose materialization is confirmed (materialized:
+  // true) but whose target is gone (materialized_goal_id: null) -- only
+  // when no OTHER edge for the same from_goal_id still has a live
+  // target, so a genuinely resolvable materialization is never
+  // shadowed by a stale/broken duplicate.
+  const danglingFromIds = new Set<string>();
+  for (const e of edges) {
+    if (e.materialized === true && !e.materialized_goal_id && !nextByFromId.has(e.from_goal_id)) {
+      danglingFromIds.add(e.from_goal_id);
+    }
   }
 
   const incoming = new Set<string>();
@@ -2340,17 +2391,35 @@ export function collapseGoalLineages<T extends { id: string; status: string }>(
     const chain: T[] = [g];
     const visited = new Set<string>([g.id]);
     let currentId = g.id;
+    let brokenAt: string | null = null;
     while (true) {
       const nextId = nextByFromId.get(currentId);
-      if (!nextId || !goalById.has(nextId) || visited.has(nextId) || claimed.has(nextId)) break;
-      visited.add(nextId);
-      claimed.add(nextId);
-      chain.push(goalById.get(nextId)!);
-      currentId = nextId;
+      if (nextId && goalById.has(nextId) && !visited.has(nextId) && !claimed.has(nextId)) {
+        visited.add(nextId);
+        claimed.add(nextId);
+        chain.push(goalById.get(nextId)!);
+        currentId = nextId;
+        continue;
+      }
+      if (!nextId && danglingFromIds.has(currentId)) brokenAt = currentId;
+      break;
     }
 
-    const resolved = chain.find((row) => row.status === "completed") ?? chain[chain.length - 1];
-    tasks.push({ terminal: resolved, chain });
+    const completedRow = chain.find((row) => row.status === "completed");
+    const resolved = completedRow ?? chain[chain.length - 1];
+    // Completed always wins, even over a break further down the SAME
+    // chain -- matches the existing "completing an earlier row" rule
+    // above; a real resolution is never downgraded to "broken" just
+    // because something later in its own (now-irrelevant) continuation
+    // lineage went missing.
+    const lifecycle: ConceptualTaskLifecycle = completedRow
+      ? "completed"
+      : brokenAt !== null
+      ? "broken"
+      : resolved.status === "canceled"
+      ? "canceled"
+      : "active";
+    tasks.push({ terminal: resolved, chain, lifecycle });
   }
 
   return tasks;
@@ -2489,6 +2558,49 @@ export async function updateGoalStatus(goalId: string, status: GoalStatus) {
       console.error("Failed to reconcile rescheduled continuations", e);
     }
   }
+}
+
+/** What the owner chose when resolving a broken conceptual Task (see
+ * ConceptualTaskLifecycle's "broken" case) -- "removed" un-links it from
+ * its Goal rather than deleting/completing/canceling the row itself. */
+export type BrokenGoalResolution = "completed" | "canceled" | "removed";
+
+/**
+ * Owner-initiated resolution for a conceptual Task whose lineage is
+ * broken -- its recorded reschedule evidence points at a continuation
+ * that's been hard-deleted, so there's no live row left that can
+ * honestly represent "what actually happened" to it. This NEVER
+ * recreates the deleted row, backdates anything, or guesses at an
+ * outcome (e.g. assuming a missing assignee's work was done) -- it only
+ * lets the owner record their own explicit decision, dated to right
+ * now, against the chain's own TERMINAL row (the last one still
+ * actually present in the database -- never fabricated).
+ *
+ * "completed"/"canceled" reuse updateGoalStatus() exactly -- same
+ * timeline logging, same reschedule-reconciliation side effect (a no-op
+ * here, since a broken chain by definition has no further live
+ * continuation left to reconcile).
+ *
+ * "removed" sets outcome_goal_id to null -- the SAME "make standalone"
+ * mechanic Plan Tomorrow's own Link-to-Goal picker already uses to
+ * unlink a Task from its Goal (see tomorrow/page.tsx's "No Goal" picker
+ * option), not a new unlink concept. The row itself is never deleted;
+ * it just stops being counted toward this Goal's progress, same as any
+ * other standalone Task.
+ */
+export async function resolveBrokenGoal(goalId: string, resolution: BrokenGoalResolution) {
+  if (resolution === "removed") {
+    const { error } = await supabase.from("goals").update({ outcome_goal_id: null }).eq("id", goalId);
+    if (error) throw error;
+    // Not awaited — see updateGoalStatus's own comment on logGoalEvent.
+    logGoalEvent(
+      goalId,
+      "status_change",
+      "Removed from Goal — its reschedule continuation is no longer available"
+    );
+    return;
+  }
+  await updateGoalStatus(goalId, resolution);
 }
 
 /** Updates a goal's priority and logs it as a timestamped timeline event (see logGoalEvent). */
@@ -2970,7 +3082,7 @@ export async function getConceptualTasksByOutcomeGoalIds(
 
   const { data: edgeRows, error: edgeErr } = await supabase
     .from("goal_reschedules")
-    .select("from_goal_id, materialized_goal_id")
+    .select("from_goal_id, materialized_goal_id, materialized")
     .eq("materialized", true);
   if (edgeErr) throw edgeErr;
   const edges = edgeRows ?? [];

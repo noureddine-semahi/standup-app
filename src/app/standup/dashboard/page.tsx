@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   toISODate,
@@ -22,6 +22,9 @@ import {
   ensurePaymentReminderGoals,
   getOutcomeGoals,
   getConceptualTasksByOutcomeGoalIds,
+  resolveBrokenGoal,
+  type BrokenGoalResolution,
+  type ConceptualTaskLifecycle,
   type Goal,
   type Profile,
   type DailyPlan,
@@ -38,6 +41,7 @@ import {
 } from "@/lib/supabase/db";
 import PendingNotifications from "@/components/PendingNotifications";
 import PageLoadingState from "@/components/PageLoadingState";
+import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
@@ -215,6 +219,16 @@ export default function DashboardPage() {
   // Whether the "+X more Goals" control has been clicked to reveal every
   // Active Goal card beyond the initial compact 3 -- local UI state only.
   const [showAllActiveGoals, setShowAllActiveGoals] = useState(false);
+  // Which broken conceptual Task's "Resolve" dropdown is open -- at most
+  // one at a time, same single-ref click-outside pattern every other
+  // PortalDropdownMenu in the app already uses. resolvingBrokenGoalId is
+  // the busy flag while an action is in flight.
+  const [openResolveId, setOpenResolveId] = useState<string | null>(null);
+  const resolveMenuRef = useRef<HTMLDivElement | null>(null);
+  const [resolvingBrokenGoalId, setResolvingBrokenGoalId] = useState<string | null>(null);
+  // Same dismissible-banner pattern paymentGoalsAddedMsg already uses
+  // below, reused here rather than inventing a second message mechanism.
+  const [activeGoalsMsg, setActiveGoalsMsg] = useState<string | null>(null);
 
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
@@ -544,6 +558,39 @@ export default function DashboardPage() {
   const sortedTodayGoals = sortGoals(todayGoals);
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
 
+  // Re-fetches just the Active Goals data load() originally populated --
+  // reused after an owner Resolve action so the card reflects the new
+  // state immediately, without a full page reload or re-running every
+  // other section's own fetch.
+  async function refreshActiveGoalTasks() {
+    const goals = await getOutcomeGoals();
+    const active = goals.filter((g) => g.status === "active");
+    setActiveOutcomeGoals(active);
+    const allIds = active.map((g) => g.id);
+    const tasks = allIds.length > 0 ? await getConceptualTasksByOutcomeGoalIds(allIds) : [];
+    setOutcomeGoalTasks(tasks);
+  }
+
+  // Owner resolution for a broken conceptual Task (lifecycle: "broken" --
+  // its recorded reschedule evidence points at a continuation that's been
+  // hard-deleted). Acts on goalId directly, which callers pass as the
+  // chain's own `terminal.id` -- an existing, still-live row, never a
+  // fabricated one. See resolveBrokenGoal's own doc comment for exactly
+  // what each resolution does and doesn't do.
+  async function handleResolveBroken(goalId: string, resolution: BrokenGoalResolution) {
+    if (resolvingBrokenGoalId) return;
+    setResolvingBrokenGoalId(goalId);
+    setOpenResolveId(null);
+    try {
+      await resolveBrokenGoal(goalId, resolution);
+      await refreshActiveGoalTasks();
+    } catch (e: any) {
+      setActiveGoalsMsg(e?.message ?? t("dashboard.goalTaskResolveFailed"));
+    } finally {
+      setResolvingBrokenGoalId(null);
+    }
+  }
+
   // Active Goals summary cards — up to 3, each paired with its own Tasks
   // (outcomeGoalTasks only ever contains Tasks for these shown Goals, see
   // the fetch in load() above). outcomeGoalTasks holds CONCEPTUAL Tasks
@@ -558,9 +605,15 @@ export default function DashboardPage() {
   // only; reviewed/rescheduled/canceled/blocked/in-progress never count as
   // completed) — same semantics, not a second model.
   const activeGoalCards = activeOutcomeGoals.map((goal) => {
+    // Each task row carries its own `lifecycle` alongside the usual
+    // ArchivedGoal fields -- `.terminal.status` alone is never enough
+    // once "broken" exists (see ConceptualTaskLifecycle's own doc
+    // comment): a broken chain's terminal is just whatever status its
+    // stale predecessor happened to be left in, and must never be read
+    // as an ordinary current Task by anything below.
     const tasks = outcomeGoalTasks
       .filter((ct) => (ct.terminal as any).outcome_goal_id === goal.id)
-      .map((ct) => ct.terminal);
+      .map((ct) => ({ ...ct.terminal, lifecycle: ct.lifecycle }));
     const total = tasks.length;
     const completed = tasks.filter((g) => g.status === "completed").length;
     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -570,7 +623,10 @@ export default function DashboardPage() {
     // (closest plan_date to today, past or future). Canceled Tasks are
     // never surfaced here (nothing to act on), though they still count
     // toward `total` above same as any other non-completed status.
-    const unfinished = tasks.filter((g) => g.status !== "completed" && g.status !== "canceled");
+    // Broken Tasks are excluded too -- they need an explicit owner
+    // Resolve action, not a "Today:"/"Tomorrow:" line implying there's
+    // normal scheduled work still to do.
+    const unfinished = tasks.filter((g) => g.status !== "completed" && g.status !== "canceled" && g.lifecycle !== "broken");
     const todayTask = unfinished.find((g) => g.plan_date === todayISO);
     const tomorrowTask = !todayTask ? unfinished.find((g) => g.plan_date === tomorrowISO) : undefined;
     let context: { kind: "today" | "tomorrow" | "next"; title: string } | null = null;
@@ -594,18 +650,29 @@ export default function DashboardPage() {
     }
 
     // Expanded-row order: today's unfinished Tasks, then tomorrow's, then
-    // other still-unfinished ones, then completed/canceled last --
-    // regardless of date, a finished Task sinks to the bottom. Each
-    // .filter() preserves `tasks`' own existing order (already newest-
-    // first from getGoalsByOutcomeGoalIds), so ordering within a group is
-    // stable without a separate sort.
-    const todayUnfinished = tasks.filter((g) => g.plan_date === todayISO && g.status !== "completed" && g.status !== "canceled");
-    const tomorrowUnfinished = tasks.filter((g) => g.plan_date === tomorrowISO && g.status !== "completed" && g.status !== "canceled");
-    const otherUnfinished = tasks.filter(
-      (g) => g.status !== "completed" && g.status !== "canceled" && g.plan_date !== todayISO && g.plan_date !== tomorrowISO
+    // other still-unfinished ones, then broken (needs review -- visible,
+    // but not competing with genuinely actionable scheduled work), then
+    // completed/canceled last -- regardless of date, a finished Task
+    // sinks to the bottom. Each .filter() preserves `tasks`' own
+    // existing order (already newest-first from getGoalsByOutcomeGoalIds),
+    // so ordering within a group is stable without a separate sort.
+    const todayUnfinished = tasks.filter(
+      (g) => g.plan_date === todayISO && g.status !== "completed" && g.status !== "canceled" && g.lifecycle !== "broken"
     );
+    const tomorrowUnfinished = tasks.filter(
+      (g) => g.plan_date === tomorrowISO && g.status !== "completed" && g.status !== "canceled" && g.lifecycle !== "broken"
+    );
+    const otherUnfinished = tasks.filter(
+      (g) =>
+        g.status !== "completed" &&
+        g.status !== "canceled" &&
+        g.lifecycle !== "broken" &&
+        g.plan_date !== todayISO &&
+        g.plan_date !== tomorrowISO
+    );
+    const broken = tasks.filter((g) => g.lifecycle === "broken");
     const doneOrCanceled = tasks.filter((g) => g.status === "completed" || g.status === "canceled");
-    const sortedTasks = [...todayUnfinished, ...tomorrowUnfinished, ...otherUnfinished, ...doneOrCanceled];
+    const sortedTasks = [...todayUnfinished, ...tomorrowUnfinished, ...otherUnfinished, ...broken, ...doneOrCanceled];
 
     return { goal, total, completed, pct, context, sortedTasks };
   });
@@ -797,6 +864,19 @@ export default function DashboardPage() {
               anywhere in the app, so cards are static (no Link/onClick),
               not an invented destination. */}
           <div className="mt-6">
+            {activeGoalsMsg && (
+              <div className="mb-3 dashboard-banner dashboard-banner-attention flex items-center justify-between gap-4">
+                <span className="text-sm text-white/80">{activeGoalsMsg}</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveGoalsMsg(null)}
+                  aria-label={t("dashboard.dismissWelcome")}
+                  className="flex-shrink-0 text-white/50 hover:text-white/80 transition text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-white/60 inline-flex items-center gap-1.5">
                 <Target size={14} className="text-pink-400 flex-shrink-0" />
@@ -861,22 +941,106 @@ export default function DashboardPage() {
                             {sortedTasks.length === 0 ? (
                               <div className="text-[11px] text-white/40 py-1">{t("dashboard.goalNoTasks")}</div>
                             ) : (
-                              sortedTasks.map((task) => (
-                                <div key={task.id} className="dashboard-goal-task-row">
-                                  <span className="truncate">{task.title}</span>
-                                  <span
-                                    className="status-chip-sm flex-shrink-0"
-                                    style={{
-                                      "--chip-bg": statusChipColors(task.status).bg,
-                                      "--chip-border": statusChipColors(task.status).border,
-                                      "--chip-color": statusChipColors(task.status).color,
-                                    } as React.CSSProperties}
-                                  >
-                                    <span>{statusLabel(task.status, t)}</span>
-                                    <StatusIcon status={task.status} size={11} />
-                                  </span>
-                                </div>
-                              ))
+                              sortedTasks.map((task) =>
+                                task.lifecycle === "broken" ? (
+                                  // A conceptual Task whose recorded reschedule
+                                  // evidence points at a continuation that no
+                                  // longer exists (see ConceptualTaskLifecycle's
+                                  // "broken" case) -- never rendered as an
+                                  // ordinary status chip (that would silently
+                                  // present a dead predecessor as current/
+                                  // pending work), and never counted completed.
+                                  // "Resolve" is the only way out, offering the
+                                  // three safely-representable owner actions
+                                  // resolveBrokenGoal supports.
+                                  <div key={task.id} className="dashboard-goal-task-row-broken">
+                                    <div className="dashboard-goal-task-row">
+                                      <span className="truncate">{task.title}</span>
+                                      <span
+                                        className="status-chip-sm flex-shrink-0"
+                                        style={{
+                                          "--chip-bg": "rgba(245, 158, 11, 0.12)",
+                                          "--chip-border": "rgba(245, 158, 11, 0.4)",
+                                          "--chip-color": "#fcd34d",
+                                        } as React.CSSProperties}
+                                      >
+                                        <span>{t("dashboard.goalTaskNeedsReview")}</span>
+                                        <TriangleAlert size={11} />
+                                      </span>
+                                    </div>
+                                    <div className="dashboard-goal-task-broken-footer">
+                                      <span className="text-[10px] text-white/40">{t("dashboard.goalTaskBrokenHint")}</span>
+                                      <PortalDropdownMenu
+                                        open={openResolveId === task.id}
+                                        onClose={() => setOpenResolveId(null)}
+                                        anchorRef={resolveMenuRef}
+                                        panelClassName="conn-card-menu"
+                                        panelStyle={{ minWidth: "180px" }}
+                                        panel={
+                                          <>
+                                            <button
+                                              type="button"
+                                              disabled={resolvingBrokenGoalId === task.id}
+                                              onClick={() => handleResolveBroken(task.id, "completed")}
+                                              className="conn-card-menu-item"
+                                            >
+                                              {t("dashboard.goalTaskMarkCompleted")}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={resolvingBrokenGoalId === task.id}
+                                              onClick={() => handleResolveBroken(task.id, "canceled")}
+                                              className="conn-card-menu-item"
+                                            >
+                                              {t("dashboard.goalTaskMarkCanceled")}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              disabled={resolvingBrokenGoalId === task.id}
+                                              onClick={() => handleResolveBroken(task.id, "removed")}
+                                              className="conn-card-menu-item"
+                                            >
+                                              {t("dashboard.goalTaskRemoveFromGoal")}
+                                            </button>
+                                          </>
+                                        }
+                                      >
+                                        <div
+                                          className="relative flex-shrink-0"
+                                          ref={openResolveId === task.id ? resolveMenuRef : undefined}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => setOpenResolveId((prev) => (prev === task.id ? null : task.id))}
+                                            disabled={resolvingBrokenGoalId === task.id}
+                                            className="btn"
+                                            style={{ padding: "0.1rem 0.45rem", fontSize: "0.65rem" }}
+                                          >
+                                            {resolvingBrokenGoalId === task.id
+                                              ? t("dashboard.goalTaskResolving")
+                                              : t("dashboard.goalTaskResolve")}
+                                          </button>
+                                        </div>
+                                      </PortalDropdownMenu>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div key={task.id} className="dashboard-goal-task-row">
+                                    <span className="truncate">{task.title}</span>
+                                    <span
+                                      className="status-chip-sm flex-shrink-0"
+                                      style={{
+                                        "--chip-bg": statusChipColors(task.status).bg,
+                                        "--chip-border": statusChipColors(task.status).border,
+                                        "--chip-color": statusChipColors(task.status).color,
+                                      } as React.CSSProperties}
+                                    >
+                                      <span>{statusLabel(task.status, t)}</span>
+                                      <StatusIcon status={task.status} size={11} />
+                                    </span>
+                                  </div>
+                                )
+                              )
                             )}
                           </div>
                         )}

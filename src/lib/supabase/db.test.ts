@@ -289,10 +289,19 @@ describe("collapseGoalLineages", () => {
     return { from_goal_id: from, materialized_goal_id: to };
   }
 
+  // A confirmed materialization (materialized: true) whose target is
+  // gone -- ON DELETE SET NULL already fired. Distinct from edge(from,
+  // null), which represents an unmaterialized reschedule INTENT
+  // (materialized: false implied) -- a normal, non-broken, transient
+  // state, not lost history.
+  function brokenEdge(from: string) {
+    return { from_goal_id: from, materialized_goal_id: null, materialized: true };
+  }
+
   it("a Task with no reschedule lineage stands alone as its own conceptual Task", () => {
     const A = { id: "A", status: "not_started" };
     const tasks = collapseGoalLineages([A], []);
-    expect(tasks).toEqual([{ terminal: A, chain: [A] }]);
+    expect(tasks).toEqual([{ terminal: A, chain: [A], lifecycle: "active" }]);
   });
 
   it("A -> B where the continuation is still unresolved collapses to 1 Task, terminal = B", () => {
@@ -355,16 +364,16 @@ describe("collapseGoalLineages", () => {
     expect(completed).toHaveLength(3); // Wash the dishes (via its continuation), Clean living room, Cut grass
   });
 
-  it("ignores an edge with a null materialized_goal_id (unmaterialized reschedule intent) without crashing", () => {
+  it("ignores an edge with a null materialized_goal_id (unmaterialized reschedule intent) without crashing — NOT broken, just not yet materialized", () => {
     const A = { id: "A", status: "postponed" };
     const tasks = collapseGoalLineages([A], [edge("A", null)]);
-    expect(tasks).toEqual([{ terminal: A, chain: [A] }]);
+    expect(tasks).toEqual([{ terminal: A, chain: [A], lifecycle: "active" }]);
   });
 
-  it("ignores an edge pointing outside the given set (dangling/unfetched target) — the source stands alone, nothing crashes", () => {
+  it("ignores an edge pointing outside the given set (dangling/unfetched target) — the source stands alone, nothing crashes, NOT reported broken (fetch-scope, not deletion, is the far more common cause -- see the function's own doc comment)", () => {
     const A = { id: "A", status: "postponed" };
     const tasks = collapseGoalLineages([A], [edge("A", "not-in-this-set")]);
-    expect(tasks).toEqual([{ terminal: A, chain: [A] }]);
+    expect(tasks).toEqual([{ terminal: A, chain: [A], lifecycle: "active" }]);
   });
 
   it("ignores an edge entirely unrelated to the given goals, leaving them untouched", () => {
@@ -431,6 +440,85 @@ describe("collapseGoalLineages", () => {
     const completed = conceptualTasks.filter((t) => t.terminal.status === "completed").length;
     expect(total).toBe(3);
     expect(completed).toBe(3); // Child 3's conceptual Task reports Completed via A, not Canceled via B
+  });
+
+  // Broken-lineage detection (the Share-1 / "Test sharing goal" regression):
+  // a recorded materialized reschedule whose target no longer exists must
+  // never silently resolve to the stale predecessor as if it were a normal
+  // current Task.
+  it("A -> B, B exists = normal active lineage, terminal B", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "not_started" };
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].lifecycle).toBe("active");
+    expect(tasks[0].terminal).toBe(B);
+  });
+
+  it("A -> B, B completed = completed terminal Task", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "completed" };
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B")]);
+    expect(tasks[0].lifecycle).toBe("completed");
+  });
+
+  it("A -> B, B canceled = canceled terminal Task", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "canceled" };
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B")]);
+    expect(tasks[0].lifecycle).toBe("canceled");
+  });
+
+  it("A has no reschedule = normal standalone Task, lifecycle active, never broken", () => {
+    const A = { id: "A", status: "not_started" };
+    const tasks = collapseGoalLineages([A], []);
+    expect(tasks[0].lifecycle).toBe("active");
+  });
+
+  it("A -> missing B (materialized:true, materialized_goal_id now null) = broken lineage, terminal is the stale predecessor A, never resurrected as active/pending", () => {
+    const A = { id: "A", status: "postponed" };
+    const tasks = collapseGoalLineages([A], [brokenEdge("A")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].lifecycle).toBe("broken");
+    expect(tasks[0].terminal).toBe(A); // the stale predecessor -- history, not fabricated
+    expect(tasks[0].terminal.status).toBe("postponed"); // its own real status, untouched
+  });
+
+  it("the exact live Share-1 shape: A rescheduled+assigned, its materialization dangling — broken, not 'Rescheduled'/pending", () => {
+    // Real id from the confirmed live investigation: the owner's original
+    // "Share 1" row under "Test sharing goal", status postponed, whose
+    // materialized continuation was later hard-deleted (ON DELETE SET
+    // NULL already fired on the edge).
+    const A = { id: "495476a5-ea49-4c29-b500-30a09fab5ef2", status: "postponed" };
+    const tasks = collapseGoalLineages([A], [brokenEdge(A.id)]);
+    expect(tasks[0].lifecycle).toBe("broken");
+    expect(tasks[0].lifecycle).not.toBe("active"); // must never read as an ordinary pending/rescheduled Task
+  });
+
+  it("a completed row earlier in the chain still wins over a broken continuation further down the SAME lineage", () => {
+    const A = { id: "A", status: "completed" };
+    const B = { id: "B", status: "postponed" };
+    // A -> B is a live, resolvable edge; B's OWN onward materialization
+    // (to some C) is what's broken -- A's real completion must not be
+    // downgraded to "broken" just because B's later continuation vanished.
+    const tasks = collapseGoalLineages([A, B], [edge("A", "B"), brokenEdge("B")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].lifecycle).toBe("completed");
+    expect(tasks[0].terminal).toBe(A);
+  });
+
+  it("Goal progress arithmetic built off conceptualTasks never confidently represents a broken Task as an ordinary pending one", () => {
+    const A = { id: "A", status: "postponed" };
+    const child1 = { id: "child-1", status: "completed" };
+    const child2 = { id: "child-2", status: "completed" };
+    const tasks = collapseGoalLineages([A, child1, child2], [brokenEdge("A")]);
+
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.lifecycle === "completed").length;
+    const broken = tasks.filter((t) => t.lifecycle === "broken").length;
+    expect(total).toBe(3);
+    expect(completed).toBe(2); // the broken one is never counted completed
+    expect(broken).toBe(1); // and is identifiable as needing review, not silently "pending"
   });
 });
 

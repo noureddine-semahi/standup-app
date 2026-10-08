@@ -75,7 +75,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
-  Target, Trash2, ChevronRight,
+  Target, Trash2, ChevronRight, TriangleAlert,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -3020,7 +3020,19 @@ export default function TodayPage() {
                   // version is used whenever it applies.
                   const todayLiveById = new Map(items.map(({ g }) => [g.id, g]));
                   const conceptualTasks = goalChildrenById[goalId];
-                  const representativeRows = conceptualTasks !== undefined ? conceptualTasks.map((ct) => ct.terminal) : [];
+                  // lifecycle carried alongside each terminal (not just the
+                  // bare row) -- purely additive, so allChildren/totalCount/
+                  // completedCount/reviewedInGroup below are byte-identical
+                  // to before (they only ever read .status/.reviewed_at,
+                  // never lifecycle). Needed so the historical section below
+                  // can tell a broken chain apart from an ordinary
+                  // Rescheduled Task instead of discarding that distinction
+                  // the moment it's reduced to .terminal, same presentation
+                  // gap Dashboard's Active Goals already had fixed.
+                  const representativeRows =
+                    conceptualTasks !== undefined
+                      ? conceptualTasks.map((ct) => ({ ...ct.terminal, lifecycle: ct.lifecycle }))
+                      : [];
                   // Historical section only ever shows a conceptual Task
                   // whose terminal ISN'T already one of today's own live
                   // rows (those already get their own card below) -- same
@@ -3116,7 +3128,41 @@ export default function TodayPage() {
                               <div className="goal-history-section-label">{t("today.goalHistoryLabel")}</div>
                               <div className="goal-history-list">
                                 {historicalOnly.map((hg) =>
-                                  hg.plan_date ? (
+                                  // Broken (lifecycle: "broken") -- its
+                                  // recorded reschedule evidence points at a
+                                  // continuation that no longer exists.
+                                  // Never rendered as an ordinary Rescheduled
+                                  // row (hg.status is still literally
+                                  // "postponed", which IS the true historical
+                                  // fact for this row on its own original
+                                  // day -- not rewritten here, just not
+                                  // presented as this Goal's CURRENT state
+                                  // for it). Same "Needs Review" semantic
+                                  // Dashboard's Active Goals already uses, no
+                                  // Resolve action here -- that stays
+                                  // Dashboard-only per this task's scope.
+                                  hg.lifecycle === "broken" ? (
+                                    <div key={hg.id} className="goal-history-row-broken">
+                                      {hg.plan_date ? (
+                                        <Link href={`/standup/date/${hg.plan_date}`} className="goal-history-row">
+                                          <TriangleAlert size={12} className="text-amber-400 flex-shrink-0" />
+                                          <span className="goal-history-row-title">{hg.title}</span>
+                                          <span className="goal-history-row-date" style={{ color: "#fcd34d" }}>
+                                            {t("dashboard.goalTaskNeedsReview")}
+                                          </span>
+                                        </Link>
+                                      ) : (
+                                        <div className="goal-history-row">
+                                          <TriangleAlert size={12} className="text-amber-400 flex-shrink-0" />
+                                          <span className="goal-history-row-title">{hg.title}</span>
+                                          <span className="goal-history-row-date" style={{ color: "#fcd34d" }}>
+                                            {t("dashboard.goalTaskNeedsReview")}
+                                          </span>
+                                        </div>
+                                      )}
+                                      <div className="goal-history-row-broken-hint">{t("dashboard.goalTaskBrokenHint")}</div>
+                                    </div>
+                                  ) : hg.plan_date ? (
                                     <Link key={hg.id} href={`/standup/date/${hg.plan_date}`} className="goal-history-row">
                                       <StatusIcon status={hg.status} size={12} />
                                       <span className="goal-history-row-title">{hg.title}</span>

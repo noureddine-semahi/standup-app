@@ -1382,18 +1382,18 @@ export default function DynamicDatePage() {
           )}
         </div>
 
-        <div className="flex flex-row items-center gap-3">
-          <button className="btn" onClick={() => router.push("/standup/calendar")}>
+        <div className="date-metal-actions date-metal-actions--top">
+          <button className="btn date-metal-btn" onClick={() => router.push("/standup/calendar")}>
             ← {t("nav.calendar")}
           </button>
           {!coveredByPass && (
             <button
-              className="btn inline-flex items-center gap-1.5"
+              className="btn date-metal-btn date-metal-btn--accent"
               onClick={handleUseStreakPass}
               disabled={usingPass || (passBalance?.available ?? 0) <= 0}
               title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
             >
-              <Ticket size={14} />
+              <Ticket size={14} className="flex-shrink-0" />
               {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPassAdvance", { count: passBalance?.available ?? 0 })}
             </button>
           )}
@@ -1401,11 +1401,7 @@ export default function DynamicDatePage() {
           <button
             onClick={() => setEditMode(!editMode)}
             disabled={submitting}
-            className="btn"
-            style={{
-              background: editMode ? "rgba(245, 158, 11, 0.3)" : undefined,
-              borderColor: editMode ? "rgba(245, 158, 11, 0.6)" : undefined,
-            }}
+            className={`btn date-metal-btn${editMode ? " date-metal-btn--accent" : ""}`}
           >
             {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
           </button>
@@ -1456,48 +1452,52 @@ export default function DynamicDatePage() {
 
 
       {!locked && (
-        <div className="mt-8 flex flex-wrap gap-4 items-center">
-          <button
-            className="btn hover-scale"
-            onClick={addMoreGoal}
-            disabled={!canAddMore}
-            title={
-              goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
-            }
-          >
-            {t("tomorrow.addGoal")}
-          </button>
+        <div className="mt-8">
+          <div className="date-metal-actions date-metal-actions--bottom">
+            <button
+              className="btn date-metal-btn"
+              onClick={addMoreGoal}
+              disabled={!canAddMore}
+              title={
+                goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
+              }
+            >
+              {t("tomorrow.addGoal")}
+            </button>
 
-          <button
-            className="btn hover-scale"
-            onClick={saveDraftOrChanges}
-            disabled={submitting}
-            title={t("tomorrow.manualSaveTitle")}
-          >
-            {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
-          </button>
+            <button
+              className="btn date-metal-btn date-metal-btn--accent"
+              onClick={saveDraftOrChanges}
+              disabled={submitting}
+              title={t("tomorrow.manualSaveTitle")}
+            >
+              {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
+            </button>
+          </div>
 
-          <button
-            className="btn btn-primary hover-scale"
-            onClick={onSubmitPlan}
-            disabled={!canSubmit || submitted}
-            title={
-              !submitted && !submitEligible
-                ? dateISO === tomorrowISO
-                  ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
-                  : t("datePage.submitUnlocksEvening", { date: formatDateDisplay(prevDateISO) })
-                : ""
-            }
-          >
-            {submitting
-              ? t("tomorrow.submitting")
-              : submitted
-              ? t("datePage.planSubmittedBtn")
-              : t("datePage.submitPlanBtn")}
-          </button>
+          <div className="mt-4 flex flex-wrap gap-4 items-center">
+            <button
+              className="btn btn-primary hover-scale"
+              onClick={onSubmitPlan}
+              disabled={!canSubmit || submitted}
+              title={
+                !submitted && !submitEligible
+                  ? dateISO === tomorrowISO
+                    ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
+                    : t("datePage.submitUnlocksEvening", { date: formatDateDisplay(prevDateISO) })
+                  : ""
+              }
+            >
+              {submitting
+                ? t("tomorrow.submitting")
+                : submitted
+                ? t("datePage.planSubmittedBtn")
+                : t("datePage.submitPlanBtn")}
+            </button>
 
-          <div className="text-sm text-white/60">
-            {t("tomorrow.goalsCountFooter", { count: goals.length, max: MAX_GOALS })}
+            <div className="text-sm text-white/60">
+              {t("tomorrow.goalsCountFooter", { count: goals.length, max: MAX_GOALS })}
+            </div>
           </div>
         </div>
       )}

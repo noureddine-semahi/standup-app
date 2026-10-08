@@ -6559,6 +6559,31 @@ select:focus {
 .header-metal-control--round {
   display: inline-flex;
   border-radius: 9999px;
+  /* Rim strengthened here (not in the shared base rule, which hamburger/
+     bell also use and weren't reported as too faint) -- a wider, brighter
+     ring than the base .header-metal-control's. No actual `border` added
+     (unlike the desktop profile pill's border-width bump below): this
+     link has no fixed width/height of its own to absorb one via
+     box-sizing:border-box -- it's sized purely by shrink-wrapping the
+     Avatar inside, so an added border would grow its own rendered
+     footprint instead. box-shadow never has that risk either way. */
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.5),
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 75%, white 15%),
+    0 0 0 3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent),
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent),
+    0 2px 5px -2px rgba(0, 0, 0, 0.5);
+}
+
+.header-metal-control--round:hover {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.45),
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 88%, white 18%),
+    0 0 0 3.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 40%, transparent),
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent),
+    0 4px 8px -2px rgba(0, 0, 0, 0.5);
 }
 
 /* Specificity boost for the desktop profile pill only: .nav-link.nav-
@@ -6574,24 +6599,33 @@ select:focus {
 .header-metal-control.nav-profile,
 .header-metal-control.nav-profile:hover {
   background: linear-gradient(to bottom, #363a3f 0%, #1f2226 50%, #121315 100%);
+  /* User feedback: the 1px border inherited from .nav-link read as
+     barely visible once recolored. Bumped here, scoped to the profile
+     pill only (hamburger/bell weren't reported faint and keep their own
+     1px) -- safe to grow: .nav-link already gives this element a
+     definite size via flex-basis/min-width (see .nav-link's own
+     comment), so box-sizing:border-box absorbs the extra width into the
+     existing box rather than growing it, same reasoning the Dashboard
+     metallic pass already relied on for fixed-size buttons. */
+  border-width: 2px;
 }
 
 .header-metal-control.nav-profile {
   box-shadow:
-    inset 1px 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.45),
     inset -1px -1px 0 0 rgba(0, 0, 0, 0.5),
-    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 58%, white 12%),
-    0 0 0 2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 75%, white 15%),
+    0 0 0 3px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, transparent),
     var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent),
     0 2px 5px -2px rgba(0, 0, 0, 0.5);
 }
 
 .header-metal-control.nav-profile:hover {
   box-shadow:
-    inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.55),
     inset -1px -1px 0 0 rgba(0, 0, 0, 0.45),
-    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 72%, white 15%),
-    0 0 0 2.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 88%, white 18%),
+    0 0 0 3.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 40%, transparent),
     var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent),
     0 4px 8px -2px rgba(0, 0, 0, 0.5);
 }

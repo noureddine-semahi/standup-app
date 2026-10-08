@@ -45,7 +45,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
   MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket, Lock, Unlock,
-  Sunrise, ChevronRight, ChevronDown,
+  Sunrise, ChevronRight, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -203,13 +203,18 @@ export default function DashboardPage() {
   // Active Goals summary — the real outcome_goals layer, distinct from
   // the daily Commitment cards below. Best-effort/non-blocking (like
   // overdue/notes above): a failure here shouldn't sink the rest of the
-  // dashboard. Only the first 3 active Goals' Tasks are fetched (those
-  // are the only ones actually rendered), not all of them.
+  // dashboard. Every active Goal's Tasks are fetched up front (not just
+  // the first 3 shown by default) so expanding "+X more Goals" below has
+  // real data immediately, with no second fetch/loading state on click --
+  // active Outcome Goals are a small, bounded set in practice.
   const [activeOutcomeGoals, setActiveOutcomeGoals] = useState<OutcomeGoal[]>([]);
   const [outcomeGoalTasks, setOutcomeGoalTasks] = useState<ConceptualTask<ArchivedGoal>[]>([]);
   // Which Active Goal cards are expanded to show their Task breakdown --
   // local UI state only, never persisted. Any number may be open at once.
   const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
+  // Whether the "+X more Goals" control has been clicked to reveal every
+  // Active Goal card beyond the initial compact 3 -- local UI state only.
+  const [showAllActiveGoals, setShowAllActiveGoals] = useState(false);
 
   const [latestNotes, setLatestNotes] = useState<Record<string, string>>({});
 
@@ -307,8 +312,8 @@ export default function DashboardPage() {
             .then((goals) => {
               const active = goals.filter((g) => g.status === "active");
               setActiveOutcomeGoals(active);
-              const shownIds = active.slice(0, 3).map((g) => g.id);
-              return shownIds.length > 0 ? getConceptualTasksByOutcomeGoalIds(shownIds) : Promise.resolve([]);
+              const allIds = active.map((g) => g.id);
+              return allIds.length > 0 ? getConceptualTasksByOutcomeGoalIds(allIds) : Promise.resolve([]);
             })
             .then(setOutcomeGoalTasks)
             .catch(() => {});
@@ -552,8 +557,7 @@ export default function DashboardPage() {
   // Review Today's own Goal-group-card math exactly (status==="completed"
   // only; reviewed/rescheduled/canceled/blocked/in-progress never count as
   // completed) — same semantics, not a second model.
-  const shownActiveGoals = activeOutcomeGoals.slice(0, 3);
-  const activeGoalCards = shownActiveGoals.map((goal) => {
+  const activeGoalCards = activeOutcomeGoals.map((goal) => {
     const tasks = outcomeGoalTasks
       .filter((ct) => (ct.terminal as any).outcome_goal_id === goal.id)
       .map((ct) => ct.terminal);
@@ -605,6 +609,12 @@ export default function DashboardPage() {
 
     return { goal, total, completed, pct, context, sortedTasks };
   });
+
+  // The Dashboard itself stays as compact as before by default -- only
+  // the first 3 cards render until "+X more Goals" is clicked. Everything
+  // above (ordering, progress, context) is computed for every active Goal
+  // regardless, so expanding never needs a second fetch or loading state.
+  const visibleGoalCards = showAllActiveGoals ? activeGoalCards : activeGoalCards.slice(0, 3);
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
 
@@ -794,7 +804,7 @@ export default function DashboardPage() {
               </h2>
             </div>
 
-            {shownActiveGoals.length === 0 ? (
+            {activeOutcomeGoals.length === 0 ? (
               <div className="dashboard-goal-empty">
                 <div className="text-sm text-white/60">{t("dashboard.noActiveGoals")}</div>
                 <div className="mt-1 text-xs text-white/40">{t("dashboard.noActiveGoalsHint")}</div>
@@ -802,7 +812,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {activeGoalCards.map(({ goal, total, completed, pct, context, sortedTasks }) => {
+                  {visibleGoalCards.map(({ goal, total, completed, pct, context, sortedTasks }) => {
                     const isExpanded = expandedGoalIds.has(goal.id);
                     return (
                       <div key={goal.id} className="dashboard-goal-card min-w-0">
@@ -874,10 +884,25 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
-                {activeOutcomeGoals.length > 3 && (
-                  <div className="mt-2 text-xs text-white/40 text-center">
-                    {t("dashboard.moreActiveGoals", { count: activeOutcomeGoals.length - 3 })}
-                  </div>
+                {activeGoalCards.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllActiveGoals((prev) => !prev)}
+                    className="mt-2 w-full text-xs text-white/40 hover:text-white/60 text-center inline-flex items-center justify-center gap-1"
+                    aria-expanded={showAllActiveGoals}
+                  >
+                    {showAllActiveGoals ? (
+                      <>
+                        <ChevronUp size={12} />
+                        {t("dashboard.showLessActiveGoals")}
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={12} />
+                        {t("dashboard.moreActiveGoals", { count: activeGoalCards.length - 3 })}
+                      </>
+                    )}
+                  </button>
                 )}
               </>
             )}

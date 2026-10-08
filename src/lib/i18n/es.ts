@@ -103,6 +103,7 @@ export const es: Record<keyof typeof en, string> = {
   "dashboard.goalContextTomorrow": "Mañana: {title}",
   "dashboard.goalContextNext": "Siguiente: {title}",
   "dashboard.moreActiveGoals": "+{count} Objetivos más",
+  "dashboard.showLessActiveGoals": "Mostrar menos",
   "dashboard.goalNoTasks": "Aún no hay tareas",
   "dashboard.noGoals": "Sin compromisos",
   "dashboard.goalsAttempted": "{reviewed}/{total} compromisos intentados",

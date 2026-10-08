@@ -103,6 +103,7 @@ export const en = {
   "dashboard.goalContextTomorrow": "Tomorrow: {title}",
   "dashboard.goalContextNext": "Next: {title}",
   "dashboard.moreActiveGoals": "+{count} more Goals",
+  "dashboard.showLessActiveGoals": "Show less",
   "dashboard.goalNoTasks": "No tasks yet",
   "dashboard.noGoals": "No commitments",
   "dashboard.goalsAttempted": "{reviewed}/{total} commitments attempted",

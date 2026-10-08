@@ -312,27 +312,9 @@ export default function TomorrowGoalsPage() {
   // a plain .contains() check here would immediately close it on every
   // click inside the panel itself).
 
-  useEffect(() => {
-    if (!openGoalPickerId) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (goalPickerMenuRef.current && !goalPickerMenuRef.current.contains(e.target as Node)) {
-        setOpenGoalPickerId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openGoalPickerId]);
-
-  useEffect(() => {
-    if (!openAssignMenuId) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (assignMenuRef.current && !assignMenuRef.current.contains(e.target as Node)) {
-        setOpenAssignMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openAssignMenuId]);
+  // openGoalPickerId's and openAssignMenuId's own click-outside/scroll-
+  // close handling now lives inside PortalDropdownMenu, same reasoning as
+  // openPrivacyMenuId above.
 
   function refreshGoalAssignments() {
     return getMyGoalAssignments()
@@ -1229,25 +1211,14 @@ export default function TomorrowGoalsPage() {
                     is untouched, just no longer reachable from here
                     once a Task is already linked. */}
                 {g.id && !(g as any).outcome_goal_id && (
-                  <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
-                    <button
-                      type="button"
-                      disabled={locked || isExclusive}
-                      onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
-                      className="btn goal-toolbar-btn"
-                      title={t("tomorrow.linkToGoal")}
-                    >
-                      <Target size={13} />
-                      <span
-                        className="goal-toolbar-label truncate"
-                        style={{ maxWidth: "110px", display: "inline-block" }}
-                      >
-                        {t("tomorrow.linkToGoal")}
-                      </span>
-                      <ChevronDown size={12} className="text-white/40" />
-                    </button>
-                    {openGoalPickerId === g.id && (
-                      <div className="conn-card-menu" style={{ minWidth: "200px", maxWidth: "260px" }}>
+                  <PortalDropdownMenu
+                    open={openGoalPickerId === g.id}
+                    onClose={() => setOpenGoalPickerId(null)}
+                    anchorRef={goalPickerMenuRef}
+                    panelClassName="conn-card-menu"
+                    panelStyle={{ minWidth: "200px", maxWidth: "260px" }}
+                    panel={
+                      <>
                         <button
                           type="button"
                           onClick={() => {
@@ -1287,9 +1258,28 @@ export default function TomorrowGoalsPage() {
                               )}
                             </button>
                           ))}
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    }
+                  >
+                    <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
+                      <button
+                        type="button"
+                        disabled={locked || isExclusive}
+                        onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
+                        className="btn goal-toolbar-btn"
+                        title={t("tomorrow.linkToGoal")}
+                      >
+                        <Target size={13} />
+                        <span
+                          className="goal-toolbar-label truncate"
+                          style={{ maxWidth: "110px", display: "inline-block" }}
+                        >
+                          {t("tomorrow.linkToGoal")}
+                        </span>
+                        <ChevronDown size={12} className="text-white/40" />
+                      </button>
+                    </div>
+                  </PortalDropdownMenu>
                 )}
 
                 {/* Goal Engine Phase 4E — compact reassignment for a
@@ -1305,20 +1295,14 @@ export default function TomorrowGoalsPage() {
                     scheduleAutoSave data path as every other
                     link/unlink action here, nothing new. */}
                 {g.id && (g as any).outcome_goal_id && (
-                  <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
-                    <button
-                      type="button"
-                      disabled={locked || isExclusive}
-                      onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
-                      className="btn goal-toolbar-btn"
-                      title={t("tomorrow.moveTask")}
-                    >
-                      <ArrowRightLeft size={13} />
-                      <span className="goal-toolbar-label goal-toolbar-label-keep">{t("tomorrow.moveTask")}</span>
-                      <ChevronDown size={12} className="text-white/40" />
-                    </button>
-                    {openGoalPickerId === g.id && (
-                      <div className="conn-card-menu" style={{ minWidth: "200px", maxWidth: "260px" }}>
+                  <PortalDropdownMenu
+                    open={openGoalPickerId === g.id}
+                    onClose={() => setOpenGoalPickerId(null)}
+                    anchorRef={goalPickerMenuRef}
+                    panelClassName="conn-card-menu"
+                    panelStyle={{ minWidth: "200px", maxWidth: "260px" }}
+                    panel={
+                      <>
                         <button
                           type="button"
                           onClick={() => {
@@ -1352,9 +1336,23 @@ export default function TomorrowGoalsPage() {
                               <span className="truncate min-w-0 flex-1">{o.title}</span>
                             </button>
                           ))}
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    }
+                  >
+                    <div className="relative" ref={openGoalPickerId === g.id ? goalPickerMenuRef : undefined}>
+                      <button
+                        type="button"
+                        disabled={locked || isExclusive}
+                        onClick={() => setOpenGoalPickerId((prev) => (prev === g.id ? null : (g.id as string)))}
+                        className="btn goal-toolbar-btn"
+                        title={t("tomorrow.moveTask")}
+                      >
+                        <ArrowRightLeft size={13} />
+                        <span className="goal-toolbar-label goal-toolbar-label-keep">{t("tomorrow.moveTask")}</span>
+                        <ChevronDown size={12} className="text-white/40" />
+                      </button>
+                    </div>
+                  </PortalDropdownMenu>
                 )}
 
                 {/* Exclusive/Shared — Assign itself now lives in the
@@ -1483,25 +1481,15 @@ export default function TomorrowGoalsPage() {
                   Checklist/Files/Link/Exclusive-Shared up top. */}
               <div className="mt-2 flex items-center flex-wrap gap-1.5">
                 {!assignment && !received && g.id && acceptedConnections.length > 0 && (
-                  <div
-                    className="relative inline-flex items-center"
-                    ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
-                  >
-                    <button
-                      type="button"
-                      disabled={assigningGoalIds.has(g.id as string) || locked}
-                      onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
-                      className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
-                    >
-                      <UserPlus size={13} className="flex-shrink-0" />
-                      <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
-                      <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
-                    </button>
-                    {openAssignMenuId === g.id && (
-                      <div
-                        className="conn-card-menu"
-                        style={{ left: 0, right: "auto", minWidth: "180px", maxWidth: "min(240px, calc(100vw - 4rem))" }}
-                      >
+                  <PortalDropdownMenu
+                    open={openAssignMenuId === g.id}
+                    onClose={() => setOpenAssignMenuId(null)}
+                    anchorRef={assignMenuRef}
+                    align="left"
+                    panelClassName="conn-card-menu"
+                    panelStyle={{ minWidth: "180px", maxWidth: "min(240px, calc(100vw - 4rem))" }}
+                    panel={
+                      <>
                         {acceptedConnections.map((c) => (
                           <button
                             key={c.otherUserId}
@@ -1516,9 +1504,25 @@ export default function TomorrowGoalsPage() {
                             <span className="truncate min-w-0 flex-1">{connectionDisplayName(c, t)}</span>
                           </button>
                         ))}
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    }
+                  >
+                    <div
+                      className="relative inline-flex items-center flex-shrink-0"
+                      ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
+                    >
+                      <button
+                        type="button"
+                        disabled={assigningGoalIds.has(g.id as string) || locked}
+                        onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
+                        className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
+                      >
+                        <UserPlus size={13} className="flex-shrink-0" />
+                        <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
+                        <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                      </button>
+                    </div>
+                  </PortalDropdownMenu>
                 )}
 
                 {/* Time — a compact clock-icon trigger instead of the

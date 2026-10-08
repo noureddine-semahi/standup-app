@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -17,6 +17,14 @@ import { createPortal } from "react-dom";
  * portal. Position is measured from the trigger's wrapping anchor on open
  * and on resize; the panel closes itself on scroll so a stale-positioned
  * panel can never linger visibly in the wrong place.
+ *
+ * Opens downward by default (unchanged from before); if the panel's own
+ * real measured height wouldn't fit in the space below the trigger, it
+ * flips to open upward from the trigger's top edge instead -- e.g. a
+ * trigger near the bottom of a short card no longer drops its menu over
+ * whatever sits below it on the page. Measured in a layout effect (before
+ * paint), so there's no visible flip/flash -- the panel stays hidden via
+ * `visibility` until its final position is settled.
  */
 export default function PortalDropdownMenu({
   open,
@@ -39,16 +47,20 @@ export default function PortalDropdownMenu({
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [rect, setRect] = useState<{ top: number; left: number; right: number } | null>(null);
+  const [rect, setRect] = useState<{ top: number; left: number; right: number; openUp: boolean } | null>(null);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setSettled(false);
+      return;
+    }
     function measure() {
       const r = anchorRef.current?.getBoundingClientRect();
       if (!r) return;
-      setRect({ top: r.bottom + 6, left: r.left, right: window.innerWidth - r.right });
+      setRect((prev) => ({ top: r.bottom + 6, left: r.left, right: window.innerWidth - r.right, openUp: prev?.openUp ?? false }));
     }
     measure();
     window.addEventListener("resize", measure);
@@ -59,6 +71,31 @@ export default function PortalDropdownMenu({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Collision check against the panel's own real height, run before paint
+  // so the flip (if any) is never visible. Only ever checks "does it
+  // overflow below" -- these panels are small, so a single-direction flip
+  // is enough; the panel's top is clamped so it can never go above the
+  // viewport either.
+  useLayoutEffect(() => {
+    if (!open || !rect || !panelRef.current) return;
+    const anchorR = anchorRef.current?.getBoundingClientRect();
+    if (!anchorR) return;
+    const panelHeight = panelRef.current.getBoundingClientRect().height;
+    const spaceBelow = window.innerHeight - anchorR.bottom - 6;
+    const needsFlip = panelHeight > spaceBelow;
+    if (needsFlip !== rect.openUp) {
+      setRect({
+        top: needsFlip ? Math.max(8, anchorR.top - panelHeight - 6) : anchorR.bottom + 6,
+        left: anchorR.left,
+        right: window.innerWidth - anchorR.right,
+        openUp: needsFlip,
+      });
+      return; // re-run once more against the corrected position before settling
+    }
+    setSettled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, rect?.top, rect?.openUp]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,6 +125,7 @@ export default function PortalDropdownMenu({
               top: rect.top,
               ...(align === "right" ? { right: rect.right } : { left: rect.left }),
               zIndex: 1000,
+              visibility: settled ? "visible" : "hidden",
               ...panelStyle,
             }}
           >

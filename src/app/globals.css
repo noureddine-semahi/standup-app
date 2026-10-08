@@ -6077,6 +6077,27 @@ select:focus {
   gap: 0.6rem;
 }
 
+/* Pass-count caption under the Cover button -- explicitly placed in
+   row 2, column 2 (an implicit row .date-metal-actions--top never has
+   to declare; it auto-sizes to just this caption's own height) so it
+   can never be counted toward row 1's height, which is what keeps
+   Calendar/Cover/Reorder stretched to an identical height regardless
+   of whether this caption is present. */
+.date-metal-caption {
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: 0.3rem;
+  text-align: center;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: rgba(var(--tint-rgb), 0.45);
+}
+
+.date-metal-caption-count {
+  color: rgba(245, 158, 11, 0.75);
+  font-weight: 700;
+}
+
 /* Grid's own default (align-items/justify-items: stretch) is what
    actually equalizes height and width here -- every cell in a row
    stretches to the row's tallest member and each column is an equal
@@ -6098,16 +6119,159 @@ select:focus {
   white-space: normal;
   line-height: 1.25;
   font-size: 0.8rem;
+
+  /* ---- Premium 3D machined-metal visual pass (experimental; evaluating
+     as StandUp's future button language) ----
+     Everything below overrides .btn's own border/background/box-shadow
+     for elements that also carry .date-metal-btn -- same specificity
+     (one class) as .btn's base rule, so this wins purely by being
+     declared later in the file. .btn itself is never edited, so no
+     other .btn call site anywhere in the app is affected. */
+  position: relative;
+  overflow: hidden;
+  border-width: 1.5px;
+  border-style: solid;
+  /* Directional rim: brighter top/left (catching light), darker
+     bottom/right (in shadow) -- the same color-mix(--metal-color, ...)
+     4-edge technique .goal-row's own metal-edge border already uses,
+     just against --metal-edge-neutral (a cool steel-gray) as the
+     default instead of a semantic priority hue. --metal-color is amber
+     for the accent variant (see .date-metal-btn--accent), which is the
+     ONLY thing that turns these edges amber -- the face itself (below)
+     deliberately never reads --metal-color. */
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 65%, white 25%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 50%, white 10%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, black 35%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 10%, black 55%);
+  /* Dark machined-gunmetal face -- fixed/neutral regardless of variant,
+     so the accent buttons stay visibly metal with amber light around
+     them rather than becoming an orange rectangle. */
+  background: linear-gradient(to bottom, #34383d 0%, #202327 45%, #111315 100%);
+  color: rgba(245, 247, 250, 0.92);
+  box-shadow:
+    /* thin reflected highlight just inside the rim (top + left) */
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.07),
+    /* recessed inner shadow toward the bottom -- face reads sunken
+       inside the metal frame, not flat */
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.55),
+    /* small external shadow beneath the button */
+    0 1px 2px -1px rgba(0, 0, 0, 0.5),
+    /* restrained resting glow -- same intensity TOKENS .btn's own
+       resting glow already uses (--metal-glow-int-rest*), just applied
+       here explicitly since this rule's background/box-shadow override
+       supersedes .btn's version of this same layer */
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+/* Restrained diagonal sheen -- "light reflecting off brushed/polished
+   metal" rather than .btn's own glass/mirror ::before (overridden here
+   at the same specificity+source-order precedence used above). No
+   z-index set, position:absolute -- same structural approach as .btn's
+   own ::before, which already paints below in-flow button content
+   (icon/label) without needing one; pointer-events isn't even in play
+   since this is purely decorative and never intercepts clicks either
+   way, but kept explicit for clarity. */
+.date-metal-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.08) 44%,
+    rgba(255, 255, 255, 0.14) 48%,
+    rgba(255, 255, 255, 0.08) 52%,
+    transparent 64%
+  );
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+/* .btn's generic ripple (::after, a 300px white circle that scales in
+   on hover) reads as a material-design water-ripple, not a machined
+   control -- suppressed here only, every other .btn keeps it. */
+.date-metal-btn::after {
+  content: none;
+}
+
+/* Hover: edge reflection reads a touch brighter and the resting glow
+   steps up to .btn's existing "hover" intensity tier -- deliberately
+   NOT redeclaring `transform` here, so .btn:hover's own translateY(-1.5px)
+   lift still applies unchanged (no resizing, no extra movement). */
+.date-metal-btn:hover {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 78%, white 20%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 60%, white 12%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.5),
+    0 2px 4px -1px rgba(0, 0, 0, 0.5),
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent);
+}
+
+.date-metal-btn:hover::before {
+  opacity: 1;
+}
+
+/* Active/pressed: physically depresses -- .btn:active's own
+   translateY(2px) still applies unchanged (not redeclared here); the
+   rim dims, the face darkens a step, the outer shadow/glow shrink away
+   almost entirely, and the inset shadow deepens, reading as the face
+   sinking into the frame under a fingertip. */
+.date-metal-btn:active {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, white 8%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, white 4%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 12%, black 45%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 6%, black 65%);
+  background: linear-gradient(to bottom, #2a2d31 0%, #191b1e 45%, #0d0e10 100%);
+  box-shadow:
+    inset 0 2px 5px 0 rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 1px 1px -1px rgba(0, 0, 0, 0.35);
+}
+
+.date-metal-btn:active::before {
+  opacity: 0.35;
+}
+
+/* Disabled: still reads as metal, just inert -- .btn:disabled's own
+   opacity:0.45 (applied to the whole element, text included) still
+   fully applies since it isn't redeclared here; this only flattens the
+   rim/face/depth underneath that dimming instead of leaving .btn's
+   plain translucent-gray disabled look, and drops the sheen near-off. */
+.date-metal-btn:disabled,
+.date-metal-btn:disabled:hover,
+.date-metal-btn:disabled:active {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, white 6%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, white 3%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 8%, black 40%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 5%, black 55%);
+  background: linear-gradient(to bottom, #2c2f33 0%, #1c1e21 45%, #121314 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.date-metal-btn:disabled::before {
+  opacity: 0.2;
 }
 
 /* Subtle amber metallic accent (Cover this day in advance / Save Draft)
-   -- sets the SAME --metal-color custom property .btn's border/
-   background/glow gradients already key off (see .btn above), so the
-   existing metallic recipe renders amber-tinted with no new gradient or
-   shadow rules of its own. Intentionally not .btn-primary (that's a
-   stronger, full-emphasis treatment already used for Submit) -- this is
-   the same restrained tint mechanism .goal-row's priority color or any
-   --metal-color call site already uses elsewhere in the app. */
+   -- sets the SAME --metal-color custom property the rule above keys
+   its border/glow off of, so the existing metallic recipe renders
+   amber-tinted with no new gradient or shadow rules of its own.
+   Intentionally not .btn-primary (that's a stronger, full-emphasis
+   treatment already used for Submit) -- this is the same restrained
+   tint mechanism .goal-row's priority color or any --metal-color call
+   site already uses elsewhere in the app. The face/background above
+   never reads --metal-color, so this only ever shows up as amber light
+   at the edges/glow -- never a flat orange surface. Text stays
+   near-white (color is set above, not keyed to --metal-color either);
+   this adds only a very faint warm reflection on top of it. */
 .date-metal-btn--accent {
   --metal-color: var(--accent-amber);
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.16);
 }

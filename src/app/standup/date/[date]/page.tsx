@@ -1387,15 +1387,38 @@ export default function DynamicDatePage() {
             ← {t("nav.calendar")}
           </button>
           {!coveredByPass && (
-            <button
-              className="btn date-metal-btn date-metal-btn--accent"
-              onClick={handleUseStreakPass}
-              disabled={usingPass || (passBalance?.available ?? 0) <= 0}
-              title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
-            >
-              <Ticket size={14} className="flex-shrink-0" />
-              {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPassAdvance", { count: passBalance?.available ?? 0 })}
-            </button>
+            <>
+              <button
+                className="btn date-metal-btn date-metal-btn--accent"
+                onClick={handleUseStreakPass}
+                disabled={usingPass || (passBalance?.available ?? 0) <= 0}
+                title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+              >
+                <Ticket size={14} className="flex-shrink-0" />
+                {usingPass ? (
+                  t("datePage.usingPass")
+                ) : (
+                  <span className="flex flex-col">
+                    <span>{t("datePage.useAPassLine1")}</span>
+                    <span>{t("datePage.useAPassLine2")}</span>
+                  </span>
+                )}
+              </button>
+              {/* Pass count lives OUTSIDE the button (its own grid cell,
+                  row 2 under the button's column 2) specifically so it
+                  can never add to the button's own height -- .date-
+                  metal-actions--top's row 1 (the three buttons) sizes
+                  itself only from what's actually placed in row 1, and
+                  this is explicitly placed in row 2 instead. */}
+              <div className="date-metal-caption">
+                <span className="date-metal-caption-count">{passBalance?.available ?? 0}</span>{" "}
+                {t(
+                  (passBalance?.available ?? 0) === 1
+                    ? "datePage.passesLeftAdvanceSuffix.one"
+                    : "datePage.passesLeftAdvanceSuffix.other"
+                )}
+              </div>
+            </>
           )}
           {!locked && (
           <button

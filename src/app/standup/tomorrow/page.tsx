@@ -34,6 +34,7 @@ import {
   getOutcomeGoals,
   createOutcomeGoal,
   findOrphanedContinuationIds,
+  getConceptualTasksByOutcomeGoalIds,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
@@ -43,6 +44,8 @@ import {
   type Goal,
   type StreakPassBalance,
   type OutcomeGoal,
+  type ArchivedGoal,
+  type ConceptualTask,
 } from "@/lib/supabase/db";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -68,7 +71,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, UserPlus, Target, Trash2, ArrowRightLeft, Clock } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -152,6 +155,21 @@ export default function TomorrowGoalsPage() {
   const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
   const [openGoalPickerId, setOpenGoalPickerId] = useState<string | null>(null);
   const goalPickerMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Quick Add from Goals — clicking an existing active Goal must never
+  // recreate the Goal itself or blindly spawn a new blank Task when an
+  // existing, still-open Task under that Goal (from another day) is what
+  // the user actually meant to bring onto tomorrow. Same single-ref
+  // click-outside pattern as the pickers above; `quickAddTasksByGoalId` is
+  // fetched lazily (once per Goal, per the open page) the first time its
+  // picker opens, same as GoalChecklist's "Load from a list" cache.
+  const [openQuickAddGoalId, setOpenQuickAddGoalId] = useState<string | null>(null);
+  const quickAddMenuRef = useRef<HTMLDivElement | null>(null);
+  const [quickAddTasksByGoalId, setQuickAddTasksByGoalId] = useState<
+    Record<string, ConceptualTask<ArchivedGoal>[]>
+  >({});
+  const [quickAddLoadingGoalId, setQuickAddLoadingGoalId] = useState<string | null>(null);
+  const [addingExistingTaskId, setAddingExistingTaskId] = useState<string | null>(null);
 
   // Goal Engine Phase 4C — "+ Add" is now a type-first, structured flow:
   // tap it, pick Standalone Task or Major Goal, THEN fill a small
@@ -715,6 +733,62 @@ export default function TomorrowGoalsPage() {
       setPendingFocusIndex(nextIndex);
       return next;
     });
+  }
+
+  // Quick Add from Goals' Task picker — lazily loads every still-open
+  // conceptual Task under this Goal (across every day, reschedule chains
+  // already collapsed to one entry each by getConceptualTasksByOutcomeGoalIds)
+  // the first time its dropdown opens, same one-fetch-then-cache pattern
+  // GoalChecklist's "Load from a list" uses. Re-fetched on every open
+  // rather than once globally, so a Task added/rescheduled elsewhere while
+  // this page is open is reflected next time the picker is reopened.
+  async function openQuickAddPicker(outcomeGoalId: string) {
+    const next = openQuickAddGoalId === outcomeGoalId ? null : outcomeGoalId;
+    setOpenQuickAddGoalId(next);
+    if (!next) return;
+
+    setQuickAddLoadingGoalId(outcomeGoalId);
+    try {
+      const tasks = await getConceptualTasksByOutcomeGoalIds([outcomeGoalId]);
+      // "Eligible/open" — not resolved. completed/canceled/attempted Tasks
+      // are done; everything else (not_started/in_progress/blocked, or a
+      // postponed terminal whose reschedule hasn't materialized yet) still
+      // needs doing somewhere and is worth offering here.
+      const open = tasks.filter(
+        (ct) => !["completed", "canceled", "attempted"].includes(ct.terminal.status)
+      );
+      setQuickAddTasksByGoalId((prev) => ({ ...prev, [outcomeGoalId]: open }));
+    } catch {
+      setQuickAddTasksByGoalId((prev) => ({ ...prev, [outcomeGoalId]: [] }));
+    } finally {
+      setQuickAddLoadingGoalId(null);
+    }
+  }
+
+  // Brings an existing open Task (currently live on some OTHER day) onto
+  // tomorrow's plan without duplicating it — reuses rescheduleGoalToDate,
+  // the exact same goal_reschedules/materialize path a manual reschedule
+  // or the streak-pass advance-use flow already uses elsewhere in this
+  // file, rather than a second, parallel scheduling mechanism. The
+  // original row is marked postponed and a new continuation row is
+  // materialized for tomorrow, preserving the Task's identity/history —
+  // never a blind clone of the existing row.
+  async function addExistingTaskToTomorrow(task: ArchivedGoal) {
+    if (addingExistingTaskId) return;
+    setAddingExistingTaskId(task.id);
+    try {
+      await rescheduleGoalToDate({
+        goal: task,
+        toDateISO: tomorrowISO,
+        reason: t("tomorrow.quickAddPickerRescheduleReason"),
+      });
+      await refresh({ silent: true });
+      setOpenQuickAddGoalId(null);
+    } catch (e: any) {
+      setMsg(e?.message ?? t("tomorrow.quickAddPickerAddFailed"));
+    } finally {
+      setAddingExistingTaskId(null);
+    }
   }
 
   // Goal titles are editable textareas, not inputs, so a long auto-generated
@@ -1840,15 +1914,24 @@ export default function TomorrowGoalsPage() {
               </div>
 
               {/* Quick Add from Goals — active Goals with no tomorrow
-                  Task yet. Shortcuts only: no goals row exists for these
-                  yet, so they already don't touch totalGoalsFilled/
-                  MAX_GOALS/canSubmit (all derived from `goals`, never from
-                  outcomeGoals) -- nothing extra needed to keep them out of
-                  commitment counts, limits, progress, validation, or
-                  submission. Clicking
-                  one calls the exact same addTaskLinkedToGoal() the full
-                  Goal card's own "+ Add Task" uses -- once that Task
-                  lands in sortedForDisplay, this same goal naturally has
+                  Task yet. These are EXISTING Goals, never recreated from
+                  here: clicking one no longer adds/materializes anything
+                  by itself, it only opens a small Task picker scoped to
+                  that Goal (same conn-card-menu dropdown pattern as Link
+                  to Goal/Move/Assign above). The picker lists every still-
+                  open Task already under this Goal (across every day) so
+                  an existing, merely-unfinished Task doesn't get a second,
+                  parallel blank Task spawned alongside it by mistake —
+                  picking one reschedules it onto tomorrow (preserving its
+                  identity/history, never a clone); "+ New Task" falls
+                  back to the exact same addTaskLinkedToGoal() the full
+                  Goal card's own "+ Add Task" uses. Shortcuts only: no
+                  goals row exists for these yet, so they already don't
+                  touch totalGoalsFilled/MAX_GOALS/canSubmit (all derived
+                  from `goals`, never from outcomeGoals) -- nothing extra
+                  needed to keep them out of commitment counts, limits,
+                  progress, validation, or submission. Once a Task lands
+                  in sortedForDisplay, this same goal naturally has
                   items.length > 0 next render and moves itself into the
                   real Goal-card list above; no separate state to sync. */}
               {goalsWithoutItems.length > 0 && (
@@ -1857,27 +1940,91 @@ export default function TomorrowGoalsPage() {
                     {t("tomorrow.quickAddFromGoalsLabel")}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {goalsWithoutItems.map((goal) => (
-                      <button
-                        key={goal.id}
-                        type="button"
-                        onClick={() => addTaskLinkedToGoal(goal.id)}
-                        disabled={!canAddMore}
-                        className="btn hover-scale inline-flex items-center gap-1.5"
-                        style={{ padding: "0.35rem 0.7rem", fontSize: "0.78rem" }}
-                        title={
-                          goals.length >= MAX_GOALS
-                            ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS })
-                            : t("tomorrow.quickAddFromGoalHint", { goal: goal.title })
-                        }
-                      >
-                        <Target size={12} className="text-pink-400 flex-shrink-0" />
-                        <span className="truncate" style={{ maxWidth: "140px" }}>
-                          {goal.title}
-                        </span>
-                        <Plus size={12} className="flex-shrink-0" />
-                      </button>
-                    ))}
+                    {goalsWithoutItems.map((goal) => {
+                      const loadedTasks = quickAddTasksByGoalId[goal.id];
+                      const isLoading = quickAddLoadingGoalId === goal.id;
+                      return (
+                        <PortalDropdownMenu
+                          key={goal.id}
+                          open={openQuickAddGoalId === goal.id}
+                          onClose={() => setOpenQuickAddGoalId(null)}
+                          anchorRef={quickAddMenuRef}
+                          panelClassName="conn-card-menu"
+                          panelStyle={{ minWidth: "240px", maxWidth: "min(300px, calc(100vw - 4rem))" }}
+                          panel={
+                            <>
+                              <div className="px-2 py-1.5 text-[11px] text-white/45 truncate" title={goal.title}>
+                                {goal.title}
+                              </div>
+                              {isLoading ? (
+                                <div className="px-2 py-1.5 text-xs text-white/50">
+                                  {t("tomorrow.quickAddPickerLoading")}
+                                </div>
+                              ) : !loadedTasks || loadedTasks.length === 0 ? (
+                                <div className="px-2 py-1.5 text-xs text-white/50 italic">
+                                  {t("tomorrow.quickAddPickerNoOpenTasks")}
+                                </div>
+                              ) : (
+                                loadedTasks.map((ct) => {
+                                  const task = ct.terminal;
+                                  const alreadyPlanned = task.plan_date === tomorrowISO;
+                                  return (
+                                    <button
+                                      key={task.id}
+                                      type="button"
+                                      disabled={alreadyPlanned || !canAddMore || addingExistingTaskId === task.id}
+                                      onClick={() => addExistingTaskToTomorrow(task)}
+                                      className="conn-card-menu-item"
+                                      style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
+                                      title={task.title}
+                                    >
+                                      <span className="truncate w-full">{task.title}</span>
+                                      <span className="text-[10px] text-white/45">
+                                        {alreadyPlanned
+                                          ? t("tomorrow.quickAddPickerAlreadyPlanned")
+                                          : task.plan_date
+                                          ? t("tomorrow.quickAddPickerFromDate", { date: formatDateDisplay(task.plan_date) })
+                                          : t("tomorrow.quickAddPickerUnscheduled")}
+                                      </span>
+                                    </button>
+                                  );
+                                })
+                              )}
+                              <button
+                                type="button"
+                                disabled={!canAddMore}
+                                onClick={() => {
+                                  addTaskLinkedToGoal(goal.id);
+                                  setOpenQuickAddGoalId(null);
+                                }}
+                                className="conn-card-menu-item"
+                                title={!canAddMore ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""}
+                              >
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Plus size={12} /> {t("tomorrow.quickAddPickerNewTask")}
+                                </span>
+                              </button>
+                            </>
+                          }
+                        >
+                          <div className="relative" ref={openQuickAddGoalId === goal.id ? quickAddMenuRef : undefined}>
+                            <button
+                              type="button"
+                              onClick={() => openQuickAddPicker(goal.id)}
+                              className="btn hover-scale inline-flex items-center gap-1.5"
+                              style={{ padding: "0.35rem 0.7rem", fontSize: "0.78rem" }}
+                              title={t("tomorrow.quickAddFromGoalHint", { goal: goal.title })}
+                            >
+                              <Target size={12} className="text-pink-400 flex-shrink-0" />
+                              <span className="truncate" style={{ maxWidth: "140px" }}>
+                                {goal.title}
+                              </span>
+                              <ChevronRight size={12} className="flex-shrink-0 text-white/40" />
+                            </button>
+                          </div>
+                        </PortalDropdownMenu>
+                      );
+                    })}
                   </div>
                 </div>
               )}

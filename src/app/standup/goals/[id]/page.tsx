@@ -27,6 +27,7 @@ import {
   formatDateDisplay,
   type OutcomeGoal,
   type OutcomeGoalStatus,
+  type OutcomeGoalType,
   type ConceptualTask,
   type ArchivedGoal,
   type GoalAssignment,
@@ -35,10 +36,13 @@ import {
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import StatusIcon from "@/components/StatusIcon";
+import GoalTypeSelect from "@/components/GoalTypeSelect";
+import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { DEFAULT_PRIORITY } from "@/lib/goalLogic";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
 import { Target, TriangleAlert, Pencil, CheckCircle2, Ban, RotateCcw } from "lucide-react";
 
 type TaskWithChain = ArchivedGoal & { lifecycle: ConceptualTask<ArchivedGoal>["lifecycle"]; chainIds: string[] };
@@ -69,6 +73,21 @@ function outcomeStatusChip(status: OutcomeGoalStatus): { bg: string; border: str
   if (status === "abandoned") return statusChipColors("canceled");
   return { bg: "rgba(244, 114, 182, 0.12)", border: "rgba(244, 114, 182, 0.4)", color: "#f9a8d4" };
 }
+
+// Goal Engine Phase 2B-1: compact chip label per Goal Type -- a plain
+// neutral tint (not a status color) since a type is a classification,
+// not a lifecycle state.
+const GOAL_TYPE_CHIP_KEY: Record<OutcomeGoalType, TranslationKey> = {
+  one_time: "goalType.oneTime.chip",
+  ongoing: "goalType.ongoing.chip",
+  recurring: "goalType.recurring.chip",
+  target: "goalType.target.chip",
+};
+const GOAL_TYPE_CHIP_COLORS = {
+  bg: "rgba(var(--tint-rgb), 0.06)",
+  border: "rgba(var(--tint-rgb), 0.18)",
+  color: "rgba(var(--tint-rgb), 0.7)",
+};
 
 export default function GoalDetailPage() {
   const params = useParams();
@@ -103,6 +122,8 @@ export default function GoalDetailPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editDetails, setEditDetails] = useState("");
   const [editPriority, setEditPriority] = useState(DEFAULT_PRIORITY);
+  const [editGoalType, setEditGoalType] = useState<OutcomeGoalType>("one_time");
+  const [goalTypeInfo, setGoalTypeInfo] = useState<OutcomeGoalType | null>(null);
   const [savingGoal, setSavingGoal] = useState(false);
   const [settingStatus, setSettingStatus] = useState(false);
 
@@ -232,6 +253,7 @@ export default function GoalDetailPage() {
     setEditTitle(goal.title);
     setEditDetails(goal.details ?? "");
     setEditPriority(goal.priority);
+    setEditGoalType(goal.goal_type);
     setShowEditGoal(true);
   }
 
@@ -246,6 +268,7 @@ export default function GoalDetailPage() {
         title,
         details: editDetails.trim() || null,
         priority: editPriority,
+        goal_type: editGoalType,
       });
       setGoal(updated);
       setShowEditGoal(false);
@@ -459,12 +482,26 @@ export default function GoalDetailPage() {
             </div>
             <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-white/90 break-words">{goal.title}</h1>
           </div>
-          <span
-            className="status-chip-sm flex-shrink-0"
-            style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as CSSProperties}
-          >
-            {statusText}
-          </span>
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <span
+              className="status-chip-sm"
+              style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as CSSProperties}
+            >
+              {statusText}
+            </span>
+            <span
+              className="status-chip-sm"
+              style={
+                {
+                  "--chip-bg": GOAL_TYPE_CHIP_COLORS.bg,
+                  "--chip-border": GOAL_TYPE_CHIP_COLORS.border,
+                  "--chip-color": GOAL_TYPE_CHIP_COLORS.color,
+                } as CSSProperties
+              }
+            >
+              {t(GOAL_TYPE_CHIP_KEY[goal.goal_type])}
+            </span>
+          </div>
         </div>
 
         {goal.details && <p className="mt-3 text-sm text-white/70 whitespace-pre-wrap">{goal.details}</p>}
@@ -650,6 +687,14 @@ export default function GoalDetailPage() {
           </div>
         ) : (
           <div className="space-y-2">
+            <GoalTypeSelect
+              value={editGoalType}
+              disabled={savingGoal}
+              onChange={(v) => {
+                setEditGoalType(v);
+                setGoalTypeInfo(v);
+              }}
+            />
             <label className="block text-[11px] text-white/40">{t("goalDetail.editTitleLabel")}</label>
             <input
               type="text"
@@ -702,6 +747,10 @@ export default function GoalDetailPage() {
           </div>
         )}
       </div>
+
+      {goalTypeInfo && (
+        <GoalTypeInfoModal goalType={goalTypeInfo} onDismiss={() => setGoalTypeInfo(null)} />
+      )}
     </div>
   );
 }

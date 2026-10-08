@@ -44,6 +44,7 @@ import {
   type Goal,
   type StreakPassBalance,
   type OutcomeGoal,
+  type OutcomeGoalType,
   type ArchivedGoal,
   type ConceptualTask,
 } from "@/lib/supabase/db";
@@ -67,6 +68,8 @@ import GoalAttachments from "@/components/GoalAttachments";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
+import GoalTypeSelect from "@/components/GoalTypeSelect";
+import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
@@ -190,6 +193,8 @@ export default function TomorrowGoalsPage() {
 
   // Major Goal form — goal title + >=2 task rows (title + priority each).
   const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [newGoalType, setNewGoalType] = useState<OutcomeGoalType>("one_time");
+  const [goalTypeInfo, setGoalTypeInfo] = useState<OutcomeGoalType | null>(null);
   const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
     { title: "", priority: DEFAULT_PRIORITY },
     { title: "", priority: DEFAULT_PRIORITY },
@@ -203,6 +208,7 @@ export default function TomorrowGoalsPage() {
     setNewTaskPriority(DEFAULT_PRIORITY);
     setTaskCreateError(null);
     setNewGoalTitle("");
+    setNewGoalType("one_time");
     setNewGoalTasks([
       { title: "", priority: DEFAULT_PRIORITY },
       { title: "", priority: DEFAULT_PRIORITY },
@@ -263,7 +269,7 @@ export default function TomorrowGoalsPage() {
         setGoalCreateError(t("tomorrow.maxGoals", { max: MAX_GOALS }));
         return;
       }
-      const created = await createOutcomeGoal(title);
+      const created = await createOutcomeGoal(title, null, 3, newGoalType);
       setOutcomeGoals((prev) => [created, ...prev]);
 
       if (autosaveTimerRef.current) {
@@ -2252,6 +2258,14 @@ export default function TomorrowGoalsPage() {
                   -- no separate render path needed here. */}
               {addFlowStep === "goal" && (
                 <div className="mt-2 space-y-2">
+                  <GoalTypeSelect
+                    value={newGoalType}
+                    disabled={creatingGoal}
+                    onChange={(v) => {
+                      setNewGoalType(v);
+                      setGoalTypeInfo(v);
+                    }}
+                  />
                   <input
                     type="text"
                     value={newGoalTitle}
@@ -2446,6 +2460,10 @@ export default function TomorrowGoalsPage() {
           <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(var(--tint-rgb),0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(var(--tint-rgb),0.2)" }}>
             {msg}
           </div>
+        )}
+
+        {goalTypeInfo && (
+          <GoalTypeInfoModal goalType={goalTypeInfo} onDismiss={() => setGoalTypeInfo(null)} />
         )}
       </div>
   );

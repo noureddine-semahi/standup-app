@@ -1262,6 +1262,12 @@ export async function promoteBacklogGoal(backlog: BacklogGoal, planDateISO: stri
 
 export type OutcomeGoalStatus = "active" | "completed" | "abandoned";
 
+// Goal Engine Phase 2B-1: a persistent classification, independent of
+// status -- "what kind of Goal this is" rather than "where it is in its
+// lifecycle". Recurring/Target-specific fields (frequency, target value/
+// unit) are later phases; this is only the classification itself.
+export type OutcomeGoalType = "one_time" | "ongoing" | "recurring" | "target";
+
 export type OutcomeGoal = {
   id: string;
   user_id: string;
@@ -1269,6 +1275,7 @@ export type OutcomeGoal = {
   details: string | null;
   priority: number;
   status: OutcomeGoalStatus;
+  goal_type: OutcomeGoalType;
   created_at: string;
   updated_at: string;
 };
@@ -1308,22 +1315,23 @@ export async function getOutcomeGoalById(id: string): Promise<OutcomeGoal | null
 export async function createOutcomeGoal(
   title: string,
   details: string | null = null,
-  priority = 3
+  priority = 3,
+  goalType: OutcomeGoalType = "one_time"
 ): Promise<OutcomeGoal> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("outcome_goals")
-    .insert({ user_id: userId, title, details, priority })
+    .insert({ user_id: userId, title, details, priority, goal_type: goalType })
     .select()
     .single();
   if (error) throw error;
   return data as OutcomeGoal;
 }
 
-/** Title/details/priority edits — not status (see setOutcomeGoalStatus). */
+/** Title/details/priority/goal_type edits — not status (see setOutcomeGoalStatus). */
 export async function updateOutcomeGoal(
   id: string,
-  patch: Partial<Pick<OutcomeGoal, "title" | "details" | "priority">>
+  patch: Partial<Pick<OutcomeGoal, "title" | "details" | "priority" | "goal_type">>
 ): Promise<OutcomeGoal> {
   const { data, error } = await supabase
     .from("outcome_goals")

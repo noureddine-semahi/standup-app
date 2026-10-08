@@ -13,6 +13,8 @@ import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import MarqueeText from "@/components/MarqueeText";
+import GoalTypeSelect from "@/components/GoalTypeSelect";
+import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -64,6 +66,7 @@ import {
   type GoalAssignment,
   type GoalAssignmentType,
   type OutcomeGoal,
+  type OutcomeGoalType,
   type ArchivedGoal,
   type ConceptualTask,
 } from "@/lib/supabase/db";
@@ -272,6 +275,8 @@ export default function TodayPage() {
   const [taskCreateError, setTaskCreateError] = useState<string | null>(null);
 
   const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [newGoalType, setNewGoalType] = useState<OutcomeGoalType>("one_time");
+  const [goalTypeInfo, setGoalTypeInfo] = useState<OutcomeGoalType | null>(null);
   const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
     { title: "", priority: 3 },
     { title: "", priority: 3 },
@@ -285,6 +290,7 @@ export default function TodayPage() {
     setNewTaskPriority(3);
     setTaskCreateError(null);
     setNewGoalTitle("");
+    setNewGoalType("one_time");
     setNewGoalTasks([
       { title: "", priority: 3 },
       { title: "", priority: 3 },
@@ -1182,7 +1188,7 @@ export default function TodayPage() {
     setCreatingGoal(true);
     setGoalCreateError(null);
     try {
-      const created = await createOutcomeGoal(title);
+      const created = await createOutcomeGoal(title, null, 3, newGoalType);
       setOutcomeGoals((prev) => [created, ...prev]);
 
       const existingIds = new Set(goals.map((g) => g.id));
@@ -2826,6 +2832,14 @@ export default function TodayPage() {
 
                 {addFlowStep === "goal" && (
                   <div className="space-y-2">
+                    <GoalTypeSelect
+                      value={newGoalType}
+                      disabled={creatingGoal}
+                      onChange={(v) => {
+                        setNewGoalType(v);
+                        setGoalTypeInfo(v);
+                      }}
+                    />
                     <input
                       type="text"
                       value={newGoalTitle}
@@ -3229,6 +3243,10 @@ export default function TodayPage() {
           onCancel={cancelPayment}
           onConfirm={confirmPaymentCompletion}
         />
+      )}
+
+      {goalTypeInfo && (
+        <GoalTypeInfoModal goalType={goalTypeInfo} onDismiss={() => setGoalTypeInfo(null)} />
       )}
     </div>
   );

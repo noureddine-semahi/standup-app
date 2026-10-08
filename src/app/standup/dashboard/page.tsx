@@ -1134,7 +1134,7 @@ export default function DashboardPage() {
                               to the dedicated detail page. */}
                           <Link
                             href={`/standup/goals/${goal.id}`}
-                            className="mt-1.5 inline-block text-[10px] text-white/35 hover:text-white/55"
+                            className="mt-1.5 inline-block text-[10px] text-white/40 hover:text-white/60"
                           >
                             {t("goalDetail.openGoalLink")} →
                           </Link>

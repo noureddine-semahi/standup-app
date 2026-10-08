@@ -39,7 +39,7 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { DEFAULT_PRIORITY } from "@/lib/goalLogic";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { Target, TriangleAlert, Plus, Pencil, CheckCircle2, Ban, RotateCcw } from "lucide-react";
+import { Target, TriangleAlert, Pencil, CheckCircle2, Ban, RotateCcw } from "lucide-react";
 
 type TaskWithChain = ArchivedGoal & { lifecycle: ConceptualTask<ArchivedGoal>["lifecycle"]; chainIds: string[] };
 
@@ -505,7 +505,7 @@ export default function GoalDetailPage() {
             className="btn mt-3 inline-flex items-center gap-1.5"
             style={{ fontSize: "0.78rem" }}
           >
-            <Plus size={13} /> {t("tomorrow.addTaskToGoal")}
+            {t("tomorrow.addTaskToGoal")}
           </button>
         ) : (
           <div className="mt-3 space-y-2">

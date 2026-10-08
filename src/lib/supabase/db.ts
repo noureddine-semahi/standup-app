@@ -2145,6 +2145,39 @@ export function filterUnresolvedDescendants<T extends { status: string }>(descen
   return descendants.filter((d) => d.status !== "completed" && d.status !== "canceled");
 }
 
+/**
+ * The read-side mirror of cancelOrphanedReschedules' own write-side
+ * condition: a canceled goal is an auto-canceled orphan continuation --
+ * not an ordinary, independently user-canceled Task -- exactly when it's
+ * the materialized target of a reschedule edge whose SOURCE has itself
+ * reached a terminal state (completed or canceled). No new flag/column is
+ * needed: this is the same structural signal that caused the cancellation
+ * in the first place, re-derived rather than tracked separately, so it
+ * stays correct even for rows canceled before this read-side check
+ * existed. An ordinary canceled Task that was never anyone's materialized
+ * continuation (the common case) never matches any edge here and is left
+ * alone -- this never changes how user-initiated cancellation displays.
+ *
+ * `edges` only needs to cover reschedules whose materialized_goal_id is
+ * among the candidate canceled ids the caller cares about (a cheap
+ * pre-filter by the caller, not required for correctness). `sourceStatusById`
+ * maps each edge's from_goal_id to its current status.
+ */
+export function findOrphanedContinuationIds(
+  edges: { from_goal_id: string; materialized_goal_id: string | null }[],
+  sourceStatusById: Map<string, string>
+): Set<string> {
+  const orphanIds = new Set<string>();
+  for (const e of edges) {
+    if (!e.materialized_goal_id) continue;
+    const sourceStatus = sourceStatusById.get(e.from_goal_id);
+    if (sourceStatus === "completed" || sourceStatus === "canceled") {
+      orphanIds.add(e.materialized_goal_id);
+    }
+  }
+  return orphanIds;
+}
+
 /** One conceptual Task collapsed from a reschedule lineage (A -> B -> C).
  * `terminal` is the current/display row (status, plan_date, title, etc
  * all come from it); `chain` is every physical row root-to-terminal, kept

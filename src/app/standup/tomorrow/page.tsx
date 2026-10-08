@@ -33,6 +33,7 @@ import {
   rescheduleGoalToDate,
   getOutcomeGoals,
   createOutcomeGoal,
+  findOrphanedContinuationIds,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
@@ -480,12 +481,13 @@ export default function TomorrowGoalsPage() {
     const goalIds = dbGoals.map(g => g.id).filter(Boolean) as string[];
     let rescheduleOrigins: Record<string, { from_date: string; reason: string | null }> = {};
     let notesMap: Record<string, any[]> = {};
+    let orphanIds = new Set<string>();
 
     if (goalIds.length > 0) {
       const [reschedulesResult, notesResult, checklistResult, attachmentsResult] = await Promise.all([
         supabase
           .from("goal_reschedules")
-          .select("materialized_goal_id, from_date, reason")
+          .select("from_goal_id, materialized_goal_id, from_date, reason")
           .in("materialized_goal_id", goalIds)
           .eq("materialized", true),
         // Goes through getNotesForGoals (get_goal_notes RPC), not a plain
@@ -514,26 +516,56 @@ export default function TomorrowGoalsPage() {
         }
       });
 
+      // A materialized continuation whose own source has since been
+      // resolved (completed/canceled) gets auto-canceled by
+      // cancelOrphanedReschedules -- it must stay in the database for
+      // history, but never show as active, actionable work on the future
+      // day it was materialized onto. Re-derives the same structural
+      // signal cancelOrphanedReschedules itself used to cancel it
+      // (lineage + source status), rather than tracking a separate flag;
+      // an ordinary, independently user-canceled Task never matches an
+      // edge here and is untouched.
+      const canceledIds = new Set(dbGoals.filter((g) => g.status === "canceled").map((g) => g.id));
+      const candidateEdges = (reschedulesResult.data ?? []).filter(
+        (e) => e.materialized_goal_id && canceledIds.has(e.materialized_goal_id)
+      );
+      if (candidateEdges.length > 0) {
+        const sourceIds = [...new Set(candidateEdges.map((e) => e.from_goal_id))];
+        const { data: sourceRows } = await supabase.from("goals").select("id, status").in("id", sourceIds);
+        const sourceStatusById = new Map((sourceRows ?? []).map((g) => [g.id, g.status as string]));
+        orphanIds = findOrphanedContinuationIds(candidateEdges, sourceStatusById);
+      }
+
       notesMap = notesResult;
       setGoalComments(notesMap);
       setChecklistItems(checklistResult);
       setAttachments(attachmentsResult);
     }
 
-    // Attach reschedule origin to goals
-    const goalsWithOrigin = dbGoals.map(g => ({
-      ...g,
-      rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
-      reschedule_reason: rescheduleOrigins[g.id]?.reason || null,
-    }));
+    // Attach reschedule origin to goals -- excluding auto-canceled orphan
+    // continuations entirely. They stay in the database (and Calendar/
+    // history views) but never render as an active Commitment here, and
+    // never count toward totals/validation/submission below, all of
+    // which are derived from this `goals` state.
+    const goalsWithOrigin = dbGoals
+      .filter((g) => !orphanIds.has(g.id))
+      .map(g => ({
+        ...g,
+        rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
+        reschedule_reason: rescheduleOrigins[g.id]?.reason || null,
+      }));
 
     // Attach comments to goals using notesMap (not state which is stale)
     const goalsWithData = goalsWithOrigin.map(g => ({
       ...g,
       previous_actions: notesMap[g.id] || [],
     }));
-    
-    originalIdsRef.current = new Set(goalIds);
+
+    // Excluded orphans are left out of the tracked id set too, so the
+    // next autosave's delete-diff (toDelete in persistGoals) never
+    // mistakes their absence from `goals` state for the user having
+    // deleted them -- they must never be deleted, only hidden.
+    originalIdsRef.current = new Set(goalIds.filter((id) => !orphanIds.has(id)));
 
     const rows = compactForUI(goalsWithData);
     setGoals(rows);

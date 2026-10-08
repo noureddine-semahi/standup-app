@@ -11,6 +11,7 @@ import {
   filterUnresolvedDescendants,
   collapseGoalLineages,
   resolveLineageOwners,
+  findOrphanedContinuationIds,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -592,5 +593,55 @@ describe("getConceptualTasksByOutcomeGoalIds pipeline (ownership resolution + no
     );
     expect(tasks).toHaveLength(1);
     expect(tasks[0].terminal.id).toBe("B");
+  });
+});
+
+describe("findOrphanedContinuationIds", () => {
+  it("B is flagged: A rescheduled to B, A later Completed, B auto-canceled by reconciliation (the real controlled-repro shape)", () => {
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
+    const sourceStatusById = new Map([["A", "completed"]]);
+    const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+    expect(orphanIds.has("B")).toBe(true);
+  });
+
+  it("B is flagged when its source A was itself canceled (not just completed)", () => {
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
+    const sourceStatusById = new Map([["A", "canceled"]]);
+    const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+    expect(orphanIds.has("B")).toBe(true);
+  });
+
+  it("an ordinary canceled Task that is nobody's materialized continuation is never flagged", () => {
+    // No edges at all reference it -- the common case of a plain,
+    // independently user-canceled Task.
+    const orphanIds = findOrphanedContinuationIds([], new Map());
+    expect(orphanIds.size).toBe(0);
+  });
+
+  it("a canceled continuation whose source is still unresolved is NOT flagged (nothing has actually orphaned it yet)", () => {
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
+    const sourceStatusById = new Map([["A", "postponed"]]); // A hasn't resolved
+    const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+    expect(orphanIds.has("B")).toBe(false);
+  });
+
+  it("ignores an edge with a null materialized_goal_id without crashing", () => {
+    const edges = [{ from_goal_id: "A", materialized_goal_id: null }];
+    const orphanIds = findOrphanedContinuationIds(edges, new Map([["A", "completed"]]));
+    expect(orphanIds.size).toBe(0);
+  });
+
+  it("flags every reachable continuation across multiple independent chains", () => {
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "X", materialized_goal_id: "Y" },
+    ];
+    const sourceStatusById = new Map([
+      ["A", "completed"],
+      ["X", "postponed"], // X hasn't resolved, so Y is not an orphan
+    ]);
+    const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+    expect(orphanIds.has("B")).toBe(true);
+    expect(orphanIds.has("Y")).toBe(false);
   });
 });

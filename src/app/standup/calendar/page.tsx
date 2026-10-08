@@ -12,6 +12,7 @@ import {
   getOverdueDays,
   getStreakPassBalance,
   getStreakPassCoveredDates,
+  findOrphanedContinuationIds,
   type OverdueDay,
   type StreakPassBalance,
 } from "@/lib/supabase/db";
@@ -156,11 +157,38 @@ export default function CalendarPage() {
         if (planIds.length > 0) {
           const { data: goals, error: goalsErr } = await supabase
             .from("goals")
-            .select("plan_id, status, reviewed_at")
+            .select("id, plan_id, status, reviewed_at")
             .in("plan_id", planIds);
 
           if (goalsErr) throw goalsErr;
           goalsData = goals || [];
+
+          // Same lifecycle-consistency rule as Plan Tomorrow/date-detail: a
+          // materialized continuation whose own source has since been
+          // resolved (completed/canceled) gets auto-canceled by
+          // cancelOrphanedReschedules, and must not inflate this month
+          // view's day-level commitment counts/status either. Reuses the
+          // same shared helper rather than a second definition; an
+          // ordinary, independently user-canceled Task never matches an
+          // edge here and is untouched.
+          const canceledIds = new Set(goalsData.filter((g) => g.status === "canceled").map((g) => g.id));
+          if (canceledIds.size > 0) {
+            const { data: edgeRows } = await supabase
+              .from("goal_reschedules")
+              .select("from_goal_id, materialized_goal_id")
+              .eq("materialized", true)
+              .in("materialized_goal_id", Array.from(canceledIds));
+            const edges = edgeRows ?? [];
+            if (edges.length > 0) {
+              const sourceIds = [...new Set(edges.map((e) => e.from_goal_id))];
+              const { data: sourceRows } = await supabase.from("goals").select("id, status").in("id", sourceIds);
+              const sourceStatusById = new Map((sourceRows ?? []).map((g) => [g.id, g.status as string]));
+              const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+              if (orphanIds.size > 0) {
+                goalsData = goalsData.filter((g) => !orphanIds.has(g.id));
+              }
+            }
+          }
         }
 
         const dataMap: Record<string, DayData> = {};

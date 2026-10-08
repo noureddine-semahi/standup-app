@@ -644,4 +644,23 @@ describe("findOrphanedContinuationIds", () => {
     expect(orphanIds.has("B")).toBe(true);
     expect(orphanIds.has("Y")).toBe(false);
   });
+
+  it("the Month Calendar's batched shape: several unrelated days/plans processed together still resolve correctly (Calendar/date-detail reuse the same function, not a second definition)", () => {
+    // Simulates loadMonthData's single batched pass across every goal in
+    // the visible month: day 1's auto-canceled orphan, day 2's ordinary
+    // (independently) canceled Task with no lineage at all, and day 3's
+    // still-unresolved source whose continuation must NOT be excluded yet.
+    const edges = [
+      { from_goal_id: "day1-source", materialized_goal_id: "day1-continuation" },
+      { from_goal_id: "day3-source", materialized_goal_id: "day3-continuation" },
+    ];
+    const sourceStatusById = new Map([
+      ["day1-source", "completed"],
+      ["day3-source", "in_progress"],
+    ]);
+    const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+    expect(orphanIds.has("day1-continuation")).toBe(true); // excluded from that day's active count
+    expect(orphanIds.has("day3-continuation")).toBe(false); // source unresolved -- still a real, active Task
+    expect(orphanIds.has("day2-ordinary-canceled")).toBe(false); // never referenced by any edge, untouched
+  });
 });

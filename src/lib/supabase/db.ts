@@ -1284,6 +1284,27 @@ export async function getOutcomeGoals(): Promise<OutcomeGoal[]> {
   return (data ?? []) as OutcomeGoal[];
 }
 
+/**
+ * Fetch one Outcome Goal by id, scoped to the current user -- used by the
+ * Goal detail page (/standup/goals/[id]), which only ever has an id, not
+ * an already-loaded list to filter client-side. Returns null (rather than
+ * throwing) when the id doesn't exist or isn't owned by the current user
+ * -- RLS already prevents reading another user's row, but a bad/stale id
+ * is a normal navigation case here (direct URL, stale bookmark), not an
+ * error state. Does not affect getOutcomeGoals() in any way.
+ */
+export async function getOutcomeGoalById(id: string): Promise<OutcomeGoal | null> {
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("outcome_goals")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as OutcomeGoal | null;
+}
+
 export async function createOutcomeGoal(
   title: string,
   details: string | null = null,

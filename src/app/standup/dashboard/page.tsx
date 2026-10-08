@@ -1018,6 +1018,7 @@ export default function DashboardPage() {
                           </div>
                         )}
                         {isExpanded && (
+                          <>
                           <div className="dashboard-goal-tasks">
                             {sortedTasks.length === 0 ? (
                               <div className="text-[11px] text-white/40 py-1">{t("dashboard.goalNoTasks")}</div>
@@ -1127,6 +1128,17 @@ export default function DashboardPage() {
                               )
                             )}
                           </div>
+                          {/* Goal Engine Phase 2A: kept secondary/unobtrusive --
+                              Dashboard's own expand/collapse interaction is
+                              unchanged, this is purely an additional way out
+                              to the dedicated detail page. */}
+                          <Link
+                            href={`/standup/goals/${goal.id}`}
+                            className="mt-1.5 inline-block text-[10px] text-white/35 hover:text-white/55"
+                          >
+                            {t("goalDetail.openGoalLink")} →
+                          </Link>
+                          </>
                         )}
                       </div>
                     );

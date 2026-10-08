@@ -2222,6 +2222,59 @@ export function collapseGoalLineages<T extends { id: string; status: string }>(
 }
 
 /**
+ * Pure ownership resolution for getConceptualTasksByOutcomeGoalIds: given
+ * the Tasks that DIRECTLY and authoritatively belong to a Goal (`roots` --
+ * their own outcome_goal_id matched the query) and every materialized
+ * reschedule edge the caller has, walks each root's lineage forward and
+ * returns a Map of every reachable id (roots + however many hops of
+ * continuations) to the Goal it belongs to.
+ *
+ * This exists because a continuation's OWN outcome_goal_id is only a
+ * one-time snapshot taken by materializeReschedules at the moment it was
+ * created, from whatever its source's outcome_goal_id was AT THAT INSTANT
+ * -- it is never kept in sync afterward. If the source gets linked to (or
+ * unlinked from) a Goal later, every continuation materialized before
+ * that point is left with a stale or null value forever, with nothing to
+ * fetch/collapse it back into its Goal's Task set via that field alone.
+ * Ownership here is always inherited from the root, never read off a
+ * descendant's own (possibly stale/conflicting) field.
+ *
+ * Deterministic on conflict: a root's own membership is set first and is
+ * never overridden by inherited ownership (its direct, authoritative
+ * match always wins over anything a lineage walk might claim about the
+ * same id); among descendants, whichever root's walk reaches a shared id
+ * first (in `roots` order) wins.
+ */
+export function resolveLineageOwners(
+  roots: { id: string; outcome_goal_id: string }[],
+  edges: { from_goal_id: string; materialized_goal_id: string | null }[]
+): Map<string, string> {
+  const nextByFromId = new Map<string, string>();
+  for (const e of edges) {
+    if (e.materialized_goal_id) nextByFromId.set(e.from_goal_id, e.materialized_goal_id);
+  }
+
+  const ownerById = new Map<string, string>();
+  for (const root of roots) {
+    ownerById.set(root.id, root.outcome_goal_id);
+  }
+
+  for (const root of roots) {
+    const visited = new Set<string>([root.id]);
+    let currentId = root.id;
+    while (true) {
+      const nextId = nextByFromId.get(currentId);
+      if (!nextId || visited.has(nextId)) break;
+      visited.add(nextId);
+      if (!ownerById.has(nextId)) ownerById.set(nextId, root.outcome_goal_id);
+      currentId = nextId;
+    }
+  }
+
+  return ownerById;
+}
+
+/**
  * The one physical row that represents a conceptual Task's real
  * resolution, by canonical lineage identity (the chain collapseGoalLineages
  * already built), never by title/date matching. Normally that's the
@@ -2769,28 +2822,75 @@ export async function getGoalsByOutcomeGoalIds(outcomeGoalIds: string[]): Promis
 }
 
 /**
- * Same Tasks as getGoalsByOutcomeGoalIds, collapsed into conceptual Tasks
- * via collapseGoalLineages -- the canonical read model for any Goal
- * progress/children display (Dashboard's Active Goals, Review Today's
- * Major Goal cards). Only fetches the materialized reschedule edges
- * originating from these specific Tasks (not every materialized reschedule
- * in the account, unlike cancelOrphanedReschedules' intentionally broader
- * query, which doesn't get to start from a known candidate set).
+ * Same Tasks as getGoalsByOutcomeGoalIds, PLUS every materialized
+ * reschedule continuation reachable from them (however many hops),
+ * collapsed into conceptual Tasks via collapseGoalLineages -- the
+ * canonical read model for any Goal progress/children display (Dashboard's
+ * Active Goals, Review Today's Major Goal cards).
+ *
+ * getGoalsByOutcomeGoalIds alone misses a continuation whose own
+ * outcome_goal_id is null or stale (see resolveLineageOwners above) --
+ * such a row would otherwise never be fetched at all, so
+ * collapseGoalLineages would never even get the chance to collapse it
+ * with its source, and the source would wrongly look like its own
+ * unfinished, standalone Task forever. This fetches every materialized
+ * edge in the account (same intentionally broad query cancelOrphanedReschedules
+ * already uses, relying on RLS rather than a from_goal_id scope -- we don't
+ * know every reachable id in advance), walks forward from the directly-
+ * matched roots to find every reachable continuation NOT already fetched,
+ * fetches those by id, then hands collapseGoalLineages the complete
+ * physical-row set with each row's outcome_goal_id normalized to its
+ * resolved lineage owner (an in-memory correction only -- never written
+ * back to the database, so historical rows stay exactly as they are).
  */
 export async function getConceptualTasksByOutcomeGoalIds(
   outcomeGoalIds: string[]
 ): Promise<ConceptualTask<ArchivedGoal>[]> {
-  const goals = await getGoalsByOutcomeGoalIds(outcomeGoalIds);
-  if (goals.length === 0) return [];
+  const rootGoals = await getGoalsByOutcomeGoalIds(outcomeGoalIds);
+  if (rootGoals.length === 0) return [];
 
-  const { data: edges, error } = await supabase
+  const { data: edgeRows, error: edgeErr } = await supabase
     .from("goal_reschedules")
     .select("from_goal_id, materialized_goal_id")
-    .eq("materialized", true)
-    .in("from_goal_id", goals.map((g) => g.id));
-  if (error) throw error;
+    .eq("materialized", true);
+  if (edgeErr) throw edgeErr;
+  const edges = edgeRows ?? [];
 
-  return collapseGoalLineages(goals, edges ?? []);
+  const roots = rootGoals
+    .filter((g) => !!g.outcome_goal_id)
+    .map((g) => ({ id: g.id, outcome_goal_id: g.outcome_goal_id as string }));
+  const ownerById = resolveLineageOwners(roots, edges);
+
+  const rootById = new Map(rootGoals.map((g) => [g.id, g]));
+  const missingIds = Array.from(ownerById.keys()).filter((id) => !rootById.has(id));
+
+  let continuations: ArchivedGoal[] = [];
+  if (missingIds.length > 0) {
+    const { data: contRows, error: contErr } = await supabase.from("goals").select("*").in("id", missingIds);
+    if (contErr) throw contErr;
+
+    const rows = contRows ?? [];
+    const planIds = [...new Set(rows.map((g) => g.plan_id).filter(Boolean))];
+    const planDateById: Record<string, string> = {};
+    if (planIds.length > 0) {
+      const { data: plans, error: plansErr } = await supabase
+        .from("daily_plans")
+        .select("id, plan_date")
+        .in("id", planIds);
+      if (plansErr) throw plansErr;
+      (plans ?? []).forEach((p) => {
+        planDateById[p.id] = p.plan_date;
+      });
+    }
+    continuations = rows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null })) as ArchivedGoal[];
+  }
+
+  const normalized: ArchivedGoal[] = [...rootGoals, ...continuations].map((g) => {
+    const owner = ownerById.get(g.id);
+    return owner && owner !== g.outcome_goal_id ? { ...g, outcome_goal_id: owner } : g;
+  });
+
+  return collapseGoalLineages(normalized, edges);
 }
 
 /**

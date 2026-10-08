@@ -11,6 +11,7 @@ import {
   filterUnresolvedDescendants,
   collapseGoalLineages,
   representativeTaskRow,
+  resolveLineageOwners,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -435,5 +436,169 @@ describe("representativeTaskRow", () => {
     const completed = representatives.filter((g) => g.status === "completed").length;
     expect(total).toBe(3);
     expect(completed).toBe(3); // Child 3's conceptual Task reports Completed via A, not Not-started/Canceled via B
+  });
+});
+
+describe("resolveLineageOwners", () => {
+  it("a root with no edges owns only itself", () => {
+    const owners = resolveLineageOwners([{ id: "A", outcome_goal_id: "G" }], []);
+    expect(Array.from(owners.entries())).toEqual([["A", "G"]]);
+  });
+
+  it("A -> B: B inherits A's owner even though B's own outcome_goal_id would otherwise be null (the real Get healthy / Sleep well regression)", () => {
+    const owners = resolveLineageOwners(
+      [{ id: "A", outcome_goal_id: "G" }],
+      [{ from_goal_id: "A", materialized_goal_id: "B" }]
+    );
+    expect(owners.get("A")).toBe("G");
+    expect(owners.get("B")).toBe("G");
+  });
+
+  it("A -> B -> C: ownership propagates transitively through a multi-hop chain", () => {
+    const owners = resolveLineageOwners(
+      [{ id: "A", outcome_goal_id: "G" }],
+      [
+        { from_goal_id: "A", materialized_goal_id: "B" },
+        { from_goal_id: "B", materialized_goal_id: "C" },
+      ]
+    );
+    expect(owners.get("A")).toBe("G");
+    expect(owners.get("B")).toBe("G");
+    expect(owners.get("C")).toBe("G");
+  });
+
+  it("two independent roots' chains never cross-contaminate each other's ownership", () => {
+    const owners = resolveLineageOwners(
+      [
+        { id: "A", outcome_goal_id: "G" },
+        { id: "X", outcome_goal_id: "H" },
+      ],
+      [
+        { from_goal_id: "A", materialized_goal_id: "B" },
+        { from_goal_id: "X", materialized_goal_id: "Y" },
+      ]
+    );
+    expect(owners.get("B")).toBe("G");
+    expect(owners.get("Y")).toBe("H");
+  });
+
+  it("a descendant's own direct, authoritative root membership always wins over another root's inherited claim (no double-counting across Goals)", () => {
+    // B is itself a query-matched root for H (its own outcome_goal_id really
+    // is H), but is ALSO reachable as A's continuation under G -- both Goals
+    // were requested in the same batched call (e.g. Dashboard's up-to-3
+    // shown Goals). B must end up owned by exactly one Goal, not both.
+    const owners = resolveLineageOwners(
+      [
+        { id: "A", outcome_goal_id: "G" },
+        { id: "B", outcome_goal_id: "H" },
+      ],
+      [{ from_goal_id: "A", materialized_goal_id: "B" }]
+    );
+    expect(owners.get("B")).toBe("H"); // B's own direct membership, not inherited from A
+    expect(owners.get("A")).toBe("G");
+  });
+
+  it("an edge entirely unrelated to any given root has no effect", () => {
+    const owners = resolveLineageOwners(
+      [{ id: "A", outcome_goal_id: "G" }],
+      [{ from_goal_id: "other-1", materialized_goal_id: "other-2" }]
+    );
+    expect(Array.from(owners.entries())).toEqual([["A", "G"]]);
+  });
+
+  it("does not infinite-loop on a malformed cycle", () => {
+    const owners = resolveLineageOwners(
+      [{ id: "A", outcome_goal_id: "G" }],
+      [
+        { from_goal_id: "A", materialized_goal_id: "B" },
+        { from_goal_id: "B", materialized_goal_id: "A" },
+      ]
+    );
+    expect(owners.get("A")).toBe("G");
+    expect(owners.get("B")).toBe("G");
+  });
+});
+
+describe("getConceptualTasksByOutcomeGoalIds pipeline (ownership resolution + normalization + collapse)", () => {
+  // Exercises the exact in-memory pipeline getConceptualTasksByOutcomeGoalIds
+  // runs after its DB fetches: resolveLineageOwners -> normalize each row's
+  // outcome_goal_id to its resolved owner -> collapseGoalLineages. No
+  // Supabase client involved, so this is testable the same way as every
+  // other pure helper here, even though the real function does I/O.
+  function runPipeline(
+    rootGoals: { id: string; status: string; outcome_goal_id: string | null }[],
+    continuations: { id: string; status: string; outcome_goal_id: string | null }[],
+    edges: { from_goal_id: string; materialized_goal_id: string | null }[]
+  ) {
+    const roots = rootGoals
+      .filter((g) => !!g.outcome_goal_id)
+      .map((g) => ({ id: g.id, outcome_goal_id: g.outcome_goal_id as string }));
+    const ownerById = resolveLineageOwners(roots, edges);
+    const normalized = [...rootGoals, ...continuations].map((g) => {
+      const owner = ownerById.get(g.id);
+      return owner && owner !== g.outcome_goal_id ? { ...g, outcome_goal_id: owner } : g;
+    });
+    return collapseGoalLineages(normalized, edges);
+  }
+
+  it("A belongs to Goal G, B's outcome_goal_id is null, B is Completed => Goal G sees ONE conceptual Task, Completed (real Get healthy / Sleep well shape)", () => {
+    const A = { id: "A", status: "postponed", outcome_goal_id: "G" };
+    const B = { id: "B", status: "completed", outcome_goal_id: null };
+    const tasks = runPipeline([A], [B], [{ from_goal_id: "A", materialized_goal_id: "B" }]);
+
+    const gTasks = tasks.filter((t) => (t.terminal as any).outcome_goal_id === "G");
+    expect(gTasks).toHaveLength(1);
+    expect(gTasks[0].terminal.status).toBe("completed");
+    expect(gTasks[0].terminal.id).toBe("B");
+  });
+
+  it("A belongs to G, B null, B -> C null, C Completed => ONE conceptual Task, Completed", () => {
+    const A = { id: "A", status: "postponed", outcome_goal_id: "G" };
+    const B = { id: "B", status: "postponed", outcome_goal_id: null };
+    const C = { id: "C", status: "completed", outcome_goal_id: null };
+    const tasks = runPipeline(
+      [A],
+      [B, C],
+      [
+        { from_goal_id: "A", materialized_goal_id: "B" },
+        { from_goal_id: "B", materialized_goal_id: "C" },
+      ]
+    );
+
+    const gTasks = tasks.filter((t) => (t.terminal as any).outcome_goal_id === "G");
+    expect(gTasks).toHaveLength(1);
+    expect(gTasks[0].terminal.status).toBe("completed");
+    expect(gTasks[0].terminal.id).toBe("C");
+  });
+
+  it("a descendant with a conflicting non-null outcome_goal_id does not make the same lineage count under two Goals", () => {
+    const A = { id: "A", status: "postponed", outcome_goal_id: "G" };
+    // B is itself a root for H in this batched call, not just A's continuation.
+    const B = { id: "B", status: "completed", outcome_goal_id: "H" };
+    const tasks = runPipeline([A, B], [], [{ from_goal_id: "A", materialized_goal_id: "B" }]);
+
+    const gTasks = tasks.filter((t) => (t.terminal as any).outcome_goal_id === "G");
+    const hTasks = tasks.filter((t) => (t.terminal as any).outcome_goal_id === "H");
+    // The lineage is attributed to exactly one Goal, never both.
+    expect(gTasks.length + hTasks.length).toBe(tasks.length);
+    expect(hTasks).toHaveLength(1); // B's own direct membership wins
+    expect(hTasks[0].terminal.id).toBe("B");
+  });
+
+  it("an unrelated reschedule lineage for a Goal that wasn't requested is not pulled in", () => {
+    const A = { id: "A", status: "postponed", outcome_goal_id: "G" };
+    const B = { id: "B", status: "completed", outcome_goal_id: null };
+    // A completely separate chain for a Goal nobody asked about in this call.
+    const X = { id: "X", status: "postponed", outcome_goal_id: "UNREQUESTED" };
+    const tasks = runPipeline(
+      [A],
+      [B],
+      [
+        { from_goal_id: "A", materialized_goal_id: "B" },
+        { from_goal_id: "X", materialized_goal_id: "Y" }, // X/Y never passed in as a root or continuation
+      ]
+    );
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal.id).toBe("B");
   });
 });

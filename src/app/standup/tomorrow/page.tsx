@@ -1985,22 +1985,14 @@ export default function TomorrowGoalsPage() {
                   separate insert -- no new save logic. */}
               {addFlowStep === "task" && (
                 <div className="mt-2 space-y-2">
+                  {/* Priority leads the title, same as every saved Task
+                      card's own header row (see the identical pattern
+                      above) -- a compact 34px tag attached to the task
+                      instead of a control stranded at the far edge of a
+                      wide row. Same select/handler, only its position
+                      changed, so the composer reads as a pre-save version
+                      of the real card rather than a separate layout. */}
                   <div className="flex items-start gap-2">
-                    <input
-                      type="text"
-                      value={newTaskTitle}
-                      disabled={creatingTask}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleCreateStandaloneTask();
-                        }
-                      }}
-                      placeholder={t("tomorrow.taskTitlePlaceholder")}
-                      autoFocus
-                      className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                    />
                     <select
                       value={newTaskPriority}
                       disabled={creatingTask}
@@ -2019,6 +2011,21 @@ export default function TomorrowGoalsPage() {
                         </option>
                       ))}
                     </select>
+                    <input
+                      type="text"
+                      value={newTaskTitle}
+                      disabled={creatingTask}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCreateStandaloneTask();
+                        }
+                      }}
+                      placeholder={t("tomorrow.taskTitlePlaceholder")}
+                      autoFocus
+                      className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <button

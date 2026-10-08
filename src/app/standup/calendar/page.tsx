@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronUp, ChevronDown, TriangleAlert, Ticket } from "lucide-react";
+import { ChevronUp, ChevronDown, TriangleAlert, Ticket, Check, Redo2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
   toISODate,
@@ -21,79 +21,70 @@ import PageLoadingState from "@/components/PageLoadingState";
 
 type DayData = {
   date: string;
-  hasGoals: boolean;
-  goalCount: number;
+  hasCommitments: boolean;
+  commitmentCount: number;
   reviewed: boolean;
   completedCount: number;
+  // Rescheduled-away Commitments still on this day's own record --
+  // "postponed" always means rescheduled (rescheduleGoalToDate() is the
+  // only path that ever sets it). Secondary metadata only, never changes
+  // the primary tone by itself.
+  rescheduledCount: number;
   // A past, never-closed day still counts as handled once every one of its
-  // goals has either been reviewed or re-attempted (rescheduled forward) —
-  // rescheduling sets a goal's status to "postponed" but never touches
-  // reviewed_at (only the same-day review flow does that), so this checks
-  // both rather than reviewed_at alone. Also true if the day was manually
-  // cleared via the "Clear this day" button on its view-only page.
-  allGoalsHandled: boolean;
-  // Covered by a streak pass — distinct from allGoalsHandled/cleared: a
-  // covered day actually protects the streak, a cleared one doesn't.
+  // Commitments has either been reviewed or re-attempted (rescheduled
+  // forward) — rescheduling sets a goal's status to "postponed" but never
+  // touches reviewed_at (only the same-day review flow does that), so this
+  // checks both rather than reviewed_at alone. Also true if the day was
+  // manually cleared via the "Clear this day" button on its view-only page.
+  allCommitmentsHandled: boolean;
+  // Covered by a streak pass — distinct from allCommitmentsHandled/cleared:
+  // a covered day actually protects the streak, a cleared one doesn't.
   coveredByPass: boolean;
 };
 
-function toneStyles(tone: "neutral" | "today" | "closed" | "hasGoals" | "overdue" | "cleared" | "covered") {
-  // Flat, quiet tint per state — no layered radial "sphere" gradients or heavy glow.
+// Reduced from 7 tones to 4: Today, "active" (has Commitments -- future
+// planned or past in any resolved/in-progress state that isn't a genuine
+// warning), "attention" (past, unreviewed, unhandled -- the one state
+// that still needs to visually stand out), and neutral (nothing planned).
+// Reviewed/Rescheduled/Cleared/Covered are now compact in-cell indicators
+// layered on "active" rather than each getting their own competing
+// background color -- see the day-cell render below.
+function toneStyles(tone: "neutral" | "today" | "active" | "attention") {
   switch (tone) {
     case "today":
       return {
         bg: "rgba(168, 85, 247, 0.10)",
-        border: "rgba(168, 85, 247, 0.35)",
-        glow: "none",
+        border: "rgba(168, 85, 247, 0.3)",
       };
-    case "closed":
-      return {
-        bg: "rgba(16, 185, 129, 0.08)",
-        border: "rgba(16, 185, 129, 0.28)",
-        glow: "none",
-      };
-    case "hasGoals":
+    case "active":
       return {
         bg: "rgba(250, 204, 21, 0.07)",
         border: "rgba(250, 204, 21, 0.24)",
-        glow: "none",
       };
-    // A past day that had goals but was never reviewed/closed — distinct
-    // from the yellow "hasGoals" tone, which future/upcoming planned days
-    // also use and isn't a warning.
-    case "overdue":
+    // Past, has Commitments, unreviewed, and never otherwise handled
+    // (not cleared, not covered) -- a genuine actionable warning, so this
+    // is the one state that still gets its own distinct, louder tone.
+    case "attention":
       return {
         bg: "rgba(239, 68, 68, 0.10)",
         border: "rgba(239, 68, 68, 0.35)",
-        glow: "none",
-      };
-    // Every goal on a missed day has since been reviewed or re-attempted
-    // (rescheduled forward) — no longer a warning, but distinct from
-    // "closed" since the day itself was never formally closed (no streak/
-    // points credit for it).
-    case "cleared":
-      return {
-        bg: "rgba(59, 130, 246, 0.08)",
-        border: "rgba(59, 130, 246, 0.28)",
-        glow: "none",
-      };
-    // A missed day retroactively covered by a streak pass — unlike
-    // "cleared", this one genuinely protects the streak, so it gets its
-    // own distinct tone rather than being folded into "cleared".
-    case "covered":
-      return {
-        bg: "rgba(45, 212, 191, 0.10)",
-        border: "rgba(45, 212, 191, 0.35)",
-        glow: "none",
       };
     case "neutral":
     default:
       return {
         bg: "rgba(var(--tint-rgb), 0.03)",
         border: "rgba(var(--tint-rgb), 0.10)",
-        glow: "none",
       };
   }
+}
+
+// Shared by every secondary in-cell indicator (Reviewed/Covered/Cleared/
+// Missed/rescheduled) so each one isn't a separate inline conditional.
+function renderCellIcon(icon: "check" | "redo" | "ticket" | "warn") {
+  if (icon === "check") return <Check size={8} className="flex-shrink-0" />;
+  if (icon === "redo") return <Redo2 size={8} className="flex-shrink-0" />;
+  if (icon === "ticket") return <Ticket size={8} className="flex-shrink-0" />;
+  return <TriangleAlert size={8} className="flex-shrink-0" />;
 }
 
 export default function CalendarPage() {
@@ -196,14 +187,21 @@ export default function CalendarPage() {
         (plans || []).forEach((plan) => {
           const planGoals = goalsData.filter((g) => g.plan_id === plan.id);
           const completedGoals = planGoals.filter((g) => g.status === "completed");
+          // Derived from the same already-fetched `status` field -- no
+          // additional query. "postponed" always means rescheduled away
+          // from this day (rescheduleGoalToDate() is the only path that
+          // ever sets it), so this is a plain, read-only count already
+          // implied by data this view fetches regardless.
+          const rescheduledGoals = planGoals.filter((g) => g.status === "postponed");
 
           dataMap[plan.plan_date] = {
             date: plan.plan_date,
-            hasGoals: planGoals.length > 0,
-            goalCount: planGoals.length,
+            hasCommitments: planGoals.length > 0,
+            commitmentCount: planGoals.length,
             reviewed: !!plan.reviewed_at,
             completedCount: completedGoals.length,
-            allGoalsHandled:
+            rescheduledCount: rescheduledGoals.length,
+            allCommitmentsHandled:
               !!plan.cleared_at ||
               (planGoals.length > 0 &&
                 planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at)),
@@ -353,40 +351,77 @@ export default function CalendarPage() {
             const data = dayData[dateISO];
             const isToday = dateISO === todayISO;
             const isPast = dateISO < todayISO;
+            const hasCommitments = !!data?.hasCommitments;
+            const completed = data?.completedCount ?? 0;
+            const count = data?.commitmentCount ?? 0;
+            const rescheduled = data?.rescheduledCount ?? 0;
             const isCovered = isPast && !!data?.coveredByPass;
-            const isCleared = isPast && !!data?.hasGoals && !data?.reviewed && data?.allGoalsHandled && !isCovered;
-            const isOverdue = isPast && !!data?.hasGoals && !data?.reviewed && !data?.allGoalsHandled && !isCovered;
+            const isCleared = isPast && hasCommitments && !data?.reviewed && data?.allCommitmentsHandled && !isCovered;
+            const isOverdue = isPast && hasCommitments && !data?.reviewed && !data?.allCommitmentsHandled && !isCovered;
 
-            const tone = isToday
-              ? "today"
-              : data?.reviewed
-              ? "closed"
-              : isCovered
-              ? "covered"
-              : isOverdue
-              ? "overdue"
-              : isCleared
-              ? "cleared"
-              : data?.hasGoals
-              ? "hasGoals"
-              : "neutral";
-
+            // Reduced to 4 tones (see toneStyles) -- "attention" is the one
+            // state that still needs to visually stand out; everything
+            // else that has real Commitments (future-planned, reviewed,
+            // cleared, covered) shares one calm "active" tone, with the
+            // actual distinction spelled out in-cell below instead of
+            // through a dedicated background color each.
+            const tone = isToday ? "today" : isOverdue ? "attention" : hasCommitments ? "active" : "neutral";
             const toneStyle = toneStyles(tone);
 
-            // one compact label line
-            const label = isToday
-              ? t("calendar.today")
-              : data?.reviewed
-              ? t("calendar.dayClosed")
-              : isCovered
-              ? t("calendar.dayCovered")
-              : isOverdue
-              ? t("calendar.dayMissed")
-              : isCleared
-              ? t("calendar.dayCleared")
-              : data?.hasGoals
-              ? `${data.completedCount}/${data.goalCount}`
-              : "";
+            // Primary line: a past (or already-reviewed) day always shows
+            // its truthful completion fraction, even 0/N -- that's real,
+            // meaningful data once the day has actually happened. A
+            // future/current day with nothing completed yet shows a bare
+            // Commitment count instead of an ambiguous "0/3".
+            // Today always shows the bare plan count here -- its own
+            // completed-so-far count renders as a separate row below
+            // (todayStatsParts), never folded into a fraction.
+            const showFraction = hasCommitments && !isToday && (isPast || !!data?.reviewed || completed > 0);
+            const primaryValue = showFraction ? `${completed}/${count}` : hasCommitments ? `${count}` : "";
+            const primaryWord = showFraction ? t("calendar.completedWord") : t("calendar.commitmentsWord");
+
+            // Secondary row (non-today): at most ONE row total. A status
+            // word (Reviewed/Covered/Cleared/Missed) plus, horizontally
+            // alongside it on the SAME row, a bare icon+count for any
+            // rescheduled work -- never spelled out as its own word, so
+            // this never grows past one row regardless of how many things
+            // apply. Reviewed/Covered/Cleared/Missed are mutually
+            // exclusive by construction (isCovered/isCleared/isOverdue
+            // above already exclude each other and a reviewed day).
+            type Part = { icon?: "check" | "redo" | "ticket" | "warn"; text: string };
+            let secondary: { parts: Part[]; tone: "good" | "muted" | "warn" } | null = null;
+            if (!isToday) {
+              if (data?.reviewed) {
+                secondary = {
+                  parts:
+                    rescheduled > 0
+                      ? [{ icon: "check", text: t("calendar.reviewedShort") }, { icon: "redo", text: String(rescheduled) }]
+                      : [{ icon: "check", text: t("calendar.reviewedShort") }],
+                  tone: "good",
+                };
+              } else if (isCovered) {
+                secondary = { parts: [{ icon: "ticket", text: t("calendar.dayCovered") }], tone: "muted" };
+              } else if (isCleared) {
+                secondary = { parts: [{ icon: "redo", text: t("calendar.dayCleared") }], tone: "muted" };
+              } else if (isOverdue) {
+                secondary = { parts: [{ icon: "warn", text: t("calendar.dayMissed") }], tone: "warn" };
+              } else if (rescheduled > 0) {
+                secondary = { parts: [{ icon: "redo", text: String(rescheduled) }], tone: "muted" };
+              }
+            }
+
+            // Today gets two rows instead of one combined row: its own
+            // completed-so-far count (+ rescheduled, combined onto the
+            // same row as a bare icon+count) is a distinct concept from
+            // Reviewed (today's own plan can already be closed same-day),
+            // which always gets its own final row rather than merging
+            // with the reschedule count -- matches the target layout.
+            const todayStatsParts: Part[] = [];
+            if (isToday) {
+              if (completed > 0) todayStatsParts.push({ text: `${completed} ${t("calendar.completedWord")}` });
+              if (rescheduled > 0) todayStatsParts.push({ icon: "redo", text: String(rescheduled) });
+            }
+            const todayReviewed = isToday && !!data?.reviewed;
 
             return (
               <Link
@@ -394,7 +429,7 @@ export default function CalendarPage() {
                 href={isToday ? "/standup/today" : `/standup/date/${dateISO}`}
                 className={[
                   "aspect-square rounded-2xl border transition-all duration-200",
-                  "flex flex-col items-center justify-center text-center",
+                  "flex flex-col items-center justify-center text-center gap-0.5",
                   "hover:scale-[1.04] active:scale-[0.98]",
                   "focus:outline-none focus:ring-2 focus:ring-white/40",
                 ].join(" ")}
@@ -404,34 +439,75 @@ export default function CalendarPage() {
                 }}
                 title={formatDateDisplay(dateISO)}
               >
-                {/* Number */}
-                <div className="leading-none select-none text-white/85 font-bold text-sm sm:text-2xl">
-                    {date.getDate()}
+                {/* Date + compact Today badge -- date stays the strongest
+                    element (unchanged size); the badge is a small inline
+                    pill, not a second oversized label. */}
+                <div className="flex items-center gap-1 leading-none">
+                  <span className="select-none text-white/85 font-bold text-sm sm:text-2xl">{date.getDate()}</span>
+                  {isToday && <span className="calendar-today-badge">{t("calendar.today")}</span>}
                 </div>
 
-                {/* Text under number -- calendar-cell-label only exists so
-                    the sub-360px override below (globals.css) has
-                    something Calendar-scoped to target; the visible size
-                    at every other width still comes from these same
-                    text-[8px]/sm:text-[10px] utilities, unchanged. */}
-                <div className="calendar-cell-label mt-1 text-[8px] sm:text-[10px] font-semibold text-white/90 leading-none">
-                  {label || "\u00A0"}
-                </div>
+                {/* Primary line -- the Commitment/completion summary.
+                    calendar-cell-label keeps the existing sub-360px font
+                    override (globals.css); calendar-cell-word is the
+                    descriptive word, hidden only at that same narrowest
+                    width so the number itself is never cramped out. */}
+                {primaryValue && (
+                  <div className="calendar-cell-label text-[8px] sm:text-[10px] font-semibold text-white/90 leading-none">
+                    {primaryValue} <span className="calendar-cell-word">{primaryWord}</span>
+                  </div>
+                )}
+
+                {/* Today's completed-so-far + rescheduled, combined onto
+                    one row (each part its own color -- completed in the
+                    same green as "good" status elsewhere, rescheduled
+                    muted). Reviewed (below) never merges into this row. */}
+                {todayStatsParts.length > 0 && (
+                  <div className="calendar-cell-secondary inline-flex items-center gap-1 flex-wrap justify-center leading-none">
+                    {todayStatsParts.map((part, i) => (
+                      <span
+                        key={i}
+                        className={`inline-flex items-center gap-0.5 ${part.icon ? "calendar-cell-secondary-muted" : "calendar-cell-secondary-good"}`}
+                      >
+                        {part.icon && renderCellIcon(part.icon)}
+                        <span className="calendar-cell-word">{part.text}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {todayReviewed && (
+                  <div className="calendar-cell-secondary calendar-cell-secondary-good inline-flex items-center gap-0.5 leading-none">
+                    <Check size={8} className="flex-shrink-0" />
+                    <span className="calendar-cell-word">{t("calendar.reviewedShort")}</span>
+                  </div>
+                )}
+
+                {secondary && (
+                  <div
+                    className={`calendar-cell-secondary calendar-cell-secondary-${secondary.tone} inline-flex items-center gap-1 flex-wrap justify-center leading-none`}
+                  >
+                    {secondary.parts.map((part, i) => (
+                      <span key={i} className="inline-flex items-center gap-0.5">
+                        {part.icon && renderCellIcon(part.icon)}
+                        <span className="calendar-cell-word">{part.text}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </Link>
             );
           })}
         </div>
 
-        {/* Legend -- Phase 10B: was a free flex-wrap of all 7 items, which
-            measured 6 rows / ~176px tall at 320px (longer labels like
-            "Cleared (rescheduled)" claimed a full row alone). Replaced
-            with .calendar-legend (globals.css): a 2-column grid on
-            mobile, reverting to the original flex-wrap at wider widths
-            where there's room for it. Tested with the real longest EN/ES
-            strings first -- a plain 2-column grid with wrapping text
-            (not truncated/nowrap) fits with no clipping; a nowrap+
-            ellipsis version was tried and rejected for actually hiding
-            label text. */}
+        {/* Legend -- P5A: reduced from 7 entries to 3. Every cell now
+            spells out its own state in text (count/fraction, "Reviewed",
+            "Missed", "Cleared", "Covered", rescheduled count) rather than
+            relying on color alone, so Reviewed/Cleared/Covered/No-Plan no
+            longer need a dedicated legend row to be understood -- only the
+            3 primary tones themselves (toneStyles) are left ambiguous
+            without a key, and only "Missed" genuinely needs calling out
+            as the one state meant to catch the eye. */}
         <div className="calendar-legend text-xs text-white/60">
           <div className="flex items-center gap-2 min-w-0">
             <div
@@ -447,61 +523,21 @@ export default function CalendarPage() {
             <div
               className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
-                background: toneStyles("closed").bg,
-                borderColor: toneStyles("closed").border,
+                background: toneStyles("active").bg,
+                borderColor: toneStyles("active").border,
               }}
             />
-            <span>{t("calendar.legendDayClosed")}</span>
+            <span>{t("calendar.legendActive")}</span>
           </div>
           <div className="flex items-center gap-2 min-w-0">
             <div
               className="w-4 h-4 rounded-md border flex-shrink-0"
               style={{
-                background: toneStyles("hasGoals").bg,
-                borderColor: toneStyles("hasGoals").border,
-              }}
-            />
-            <span>{t("calendar.legendHasGoals")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("overdue").bg,
-                borderColor: toneStyles("overdue").border,
+                background: toneStyles("attention").bg,
+                borderColor: toneStyles("attention").border,
               }}
             />
             <span>{t("calendar.legendMissed")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("cleared").bg,
-                borderColor: toneStyles("cleared").border,
-              }}
-            />
-            <span>{t("calendar.legendCleared")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("covered").bg,
-                borderColor: toneStyles("covered").border,
-              }}
-            />
-            <span>{t("calendar.legendCovered")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("neutral").bg,
-                borderColor: toneStyles("neutral").border,
-              }}
-            />
-            <span>{t("calendar.legendNoPlan")}</span>
           </div>
         </div>
 

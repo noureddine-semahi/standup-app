@@ -310,16 +310,16 @@ export async function moveGoalToBacklogAction(supabase: SupabaseClient, userId: 
 }
 
 /**
- * Mirrors deleteGoal() in db.ts exactly — a plain row delete, no special
- * handling for a goal in one of Plan Tomorrow's first-3 "always kept" slots
- * (that blank-instead-of-delete behavior in Tomorrow's own removeGoal() is
- * purely a live-typing safeguard so retyping into the same slot doesn't
- * lose the old goal's notes — it doesn't apply here, there's no "retyping"
- * happening). If this leaves a plan under 3 goals, the next time that
- * plan's page loads, compactForUI() pads it back to 3 automatically.
- * Notes/checklist/attachment rows cascade-delete with the goal; any
- * attachment's underlying storage file is not cleaned up here, same
- * known limitation as deleteGoal() itself.
+ * Mirrors deleteGoal() in db.ts exactly — a plain row delete. Tomorrow's
+ * own removeGoal() uses this same uniform delete-outright semantics for
+ * every position now too (no slot is structurally protected under the
+ * locked 3-10 commitment model), so this was never a special case to
+ * begin with. If this leaves a plan under 3 goals, the next time that
+ * plan's page loads, compactForUI() pads it with blank entry rows (a
+ * display/entry convenience only); submission still requires 3+ real
+ * Commitments. Notes/checklist/attachment rows cascade-delete with the
+ * goal; any attachment's underlying storage file is not cleaned up here,
+ * same known limitation as deleteGoal() itself.
  */
 export async function removeGoalAction(supabase: SupabaseClient, _userId: string, goalId: string) {
   const { data: goal, error: goalErr } = await supabase.from("goals").select("id, title").eq("id", goalId).single();

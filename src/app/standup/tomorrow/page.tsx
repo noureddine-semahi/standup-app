@@ -897,9 +897,10 @@ export default function TomorrowGoalsPage() {
 
     setMsg(null);
 
+    // compactForSave is position-agnostic now -- its length IS the total
+    // non-empty Commitment count, regardless of which slots they sit in.
     const compacted = compactForSave(goals);
-    const firstThree = compacted.slice(0, 3).map((g) => (g.title ?? "").trim());
-    if (firstThree.some((title) => title.length === 0)) {
+    if (compacted.length < 3) {
       setMsg(t("tomorrow.needThreeGoals"));
       return;
     }
@@ -940,20 +941,12 @@ export default function TomorrowGoalsPage() {
   async function removeGoal(idx: number) {
     const g = goals[idx];
 
-    if (idx < 3) {
-      // Just blank the title — don't delete the row here. If the user
-      // retypes into this slot before the debounced autosave fires, the
-      // existing goal (and its notes) gets updated in place instead of
-      // being destroyed and recreated as an empty-history duplicate.
-      // persistGoals() already deletes rows that end up with no title.
-      setGoals((prev) =>
-        prev.map((x, i) => (i === idx ? { ...x, title: "" } : x))
-      );
-
-      scheduleAutoSave();
-      return;
-    }
-
+    // Every position uses the same removal semantics -- no slot is
+    // structurally protected. Deletes the row outright (and its DB
+    // record, if it has one). If this drops the plan below 3 real
+    // Commitments, removal still proceeds; the plan just becomes
+    // temporarily unsubmittable until another Commitment is added --
+    // canSubmit (count-based) enforces that, not removeGoal.
     setGoals((prev) =>
       prev
         .filter((_, i) => i !== idx)
@@ -996,26 +989,21 @@ export default function TomorrowGoalsPage() {
 
   const normalized = normalizeGoals(goals);
 
-  // Display order only — P1 always sorts to the top, then P2, etc. The
-  // underlying `goals` array (and its actual positions 0/1/2, which
-  // compactForSave/removeGoal treat as structurally required) is never
-  // reordered by this; every handler below still receives originalIdx, a
-  // true index into `goals`, so dragging, priority changes, and removal all
-  // keep working exactly as before — only where each row visually renders
-  // changes. See goalLogic.test.ts for the sort behavior itself.
+  // Display order only — P1 always sorts to the top, then P2, etc. No
+  // position in the underlying `goals` array is structurally special;
+  // every handler below still receives originalIdx, a true index into
+  // `goals`, so dragging, priority changes, and removal all keep working
+  // exactly as before — only where each row visually renders changes.
+  // See goalLogic.test.ts for the sort behavior itself.
   const sortedForDisplay = sortGoalsForDisplay(goals);
 
-  // Count goals with priority 1-3 that have content
-  const priorityGoalsFilled = normalized
-    .filter((g) => {
-      const priority = typeof g.priority === "number" ? g.priority : DEFAULT_PRIORITY;
-      return priority >= 1 && priority <= 3;
-    })
-    .filter((g) => (g.title ?? "").trim().length > 0)
-    .length;
+  // A Commitment is any non-empty Task, regardless of priority or
+  // position — the locked 3-10 model. Priority (P1-P5) is ranking
+  // metadata only and never gates submission.
+  const totalGoalsFilled = normalized.filter((g) => (g.title ?? "").trim().length > 0).length;
 
   const canSubmit =
-    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting && submitEligible;
+    !!planId && !locked && !submitted && totalGoalsFilled >= 3 && !submitting && submitEligible;
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
@@ -1025,7 +1013,6 @@ export default function TomorrowGoalsPage() {
   // active instead of waiting for the debounced autosave to catch up.
   const isDirty = computeHashForSave(compactForSave(goals)) !== lastSavedHashRef.current;
 
-  const totalGoalsFilled = normalized.filter((g) => (g.title ?? "").trim().length > 0).length;
   const goalsProgressPercent = Math.min(100, Math.round((totalGoalsFilled / MAX_GOALS) * 100));
 
   // Goal Engine Phase 4B — the per-task card, extracted verbatim out of
@@ -1036,13 +1023,9 @@ export default function TomorrowGoalsPage() {
   // old `displayIdx + 1` (now computed per-section instead of globally --
   // a continuous 1..N badge across multiple Goal cards plus a standalone
   // section wouldn't read sensibly once the list is grouped).
-  // `showOptionalDivider` replaces the old `displayIdx === 3` check the
-  // same way -- callers decide whether/where their own section's
-  // required/optional boundary falls.
   function renderTaskCard(
     { g, originalIdx }: { g: DraftGoal; originalIdx: number },
-    cardNumber: number,
-    showOptionalDivider: boolean
+    cardNumber: number
   ) {
     const idx = originalIdx;
     const p =
@@ -1068,16 +1051,6 @@ export default function TomorrowGoalsPage() {
 
     return (
       <div key={g.id ?? `row-${idx}`}>
-        {showOptionalDivider && (
-          <div className="my-6 flex items-center gap-4">
-            <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-            <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-              {t("tomorrow.optionalTasksDivider")}
-            </div>
-            <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-          </div>
-        )}
-
         {/* Goal row with drag-drop support */}
         <div
           draggable={editMode && !locked && !submitting}
@@ -1194,7 +1167,7 @@ export default function TomorrowGoalsPage() {
                     );
                     autoResizeTextarea(e.target);
                   }}
-                  placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityTaskPlaceholder", { p }) : t("tomorrow.optionalTaskPlaceholder")}
+                  placeholder={t("tomorrow.taskPlaceholder", { p })}
                   className="goal-title-input flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
                   style={{ overflow: "hidden", lineHeight: 1.3 }}
                 />
@@ -1703,16 +1676,13 @@ export default function TomorrowGoalsPage() {
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">{t("tomorrow.title")}</h1>
             <p className="text-white/70 mb-2">
-              {t("tomorrow.minRequiredPart1")}<b>3</b>{t("tomorrow.minRequiredPart2Commitments")}
-            </p>
-            <p className="text-sm text-white/50">
-              {t("tomorrow.currentPriorityCommitments")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
-              {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
+              {t("tomorrow.commitmentRuleSummary", { min: 3, max: MAX_GOALS })}
             </p>
 
             {/* Planning progress — moved up here from a plain text line at
-                the very bottom of the page, so it's visible alongside the
-                priority-goal summary without scrolling. */}
+                the very bottom of the page, so it's visible without
+                scrolling. Total non-empty Commitments, any priority --
+                see totalGoalsFilled/canSubmit above. */}
             <div className="mt-3" style={{ maxWidth: "260px" }}>
               <div className="flex items-center justify-between text-xs text-white/50 mb-1">
                 <span>{t("tomorrow.goalsProgressLabel", { count: totalGoalsFilled, max: MAX_GOALS })}</span>
@@ -1790,7 +1760,7 @@ export default function TomorrowGoalsPage() {
           // semantics Phase 4B never asked for.
           <div className="space-y-4">
             {sortedForDisplay.map(({ g, originalIdx }, displayIdx) =>
-              renderTaskCard({ g, originalIdx }, displayIdx + 1, displayIdx === 3)
+              renderTaskCard({ g, originalIdx }, displayIdx + 1)
             )}
           </div>
         ) : (() => {
@@ -1835,7 +1805,7 @@ export default function TomorrowGoalsPage() {
                       <h3 className="text-base font-semibold text-white truncate">{goal.title}</h3>
                     </div>
                     <div className="space-y-4 mb-3">
-                      {items.map(({ g, originalIdx }, i) => renderTaskCard({ g, originalIdx }, i + 1, false))}
+                      {items.map(({ g, originalIdx }, i) => renderTaskCard({ g, originalIdx }, i + 1))}
                     </div>
                     <button
                       type="button"
@@ -1852,28 +1822,20 @@ export default function TomorrowGoalsPage() {
 
                 {/* Standalone tasks — the exact same flat list/behavior as
                     before, filtered to whatever isn't linked to a Goal card
-                    above. The required/optional divider now falls wherever
-                    it lands within THIS filtered list instead of the full
-                    array, so it still marks a real required→optional
-                    transition even if one of the first 3 slots got linked
-                    to a Goal and moved into a card above. */}
+                    above. */}
                 {(() => {
                   const standalone = sortedForDisplay.filter(({ g }) => !(g as any).outcome_goal_id);
-                  const hasRequiredSlot = standalone.some(({ originalIdx }) => originalIdx < 3);
-                  const firstOptionalPos = standalone.findIndex(({ originalIdx }) => originalIdx >= 3);
-                  return standalone.map(({ g, originalIdx }, i) =>
-                    renderTaskCard({ g, originalIdx }, i + 1, hasRequiredSlot && i === firstOptionalPos)
-                  );
+                  return standalone.map(({ g, originalIdx }, i) => renderTaskCard({ g, originalIdx }, i + 1));
                 })()}
               </div>
 
               {/* Quick Add from Goals — active Goals with no tomorrow
                   Task yet. Shortcuts only: no goals row exists for these
                   yet, so they already don't touch totalGoalsFilled/
-                  priorityGoalsFilled/MAX_GOALS/canSubmit (all derived
-                  from `goals`, never from outcomeGoals) -- nothing extra
-                  needed to keep them out of commitment/priority counts,
-                  limits, progress, validation, or submission. Clicking
+                  MAX_GOALS/canSubmit (all derived from `goals`, never from
+                  outcomeGoals) -- nothing extra needed to keep them out of
+                  commitment counts, limits, progress, validation, or
+                  submission. Clicking
                   one calls the exact same addTaskLinkedToGoal() the full
                   Goal card's own "+ Add Task" uses -- once that Task
                   lands in sortedForDisplay, this same goal naturally has
@@ -2220,8 +2182,8 @@ export default function TomorrowGoalsPage() {
                     title={
                       !submitEligible
                         ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
-                        : priorityGoalsFilled < 3
-                        ? t("tomorrow.fillInMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })
+                        : totalGoalsFilled < 3
+                        ? t("tomorrow.fillInMore", { count: 3 - totalGoalsFilled, filled: totalGoalsFilled })
                         : ""
                     }
                   >
@@ -2259,9 +2221,9 @@ export default function TomorrowGoalsPage() {
           </div>
         )}
 
-        {!locked && !submitted && submitEligible && priorityGoalsFilled < 3 && (
+        {!locked && !submitted && submitEligible && totalGoalsFilled < 3 && (
           <div className="mt-3 text-xs text-white/50">
-            {t("tomorrow.lockedNeedMore", { count: 3 - priorityGoalsFilled, filled: priorityGoalsFilled })}
+            {t("tomorrow.lockedNeedMore", { count: 3 - totalGoalsFilled, filled: totalGoalsFilled })}
           </div>
         )}
 

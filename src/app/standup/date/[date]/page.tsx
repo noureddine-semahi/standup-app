@@ -585,9 +585,10 @@ export default function DynamicDatePage() {
 
     setMsg(null);
 
+    // compactForSave is position-agnostic now -- its length IS the total
+    // non-empty Commitment count, regardless of which slots they sit in.
     const compacted = compactForSave(goals);
-    const firstThree = compacted.slice(0, 3).map((g) => (g.title ?? "").trim());
-    if (firstThree.some((title) => title.length === 0)) {
+    if (compacted.length < 3) {
       setMsg(t("datePage.needThreeGoalsForDate", { date: formatDateDisplay(dateISO) }));
       return;
     }
@@ -715,20 +716,12 @@ export default function DynamicDatePage() {
   async function removeGoal(idx: number) {
     const g = goals[idx];
 
-    if (idx < 3) {
-      // Just blank the title — don't delete the row here. If the user
-      // retypes into this slot before the debounced autosave fires, the
-      // existing goal (and its notes) gets updated in place instead of
-      // being destroyed and recreated as an empty-history duplicate.
-      // persistGoals() already deletes rows that end up with no title.
-      setGoals((prev) =>
-        prev.map((x, i) => (i === idx ? { ...x, title: "" } : x))
-      );
-
-      scheduleAutoSave();
-      return;
-    }
-
+    // Every position uses the same removal semantics -- no slot is
+    // structurally protected. Deletes the row outright (and its DB
+    // record, if it has one). If this drops the plan below 3 real
+    // Commitments, removal still proceeds; the plan just becomes
+    // temporarily unsubmittable until another Commitment is added --
+    // canSubmit (count-based) enforces that, not removeGoal.
     setGoals((prev) =>
       prev
         .filter((_, i) => i !== idx)
@@ -958,17 +951,13 @@ export default function DynamicDatePage() {
 
   const normalized = normalizeGoals(goals);
 
-  // Count goals with priority 1-3 that have content
-  const priorityGoalsFilled = normalized
-    .filter((g) => {
-      const priority = typeof g.priority === "number" ? g.priority : DEFAULT_PRIORITY;
-      return priority >= 1 && priority <= 3;
-    })
-    .filter((g) => (g.title ?? "").trim().length > 0)
-    .length;
+  // A Commitment is any non-empty Task, regardless of priority or
+  // position — the locked 3-10 model. Priority (P1-P5) is ranking
+  // metadata only and never gates submission.
+  const totalGoalsFilled = normalized.filter((g) => (g.title ?? "").trim().length > 0).length;
 
   const canSubmit =
-    !!planId && !locked && !submitted && priorityGoalsFilled >= 3 && !submitting && submitEligible;
+    !!planId && !locked && !submitted && totalGoalsFilled >= 3 && !submitting && submitEligible;
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
@@ -1074,7 +1063,7 @@ export default function DynamicDatePage() {
               );
               autoResizeTextarea(e.target);
             }}
-            placeholder={(p >= 1 && p <= 3) ? t("tomorrow.priorityGoalPlaceholder", { p }) : t("tomorrow.optionalGoalPlaceholder")}
+            placeholder={t("tomorrow.taskPlaceholder", { p })}
             style={{ padding: "0 1.5rem", overflow: "hidden", lineHeight: 1.3 }}
             className="flex-1 min-w-0 bg-transparent border-0 text-white text-xl font-medium placeholder:text-white/40 outline-none focus:placeholder:text-white/60 resize-none"
           />
@@ -1266,34 +1255,15 @@ export default function DynamicDatePage() {
     );
   }
 
-  // Divider between priority (idx 0-2) and optional (idx 3+) Tasks -- same
-  // trigger condition as before (only shown when there IS a 4th+ Task),
-  // just pulled out so both the flat and grouped render paths below can
-  // show it at the exact same boundary without duplicating the markup.
-  function renderOptionalDivider() {
-    return (
-      <div className="my-6 flex items-center gap-4">
-        <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-        <div className="text-xs uppercase tracking-wider text-white/50 font-semibold">
-          {t("tomorrow.optionalGoals")}
-        </div>
-        <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(var(--tint-rgb),0.2), transparent)" }} />
-      </div>
-    );
-  }
-
-  // Groups a slice of (Task, real-array-index) pairs by outcome_goal_id,
-  // for the read-only (!editMode) view only -- see the call site below.
-  // A Goal's Tasks are pulled together into one wrapper card at the
+  // Groups the full (Task, real-array-index) list by outcome_goal_id, for
+  // the read-only (!editMode) view only -- see the call site below. A
+  // Goal's Tasks are pulled together into one wrapper card at the
   // position of the FIRST member encountered (e.g. Task #5 renders next
   // to #1/#2 instead of in its own later slot); a standalone Task (no
   // outcome_goal_id, or a Goal whose title hasn't resolved yet) renders
-  // individually in its own natural position, unchanged. This never
-  // reorders `goals` itself or crosses the slice boundary the caller
-  // passes in (priority vs optional) -- the caller calls this once per
-  // side of that boundary, so a Goal with Tasks on both sides correctly
-  // gets its own header rendered once in each section instead of pulling
-  // a Task across the priority/optional line.
+  // individually in its own natural position, unchanged. Never reorders
+  // `goals` itself. Called once across every Task now -- there is no
+  // priority/optional boundary left to split the call in two.
   function renderGroupedSection(items: { g: DraftGoal; idx: number }[]) {
     const seen = new Set<string>();
     const nodes: React.ReactNode[] = [];
@@ -1345,11 +1315,7 @@ export default function DynamicDatePage() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold mb-2">{t("datePage.goalsFor", { date: formatDateDisplay(dateISO) })}</h1>
           <p className="text-white/70 mb-2">
-            {t("tomorrow.minRequiredPart1")}<b>3</b>{t("tomorrow.minRequiredPart2")}
-          </p>
-          <p className="text-sm text-white/50">
-            {t("tomorrow.currentPriorityCommitments")}<b className={priorityGoalsFilled >= 3 ? "text-emerald-400" : "text-amber-400"}>{priorityGoalsFilled}/3</b>
-            {priorityGoalsFilled > 3 && <span className="text-emerald-400">{t("tomorrow.extra", { count: priorityGoalsFilled - 3 })}</span>}
+            {t("tomorrow.commitmentRuleSummary", { min: 3, max: MAX_GOALS })}
           </p>
           {coveredByPass && (
             <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-teal-400">
@@ -1421,28 +1387,12 @@ export default function DynamicDatePage() {
           // gated on editMode), so there's no index-vs-visual-position
           // conflict to reconcile.
           goals.map((g, idx) => (
-            <div key={g.id ?? `row-${idx}`}>
-              {idx === 3 && renderOptionalDivider()}
-              {renderGoalRow(g, idx)}
-            </div>
+            <div key={g.id ?? `row-${idx}`}>{renderGoalRow(g, idx)}</div>
           ))
         ) : (
-          // Grouped-by-Goal view. Priority (idx 0-2) and optional (idx 3+)
-          // are grouped SEPARATELY so a Goal spanning both sides renders
-          // its header once per side rather than pulling a Task across
-          // the boundary -- see renderGroupedSection's own comment.
-          (() => {
-            const indexed = goals.map((g, idx) => ({ g, idx }));
-            const priorityItems = indexed.slice(0, 3);
-            const optionalItems = indexed.slice(3);
-            return (
-              <>
-                {renderGroupedSection(priorityItems)}
-                {optionalItems.length > 0 && renderOptionalDivider()}
-                {renderGroupedSection(optionalItems)}
-              </>
-            );
-          })()
+          // Grouped-by-Goal view -- one pass across every Task, no
+          // priority/optional boundary to split across anymore.
+          renderGroupedSection(goals.map((g, idx) => ({ g, idx })))
         )}
       </div>
 

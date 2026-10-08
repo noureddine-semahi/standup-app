@@ -47,6 +47,10 @@ export function compactForUI(dbGoals: Goal[]) {
         : DEFAULT_PRIORITY,
   }));
 
+  // Pads with blank rows purely so there are always at least 3 entry
+  // boxes to type into -- the 3-commitment minimum is a submission rule
+  // (enforced by each page's own canSubmit/submit check), not something
+  // this display-only padding decides; no position here is "required."
   while (compacted.length < 3) {
     compacted.push({
       title: "",
@@ -55,36 +59,23 @@ export function compactForUI(dbGoals: Goal[]) {
     });
   }
 
-  for (let i = 0; i < Math.min(3, compacted.length); i++) {
-    if (
-      typeof compacted[i].priority !== "number" ||
-      !Number.isFinite(compacted[i].priority)
-    ) {
-      compacted[i].priority = DEFAULT_PRIORITY;
-    }
-  }
-
   return compacted.slice(0, Math.max(3, MAX_GOALS));
 }
 
+/**
+ * Position-agnostic: a Commitment is any non-empty Task, wherever it sits
+ * in the array -- there is no "first 3" slot with special status. Keeps
+ * every non-empty row (trimmed), reindexes sort_order, and caps at
+ * MAX_GOALS. Does not pad to a minimum -- the 3-commitment minimum is a
+ * submission rule each page checks directly (total non-empty count), not
+ * something this function enforces by shape; a caller saving a draft with
+ * 0, 1, or 2 Tasks gets back exactly that many; save/autosave reflects
+ * real state, and separately gates whether that state can be submitted.
+ */
 export function compactForSave(current: DraftGoal[]) {
-  const normalized = normalizeGoals(current);
-
-  const first3 = normalized.slice(0, 3).map((g) => ({
-    ...g,
-    title: (g.title ?? "").trim(),
-    priority:
-      typeof g.priority === "number" && Number.isFinite(g.priority)
-        ? g.priority
-        : DEFAULT_PRIORITY,
-  }));
-
-  const optionalNonEmpty = normalized
-    .slice(3)
+  return normalizeGoals(current)
     .map((g) => ({ ...g, title: (g.title ?? "").trim() }))
-    .filter((g) => g.title.length > 0);
-
-  const combined: DraftGoal[] = [...first3, ...optionalNonEmpty]
+    .filter((g) => g.title.length > 0)
     .slice(0, MAX_GOALS)
     .map((g, idx) => ({
       ...g,
@@ -94,27 +85,6 @@ export function compactForSave(current: DraftGoal[]) {
           ? g.priority
           : DEFAULT_PRIORITY,
     }));
-
-  while (combined.length < 3) {
-    combined.push({
-      title: "",
-      sort_order: combined.length,
-      priority: DEFAULT_PRIORITY,
-    });
-  }
-
-  for (let i = 0; i < 3; i++) {
-    combined[i] = {
-      ...combined[i],
-      priority:
-        typeof combined[i].priority === "number" &&
-        Number.isFinite(combined[i].priority)
-          ? combined[i].priority
-          : DEFAULT_PRIORITY,
-    };
-  }
-
-  return combined;
 }
 
 /**
@@ -122,8 +92,9 @@ export function compactForSave(current: DraftGoal[]) {
  * with tied priorities keeping their relative array order. Returns each
  * goal paired with its real index in the input array (`originalIdx`) so a
  * caller can still drive drag/priority/remove handlers against the true
- * underlying array position — those treat positions 0-2 as structurally
- * required (see compactForSave), which this function never reorders.
+ * underlying array position — no position is structurally special (see
+ * compactForSave, which is position-agnostic), this function just never
+ * reorders the real array regardless.
  */
 export function sortGoalsForDisplay<T extends { priority?: number }>(goals: T[]): { g: T; originalIdx: number }[] {
   return goals

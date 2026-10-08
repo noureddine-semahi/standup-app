@@ -210,26 +210,19 @@ export const en = {
   "tomorrow.saveFailed": "Save failed",
   "tomorrow.missingPlanId": "Missing plan id — refresh and try again.",
   "tomorrow.alreadySubmitted": "This plan is already submitted.",
-  "tomorrow.needThreeGoals": "Tomorrow requires at least 3 commitments. Fill in the first 3 commitments before submitting.",
+  "tomorrow.needThreeGoals": "Tomorrow requires at least 3 commitments before submitting.",
   "tomorrow.submittedPoints": "Tomorrow plan submitted ✅ +{points} pts",
   "tomorrow.submittedMsg": "Tomorrow plan submitted ✅",
   "tomorrow.submitFailed": "Submit failed",
   "tomorrow.failedAddNote": "Failed to add note",
   "tomorrow.loading": "Loading…",
   "tomorrow.title": "Tomorrow's Commitments",
-  "tomorrow.minRequiredPart1": "Minimum ",
-  "tomorrow.minRequiredPart2": " priority commitments required (P1, P2, or P3).",
-  // Plan Tomorrow-only duplicates of the two keys above -- date/[date]/page.tsx
-  // shares minRequiredPart1/minRequiredPart2/currentPriorityGoals/optionalGoals
-  // and is out of scope for the Phase 5 terminology cleanup, so new keys were
-  // added here instead of changing those shared values underneath it.
-  "tomorrow.minRequiredPart2Commitments": " priority commitments required (P1, P2, or P3).",
-  "tomorrow.currentPriorityCommitments": "Current priority commitments: ",
-  "tomorrow.extra": " (+{count} extra)",
+  // A Commitment is any scheduled Task, standalone or Goal-linked --
+  // priority (P1-P5) is ranking metadata only and never affects how many
+  // commitments are required or whether the plan can be submitted.
+  "tomorrow.commitmentRuleSummary": "Plan {min}–{max} commitments for tomorrow.",
   "tomorrow.done": "✓ Done",
   "tomorrow.reorder": "✏️ Reorder",
-  "tomorrow.optionalGoals": "Optional Commitments",
-  "tomorrow.optionalTasksDivider": "Optional Tasks",
   "tomorrow.attachLink": "Attach a link",
   "tomorrow.link": "Link",
   "tomorrow.urlPlaceholder": "https://...",
@@ -279,7 +272,7 @@ export const en = {
   "tomorrow.saveChanges": "Save changes",
   "tomorrow.saveDraft": "Save draft",
   "tomorrow.submitUnlocksOnce": "Submit unlocks once {date} has been reviewed",
-  "tomorrow.fillInMore": "Fill in {count} more P1/P2/P3 commitment(s) — currently {filled}/3",
+  "tomorrow.fillInMore": "Fill in {count} more commitment(s) — currently {filled}/3",
   "tomorrow.submitting": "Submitting…",
   "tomorrow.submitPlan": "Submit tomorrow plan",
   "tomorrow.goalsCountFooter": "{count}/{max} commitments",
@@ -287,13 +280,10 @@ export const en = {
   "tomorrow.planSubmittedTitle": "Tomorrow's plan submitted",
   "tomorrow.planSubmittedSub": "{count} commitments planned for tomorrow",
   "tomorrow.lockedSubmitMsg": "🔒 Submitting is locked until {date} is reviewed. You can still save this as a draft.",
-  "tomorrow.lockedNeedMore": "🔒 Submitting needs {count} more commitment(s) set to P1, P2, or P3 (currently {filled}/3). Commitments at P4/P5 don't count toward this minimum.",
+  "tomorrow.lockedNeedMore": "🔒 Submitting needs {count} more commitment(s) (currently {filled}/3). Any priority counts.",
   "tomorrow.planIsPart1": "This plan is ",
   "tomorrow.planIsPart2": ".",
-  "tomorrow.priorityGoalPlaceholder": "Priority {p} commitment...",
-  "tomorrow.optionalGoalPlaceholder": "Optional commitment...",
-  "tomorrow.priorityTaskPlaceholder": "Priority {p} task...",
-  "tomorrow.optionalTaskPlaceholder": "Optional task...",
+  "tomorrow.taskPlaceholder": "P{p} task...",
   "tomorrow.suggestedTitle": "Suggested",
   "tomorrow.addingSuggested": "Adding…",
   "tomorrow.failedAddSuggested": "Failed to add suggested goal",
@@ -397,7 +387,7 @@ export const en = {
 
   // Calendar date-detail page (mostly shares Tomorrow's/Today's keys above)
   "datePage.maxGoalsFocused": "Max {max} commitments — keep this day focused.",
-  "datePage.needThreeGoalsForDate": "{date} requires at least 3 commitments. Fill in the first 3 commitments before submitting.",
+  "datePage.needThreeGoalsForDate": "{date} requires at least 3 commitments before submitting.",
   "datePage.submittedForDatePoints": "Plan for {date} submitted ✅ +{points} pts",
   "datePage.submittedForDate": "Plan for {date} submitted ✅",
   "datePage.confirmClearDay": "Mark {date} as cleared? This day can't be reviewed retroactively — this just dismisses it from the \"Missed\" list on your Calendar.",

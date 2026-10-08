@@ -10,7 +10,6 @@ import {
   walkMaterializedChain,
   filterUnresolvedDescendants,
   collapseGoalLineages,
-  representativeTaskRow,
   resolveLineageOwners,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
@@ -384,45 +383,37 @@ describe("collapseGoalLineages", () => {
     const allRowIds = tasks.flatMap((t) => t.chain.map((g) => g.id));
     expect(allRowIds.sort()).toEqual(["A", "B", "X"]); // every input row is represented exactly once
   });
-});
 
-describe("representativeTaskRow", () => {
-  // Real ids from the confirmed live controlled reproduction: A
-  // (c8c06038, "Child test 3" 10/07) was rescheduled to 10/08, materializing
-  // B (128aed6b, same title). A was later marked Completed directly, which
-  // correctly triggered cancelOrphanedReschedules and canceled B (confirmed
-  // live: A status=completed, B status=canceled). The orphaned-continuation
-  // cancel is cleanup, not an independent resolution -- it must never
-  // outrank A's real completion.
-  const A = { id: "c8c06038-740c-4242-8969-a2dbc93ecf1c", status: "completed" };
-  const B = { id: "128aed6b-4cd1-408a-a813-4769d5d1367a", status: "canceled" };
-
-  it("an earlier Completed row in the chain wins over a later auto-canceled continuation (the confirmed live regression)", () => {
-    const ct = { terminal: B, chain: [A, B] };
-    expect(representativeTaskRow(ct)).toBe(A);
+  it("an earlier Completed row in the chain wins over a later auto-canceled continuation (the confirmed live Get healthy / Child test 3 regression: A completed -> B auto-canceled)", () => {
+    // Real ids from the confirmed live controlled reproduction: A
+    // (c8c06038, "Child test 3" 10/07) was rescheduled to 10/08,
+    // materializing B (128aed6b, same title). A was later marked Completed
+    // directly, which correctly triggered cancelOrphanedReschedules and
+    // canceled B (confirmed live: A status=completed, B status=canceled).
+    // The orphaned-continuation cancel is cleanup, not an independent
+    // resolution -- it must never outrank A's real completion.
+    const A = { id: "c8c06038-740c-4242-8969-a2dbc93ecf1c", status: "completed" };
+    const B = { id: "128aed6b-4cd1-408a-a813-4769d5d1367a", status: "canceled" };
+    const tasks = collapseGoalLineages([A, B], [edge(A.id, B.id)]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal).toBe(A); // not B, despite B being the chain's last node
+    expect(tasks[0].terminal.status).toBe("completed");
+    expect(tasks[0].chain).toEqual([A, B]); // history/chain membership is untouched
   });
 
-  it("the ordinary case is unchanged: a Completed terminal still wins when no earlier row completed", () => {
-    const postponedA = { id: "A", status: "postponed" };
-    const completedB = { id: "B", status: "completed" };
-    const ct = { terminal: completedB, chain: [postponedA, completedB] };
-    expect(representativeTaskRow(ct)).toBe(completedB);
+  it("a Completed row anywhere in a 3-hop chain wins, regardless of position", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "completed" }; // completed in the MIDDLE of the chain
+    const C = { id: "C", status: "canceled" }; // later auto-canceled, same as above
+    const tasks = collapseGoalLineages([A, B, C], [edge("A", "B"), edge("B", "C")]);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].terminal).toBe(B);
+    expect(tasks[0].terminal.status).toBe("completed");
   });
 
-  it("falls back to the terminal when nothing in the chain is Completed (e.g. an independently canceled terminal)", () => {
-    const postponedA = { id: "A", status: "postponed" };
-    const canceledB = { id: "B", status: "canceled" };
-    const ct = { terminal: canceledB, chain: [postponedA, canceledB] };
-    expect(representativeTaskRow(ct)).toBe(canceledB);
-  });
-
-  it("a Task with no lineage (chain of one) represents itself", () => {
-    const solo = { id: "solo", status: "completed" };
-    const ct = { terminal: solo, chain: [solo] };
-    expect(representativeTaskRow(ct)).toBe(solo);
-  });
-
-  it("end-to-end: Review Today's Goal aggregation counts the confirmed live regression lineage once, as Completed (3/3, not 3/4)", () => {
+  it("end-to-end: Review Today's / Dashboard's Goal aggregation counts the confirmed live regression lineage once, as Completed (3/3, not 3/4 or 2/3)", () => {
+    const A = { id: "c8c06038-740c-4242-8969-a2dbc93ecf1c", status: "completed" };
+    const B = { id: "128aed6b-4cd1-408a-a813-4769d5d1367a", status: "canceled" };
     const child1 = { id: "child-1", status: "completed" };
     const child2 = { id: "child-2", status: "completed" };
     const goals = [child1, child2, A, B];
@@ -431,11 +422,12 @@ describe("representativeTaskRow", () => {
     const conceptualTasks = collapseGoalLineages(goals, edges);
     expect(conceptualTasks).toHaveLength(3); // not 4 -- A and B collapse into one conceptual Task
 
-    const representatives = conceptualTasks.map(representativeTaskRow);
-    const total = representatives.length;
-    const completed = representatives.filter((g) => g.status === "completed").length;
+    // Every consumer (Dashboard, Review Today) reads `.terminal` directly --
+    // no separate per-consumer "which row represents this Task" logic needed.
+    const total = conceptualTasks.length;
+    const completed = conceptualTasks.filter((t) => t.terminal.status === "completed").length;
     expect(total).toBe(3);
-    expect(completed).toBe(3); // Child 3's conceptual Task reports Completed via A, not Not-started/Canceled via B
+    expect(completed).toBe(3); // Child 3's conceptual Task reports Completed via A, not Canceled via B
   });
 });
 

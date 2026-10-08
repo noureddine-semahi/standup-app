@@ -52,7 +52,6 @@ import {
   createOutcomeGoal,
   getOutcomeGoals,
   getConceptualTasksByOutcomeGoalIds,
-  representativeTaskRow,
   type PaymentAccount,
   type ChecklistItem,
   type DailyPlan,
@@ -2999,23 +2998,22 @@ export default function TodayPage() {
                   // goalChildrenById holds CONCEPTUAL Tasks (collapseGoalLineages,
                   // via getConceptualTasksByOutcomeGoalIds), one per reschedule
                   // chain rather than one per physical row. Each chain
-                  // contributes exactly ONE row (representativeRow above) --
-                  // never both an ancestor (e.g. one of today's own live
-                  // rows) and its continuation as separate entries, which is
-                  // what previously let a rescheduled-then-completed Task
-                  // inflate totalCount while its auto-canceled continuation
-                  // dragged completedCount back down. `todayLiveById` keyed
+                  // contributes exactly ONE row -- its `terminal`, which
+                  // collapseGoalLineages itself already resolves to whichever
+                  // row in the chain is Completed (if any), never both an
+                  // ancestor (e.g. one of today's own live rows) and its
+                  // continuation as separate entries. `todayLiveById` keyed
                   // by id (not just by the chain's terminal id) catches a
-                  // representative at ANY position in the chain, so today's
-                  // live version is used whenever it applies.
+                  // terminal at ANY position in the chain, so today's live
+                  // version is used whenever it applies.
                   const todayLiveById = new Map(items.map(({ g }) => [g.id, g]));
                   const conceptualTasks = goalChildrenById[goalId];
-                  const representativeRows = conceptualTasks !== undefined ? conceptualTasks.map(representativeTaskRow) : [];
+                  const representativeRows = conceptualTasks !== undefined ? conceptualTasks.map((ct) => ct.terminal) : [];
                   // Historical section only ever shows a conceptual Task
-                  // whose representative ISN'T already one of today's own
-                  // live rows (those already get their own card below) --
-                  // same identity used for the stats, so a Task never shows
-                  // up as independent entries in both places.
+                  // whose terminal ISN'T already one of today's own live
+                  // rows (those already get their own card below) -- same
+                  // identity used for the stats, so a Task never shows up
+                  // as independent entries in both places.
                   const historicalOnly = representativeRows.filter((rep) => !todayLiveById.has(rep.id));
                   // Falls back to just today's items while the historical
                   // fetch is still in flight -- a sensible loading state,

@@ -2169,6 +2169,17 @@ export type ConceptualTask<T extends { id: string; status: string }> = {
  * rescheduled Task's dead original row as separate open work even after its
  * continuation is done. See collapseGoalLineages' callers below.
  *
+ * `terminal` is the chain's resolved display row -- normally its last
+ * reachable node, EXCEPT that any row anywhere in the chain that reached
+ * Completed always wins over a later node, however far along the chain it
+ * is. This matters because completing an EARLIER row auto-cancels its now-
+ * orphaned later continuation (see cancelOrphanedReschedules below), and
+ * that cancellation is cleanup, not an independent resolution -- it must
+ * never outrank a real completion that already happened earlier in the
+ * same chain. Every other consumer of `terminal` (Goal progress counts,
+ * Dashboard, Review Today) inherits this automatically from this one
+ * place, rather than each needing its own completed-wins special case.
+ *
  * An edge only collapses two rows when BOTH ends are present in `goals` --
  * an edge pointing outside the given set (a predecessor that wasn't
  * fetched, a dangling/malformed row) is ignored rather than risking a row
@@ -2215,7 +2226,8 @@ export function collapseGoalLineages<T extends { id: string; status: string }>(
       currentId = nextId;
     }
 
-    tasks.push({ terminal: chain[chain.length - 1], chain });
+    const resolved = chain.find((row) => row.status === "completed") ?? chain[chain.length - 1];
+    tasks.push({ terminal: resolved, chain });
   }
 
   return tasks;
@@ -2272,22 +2284,6 @@ export function resolveLineageOwners(
   }
 
   return ownerById;
-}
-
-/**
- * The one physical row that represents a conceptual Task's real
- * resolution, by canonical lineage identity (the chain collapseGoalLineages
- * already built), never by title/date matching. Normally that's the
- * chain's terminal -- but completing an EARLIER row in the chain (not the
- * terminal) auto-cancels its now-orphaned later continuation (see
- * cancelOrphanedReschedules above), and that cancellation is cleanup, not
- * an independent decision. It must never outrank a real completion that
- * already happened earlier in the same chain, so any Completed row
- * anywhere in the chain wins; only when none exists does the terminal's
- * own status/plan_date stand for the Task (unchanged from before).
- */
-export function representativeTaskRow<T extends { id: string; status: string }>(ct: ConceptualTask<T>): T {
-  return ct.chain.find((g) => g.status === "completed") ?? ct.terminal;
 }
 
 /**

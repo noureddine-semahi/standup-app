@@ -1984,7 +1984,7 @@ export default function TomorrowGoalsPage() {
                   normal draft-row + persistGoals/upsertGoals path, not a
                   separate insert -- no new save logic. */}
               {addFlowStep === "task" && (
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 space-y-2 tomorrow-task-composer">
                   {/* Priority leads the title, same as every saved Task
                       card's own header row (see the identical pattern
                       above) -- a compact 34px tag attached to the task
@@ -2080,18 +2080,10 @@ export default function TomorrowGoalsPage() {
                   <div className="space-y-2">
                     {newGoalTasks.map((tk, i) => (
                       <div key={i} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={tk.title}
-                          disabled={creatingGoal}
-                          onChange={(e) =>
-                            setNewGoalTasks((prev) =>
-                              prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x))
-                            )
-                          }
-                          placeholder={t("tomorrow.goalTaskPlaceholder", { n: i + 1 })}
-                          className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-                        />
+                        {/* Priority leads the title, same as every saved
+                            Task card and the Standalone Task composer
+                            (see their identical pattern). Same select/
+                            handler, only its position changed. */}
                         <select
                           value={tk.priority}
                           disabled={creatingGoal}
@@ -2114,6 +2106,18 @@ export default function TomorrowGoalsPage() {
                             </option>
                           ))}
                         </select>
+                        <input
+                          type="text"
+                          value={tk.title}
+                          disabled={creatingGoal}
+                          onChange={(e) =>
+                            setNewGoalTasks((prev) =>
+                              prev.map((x, j) => (j === i ? { ...x, title: e.target.value } : x))
+                            )
+                          }
+                          placeholder={t("tomorrow.goalTaskPlaceholder", { n: i + 1 })}
+                          className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                        />
                         {newGoalTasks.length > 2 && (
                           <button
                             type="button"

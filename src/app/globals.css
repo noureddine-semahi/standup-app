@@ -4682,6 +4682,19 @@ select:focus {
     box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
   }
 
+  /* The open Standalone Task composer is a direct flex child of the bar
+     above once portaled to mobile, which already provides a 0.6rem gap
+     between it and the Saved indicator above it (gap: 0.6rem) -- the
+     composer's own `mt-2` utility (needed on desktop, where it isn't a
+     flex child of anything with its own gap) stacked an extra 0.5rem on
+     top of that here, producing a visibly oversized band between "Saved"
+     and the composer. Cancelled only on mobile/only on this element;
+     desktop's spacing (and the composer's own internal layout) is
+     untouched. */
+  .tomorrow-task-composer {
+    margin-top: 0;
+  }
+
   .tomorrow-action-secondary {
     justify-content: space-between;
   }

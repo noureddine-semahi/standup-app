@@ -82,6 +82,23 @@ function saveSeenAchievementIds(userId: string, ids: Iterable<string>) {
   }
 }
 
+// Active Goals Task metadata (Phase 1): an assignment's assignerGoalId/
+// recipientGoalId always points at the physical row that existed at the
+// moment it was created, and never gets updated when that row is later
+// rescheduled (rescheduleGoalToDate never touches goal_assignments). A
+// conceptual Task's `.terminal.id` can therefore be a different row than
+// the one an assignment actually references, even though they're the
+// same conceptual Task. Checking every id in the Task's reschedule chain
+// (not just its current terminal) is the minimal fix -- same assignment
+// map, no new query, just a wider key search.
+function findChainAssignment(map: Map<string, GoalAssignment>, chainIds: string[]): GoalAssignment | undefined {
+  for (const id of chainIds) {
+    const found = map.get(id);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 /**
  * ✅ Reuse the "Tomorrow page" visual language:
  * - gradient backgrounds by "importance"
@@ -460,6 +477,22 @@ export default function DashboardPage() {
     return map;
   }, [goalAssignments]);
 
+  // Mirror of assignedOutByGoalId for the incoming side -- an accepted
+  // assignment's recipientGoalId is only set once respond_to_goal_assignment
+  // materializes it, which is exactly when a received Task could show up
+  // under one of this user's own Active Goals (it starts with no
+  // outcome_goal_id and would need to be linked to one manually). Used
+  // only by Active Goals' metadata line below (Phase 1).
+  const receivedByGoalId = useMemo(() => {
+    const map = new Map<string, GoalAssignment>();
+    for (const a of goalAssignments) {
+      if (a.direction === "received" && a.status === "accepted" && a.recipientGoalId) {
+        map.set(a.recipientGoalId, a);
+      }
+    }
+    return map;
+  }, [goalAssignments]);
+
   // Phase 9B: re-runs the exact same load() a Retry click as the initial
   // mount does. Guarded by `retrying` so a second click while one is
   // already in flight is a no-op instead of firing a duplicate request.
@@ -611,9 +644,14 @@ export default function DashboardPage() {
     // comment): a broken chain's terminal is just whatever status its
     // stale predecessor happened to be left in, and must never be read
     // as an ordinary current Task by anything below.
+    // chainIds carries every physical row id in this conceptual Task's
+    // reschedule lineage (not just its current terminal) -- needed so
+    // the metadata line below can find an assignment made against an
+    // earlier row, via findChainAssignment. Purely additive: terminal
+    // and lifecycle are read exactly as before.
     const tasks = outcomeGoalTasks
       .filter((ct) => (ct.terminal as any).outcome_goal_id === goal.id)
-      .map((ct) => ({ ...ct.terminal, lifecycle: ct.lifecycle }));
+      .map((ct) => ({ ...ct.terminal, lifecycle: ct.lifecycle, chainIds: ct.chain.map((g) => g.id) }));
     const total = tasks.length;
     const completed = tasks.filter((g) => g.status === "completed").length;
     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -682,6 +720,49 @@ export default function DashboardPage() {
   // above (ordering, progress, context) is computed for every active Goal
   // regardless, so expanding never needs a second fetch or loading state.
   const visibleGoalCards = showAllActiveGoals ? activeGoalCards : activeGoalCards.slice(0, 3);
+
+  // Active Goals Task metadata line (Phase 1 of the read-only inspection's
+  // "safe subset"): date · ownership · action, built only from data
+  // already loaded above. Never called for a lifecycle: "broken" Task --
+  // its plan_date/assignment state belongs to a stale predecessor, so the
+  // broken row keeps its own separate hint/Resolve footer instead (see
+  // the render below). "Waiting on <name>" and "Overdue" are deliberately
+  // not implemented here -- both would read live, possibly-stale
+  // assignment/reschedule state that's still pending its own lifecycle
+  // verification pass.
+  function taskMetaLine(task: { plan_date: string | null; status: string; chainIds: string[] }): string {
+    const parts: string[] = [];
+
+    if (task.plan_date === todayISO) {
+      parts.push(t("dashboard.goalTaskMetaToday"));
+    } else if (task.plan_date === tomorrowISO) {
+      parts.push(t("dashboard.goalTaskMetaTomorrow"));
+    } else if (task.plan_date) {
+      parts.push(formatDateDisplay(task.plan_date));
+    }
+
+    // Outgoing assignments are checked first -- a Task can't be both
+    // assigned-out and received at once, but checking order matters only
+    // in theory since the two maps are keyed from disjoint directions.
+    const outgoing = findChainAssignment(assignedOutByGoalId, task.chainIds);
+    const incoming = outgoing ? undefined : findChainAssignment(receivedByGoalId, task.chainIds);
+    // "Your action" only where there's unambiguously something left to
+    // act on -- a completed/canceled Task never gets it, assigned-out
+    // either (that's "waiting on them", explicitly deferred).
+    const unresolved = task.status !== "completed" && task.status !== "canceled";
+
+    if (outgoing) {
+      parts.push(t("dashboard.goalTaskMetaAssignedTo", { name: outgoing.recipientDisplayName ?? "" }));
+    } else if (incoming) {
+      parts.push(t("dashboard.goalTaskMetaAssignedBy", { name: incoming.assignerDisplayName ?? "" }));
+      if (unresolved) parts.push(t("dashboard.goalTaskMetaYourAction"));
+    } else {
+      parts.push(t("dashboard.goalTaskMetaYou"));
+      if (unresolved) parts.push(t("dashboard.goalTaskMetaYourAction"));
+    }
+
+    return parts.join(" · ");
+  }
 
   const levelInfo = getLevelInfo(profile?.points ?? 0);
 
@@ -1025,19 +1106,22 @@ export default function DashboardPage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <div key={task.id} className="dashboard-goal-task-row">
-                                    <span className="truncate">{task.title}</span>
-                                    <span
-                                      className="status-chip-sm flex-shrink-0"
-                                      style={{
-                                        "--chip-bg": statusChipColors(task.status).bg,
-                                        "--chip-border": statusChipColors(task.status).border,
-                                        "--chip-color": statusChipColors(task.status).color,
-                                      } as React.CSSProperties}
-                                    >
-                                      <span>{statusLabel(task.status, t)}</span>
-                                      <StatusIcon status={task.status} size={11} />
-                                    </span>
+                                  <div key={task.id} className="dashboard-goal-task-item">
+                                    <div className="dashboard-goal-task-row">
+                                      <span className="truncate">{task.title}</span>
+                                      <span
+                                        className="status-chip-sm flex-shrink-0"
+                                        style={{
+                                          "--chip-bg": statusChipColors(task.status).bg,
+                                          "--chip-border": statusChipColors(task.status).border,
+                                          "--chip-color": statusChipColors(task.status).color,
+                                        } as React.CSSProperties}
+                                      >
+                                        <span>{statusLabel(task.status, t)}</span>
+                                        <StatusIcon status={task.status} size={11} />
+                                      </span>
+                                    </div>
+                                    <div className="dashboard-goal-task-meta">{taskMetaLine(task)}</div>
                                   </div>
                                 )
                               )

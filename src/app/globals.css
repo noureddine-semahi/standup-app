@@ -4385,6 +4385,30 @@ select:focus {
   white-space: nowrap;
 }
 
+/* Active Goals Task metadata (Phase 1) -- wraps a normal Task's existing
+   title+status row together with a second, smaller contextual line
+   (date · ownership · action) directly beneath it. A dedicated wrapper
+   keeps the two lines visually bound to the same Task instead of
+   .dashboard-goal-tasks' own gap reading them as separate rows -- same
+   reasoning as .dashboard-goal-task-row-broken's own row+footer stack
+   below. */
+.dashboard-goal-task-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+/* Deliberately NOT nowrap/ellipsis like the title line above -- a
+   truncated "Assigned to James" is useless, so this wraps naturally on
+   narrow screens instead. */
+.dashboard-goal-task-meta {
+  font-size: 0.68rem;
+  color: rgba(var(--tint-rgb), 0.45);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
 /* .status-chip-sm's base 116px fixed width (needed elsewhere for column
    alignment in a vertical list of rows) wasted most of a Task row's
    width on every short status label -- content-width here instead, so

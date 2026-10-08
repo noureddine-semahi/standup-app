@@ -6207,7 +6207,32 @@ select:focus {
    for elements that also carry .standup-metal-btn -- same specificity
    (one class) as .btn's base rule, so this wins purely by being
    declared later in the file. .btn itself is never edited, so no other
-   .btn call site anywhere in the app is affected. */
+   .btn call site anywhere in the app is affected.
+
+   Strengthened pass -- reference: the header's own .folder-tab-hanging-
+   active (the hanging nav tabs), whose "pulled-out physical tab" read
+   comes from three ingredients this now borrows, all via box-shadow/
+   pseudo-elements only (never border-width/padding/dimensions, so this
+   stays provably safe on every page already composing these classes
+   with its own layout class -- date-metal-btn/bottom-nav-btn/day-
+   action-btn-sm/tomorrow-toolbar-btn/tomorrow-submit-btn):
+     1. a crisp outline RING just outside the border (0 0 0 Npx), a
+        second, distinct metallic edge layered over the border itself --
+        .folder-tab-hanging-active's own `0 0 0 1.5px color-mix(...)`
+        ring, reused here keyed off the same --metal-color this class
+        already carries.
+     2. a stronger grounded shadow underneath -- .folder-tab-hanging-
+        active's `0 10px 18px -4px` scaled down to button size, in
+        place of the previous near-flat `0 1px 2px -1px`.
+     3. a thin bright top-edge catch-light line -- .folder-tab-hanging-
+        active::before's own "the light above is touching this one tab"
+        technique, now on ::after (previously just content:none here,
+        suppressing .btn's ripple -- repurposed rather than left inert).
+   border-width stays 1.5px, untouched -- box-sizing:border-box (Tailwind's
+   global preflight) means it couldn't change rendered dimensions anyway,
+   but the ring above already delivers the "thicker frame" read without
+   touching it at all, per the brief's own "adapt via shadow/pseudo-
+   element, not layout" instruction. */
 .standup-metal-btn {
   position: relative;
   overflow: hidden;
@@ -6220,29 +6245,42 @@ select:focus {
      default instead of a semantic priority hue. --metal-color is amber
      for the accent variant (see .standup-metal-btn--accent), which is
      the ONLY thing that turns these edges amber -- the face itself
-     (below) deliberately never reads --metal-color. */
-  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 65%, white 25%);
-  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 50%, white 10%);
-  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, black 35%);
-  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 10%, black 55%);
+     (below) deliberately never reads --metal-color. Contrast widened a
+     step from the first pass (65/50/18/10% -> 72/56/14/8%) for a more
+     clearly "machined" edge at rest, without rest/hover/active/disabled
+     losing their relative ordering. */
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 72%, white 28%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 56%, white 12%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 14%, black 40%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 8%, black 60%);
   /* Dark machined-gunmetal face -- fixed/neutral regardless of variant,
      so the accent buttons stay visibly metal with amber light around
      them rather than becoming an orange rectangle. */
   background: linear-gradient(to bottom, #34383d 0%, #202327 45%, #111315 100%);
   color: rgba(245, 247, 250, 0.92);
   box-shadow:
-    /* thin reflected highlight just inside the rim (top + left) */
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.07),
+    /* thin reflected highlight just inside the rim (top + left), now
+       also a dim inner-right edge -- the "lit perimeter, not just a
+       lit top" read .folder-tab-hanging-active's own inset left+right
+       pair uses, here asymmetric (left bright, right faint) to keep
+       reading as top/left-lit rather than evenly outlined. */
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.08),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.18),
     /* recessed inner shadow toward the bottom -- face reads sunken
        inside the metal frame, not flat */
-    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.55),
-    /* small external shadow beneath the button */
-    0 1px 2px -1px rgba(0, 0, 0, 0.5),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.6),
+    /* crisp outline ring just outside the border -- technique 1 above */
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 28%, transparent),
+    /* stronger grounded shadow underneath -- technique 2 above */
+    0 3px 7px -3px rgba(0, 0, 0, 0.55),
     /* restrained resting glow -- same intensity TOKENS .btn's own
        resting glow already uses (--metal-glow-int-rest*), just applied
        here explicitly since this rule's background/box-shadow override
-       supersedes .btn's version of this same layer */
+       supersedes .btn's version of this same layer. .standup-metal-
+       btn--accent overrides these two tokens locally (see below) for a
+       stronger "rear glow" WITHOUT duplicating this whole box-shadow
+       list a second time. */
     var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent);
   transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
@@ -6272,25 +6310,45 @@ select:focus {
   transition: opacity 0.2s ease;
 }
 
-/* .btn's generic ripple (::after, a 300px white circle that scales in
-   on hover) reads as a material-design water-ripple, not a machined
-   control -- suppressed here only, every other .btn keeps it. */
+/* .btn's generic ripple (a 300px white circle that scales in on hover)
+   reads as a material-design water-ripple, not a machined control --
+   suppressed here (every other .btn keeps it) and repurposed instead:
+   technique 3 above, a thin bright catch-light line hugging the top
+   inner edge, same read as .folder-tab-hanging-active::before's "the
+   light above is touching this one control specifically". Clipped by
+   this element's own overflow:hidden, so it's contained by
+   construction -- can't bleed past the button's rounded corner. */
 .standup-metal-btn::after {
-  content: none;
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1.5px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 55%, white 35%);
+  box-shadow: 0 0 5px 0px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, transparent);
+  pointer-events: none;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
 }
 
 /* Hover: edge reflection reads a touch brighter and the resting glow
    steps up to .btn's existing "hover" intensity tier -- deliberately
    NOT redeclaring `transform` here, so .btn:hover's own translateY(-1.5px)
-   lift still applies unchanged (no resizing, no extra movement). */
+   lift still applies unchanged (no resizing, no extra movement). Ring
+   and grounded shadow both step up too, same "more pronounced metal
+   frame on hover" read the header tabs use. */
 .standup-metal-btn:hover {
-  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 78%, white 20%);
-  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 60%, white 12%);
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 85%, white 22%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 66%, white 14%);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.1),
-    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.5),
-    0 2px 4px -1px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.32),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.12),
+    inset -1px 0 0 0 rgba(0, 0, 0, 0.16),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.55),
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 42%, transparent),
+    0 5px 10px -3px rgba(0, 0, 0, 0.55),
     var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent);
 }
 
@@ -6298,11 +6356,17 @@ select:focus {
   opacity: 1;
 }
 
+.standup-metal-btn:hover::after {
+  opacity: 1;
+}
+
 /* Active/pressed: physically depresses -- .btn:active's own
    translateY(2px) still applies unchanged (not redeclared here); the
-   rim dims, the face darkens a step, the outer shadow/glow shrink away
-   almost entirely, and the inset shadow deepens, reading as the face
-   sinking into the frame under a fingertip. */
+   rim dims, the face darkens a step, the outer shadow/ring/glow shrink
+   away almost entirely, and the inset shadow deepens, reading as the
+   face sinking into the frame under a fingertip. The ring survives at
+   reduced size/opacity (not removed outright) -- "metallic perimeter
+   remains visible" even while pressed, per the brief. */
 .standup-metal-btn:active {
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, white 8%);
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, white 4%);
@@ -6310,20 +6374,29 @@ select:focus {
   border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 6%, black 65%);
   background: linear-gradient(to bottom, #2a2d31 0%, #191b1e 45%, #0d0e10 100%);
   box-shadow:
-    inset 0 2px 5px 0 rgba(0, 0, 0, 0.65),
+    inset 0 2px 5px 0 rgba(0, 0, 0, 0.7),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-    0 1px 1px -1px rgba(0, 0, 0, 0.35);
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, transparent),
+    0 1px 1px -1px rgba(0, 0, 0, 0.4);
 }
 
 .standup-metal-btn:active::before {
   opacity: 0.35;
 }
 
+.standup-metal-btn:active::after {
+  opacity: 0.3;
+}
+
 /* Disabled: still reads as metal, just inert -- .btn:disabled's own
    opacity:0.45 (applied to the whole element, text included) still
    fully applies since it isn't redeclared here; this only flattens the
    rim/face/depth underneath that dimming instead of leaving .btn's
-   plain translucent-gray disabled look, and drops the sheen near-off. */
+   plain translucent-gray disabled look, and drops the sheen/catch-
+   light/ring near-off ("flatter, dimmer, less reflective, reduced
+   glow" per the brief -- no ring layer at all here, unlike every other
+   state, which is what actually delivers "less reflective" rather than
+   just a dimmer version of the same ring). */
 .standup-metal-btn:disabled,
 .standup-metal-btn:disabled:hover,
 .standup-metal-btn:disabled:active {
@@ -6341,18 +6414,37 @@ select:focus {
   opacity: 0.2;
 }
 
+.standup-metal-btn:disabled::after {
+  opacity: 0.12;
+}
+
 /* Subtle amber metallic accent -- sets the SAME --metal-color custom
-   property the rule above keys its border/glow off of, so the existing
-   metallic recipe renders amber-tinted with no new gradient or shadow
-   rules of its own. Intentionally not .btn-primary (that's a stronger,
-   full-emphasis treatment) -- this is the same restrained tint
-   mechanism .goal-row's priority color or any --metal-color call site
-   already uses elsewhere in the app. The face/background above never
-   reads --metal-color, so this only ever shows up as amber light at
-   the edges/glow -- never a flat orange surface. Text stays near-white
-   (color is set above, not keyed to --metal-color either); this adds
-   only a very faint warm reflection on top of it. */
+   property the rule above keys its border/ring/catch-light/glow off
+   of, so the existing metallic recipe renders amber-tinted with no new
+   gradient or shadow rules of its own. Intentionally not .btn-primary
+   (that's a stronger, full-emphasis treatment) -- this is the same
+   restrained tint mechanism .goal-row's priority color or any
+   --metal-color call site already uses elsewhere in the app. The
+   face/background above never reads --metal-color, so this only ever
+   shows up as amber light at the edges/ring/glow -- never a flat
+   orange surface. Text stays near-white (color is set above, not keyed
+   to --metal-color either); this adds only a very faint warm
+   reflection on top of it.
+
+   --metal-glow-int-rest(-strength)/--metal-glow-int-hover(-strength)
+   are overridden LOCALLY here, not globally -- the custom-property
+   cascade means .standup-metal-btn's own box-shadow (declared once,
+   above) picks up these stronger values automatically wherever
+   --accent is also present, without a second, duplicated box-shadow
+   list. This is the "subtle amber rear glow, brighter on hover" the
+   brief asks for -- illumination radiating from behind/around the
+   frame, scaled up from the neutral resting/hover tier, independent of
+   the ring (still the thinner 1-1.5px outline every variant gets). */
 .standup-metal-btn--accent {
   --metal-color: var(--accent-amber);
+  --metal-glow-int-rest: 0 0 7px -1px;
+  --metal-glow-int-rest-strength: 34%;
+  --metal-glow-int-hover: 0 0 12px 0px;
+  --metal-glow-int-hover-strength: 52%;
   text-shadow: 0 0 6px rgba(245, 158, 11, 0.16);
 }

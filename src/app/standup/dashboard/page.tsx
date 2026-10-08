@@ -735,14 +735,14 @@ export default function DashboardPage() {
 
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:flex-wrap">
               <div className="flex gap-2 sm:order-2">
-                <Link href="/standup/today" className="btn btn-tint btn-teal text-sm whitespace-nowrap inline-flex items-center gap-1.5">
+                <Link href="/standup/today" className="btn standup-metal-btn text-sm whitespace-nowrap inline-flex items-center gap-1.5">
                   <CheckCircle2 size={14} /> {t("nav.reviewToday")}
                 </Link>
-                <Link href="/standup/tomorrow" className="btn btn-tint btn-amber-tint text-sm whitespace-nowrap inline-flex items-center gap-1.5">
+                <Link href="/standup/tomorrow" className="btn standup-metal-btn standup-metal-btn--accent text-sm whitespace-nowrap inline-flex items-center gap-1.5">
                   <Sunrise size={14} /> {t("nav.planTomorrow")}
                 </Link>
               </div>
-              <button type="button" onClick={() => setShowAssistant(true)} className="btn btn-tint btn-purple text-sm whitespace-nowrap sm:order-1 inline-flex items-center gap-1.5">
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn standup-metal-btn text-sm whitespace-nowrap sm:order-1 inline-flex items-center gap-1.5">
                 <Bot size={14} /> {t("dashboard.assistant")}
               </button>
             </div>
@@ -1013,7 +1013,7 @@ export default function DashboardPage() {
                                             type="button"
                                             onClick={() => setOpenResolveId((prev) => (prev === task.id ? null : task.id))}
                                             disabled={resolvingBrokenGoalId === task.id}
-                                            className="btn"
+                                            className="btn standup-metal-btn standup-metal-btn--accent"
                                             style={{ padding: "0.1rem 0.45rem", fontSize: "0.65rem" }}
                                           >
                                             {resolvingBrokenGoalId === task.id

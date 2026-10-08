@@ -1028,8 +1028,27 @@ export default function DynamicDatePage() {
               0.6rem mobile) applied BETWEEN every one of ~7 sections,
               compounding with their individual mt-2/mb-3 margins into
               the large dead space between them -- same structural fix
-              Plan Tomorrow's own card already uses. */}
-          <div style={{ flex: "1 1 100%", minWidth: "200px" }}>
+              Plan Tomorrow's own card already uses.
+
+              `width`/`maxWidth`/`boxSizing` added here (not present
+              before): .goal-row-cols sets `align-items: flex-start` and
+              switches to `flex-direction: column` at <=640px (see the
+              "Regression fix" comment on .goal-row-cols below, which
+              documents this exact class hitting this exact bug once
+              already, for a different pair of columns). Under a
+              column-direction flex container, `align-items` governs the
+              CROSS axis, which is now the horizontal one -- "flex-start"
+              (not "stretch") sizes this item via fit-content/shrink-to-
+              fit instead of stretching it to the container's full
+              width. Fit-content still won't itself exceed the available
+              width, but it also won't reliably floor out at exactly
+              that width either once the column stacks, which left this
+              item's own effective width ambiguous for anything inside
+              it that depends on a definite 100% to wrap text against
+              (the reschedule-reason line below). An explicit `width:
+              100%` removes that ambiguity outright, independent of
+              align-items/flex-direction. */}
+          <div style={{ flex: "1 1 100%", minWidth: "200px", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
             {/* Parent Major Goal context -- only for a linked Task
                 (outcome_goal_id non-null) when NOT already shown once as
                 a group header above (showParentLabel). Presentation only:
@@ -1237,12 +1256,22 @@ export default function DynamicDatePage() {
             {g.id && g.rescheduled_from_date && (
               <div className="mt-2 flex items-start gap-2">
                 <Redo2 className="text-yellow-400 mt-0.5 flex-shrink-0" size={13} />
-                <div className="min-w-0">
-                  <div className="text-xs text-yellow-300/90 font-medium">
+                {/* flex-1 (not just min-w-0) -- without flex-grow this
+                    item sized itself to its own max-content (the reason
+                    line's full unwrapped length) instead of claiming
+                    the row's actual remaining width, so min-w-0 alone
+                    let it shrink but never gave it a reason to. Together
+                    they make this box always equal "icon width minus
+                    the row's real available space", which is what the
+                    text then wraps against. break-words is a second,
+                    independent safety net for a reason string that's
+                    one long unbroken token (no spaces to wrap at). */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-yellow-300/90 font-medium break-words">
                     {t("tomorrow.rescheduledFrom", { date: formatDateDisplay(g.rescheduled_from_date) })}
                   </div>
                   {g.reschedule_reason && (
-                    <div className="text-xs text-white/60 italic mt-0.5">
+                    <div className="text-xs text-white/60 italic mt-0.5 break-words">
                       "{g.reschedule_reason}"
                     </div>
                   )}

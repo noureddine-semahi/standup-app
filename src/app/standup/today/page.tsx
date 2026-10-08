@@ -10,6 +10,7 @@ import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
 import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
+import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import MarqueeText from "@/components/MarqueeText";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
@@ -386,16 +387,11 @@ export default function TodayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, highlightGoalId]);
 
-  useEffect(() => {
-    if (!openPrivacyMenuId) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (privacyMenuRef.current && !privacyMenuRef.current.contains(e.target as Node)) {
-        setOpenPrivacyMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openPrivacyMenuId]);
+  // openPrivacyMenuId's own click-outside/scroll-close handling now lives
+  // inside PortalDropdownMenu (its panel is portaled to document.body, no
+  // longer a DOM descendant of the trigger wrapper this ref points to, so
+  // a plain .contains() check here would immediately close it on every
+  // click inside the panel itself).
 
   useEffect(() => {
     if (!openAssignMenuId) return;
@@ -1770,26 +1766,14 @@ export default function TodayPage() {
 
               {!assignment && !received && acceptedConnections.length > 0 && (
                 <>
-                  <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : g.id))}
-                      className="btn goal-toolbar-btn"
-                    >
-                      {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
-                        <Lock size={13} />
-                      ) : (
-                        <Unlock size={13} />
-                      )}
-                      <span className="goal-toolbar-label">
-                        {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
-                          ? t("goalAssign.exclusiveShort")
-                          : t("goalAssign.sharedShort")}
-                      </span>
-                      <ChevronDown size={12} className="text-white/40" />
-                    </button>
-                    {openPrivacyMenuId === g.id && (
-                      <div className="conn-card-menu" style={{ minWidth: "170px", maxWidth: "min(240px, calc(100vw - 4rem))" }}>
+                  <PortalDropdownMenu
+                    open={openPrivacyMenuId === g.id}
+                    onClose={() => setOpenPrivacyMenuId(null)}
+                    anchorRef={privacyMenuRef}
+                    panelClassName="conn-card-menu"
+                    panelStyle={{ minWidth: "170px", maxWidth: "min(240px, calc(100vw - 4rem))" }}
+                    panel={
+                      <>
                         {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
                           <button
                             key={option}
@@ -1811,9 +1795,29 @@ export default function TodayPage() {
                             </span>
                           </button>
                         ))}
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    }
+                  >
+                    <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : g.id))}
+                        className="btn goal-toolbar-btn"
+                      >
+                        {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
+                          <Lock size={13} />
+                        ) : (
+                          <Unlock size={13} />
+                        )}
+                        <span className="goal-toolbar-label">
+                          {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
+                            ? t("goalAssign.exclusiveShort")
+                            : t("goalAssign.sharedShort")}
+                        </span>
+                        <ChevronDown size={12} className="text-white/40" />
+                      </button>
+                    </div>
+                  </PortalDropdownMenu>
 
                   {/* Assign — a button + dropdown menu (not a native
                       <select>) so its own label is the short, fixed word
@@ -2055,26 +2059,14 @@ export default function TodayPage() {
                   replace them with the status line underneath). */}
               {!assignment && !received && acceptedConnections.length > 0 && (
                 <>
-                  <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
-                    <button
-                      type="button"
-                      onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : g.id))}
-                      className="btn goal-toolbar-btn"
-                    >
-                      {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
-                        <Lock size={13} />
-                      ) : (
-                        <Unlock size={13} />
-                      )}
-                      <span className="goal-toolbar-label">
-                        {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
-                          ? t("goalAssign.exclusiveShort")
-                          : t("goalAssign.sharedShort")}
-                      </span>
-                      <ChevronDown size={12} className="text-white/40" />
-                    </button>
-                    {openPrivacyMenuId === g.id && (
-                      <div className="conn-card-menu" style={{ minWidth: "210px" }}>
+                  <PortalDropdownMenu
+                    open={openPrivacyMenuId === g.id}
+                    onClose={() => setOpenPrivacyMenuId(null)}
+                    anchorRef={privacyMenuRef}
+                    panelClassName="conn-card-menu"
+                    panelStyle={{ minWidth: "210px" }}
+                    panel={
+                      <>
                         {(["exclusive", "shared"] as GoalAssignmentType[]).map((option) => (
                           <button
                             key={option}
@@ -2096,9 +2088,29 @@ export default function TodayPage() {
                             </span>
                           </button>
                         ))}
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    }
+                  >
+                    <div className="relative" ref={openPrivacyMenuId === g.id ? privacyMenuRef : undefined}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenPrivacyMenuId((prev) => (prev === g.id ? null : g.id))}
+                        className="btn goal-toolbar-btn"
+                      >
+                        {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive" ? (
+                          <Lock size={13} />
+                        ) : (
+                          <Unlock size={13} />
+                        )}
+                        <span className="goal-toolbar-label">
+                          {(assignTypeByGoalId[g.id] ?? "exclusive") === "exclusive"
+                            ? t("goalAssign.exclusiveShort")
+                            : t("goalAssign.sharedShort")}
+                        </span>
+                        <ChevronDown size={12} className="text-white/40" />
+                      </button>
+                    </div>
+                  </PortalDropdownMenu>
 
                   {/* Assign — a button + dropdown menu (not a native
                       <select>) so its own label is the short, fixed word

@@ -2328,6 +2328,26 @@ export type ConceptualTask<T extends { id: string; status: string }> = {
 };
 
 /**
+ * The one canonical from_goal_id -> materialized_goal_id edge map, shared
+ * by collapseGoalLineages' own forward walk AND getConceptualTaskById's
+ * backward walk (Phase 2C-1) -- factored out so both agree on the exact
+ * same "last materialized_goal_id per from_goal_id wins" rule (same
+ * "caller sorts ascending by materialized_at" convention as
+ * walkMaterializedChain) rather than risking two independently-written
+ * implementations silently drifting apart on malformed/branching data.
+ * Pure, synchronous, no I/O; never mutates `edges`.
+ */
+export function buildNextByFromIdMap(
+  edges: { from_goal_id: string; materialized_goal_id: string | null }[]
+): Map<string, string> {
+  const nextByFromId = new Map<string, string>();
+  for (const e of edges) {
+    if (e.materialized_goal_id) nextByFromId.set(e.from_goal_id, e.materialized_goal_id);
+  }
+  return nextByFromId;
+}
+
+/**
  * Pure lineage-collapse: given a flat list of Goal/Task rows that share an
  * outcome_goal_id and the materialized goal_reschedules edges connecting
  * them, groups each reschedule chain (A -> B, A -> B -> C, ...) into ONE
@@ -2385,13 +2405,7 @@ export function collapseGoalLineages<T extends { id: string; status: string }>(
   edges: { from_goal_id: string; materialized_goal_id: string | null; materialized?: boolean }[]
 ): ConceptualTask<T>[] {
   const goalById = new Map(goals.map((g) => [g.id, g]));
-
-  // Last materialized_goal_id per from_goal_id wins -- same "caller sorts
-  // ascending by materialized_at" convention as walkMaterializedChain.
-  const nextByFromId = new Map<string, string>();
-  for (const e of edges) {
-    if (e.materialized_goal_id) nextByFromId.set(e.from_goal_id, e.materialized_goal_id);
-  }
+  const nextByFromId = buildNextByFromIdMap(edges);
 
   // A from_goal_id whose materialization is confirmed (materialized:
   // true) but whose target is gone (materialized_goal_id: null) -- only
@@ -3151,6 +3165,164 @@ export async function getConceptualTasksByOutcomeGoalIds(
   });
 
   return collapseGoalLineages(normalized, edges);
+}
+
+/**
+ * Goal Engine Phase 2C-1: the reverse of buildNextByFromIdMap's own map --
+ * "which from_goal_id produced this id", so a reschedule lineage can be
+ * walked BACKWARD from any physical row to find its chain's root. Nothing
+ * before this walked a lineage backward; every existing helper
+ * (collapseGoalLineages, resolveLineageOwners) only ever starts from an
+ * already-known root and walks forward.
+ *
+ * Built by inverting nextByFromId (not the raw edges) so it inherits the
+ * exact same "last materialized_goal_id per from_goal_id wins"
+ * determinism -- if two different from_goal_ids were ever malformed into
+ * pointing at the same materialized_goal_id (shouldn't happen:
+ * materialized_goal_id is always a freshly inserted, unique row id per
+ * materialization event), the one that wins here is still guaranteed to
+ * be a real predecessor of `startId` in nextByFromId's own terms, so the
+ * forward walk back down from the resolved root is always consistent
+ * with the backward walk that found it.
+ *
+ * `visited` guards against a cycle (malformed data) looping forever --
+ * same shape as every other lineage walk in this file. Pure, synchronous,
+ * never mutates its inputs.
+ */
+export function findChainRootId(startId: string, nextByFromId: Map<string, string>): string {
+  const prevByToId = new Map<string, string>();
+  for (const [fromId, toId] of nextByFromId) {
+    prevByToId.set(toId, fromId);
+  }
+
+  const visited = new Set<string>([startId]);
+  let currentId = startId;
+  while (true) {
+    const prevId = prevByToId.get(currentId);
+    if (!prevId || visited.has(prevId)) break;
+    visited.add(prevId);
+    currentId = prevId;
+  }
+  return currentId;
+}
+
+/**
+ * Forward id-only walk from a known root, used solely to know which
+ * physical rows to fetch for getConceptualTaskById below -- NOT a second
+ * implementation of collapseGoalLineages' own forward traversal: this
+ * reaches no conclusion about terminal/lifecycle/completed-wins/broken,
+ * it only enumerates ids. collapseGoalLineages remains the sole authority
+ * on what the chain actually resolves to; this just tells the caller
+ * which rows to hand it. Same cycle-guarded shape as resolveLineageOwners'
+ * own forward walk.
+ */
+export function collectChainIds(rootId: string, nextByFromId: Map<string, string>): string[] {
+  const ids = [rootId];
+  const visited = new Set<string>([rootId]);
+  let currentId = rootId;
+  while (true) {
+    const nextId = nextByFromId.get(currentId);
+    if (!nextId || visited.has(nextId)) break;
+    visited.add(nextId);
+    ids.push(nextId);
+    currentId = nextId;
+  }
+  return ids;
+}
+
+/**
+ * Canonical Task resolver (Goal Engine Phase 2C-1): given ANY physical
+ * goals.id that belongs to a reschedule chain (A -> B -> C -> D), returns
+ * the SAME conceptual Task regardless of which id in the chain was
+ * passed in -- looking up A, B, C, or D all return `rootId: A's id` and
+ * `task.terminal` resolved to whichever row collapseGoalLineages' own
+ * completed-wins/broken-detection rules say is current. `rootId` is this
+ * phase's canonical, bookmark-safe Task identity (see this phase's own
+ * inspection for why: a rescheduled row is never hard-deletable via the
+ * app's own deleteGoal guard, so the root survives for the lineage's
+ * entire future, unlike `terminal`, which changes identity on every
+ * reschedule).
+ *
+ * Works identically for a standalone Task (outcome_goal_id: null) and a
+ * Goal-linked one -- unlike getConceptualTasksByOutcomeGoalIds (which can
+ * only start from an outcome_goal_id), this never reads outcome_goal_id
+ * at all; it walks the goal_reschedules lineage directly from whatever
+ * physical id it's given.
+ *
+ * Returns null for a nonexistent id OR an id belonging to another user --
+ * deliberately indistinguishable (RLS already prevents the latter; the
+ * explicit .eq("user_id", userId) below is defensive-explicit, same
+ * convention as getOutcomeGoalById), so a bad/foreign id can never be
+ * told apart from a bad/missing one.
+ */
+export async function getConceptualTaskById(
+  id: string
+): Promise<{ rootId: string; task: ConceptualTask<ArchivedGoal> } | null> {
+  const userId = await getCurrentUserId();
+
+  const { data: requestedRow, error: reqErr } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (reqErr) throw reqErr;
+  if (!requestedRow) return null;
+
+  // Same broad, RLS-scoped edge query getConceptualTasksByOutcomeGoalIds/
+  // cancelOrphanedReschedules already use -- there's no from_goal_id to
+  // scope this by in advance, and goal_reschedules' own RLS already
+  // restricts it to the current user. Legacy to_goal_id is never read --
+  // materialized_goal_id is the only real destination column.
+  const { data: edgeRows, error: edgeErr } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, materialized_goal_id, materialized")
+    .eq("materialized", true);
+  if (edgeErr) throw edgeErr;
+  const edges = edgeRows ?? [];
+
+  const nextByFromId = buildNextByFromIdMap(edges);
+  const rootId = findChainRootId(id, nextByFromId);
+  const chainIds = collectChainIds(rootId, nextByFromId);
+
+  const otherIds = chainIds.filter((cid) => cid !== id);
+  let otherRows: Goal[] = [];
+  if (otherIds.length > 0) {
+    const { data: rows, error: rowsErr } = await supabase
+      .from("goals")
+      .select("*")
+      .in("id", otherIds)
+      .eq("user_id", userId);
+    if (rowsErr) throw rowsErr;
+    otherRows = rows ?? [];
+  }
+
+  const allRows = [requestedRow as Goal, ...otherRows];
+  const planIds = [...new Set(allRows.map((g) => g.plan_id).filter(Boolean))];
+  const planDateById: Record<string, string> = {};
+  if (planIds.length > 0) {
+    const { data: plans, error: plansErr } = await supabase
+      .from("daily_plans")
+      .select("id, plan_date")
+      .in("id", planIds);
+    if (plansErr) throw plansErr;
+    (plans ?? []).forEach((p) => {
+      planDateById[p.id] = p.plan_date;
+    });
+  }
+  const chainRows: ArchivedGoal[] = allRows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null }));
+
+  // Same unfiltered, account-wide `edges` collapseGoalLineages already
+  // tolerates elsewhere (getConceptualTasksByOutcomeGoalIds passes the
+  // same thing) -- its own goalById-gated incoming/dangling checks
+  // already scope themselves to exactly the rows in `chainRows`, so an
+  // edge belonging to some other, unrelated chain is harmlessly ignored
+  // rather than needing to be filtered out here first.
+  const tasks = collapseGoalLineages(chainRows, edges);
+  const task = tasks[0];
+  if (!task) return null;
+
+  return { rootId, task };
 }
 
 /**

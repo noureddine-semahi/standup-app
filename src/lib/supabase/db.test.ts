@@ -14,6 +14,9 @@ import {
   findOrphanedContinuationIds,
   findGoalDeleteBlockReason,
   GoalDeleteBlockedError,
+  buildNextByFromIdMap,
+  findChainRootId,
+  collectChainIds,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -683,6 +686,210 @@ describe("getConceptualTasksByOutcomeGoalIds pipeline (ownership resolution + no
     );
     expect(tasks).toHaveLength(1);
     expect(tasks[0].terminal.id).toBe("B");
+  });
+});
+
+describe("buildNextByFromIdMap", () => {
+  it("builds a plain from_goal_id -> materialized_goal_id map", () => {
+    const map = buildNextByFromIdMap([
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "B", materialized_goal_id: "C" },
+    ]);
+    expect(map.get("A")).toBe("B");
+    expect(map.get("B")).toBe("C");
+  });
+
+  it("ignores an edge with a null materialized_goal_id (unmaterialized intent)", () => {
+    const map = buildNextByFromIdMap([{ from_goal_id: "A", materialized_goal_id: null }]);
+    expect(map.has("A")).toBe(false);
+  });
+
+  it("last materialized_goal_id for a given from_goal_id wins", () => {
+    const map = buildNextByFromIdMap([
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "A", materialized_goal_id: "B2" },
+    ]);
+    expect(map.get("A")).toBe("B2");
+  });
+});
+
+describe("findChainRootId", () => {
+  it("a Task with no predecessor is its own root", () => {
+    expect(findChainRootId("A", new Map())).toBe("A");
+  });
+
+  it("walks back one hop: B's root is A", () => {
+    const map = new Map([["A", "B"]]);
+    expect(findChainRootId("B", map)).toBe("A");
+  });
+
+  it("walks back multiple hops: D's root is A for A -> B -> C -> D", () => {
+    const map = new Map([
+      ["A", "B"],
+      ["B", "C"],
+      ["C", "D"],
+    ]);
+    expect(findChainRootId("D", map)).toBe("A");
+    expect(findChainRootId("C", map)).toBe("A");
+    expect(findChainRootId("B", map)).toBe("A");
+    expect(findChainRootId("A", map)).toBe("A");
+  });
+
+  it("stops safely on a malformed cycle instead of looping forever", () => {
+    // A -> B -> A (malformed/corrupted data) -- visited protection must
+    // stop this, not hang.
+    const map = new Map([
+      ["A", "B"],
+      ["B", "A"],
+    ]);
+    expect(() => findChainRootId("A", map)).not.toThrow();
+    expect(["A", "B"]).toContain(findChainRootId("A", map));
+  });
+});
+
+describe("collectChainIds", () => {
+  it("a root with no continuation collects just itself", () => {
+    expect(collectChainIds("A", new Map())).toEqual(["A"]);
+  });
+
+  it("collects every hop forward from the root: A -> B -> C -> D", () => {
+    const map = new Map([
+      ["A", "B"],
+      ["B", "C"],
+      ["C", "D"],
+    ]);
+    expect(collectChainIds("A", map)).toEqual(["A", "B", "C", "D"]);
+  });
+
+  it("stops safely on a malformed cycle instead of looping forever", () => {
+    const map = new Map([
+      ["A", "B"],
+      ["B", "A"],
+    ]);
+    expect(() => collectChainIds("A", map)).not.toThrow();
+    expect(collectChainIds("A", map).length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("getConceptualTaskById pipeline (backward walk + chain collection + collapse)", () => {
+  // Exercises the exact in-memory pipeline getConceptualTaskById runs
+  // after its DB fetches: buildNextByFromIdMap -> findChainRootId (NEW --
+  // nothing before Phase 2C-1 walked a lineage backward) ->
+  // collectChainIds -> collapseGoalLineages. No Supabase client involved,
+  // same "pure pipeline, even though the real function does I/O"
+  // convention as the getConceptualTasksByOutcomeGoalIds pipeline test
+  // above. `rows` stands in for exactly what the real function would
+  // have fetched (the requested row + the rest of its chain).
+  function resolveById(
+    requestedId: string,
+    rows: { id: string; status: string }[],
+    edges: { from_goal_id: string; materialized_goal_id: string | null; materialized?: boolean }[]
+  ) {
+    const nextByFromId = buildNextByFromIdMap(edges);
+    const rootId = findChainRootId(requestedId, nextByFromId);
+    const chainIds = collectChainIds(rootId, nextByFromId);
+    const rowById = new Map(rows.map((r) => [r.id, r]));
+    const chainRows = chainIds.map((id) => rowById.get(id)!).filter(Boolean);
+    const tasks = collapseGoalLineages(chainRows, edges);
+    return { rootId, task: tasks[0] };
+  }
+
+  it("A. never-rescheduled Task: looking up A alone resolves root=A, terminal=A, chain=[A]", () => {
+    const A = { id: "A", status: "not_started" };
+    const { rootId, task } = resolveById("A", [A], []);
+    expect(rootId).toBe("A");
+    expect(task.terminal).toBe(A);
+    expect(task.chain).toEqual([A]);
+    expect(task.lifecycle).toBe("active");
+  });
+
+  it("B. one reschedule A -> B: looking up A resolves root=A, terminal=B", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "not_started" };
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
+    const { rootId, task } = resolveById("A", [A, B], edges);
+    expect(rootId).toBe("A");
+    expect(task.terminal).toBe(B);
+    expect(task.chain).toEqual([A, B]);
+  });
+
+  it("B. one reschedule A -> B: looking up B (the terminal itself) resolves the SAME root=A, terminal=B", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "not_started" };
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
+    const { rootId, task } = resolveById("B", [A, B], edges);
+    expect(rootId).toBe("A");
+    expect(task.terminal).toBe(B);
+    expect(task.chain).toEqual([A, B]);
+  });
+
+  it("C. multi-hop A -> B -> C -> D: looking up ANY of A, B, C, or D resolves the SAME root=A, terminal=D, same chain", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "postponed" };
+    const C = { id: "C", status: "postponed" };
+    const D = { id: "D", status: "not_started" };
+    const rows = [A, B, C, D];
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "B", materialized_goal_id: "C" },
+      { from_goal_id: "C", materialized_goal_id: "D" },
+    ];
+
+    for (const lookupId of ["A", "B", "C", "D"]) {
+      const { rootId, task } = resolveById(lookupId, rows, edges);
+      expect(rootId).toBe("A");
+      expect(task.terminal).toBe(D);
+      expect(task.chain).toEqual([A, B, C, D]);
+      expect(task.lifecycle).toBe("active");
+    }
+  });
+
+  it("D. broken chain: A -> B where B was hard-deleted (materialized_goal_id nulled) resolves lifecycle='broken', terminal=A, root=A", () => {
+    const A = { id: "A", status: "postponed" };
+    // B no longer exists -- the edge survives with materialized_goal_id
+    // nulled by goals.id's own ON DELETE SET NULL.
+    const edges = [{ from_goal_id: "A", materialized_goal_id: null, materialized: true }];
+    const { rootId, task } = resolveById("A", [A], edges);
+    expect(rootId).toBe("A");
+    expect(task.terminal).toBe(A);
+    expect(task.lifecycle).toBe("broken");
+  });
+
+  it("E. completed-wins: A -> B -> C where B (not the terminal) is Completed still resolves lifecycle='completed', terminal=B, regardless of which id was looked up", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "completed" };
+    const C = { id: "C", status: "canceled" }; // e.g. auto-canceled as B's now-orphaned continuation
+    const rows = [A, B, C];
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "B", materialized_goal_id: "C" },
+    ];
+
+    for (const lookupId of ["A", "B", "C"]) {
+      const { rootId, task } = resolveById(lookupId, rows, edges);
+      expect(rootId).toBe("A");
+      expect(task.terminal).toBe(B);
+      expect(task.lifecycle).toBe("completed");
+    }
+  });
+
+  it("F. malformed cycle: A -> B -> A terminates safely (no hang, no throw) -- not reachable through normal reschedule flow (materialized_goal_id is always a fresh row), covered defensively only", () => {
+    const A = { id: "A", status: "postponed" };
+    const B = { id: "B", status: "not_started" };
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "B" },
+      { from_goal_id: "B", materialized_goal_id: "A" },
+    ];
+    // A true bidirectional cycle makes both A and B look like "someone
+    // else's continuation" to collapseGoalLineages' own incoming-edge
+    // check, so it correctly produces zero conceptual Tasks for this
+    // pair rather than guessing -- pre-existing collapseGoalLineages
+    // behavior (see its own describe block), not something this phase
+    // changes. The requirement here is only that resolution terminates
+    // safely instead of hanging/throwing.
+    expect(() => resolveById("A", [A, B], edges)).not.toThrow();
+    const { task } = resolveById("A", [A, B], edges);
+    expect(task).toBeUndefined();
   });
 });
 

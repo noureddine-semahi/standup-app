@@ -1383,13 +1383,13 @@ export default function DynamicDatePage() {
         </div>
 
         <div className="date-metal-actions date-metal-actions--top">
-          <button className="btn date-metal-btn" onClick={() => router.push("/standup/calendar")}>
+          <button className="btn standup-metal-btn date-metal-btn" onClick={() => router.push("/standup/calendar")}>
             ← {t("nav.calendar")}
           </button>
           {!coveredByPass && (
             <>
               <button
-                className="btn date-metal-btn date-metal-btn--accent"
+                className="btn standup-metal-btn standup-metal-btn--accent date-metal-btn"
                 onClick={handleUseStreakPass}
                 disabled={usingPass || (passBalance?.available ?? 0) <= 0}
                 title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
@@ -1424,7 +1424,7 @@ export default function DynamicDatePage() {
           <button
             onClick={() => setEditMode(!editMode)}
             disabled={submitting}
-            className={`btn date-metal-btn${editMode ? " date-metal-btn--accent" : ""}`}
+            className={`btn standup-metal-btn date-metal-btn${editMode ? " standup-metal-btn--accent" : ""}`}
           >
             {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
           </button>
@@ -1478,7 +1478,7 @@ export default function DynamicDatePage() {
         <div className="mt-8">
           <div className="date-metal-actions date-metal-actions--bottom">
             <button
-              className="btn date-metal-btn"
+              className="btn standup-metal-btn date-metal-btn"
               onClick={addMoreGoal}
               disabled={!canAddMore}
               title={
@@ -1489,7 +1489,7 @@ export default function DynamicDatePage() {
             </button>
 
             <button
-              className="btn date-metal-btn date-metal-btn--accent"
+              className="btn standup-metal-btn standup-metal-btn--accent date-metal-btn"
               onClick={saveDraftOrChanges}
               disabled={submitting}
               title={t("tomorrow.manualSaveTitle")}

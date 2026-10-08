@@ -4248,7 +4248,38 @@ select:focus {
    surface underneath (only sizing/layout changes here). */
 .tomorrow-toolbar {
   display: flex;
+  /* flex-start, not the default stretch -- without this, Reorder (a
+     bare flex item) would stretch to match .tomorrow-pass-group's
+     taller height (button + caption) on this same row, visually
+     growing Reorder's own box even though its content is unchanged. */
+  align-items: flex-start;
   gap: 0.6rem;
+  width: 100%;
+}
+
+/* Lets the pass-count caption visually belong to the "Use a Pass"
+   button specifically -- same equal flex-basis .tomorrow-toolbar-btn
+   itself uses, so this one wrapper still takes the same width share
+   Reorder does, with the button on top (keeping .tomorrow-toolbar-btn's
+   own height/padding untouched) and the caption stacked directly under
+   it via plain block flow + default align-items:stretch (so the button
+   still fills this column's full width, same as before). */
+.tomorrow-pass-group {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* .tomorrow-toolbar-btn's own flex:1 1 0 is meant for sizing it as a
+   direct ROW child of .tomorrow-toolbar -- inside this column wrapper
+   that same declaration would instead apply to the VERTICAL axis
+   (grow/shrink height), which isn't wanted here. Reset to a plain
+   content-sized item and fill the wrapper's width explicitly instead,
+   so the button's own height stays exactly what .tomorrow-toolbar-btn's
+   min-height/padding already give it. */
+.tomorrow-pass-group .tomorrow-toolbar-btn {
+  flex: 0 0 auto;
   width: 100%;
 }
 
@@ -6053,15 +6084,22 @@ select:focus {
   min-width: 0;
 }
 
-/* ✨ Calendar date-page action buttons -- Calendar/Cover-this-day/Reorder
-   (top) and +Add/Save Draft (bottom). These reuse .btn's existing
-   metallic foundation (border/background/box-shadow gradients all keyed
-   off --metal-color, plus its already-shipped :hover/:active/:disabled
-   behavior) rather than a second button system -- every one of these
-   classes is additive layout/sizing on top of class="btn", never a
-   replacement for it. Page-scoped (not reused by Plan Tomorrow/Review
-   Today/the Task-card toolbar), so this can't regress anything outside
-   this one page's header/footer action rows. */
+/* ✨ StandUp page-action button language -- the premium 3D machined-metal
+   visual recipe, approved on Calendar and now shared across every page-
+   level action button (Calendar/Review Today/Plan Tomorrow). Deliberately
+   split in two:
+     .standup-metal-btn / .standup-metal-btn--accent -- the VISUAL recipe
+       only (rim/face/sheen/hover/active/disabled). No display/width/
+       height/padding here, so it never fights a page's own sizing.
+     .date-metal-btn -- Calendar's own LAYOUT hook (grid cell sizing:
+       width/height:100%, centering, padding, wrap). Review Today/Plan
+       Tomorrow use their own existing layout classes
+       (.bottom-nav-btn/.day-action-btn-sm/.tomorrow-toolbar-btn/etc.)
+       instead -- this was never meant to force one shared width/height
+       across every page, only one shared metal construction.
+   Composed as class="btn standup-metal-btn [standup-metal-btn--accent]
+   [page-layout-class]" -- .btn itself is never edited, so any .btn call
+   site that doesn't opt into this stays completely unaffected. */
 .date-metal-actions {
   display: grid;
   gap: 0.5rem;
@@ -6106,6 +6144,9 @@ select:focus {
    match) instead of becoming the one oversized button while its
    siblings stay short. minmax(0, ...) is what stops a long label from
    ever forcing its own column wider than its equal share. */
+/* Calendar's own layout hook -- grid-cell sizing only, nothing visual.
+   Review Today/Plan Tomorrow don't use this; they keep their own
+   existing layout classes alongside .standup-metal-btn instead. */
 .date-metal-btn {
   display: flex;
   align-items: center;
@@ -6119,14 +6160,15 @@ select:focus {
   white-space: normal;
   line-height: 1.25;
   font-size: 0.8rem;
+}
 
-  /* ---- Premium 3D machined-metal visual pass (experimental; evaluating
-     as StandUp's future button language) ----
-     Everything below overrides .btn's own border/background/box-shadow
-     for elements that also carry .date-metal-btn -- same specificity
-     (one class) as .btn's base rule, so this wins purely by being
-     declared later in the file. .btn itself is never edited, so no
-     other .btn call site anywhere in the app is affected. */
+/* ---- Premium 3D machined-metal visual pass -- the shared recipe ----
+   Everything below overrides .btn's own border/background/box-shadow
+   for elements that also carry .standup-metal-btn -- same specificity
+   (one class) as .btn's base rule, so this wins purely by being
+   declared later in the file. .btn itself is never edited, so no other
+   .btn call site anywhere in the app is affected. */
+.standup-metal-btn {
   position: relative;
   overflow: hidden;
   border-width: 1.5px;
@@ -6136,9 +6178,9 @@ select:focus {
      4-edge technique .goal-row's own metal-edge border already uses,
      just against --metal-edge-neutral (a cool steel-gray) as the
      default instead of a semantic priority hue. --metal-color is amber
-     for the accent variant (see .date-metal-btn--accent), which is the
-     ONLY thing that turns these edges amber -- the face itself (below)
-     deliberately never reads --metal-color. */
+     for the accent variant (see .standup-metal-btn--accent), which is
+     the ONLY thing that turns these edges amber -- the face itself
+     (below) deliberately never reads --metal-color. */
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 65%, white 25%);
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 50%, white 10%);
   border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, black 35%);
@@ -6173,7 +6215,7 @@ select:focus {
    (icon/label) without needing one; pointer-events isn't even in play
    since this is purely decorative and never intercepts clicks either
    way, but kept explicit for clarity. */
-.date-metal-btn::before {
+.standup-metal-btn::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -6193,7 +6235,7 @@ select:focus {
 /* .btn's generic ripple (::after, a 300px white circle that scales in
    on hover) reads as a material-design water-ripple, not a machined
    control -- suppressed here only, every other .btn keeps it. */
-.date-metal-btn::after {
+.standup-metal-btn::after {
   content: none;
 }
 
@@ -6201,7 +6243,7 @@ select:focus {
    steps up to .btn's existing "hover" intensity tier -- deliberately
    NOT redeclaring `transform` here, so .btn:hover's own translateY(-1.5px)
    lift still applies unchanged (no resizing, no extra movement). */
-.date-metal-btn:hover {
+.standup-metal-btn:hover {
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 78%, white 20%);
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 60%, white 12%);
   box-shadow:
@@ -6212,7 +6254,7 @@ select:focus {
     var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent);
 }
 
-.date-metal-btn:hover::before {
+.standup-metal-btn:hover::before {
   opacity: 1;
 }
 
@@ -6221,7 +6263,7 @@ select:focus {
    rim dims, the face darkens a step, the outer shadow/glow shrink away
    almost entirely, and the inset shadow deepens, reading as the face
    sinking into the frame under a fingertip. */
-.date-metal-btn:active {
+.standup-metal-btn:active {
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, white 8%);
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, white 4%);
   border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 12%, black 45%);
@@ -6233,7 +6275,7 @@ select:focus {
     0 1px 1px -1px rgba(0, 0, 0, 0.35);
 }
 
-.date-metal-btn:active::before {
+.standup-metal-btn:active::before {
   opacity: 0.35;
 }
 
@@ -6242,9 +6284,9 @@ select:focus {
    fully applies since it isn't redeclared here; this only flattens the
    rim/face/depth underneath that dimming instead of leaving .btn's
    plain translucent-gray disabled look, and drops the sheen near-off. */
-.date-metal-btn:disabled,
-.date-metal-btn:disabled:hover,
-.date-metal-btn:disabled:active {
+.standup-metal-btn:disabled,
+.standup-metal-btn:disabled:hover,
+.standup-metal-btn:disabled:active {
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, white 6%);
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, white 3%);
   border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 8%, black 40%);
@@ -6255,23 +6297,22 @@ select:focus {
     inset 0 -1px 2px 0 rgba(0, 0, 0, 0.4);
 }
 
-.date-metal-btn:disabled::before {
+.standup-metal-btn:disabled::before {
   opacity: 0.2;
 }
 
-/* Subtle amber metallic accent (Cover this day in advance / Save Draft)
-   -- sets the SAME --metal-color custom property the rule above keys
-   its border/glow off of, so the existing metallic recipe renders
-   amber-tinted with no new gradient or shadow rules of its own.
-   Intentionally not .btn-primary (that's a stronger, full-emphasis
-   treatment already used for Submit) -- this is the same restrained
-   tint mechanism .goal-row's priority color or any --metal-color call
-   site already uses elsewhere in the app. The face/background above
-   never reads --metal-color, so this only ever shows up as amber light
-   at the edges/glow -- never a flat orange surface. Text stays
-   near-white (color is set above, not keyed to --metal-color either);
-   this adds only a very faint warm reflection on top of it. */
-.date-metal-btn--accent {
+/* Subtle amber metallic accent -- sets the SAME --metal-color custom
+   property the rule above keys its border/glow off of, so the existing
+   metallic recipe renders amber-tinted with no new gradient or shadow
+   rules of its own. Intentionally not .btn-primary (that's a stronger,
+   full-emphasis treatment) -- this is the same restrained tint
+   mechanism .goal-row's priority color or any --metal-color call site
+   already uses elsewhere in the app. The face/background above never
+   reads --metal-color, so this only ever shows up as amber light at
+   the edges/glow -- never a flat orange surface. Text stays near-white
+   (color is set above, not keyed to --metal-color either); this adds
+   only a very faint warm reflection on top of it. */
+.standup-metal-btn--accent {
   --metal-color: var(--accent-amber);
   text-shadow: 0 0 6px rgba(245, 158, 11, 0.16);
 }

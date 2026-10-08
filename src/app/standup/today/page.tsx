@@ -2534,7 +2534,7 @@ export default function TodayPage() {
                 <button
                   onClick={reopenDay}
                   disabled={reopening}
-                  className="btn bottom-nav-btn metal-orange"
+                  className="btn standup-metal-btn metal-orange bottom-nav-btn"
                   style={{
                     fontWeight: "bold",
                     whiteSpace: "nowrap"
@@ -2543,7 +2543,7 @@ export default function TodayPage() {
                   {reopening ? t("today.reopening") : t("today.reopenDay")}
                 </button>
                 <Link
-                  className="btn btn-primary whitespace-nowrap bottom-nav-btn"
+                  className="btn standup-metal-btn standup-metal-btn--accent whitespace-nowrap bottom-nav-btn"
                   href="/standup/tomorrow"
                   style={{ textAlign: "center" }}
                 >
@@ -2564,13 +2564,13 @@ export default function TodayPage() {
                         : t("today.finishInProgressShort")
                       : t("today.closeOutDayTitle")
                   }
-                  className="btn bottom-nav-btn metal-orange"
+                  className="btn standup-metal-btn metal-orange bottom-nav-btn"
                   style={{ whiteSpace: "nowrap" }}
                 >
                   {closing ? t("today.closing") : t("today.closeOutDayBtn")}
                 </button>
                 <Link
-                  className="btn btn-primary whitespace-nowrap bottom-nav-btn"
+                  className="btn standup-metal-btn standup-metal-btn--accent whitespace-nowrap bottom-nav-btn"
                   href="/standup/tomorrow"
                   style={{ textAlign: "center" }}
                 >
@@ -2704,7 +2704,7 @@ export default function TodayPage() {
                 {addFlowStep === "closed" && (
                   <button
                     onClick={() => setAddFlowStep("choice")}
-                    className="btn btn-primary"
+                    className="btn standup-metal-btn"
                     style={{
                       padding: "0.75rem 1.5rem",
                       fontSize: "1rem",
@@ -2724,7 +2724,7 @@ export default function TodayPage() {
               {addFlowStep === "closed" && (
                 <button
                   onClick={() => setAddFlowStep("choice")}
-                  className="btn day-action-btn-sm metal-orange"
+                  className="btn standup-metal-btn day-action-btn-sm"
                   style={{
                     padding: "0.5rem 1rem",
                     whiteSpace: "nowrap",
@@ -3145,9 +3145,9 @@ export default function TodayPage() {
         </div>
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3">
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
-          <button type="button" className="btn btn-ghost bottom-nav-btn" onClick={() => refresh()}>{t("today.refresh")}</button>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
+          <button type="button" className="btn standup-metal-btn bottom-nav-btn" onClick={() => refresh()}>{t("today.refresh")}</button>
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
         </div>
 
         {msg && <div className="mt-4 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white animate-fadeIn">{msg}</div>}

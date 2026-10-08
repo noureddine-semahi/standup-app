@@ -6448,3 +6448,150 @@ select:focus {
   --metal-glow-int-hover-strength: 52%;
   text-shadow: 0 0 6px rgba(245, 158, 11, 0.16);
 }
+
+/* ---- Header controls: hamburger / notification bell / profile-avatar ----
+   Same premium metal LANGUAGE as .standup-metal-btn (the same
+   --metal-color/--metal-edge-neutral/--metal-glow-* tokens, the same
+   directional-light + recessed-face + rear-glow idea) but NOT the same
+   recipe copy-pasted -- these three pre-existing elements are too
+   structurally different to share one class safely:
+     - .hamburger-btn/.nav-more-btn and .nav-bell-btn both already have a
+       fixed 34x34 box with their OWN border declared -- safe to override
+       border-COLOR only (never border-width), exactly .standup-metal-
+       btn's own technique.
+     - .nav-link.nav-profile (the desktop pill) already uses its own
+       ::before for .nav-link's app-wide underline-sweep hover indicator
+       -- reusing that pseudo-element for a metal sheen here would break
+       that indicator on every OTHER .nav-link in the header too.
+     - the mobile avatar link has NO existing border/box-shadow of its
+       own, and (unlike the other two) is a shrink-to-fit box with no
+       explicit width/height -- adding an actual `border` there risks
+       growing its rendered footprint by the border's own width.
+   Resolved by building the whole "crisp, shiny, reflective" read purely
+   from box-shadow (border-color is still used where an element already
+   HAS a border to recolor, which changes zero layout; box-shadow rings/
+   insets/glow never affect box size on any element, border or not) --
+   zero pseudo-elements, so there's no conflict with the profile pill's
+   existing ::before, and zero risk to the avatar link's shrink-to-fit
+   sizing. "Especially crisp/shiny" (vs. the larger .standup-metal-btn)
+   comes from a brighter, tighter double ring (two 0 0 0 Npx layers
+   instead of one) and stronger inset catch-light corners, not from a
+   wider/bigger treatment. */
+.header-metal-control {
+  position: relative;
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 80%, white 32%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 66%, white 18%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 16%, black 42%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 9%, black 62%);
+  background: linear-gradient(to bottom, #363a3f 0%, #1f2226 50%, #121315 100%);
+  box-shadow:
+    /* crisp bright top-left catch light, corner-anchored rather than
+       edge-wide -- reads tighter/shinier on a small control than the
+       full-width inset line .standup-metal-btn uses */
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.5),
+    /* double outer ring: a thin bright inner line + a slightly wider,
+       dimmer outer line -- the "noticeably reflective perimeter" read */
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 58%, white 12%),
+    0 0 0 2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, transparent),
+    /* subtle rear glow, same resting tier .standup-metal-btn uses */
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent),
+    /* small grounded shadow */
+    0 2px 5px -2px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, transform 0.12s ease;
+}
+
+/* Hover: ring brightens/widens a step, glow steps to the hover tier,
+   same 1px lift .nav-bell-btn's own (pre-existing) hover already used --
+   restated here (same value) only so it still applies once .header-
+   metal-control's box-shadow is what's actually visible on hover,
+   consistent across all three controls including the two that had no
+   hover lift of their own before (hamburger, avatar). */
+.header-metal-control:hover {
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 92%, white 28%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 78%, white 20%);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 72%, white 15%),
+    0 0 0 2.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, transparent),
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent),
+    0 4px 8px -2px rgba(0, 0, 0, 0.5);
+}
+
+/* Pressed: physically depresses, ring shrinks/dims but stays visible,
+   glow/grounded-shadow drop away almost entirely. */
+.header-metal-control:active {
+  transform: translateY(1px);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  box-shadow:
+    inset 2px 2px 3px 0 rgba(0, 0, 0, 0.6),
+    inset -1px -1px 0 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 38%, transparent),
+    0 1px 2px -1px rgba(0, 0, 0, 0.4);
+}
+
+/* Disabled (if applicable -- none of the three currently render a
+   disabled state, but this keeps the class complete/safe for any future
+   caller): flatter, dimmer, ring removed outright rather than just
+   dimmed, matching .standup-metal-btn's own "no ring at all = actually
+   less reflective" disabled technique. */
+.header-metal-control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 25%, white 6%);
+  border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, white 3%);
+  border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 8%, black 40%);
+  border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 5%, black 55%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Mobile avatar link only -- it has no border/box-model of its own to
+   reuse (unlike the hamburger/bell, which already had a 34x34 box with
+   a border), so it needs an explicit round shape here to match the
+   circular Avatar it wraps, and inline-flex so it shrink-wraps tightly
+   around that Avatar with no added size -- the ring above then sits
+   flush against the avatar's own circular edge instead of a square
+   corner mismatched against a round avatar. */
+.header-metal-control--round {
+  display: inline-flex;
+  border-radius: 9999px;
+}
+
+/* Specificity boost for the desktop profile pill only: .nav-link.nav-
+   profile (two classes, its OWN existing background/box-shadow rule)
+   outranks a plain .header-metal-control (one class) for those two
+   properties specifically, even though .header-metal-control is
+   declared later in the file -- source order only breaks TIES, it can't
+   beat higher specificity. Restated at matching specificity (also two
+   classes) rather than reaching for !important. Border-color longhands
+   above don't need this -- .nav-link only sets the `border` SHORTHAND at
+   one-class specificity, which .header-metal-control's later longhand
+   overrides already win against directly. */
+.header-metal-control.nav-profile,
+.header-metal-control.nav-profile:hover {
+  background: linear-gradient(to bottom, #363a3f 0%, #1f2226 50%, #121315 100%);
+}
+
+.header-metal-control.nav-profile {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 58%, white 12%),
+    0 0 0 2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, transparent),
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent),
+    0 2px 5px -2px rgba(0, 0, 0, 0.5);
+}
+
+.header-metal-control.nav-profile:hover {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 72%, white 15%),
+    0 0 0 2.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, transparent),
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent),
+    0 4px 8px -2px rgba(0, 0, 0, 0.5);
+}

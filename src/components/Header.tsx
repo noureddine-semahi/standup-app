@@ -573,8 +573,8 @@ export default function Header() {
         href="/standup/profile"
         className={
           pathname === "/standup/profile"
-            ? "nav-link nav-profile font-semibold flex items-center gap-2"
-            : "nav-link nav-profile flex items-center gap-2"
+            ? "nav-link nav-profile header-metal-control font-semibold flex items-center gap-2"
+            : "nav-link nav-profile header-metal-control flex items-center gap-2"
         }
       >
         <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
@@ -586,7 +586,11 @@ export default function Header() {
   function avatar() {
     if (!user) return null;
     return (
-      <Link href="/standup/profile" aria-label={t("nav.profileAriaLabel")}>
+      <Link
+        href="/standup/profile"
+        aria-label={t("nav.profileAriaLabel")}
+        className="header-metal-control header-metal-control--round"
+      >
         <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} />
       </Link>
     );
@@ -610,7 +614,7 @@ export default function Header() {
     if (!user) return null;
     if (variant === "mobile") {
       return (
-        <Link href="/standup/dashboard" className="nav-bell-btn" aria-label={t("nav.notificationsAriaLabel")}>
+        <Link href="/standup/dashboard" className="nav-bell-btn header-metal-control" aria-label={t("nav.notificationsAriaLabel")}>
           <Bell size={18} />
           {notificationCount > 0 && (
             <span className="nav-bell-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
@@ -623,7 +627,7 @@ export default function Header() {
       <div className="nav-bell-wrap" ref={bellRef}>
         <button
           type="button"
-          className="nav-bell-btn"
+          className="nav-bell-btn header-metal-control"
           aria-label={bellOpen ? t("nav.closeMenu") : t("nav.notificationsAriaLabel")}
           aria-expanded={bellOpen}
           onClick={() => {
@@ -767,7 +771,7 @@ export default function Header() {
         <div className="nav-mobile-trigger">
           <button
             type="button"
-            className="hamburger-btn"
+            className="hamburger-btn header-metal-control"
             aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}

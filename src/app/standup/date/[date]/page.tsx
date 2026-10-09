@@ -6,7 +6,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
+import { getTaskExecutionDestination } from "@/lib/taskNavigation";
 import {
   awardPlanningPoints,
   getAttachmentsForGoals,
@@ -30,6 +31,7 @@ import {
   useStreakPass,
   rescheduleGoalToDate,
   getOutcomeGoals,
+  getConceptualTaskById,
   findOrphanedContinuationIds,
   type ChecklistItem,
   type Goal,
@@ -73,6 +75,29 @@ export default function DynamicDatePage() {
   // A day that's already happened is view-only — nothing to add or edit,
   // the only thing you can do is re-attempt a goal on a future date.
   const isPastDate = dateISO < todayISO;
+
+  // Goal Engine Phase 2C-2: same ?goal=<id>&root=<rootId> deep-link/
+  // scroll/highlight mechanism Today and Tomorrow already have -- added
+  // fresh here, since this page never had it. Major Goal groups on this
+  // page (see renderGroupedSection below) have no collapse toggle at
+  // all, same as Tomorrow, so there's no group-reveal step needed; the
+  // target row is always rendered once its data has loaded.
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const initialGoalParamRef = useRef(searchParams.get("goal"));
+  const initialRootParamRef = useRef(searchParams.get("root"));
+  const [highlightGoalId, setHighlightGoalId] = useState<string | null>(initialGoalParamRef.current);
+  const rootParam = initialRootParamRef.current;
+  const scrolledToHighlightRef = useRef(false);
+  const fallbackAttemptedRef = useRef(false);
+
+  function cleanupFocusParams() {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("goal");
+    next.delete("root");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
 
   const [loading, setLoading] = useState(true);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
@@ -149,6 +174,69 @@ export default function DynamicDatePage() {
       router.replace("/standup/today");
     }
   }, [dateISO, todayISO, router]);
+
+  // Goal Engine Phase 2C-2 fast path + root fallback -- same shape as
+  // Today/Tomorrow's own mechanism. No group-collapse step: this page's
+  // Major Goal groups (renderGroupedSection) always render fully.
+  useEffect(() => {
+    if (scrolledToHighlightRef.current || loading || !highlightGoalId) return;
+
+    const el = document.querySelector(`[data-goal-id="${highlightGoalId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrolledToHighlightRef.current = true;
+      cleanupFocusParams();
+      return;
+    }
+
+    if (fallbackAttemptedRef.current || !rootParam) {
+      scrolledToHighlightRef.current = true;
+      cleanupFocusParams();
+      return;
+    }
+    fallbackAttemptedRef.current = true;
+
+    (async () => {
+      let resolved: Awaited<ReturnType<typeof getConceptualTaskById>> = null;
+      try {
+        resolved = await getConceptualTaskById(rootParam);
+      } catch {
+        resolved = null;
+      }
+      if (!resolved) {
+        scrolledToHighlightRef.current = true;
+        cleanupFocusParams();
+        return;
+      }
+
+      const newTerminalId = resolved.task.terminal.id;
+      const newPlanDate = resolved.task.terminal.plan_date;
+      const destination = getTaskExecutionDestination({
+        planDate: newPlanDate,
+        todayISO,
+        tomorrowISO,
+        terminalId: newTerminalId,
+        rootId: rootParam,
+      });
+
+      if (!destination) {
+        scrolledToHighlightRef.current = true;
+        cleanupFocusParams();
+        return;
+      }
+
+      const [destPath] = destination.split("?");
+      if (destPath === pathname) {
+        // Still belongs on this exact date -- point the existing
+        // mechanism at the freshly-resolved id; this effect naturally
+        // retries for it.
+        setHighlightGoalId(newTerminalId);
+      } else {
+        router.replace(destination, { scroll: false });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightGoalId]);
 
   useEffect(() => {
     if (pendingFocusIndex == null) return;
@@ -993,7 +1081,8 @@ export default function DynamicDatePage() {
         onDragStart={() => handleDragStart(idx)}
         onDragOver={(e) => handleDragOver(e, idx)}
         onDragEnd={handleDragEnd}
-        className="goal-row"
+        data-goal-id={g.id}
+        className={`goal-row${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
         style={{
           "--p-color": (p >= 1 && p <= 3) ? opt.color : "rgba(var(--tint-rgb),0.2)",
           cursor: editMode ? "move" : "default",

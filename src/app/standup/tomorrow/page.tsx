@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { getTaskExecutionDestination } from "@/lib/taskNavigation";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   addDays,
@@ -35,6 +36,7 @@ import {
   createOutcomeGoal,
   findOrphanedContinuationIds,
   getConceptualTasksByOutcomeGoalIds,
+  getConceptualTaskById,
   type ChecklistItem,
   type GoalAttachment,
   type RecurringGoalTemplate,
@@ -83,9 +85,34 @@ export default function TomorrowGoalsPage() {
   // Deep-linking in from Dashboard's tappable goal rows (?goal=<id>) —
   // scrolls to and briefly highlights that goal once loaded, same
   // guarded-ref one-shot pattern as Today's own page/Social's ?post=.
+  //
+  // Goal Engine Phase 2C-2: ?root=<rootId> is a NEW, optional companion
+  // param (Dashboard/Goal Detail Task links, not yet wired -- 2C-3).
+  // Captured ONCE at mount (useRef's initializer) and never re-synced
+  // from the live URL -- same reasoning as Today's own page: query
+  // cleanup below rewrites the URL without feeding back into this
+  // state, so the temporary highlight survives its full animation even
+  // after the URL has already been cleaned up.
   const searchParams = useSearchParams();
-  const highlightGoalId = searchParams.get("goal");
+  const router = useRouter();
+  const pathname = usePathname();
+  const initialGoalParamRef = useRef(searchParams.get("goal"));
+  const initialRootParamRef = useRef(searchParams.get("root"));
+  const [highlightGoalId, setHighlightGoalId] = useState<string | null>(initialGoalParamRef.current);
+  const rootParam = initialRootParamRef.current;
   const scrolledToHighlightRef = useRef(false);
+  const fallbackAttemptedRef = useRef(false);
+
+  // Removes only ?goal=/?root= from the URL, preserving any other
+  // existing query params -- router.replace (not push), so this never
+  // becomes its own back-button stop and never reloads/refetches.
+  function cleanupFocusParams() {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("goal");
+    next.delete("root");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
   const [loading, setLoading] = useState(true);
   // Drafting/saving tomorrow's plan is always available. Submitting
   // (finalizing) it is gated separately — only once today has been
@@ -320,13 +347,66 @@ export default function TomorrowGoalsPage() {
       .catch(() => {});
   }, []);
 
+  // Goal Engine Phase 2C-2 fast path + root fallback -- same shape as
+  // Today's own page, minus the group-collapse step: Tomorrow's Major
+  // Goal groups have no collapse toggle at all (always fully rendered),
+  // so there's nothing to expand before querying the DOM.
   useEffect(() => {
     if (scrolledToHighlightRef.current || loading || !highlightGoalId) return;
+
     const el = document.querySelector(`[data-goal-id="${highlightGoalId}"]`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       scrolledToHighlightRef.current = true;
+      cleanupFocusParams();
+      return;
     }
+
+    if (fallbackAttemptedRef.current || !rootParam) {
+      scrolledToHighlightRef.current = true;
+      cleanupFocusParams();
+      return;
+    }
+    fallbackAttemptedRef.current = true;
+
+    (async () => {
+      let resolved: Awaited<ReturnType<typeof getConceptualTaskById>> = null;
+      try {
+        resolved = await getConceptualTaskById(rootParam);
+      } catch {
+        resolved = null;
+      }
+      if (!resolved) {
+        scrolledToHighlightRef.current = true;
+        cleanupFocusParams();
+        return;
+      }
+
+      const newTerminalId = resolved.task.terminal.id;
+      const newPlanDate = resolved.task.terminal.plan_date;
+      const destination = getTaskExecutionDestination({
+        planDate: newPlanDate,
+        todayISO,
+        tomorrowISO,
+        terminalId: newTerminalId,
+        rootId: rootParam,
+      });
+
+      if (!destination) {
+        scrolledToHighlightRef.current = true;
+        cleanupFocusParams();
+        return;
+      }
+
+      const [destPath] = destination.split("?");
+      if (destPath === pathname) {
+        // Still belongs on Tomorrow -- point the existing mechanism at
+        // the freshly-resolved id; this effect naturally retries for it.
+        setHighlightGoalId(newTerminalId);
+      } else {
+        router.replace(destination, { scroll: false });
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, highlightGoalId]);
 

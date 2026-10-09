@@ -14,6 +14,7 @@ import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
+import { getTargetProgress, formatTargetProgress } from "@/lib/goalProgress";
 import {
   getOutcomeGoalById,
   getConceptualTasksByOutcomeGoalIds,
@@ -125,8 +126,27 @@ export default function GoalDetailPage() {
   const [editPriority, setEditPriority] = useState(DEFAULT_PRIORITY);
   const [editGoalType, setEditGoalType] = useState<OutcomeGoalType>("one_time");
   const [goalTypeInfo, setGoalTypeInfo] = useState<OutcomeGoalType | null>(null);
+  // Goal Engine Phase 2D-3: Target fields, kept as raw input strings (not
+  // pre-parsed numbers) so "blank" is distinguishable from "0" while
+  // typing, and so an in-progress invalid entry never gets silently
+  // coerced to 0. Always present in the edit form regardless of
+  // editGoalType -- only their VISIBILITY is conditional on
+  // editGoalType === "target" (see the render below); switching away
+  // from Target never clears this state, so switching back shows
+  // whatever was there, and saving always persists all three (switching
+  // a Goal's type never clears its stored Target fields either).
+  const [editTargetValue, setEditTargetValue] = useState("");
+  const [editCurrentValue, setEditCurrentValue] = useState("");
+  const [editTargetUnit, setEditTargetUnit] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
   const [settingStatus, setSettingStatus] = useState(false);
+
+  // Goal Engine Phase 2D-3: a separate, smaller control from the full
+  // Edit Goal form -- updates ONLY current_value, for a persisted
+  // Target Goal, without opening the whole edit form.
+  const [showUpdateProgress, setShowUpdateProgress] = useState(false);
+  const [progressValueDraft, setProgressValueDraft] = useState("");
+  const [savingProgress, setSavingProgress] = useState(false);
 
   async function load(goalId: string) {
     setLoading(true);
@@ -255,13 +275,32 @@ export default function GoalDetailPage() {
     setEditDetails(goal.details ?? "");
     setEditPriority(goal.priority);
     setEditGoalType(goal.goal_type);
+    setEditTargetValue(goal.target_value != null ? String(goal.target_value) : "");
+    setEditCurrentValue(goal.current_value != null ? String(goal.current_value) : "");
+    setEditTargetUnit(goal.target_unit ?? "");
     setShowEditGoal(true);
   }
+
+  // Blank -> null; a valid (possibly decimal) number -> that number;
+  // anything else -> undefined, meaning "invalid, caller must not save
+  // this as-is" (never silently coerced to 0).
+  function parseNullableNumber(raw: string): number | null | undefined {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
+  const editTargetValueInvalid = parseNullableNumber(editTargetValue) === undefined;
+  const editCurrentValueInvalid = parseNullableNumber(editCurrentValue) === undefined;
 
   async function handleSaveGoal() {
     if (!goal || savingGoal) return;
     const title = editTitle.trim();
     if (!title) return;
+    const parsedTargetValue = parseNullableNumber(editTargetValue);
+    const parsedCurrentValue = parseNullableNumber(editCurrentValue);
+    if (parsedTargetValue === undefined || parsedCurrentValue === undefined) return;
     setSavingGoal(true);
     setMsg(null);
     try {
@@ -270,6 +309,14 @@ export default function GoalDetailPage() {
         details: editDetails.trim() || null,
         priority: editPriority,
         goal_type: editGoalType,
+        // Always saved regardless of the currently-selected editGoalType
+        // -- Target fields are independent of goal_type (Phase 2D-2's
+        // own design), so switching types in this same edit never
+        // clears them; only their visibility in this form is
+        // conditional on editGoalType === "target".
+        target_value: parsedTargetValue,
+        current_value: parsedCurrentValue,
+        target_unit: editTargetUnit.trim() || null,
       });
       setGoal(updated);
       setShowEditGoal(false);
@@ -277,6 +324,27 @@ export default function GoalDetailPage() {
       setMsg(e?.message ?? t("goalDetail.editGoalFailed"));
     } finally {
       setSavingGoal(false);
+    }
+  }
+
+  const progressValueInvalid = parseNullableNumber(progressValueDraft) === undefined;
+
+  // Goal Engine Phase 2D-3: updates ONLY current_value -- never
+  // target_value/target_unit, never Tasks, never Goal status.
+  async function handleSaveProgress() {
+    if (!goal || savingProgress) return;
+    const parsed = parseNullableNumber(progressValueDraft);
+    if (parsed === undefined) return;
+    setSavingProgress(true);
+    setMsg(null);
+    try {
+      const updated = await updateOutcomeGoal(goal.id, { current_value: parsed });
+      setGoal(updated);
+      setShowUpdateProgress(false);
+    } catch (e: any) {
+      setMsg(e?.message ?? t("goalDetail.updateProgressFailed"));
+    } finally {
+      setSavingProgress(false);
     }
   }
 
@@ -336,6 +404,11 @@ export default function GoalDetailPage() {
   const total = tasksWithChain.length;
   const completed = tasksWithChain.filter((g) => g.status === "completed").length;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // Goal Engine Phase 2D-3: Task-ratio progress (above) is untouched and
+  // still computed the same way for every type -- only which number
+  // becomes the HEADLINE differs. Only meaningful for goal_type ===
+  // "target"; unused (but harmless to compute) otherwise.
+  const targetProgress = getTargetProgress({ currentValue: goal.current_value, targetValue: goal.target_value });
 
   const openTasks = tasksWithChain.filter(
     (g) => g.status !== "completed" && g.status !== "canceled" && g.lifecycle !== "broken"
@@ -543,13 +616,92 @@ export default function GoalDetailPage() {
           {t("goalDetail.createdOn", { date: formatDateDisplay(goal.created_at.slice(0, 10)) })}
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-2 text-xs text-white/50">
-          <span>{t("goalDetail.tasksCompletedStat", { completed, total })}</span>
-          <span className="font-bold text-pink-300/85">{pct}%</span>
-        </div>
-        <div className="dashboard-goal-progress-track">
-          <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
-        </div>
+        {goal.goal_type === "target" ? (
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-wide text-white/35 font-semibold">
+              {t("goalDetail.goalProgressLabel")}
+            </div>
+            {targetProgress.configured ? (
+              <>
+                <div className="mt-1 flex items-center justify-between gap-2 text-xs text-white/50">
+                  <span className="font-semibold text-white/80">
+                    {formatTargetProgress(targetProgress.currentValue, targetProgress.targetValue, goal.target_unit)}
+                  </span>
+                  <span className="font-bold text-pink-300/85">{targetProgress.roundedPct}%</span>
+                </div>
+                <div className="dashboard-goal-progress-track">
+                  <div className="dashboard-goal-progress-fill" style={{ width: `${targetProgress.barPct}%` }} />
+                </div>
+              </>
+            ) : (
+              <div className="mt-1 text-xs text-white/60">{t("goalDetail.targetNotConfigured")}</div>
+            )}
+
+            <div className="mt-3 text-[10px] uppercase tracking-wide text-white/35 font-semibold">
+              {t("goalDetail.taskProgressLabel")}
+            </div>
+            <div className="mt-1 text-xs text-white/50">{t("goalDetail.tasksCompletedStat", { completed, total })}</div>
+
+            {/* Goal Engine Phase 2D-3: a separate, smaller control from
+                the full Edit Goal form -- updates ONLY current_value. */}
+            <div className="mt-3">
+              {!showUpdateProgress ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProgressValueDraft(goal.current_value != null ? String(goal.current_value) : "");
+                    setShowUpdateProgress(true);
+                  }}
+                  className="btn"
+                  style={{ fontSize: "0.72rem", padding: "0.25rem 0.55rem" }}
+                >
+                  {t("goalDetail.updateProgress")}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    value={progressValueDraft}
+                    disabled={savingProgress}
+                    onChange={(e) => setProgressValueDraft(e.target.value)}
+                    className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                    style={{ width: "7rem" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveProgress}
+                    disabled={savingProgress || progressValueInvalid}
+                    className="btn btn-primary"
+                    style={{ fontSize: "0.72rem" }}
+                  >
+                    {savingProgress ? t("goalDetail.saving") : t("goalDetail.save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowUpdateProgress(false)}
+                    disabled={savingProgress}
+                    className="btn btn-ghost"
+                    style={{ fontSize: "0.72rem" }}
+                  >
+                    {t("today.cancel")}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-4 flex items-center justify-between gap-2 text-xs text-white/50">
+              <span>{t("goalDetail.tasksCompletedStat", { completed, total })}</span>
+              <span className="font-bold text-pink-300/85">{pct}%</span>
+            </div>
+            <div className="dashboard-goal-progress-track">
+              <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </>
+        )}
       </div>
 
       {msg && (
@@ -757,11 +909,52 @@ export default function GoalDetailPage() {
                 </option>
               ))}
             </select>
+
+            {/* Goal Engine Phase 2D-3: visibility follows the EDIT FORM's
+                own selected type (editGoalType), not the persisted
+                goal.goal_type -- switching One-Time -> Target in this
+                same form reveals these immediately, without saving
+                first. The underlying state is never cleared when
+                switching away, so switching back to Target still shows
+                whatever was entered. */}
+            {editGoalType === "target" && (
+              <>
+                <label className="block text-[11px] text-white/40">{t("goalDetail.editTargetValueLabel")}</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={editTargetValue}
+                  disabled={savingGoal}
+                  onChange={(e) => setEditTargetValue(e.target.value)}
+                  className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                />
+                <label className="block text-[11px] text-white/40">{t("goalDetail.editCurrentValueLabel")}</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={editCurrentValue}
+                  disabled={savingGoal}
+                  onChange={(e) => setEditCurrentValue(e.target.value)}
+                  className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                />
+                <label className="block text-[11px] text-white/40">{t("goalDetail.editTargetUnitLabel")}</label>
+                <input
+                  type="text"
+                  value={editTargetUnit}
+                  disabled={savingGoal}
+                  onChange={(e) => setEditTargetUnit(e.target.value)}
+                  className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                />
+              </>
+            )}
+
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleSaveGoal}
-                disabled={savingGoal || !editTitle.trim()}
+                disabled={savingGoal || !editTitle.trim() || editTargetValueInvalid || editCurrentValueInvalid}
                 className="btn btn-primary"
                 style={{ fontSize: "0.78rem" }}
               >

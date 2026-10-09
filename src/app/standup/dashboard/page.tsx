@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
+import { getTargetProgress, formatTargetProgress } from "@/lib/goalProgress";
 import {
   toISODate,
   addDays,
@@ -1002,13 +1003,47 @@ export default function DashboardPage() {
                             style={{ transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }}
                           />
                         </button>
-                        <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">
-                          <span>{t("dashboard.goalTasksStat", { completed, total })}</span>
-                          <span className="font-bold text-pink-300/85 flex-shrink-0">{pct}%</span>
-                        </div>
-                        <div className="dashboard-goal-progress-track">
-                          <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
-                        </div>
+                        {goal.goal_type === "target" ? (
+                          (() => {
+                            const targetProgress = getTargetProgress({
+                              currentValue: goal.current_value,
+                              targetValue: goal.target_value,
+                            });
+                            return targetProgress.configured ? (
+                              <>
+                                <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">
+                                  <span className="truncate">
+                                    {formatTargetProgress(targetProgress.currentValue, targetProgress.targetValue, goal.target_unit)}
+                                  </span>
+                                  <span className="font-bold text-pink-300/85 flex-shrink-0">{targetProgress.roundedPct}%</span>
+                                </div>
+                                <div className="dashboard-goal-progress-track">
+                                  <div className="dashboard-goal-progress-fill" style={{ width: `${targetProgress.barPct}%` }} />
+                                </div>
+                                <div className="mt-1 text-[10px] text-white/35 truncate">
+                                  {t("dashboard.goalTasksStat", { completed, total })}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="mt-1.5 text-[11px] text-white/50">
+                                {t("goalDetail.targetNotConfigured")}
+                                <div className="mt-0.5 text-[10px] text-white/35 truncate">
+                                  {t("dashboard.goalTasksStat", { completed, total })}
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <>
+                            <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">
+                              <span>{t("dashboard.goalTasksStat", { completed, total })}</span>
+                              <span className="font-bold text-pink-300/85 flex-shrink-0">{pct}%</span>
+                            </div>
+                            <div className="dashboard-goal-progress-track">
+                              <div className="dashboard-goal-progress-fill" style={{ width: `${pct}%` }} />
+                            </div>
+                          </>
+                        )}
                         {context && (
                           <div className="mt-1.5 text-[11px] text-white/40 truncate">
                             {context.kind === "today"

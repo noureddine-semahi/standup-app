@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
+import { getTargetProgress, formatTargetProgress } from "@/lib/goalProgress";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
@@ -441,6 +442,16 @@ export default function TodayPage() {
   const outcomeGoalTitleById = useMemo(() => {
     const map = new Map<string, string>();
     for (const o of outcomeGoals) map.set(o.id, o.title);
+    return map;
+  }, [outcomeGoals]);
+
+  // Goal Engine Phase 2D-3: the full OutcomeGoal (not just its title) is
+  // needed per Major Goal card to read goal_type/target_value/
+  // current_value/target_unit -- derived from the same already-loaded
+  // outcomeGoals state as the title map above, no new fetch.
+  const outcomeGoalById = useMemo(() => {
+    const map = new Map<string, OutcomeGoal>();
+    for (const o of outcomeGoals) map.set(o.id, o);
     return map;
   }, [outcomeGoals]);
 
@@ -3195,6 +3206,23 @@ export default function TodayPage() {
                   const pendingReviewInGroup = totalCount - reviewedInGroup;
                   const isGroupCollapsed = collapsedGoalGroupIds.has(goalId);
 
+                  // Goal Engine Phase 2D-3: full OutcomeGoal (not just its
+                  // title) looked up from the already-loaded outcomeGoals
+                  // state -- no new fetch. Only Target Goals use
+                  // targetProgress; every other type's Summary stays the
+                  // existing Task-ratio block, byte-identical to before.
+                  const majorGoal = outcomeGoalById.get(goalId);
+                  const isTargetGoal = majorGoal?.goal_type === "target";
+                  const targetProgress = isTargetGoal
+                    ? getTargetProgress({ currentValue: majorGoal!.current_value, targetValue: majorGoal!.target_value })
+                    : null;
+                  // No fake 0% bar for an unconfigured Target -- same
+                  // "omit the bar entirely" rule Goal Detail/Dashboard use.
+                  const showProgressBar = !isTargetGoal || (targetProgress?.configured ?? false);
+                  const barProgressFraction = isTargetGoal
+                    ? (targetProgress?.configured ? targetProgress.barPct : 0) / 100
+                    : completionPct / 100;
+
                   return (
                     <div key={goalId} className="goal-group-card">
                       <button
@@ -3225,8 +3253,23 @@ export default function TodayPage() {
                           state, per spec. */}
                       <div className="goal-group-card-summary">
                         <div className="goal-group-card-stats">
-                          <span>{t("today.goalCompletionStat", { completed: completedCount, total: totalCount })}</span>
-                          <span>{t("today.goalPercentStat", { pct: completionPct })}</span>
+                          {isTargetGoal ? (
+                            targetProgress?.configured ? (
+                              <>
+                                <span>
+                                  {formatTargetProgress(targetProgress.currentValue, targetProgress.targetValue, majorGoal!.target_unit)}
+                                </span>
+                                <span>{t("today.goalPercentStat", { pct: targetProgress.roundedPct })}</span>
+                              </>
+                            ) : (
+                              <span>{t("goalDetail.targetNotConfigured")}</span>
+                            )
+                          ) : (
+                            <>
+                              <span>{t("today.goalCompletionStat", { completed: completedCount, total: totalCount })}</span>
+                              <span>{t("today.goalPercentStat", { pct: completionPct })}</span>
+                            </>
+                          )}
                           <span>{t("today.goalReviewedStat", { reviewed: reviewedInGroup })}</span>
                           {pendingReviewInGroup > 0 && (
                             <span className="text-amber-400">
@@ -3234,12 +3277,19 @@ export default function TodayPage() {
                             </span>
                           )}
                         </div>
-                        <div className="goal-progress-track">
-                          <div
-                            className="goal-progress-fill"
-                            style={{ "--progress": completionPct / 100 } as React.CSSProperties}
-                          />
-                        </div>
+                        {showProgressBar && (
+                          <div className="goal-progress-track">
+                            <div
+                              className="goal-progress-fill"
+                              style={{ "--progress": barProgressFraction } as React.CSSProperties}
+                            />
+                          </div>
+                        )}
+                        {isTargetGoal && (
+                          <div className="mt-1 text-[11px] text-white/40">
+                            {t("today.goalCompletionStat", { completed: completedCount, total: totalCount })}
+                          </div>
+                        )}
                       </div>
 
                       {!isGroupCollapsed && (

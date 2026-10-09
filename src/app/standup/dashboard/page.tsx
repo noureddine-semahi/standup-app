@@ -714,7 +714,11 @@ export default function DashboardPage() {
     const doneOrCanceled = tasks.filter((g) => g.status === "completed" || g.status === "canceled");
     const sortedTasks = [...todayUnfinished, ...tomorrowUnfinished, ...otherUnfinished, ...broken, ...doneOrCanceled];
 
-    return { goal, total, completed, pct, context, sortedTasks };
+    // Goal Engine Phase 2D-4: exposes the ALREADY-computed `unfinished`
+    // (above) through this object -- no recompute/refetch, just
+    // surfacing a count that existed in this same function already, for
+    // the Ongoing Goal branch in the render below.
+    return { goal, total, completed, pct, context, sortedTasks, openCount: unfinished.length };
   });
 
   // The Dashboard itself stays as compact as before by default -- only
@@ -975,7 +979,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {visibleGoalCards.map(({ goal, total, completed, pct, context, sortedTasks }) => {
+                  {visibleGoalCards.map(({ goal, total, completed, pct, context, sortedTasks, openCount }) => {
                     const isExpanded = expandedGoalIds.has(goal.id);
                     return (
                       <div key={goal.id} className="dashboard-goal-card min-w-0">
@@ -1033,6 +1037,22 @@ export default function DashboardPage() {
                               </div>
                             );
                           })()
+                        ) : goal.goal_type === "ongoing" ? (
+                          // Goal Engine Phase 2D-4: no finish line -- no
+                          // percentage, no bar, no "{completed} of
+                          // {total}" denominator. openCount is the
+                          // already-computed `unfinished.length` exposed
+                          // through activeGoalCards above, not a new
+                          // fetch. "Active" is valid unconditionally here
+                          // -- activeOutcomeGoals (feeding this list) is
+                          // already filtered to status === "active".
+                          <div className="mt-1.5 text-[11px] text-white/50">
+                            <div>{t("goalDetail.statusActive")}</div>
+                            <div className="mt-0.5">{t("goalDetail.ongoingTasksCompletedCount", { count: completed })}</div>
+                            <div className="mt-0.5 text-[10px] text-white/35">
+                              {t("goalDetail.ongoingOpenTasksCount", { count: openCount })}
+                            </div>
+                          </div>
                         ) : (
                           <>
                             <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-white/50">

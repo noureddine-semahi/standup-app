@@ -763,6 +763,25 @@ export default function GoalDetailPage() {
               )}
             </div>
           </div>
+        ) : goal.goal_type === "ongoing" ? (
+          // Goal Engine Phase 2D-4: an Ongoing Goal has no finish line --
+          // Task completion must never be presented as Goal-level
+          // percentage/100%. No bar, no "{completed} of {total}"
+          // denominator. statusText already resolves to the Goal's real
+          // lifecycle label (Active/Completed/Abandoned) -- Task
+          // completion never determines or overrides it.
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-wide text-white/35 font-semibold">
+              {t("goalDetail.ongoingProgressLabel")}
+            </div>
+            <div className="mt-1 text-xs text-white/50">{statusText}</div>
+            <div className="mt-1 text-xs text-white/50">
+              {t("goalDetail.ongoingTasksCompletedCount", { count: completed })}
+            </div>
+            <div className="mt-1 text-xs text-white/50">
+              {t("goalDetail.ongoingOpenTasksCount", { count: openTasks.length })}
+            </div>
+          </div>
         ) : (
           <>
             <div className="mt-4 flex items-center justify-between gap-2 text-xs text-white/50">

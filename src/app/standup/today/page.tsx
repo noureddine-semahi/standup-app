@@ -3313,9 +3313,24 @@ export default function TodayPage() {
                   const targetProgress = isTargetGoal
                     ? getTargetProgress({ currentValue: majorGoal!.current_value, targetValue: majorGoal!.target_value })
                     : null;
-                  // No fake 0% bar for an unconfigured Target -- same
-                  // "omit the bar entirely" rule Goal Detail/Dashboard use.
-                  const showProgressBar = !isTargetGoal || (targetProgress?.configured ?? false);
+                  // Goal Engine Phase 2D-4: an Ongoing Goal has no finish
+                  // line -- same "no percentage, no bar" treatment as
+                  // Target-unconfigured, but for a different reason.
+                  // openCount reuses the exact semantic filter already
+                  // established for "open" elsewhere (Dashboard's
+                  // unfinished/Goal Detail's openTasks): not completed,
+                  // not canceled, not broken -- derived from allChildren,
+                  // already loaded, no new query.
+                  const isOngoingGoal = majorGoal?.goal_type === "ongoing";
+                  const openCount = isOngoingGoal
+                    ? allChildren.filter(
+                        (g) => g.status !== "completed" && g.status !== "canceled" && (g as any).lifecycle !== "broken"
+                      ).length
+                    : 0;
+                  // No fake 0% bar for an unconfigured Target, and no bar
+                  // at all for Ongoing -- same "omit the bar entirely"
+                  // rule Goal Detail/Dashboard use.
+                  const showProgressBar = isOngoingGoal ? false : !isTargetGoal || (targetProgress?.configured ?? false);
                   const barProgressFraction = isTargetGoal
                     ? (targetProgress?.configured ? targetProgress.barPct : 0) / 100
                     : completionPct / 100;
@@ -3361,6 +3376,17 @@ export default function TodayPage() {
                             ) : (
                               <span>{t("goalDetail.targetNotConfigured")}</span>
                             )
+                          ) : isOngoingGoal ? (
+                            // Goal Engine Phase 2D-4: no percentage, no
+                            // "{completed} of {total}" denominator.
+                            // Reviewed/pending-review stats below are
+                            // NOT duplicated here -- they already render
+                            // unconditionally right after this block.
+                            <>
+                              <span>{t("goalDetail.statusActive")}</span>
+                              <span>{t("goalDetail.ongoingTasksCompletedCount", { count: completedCount })}</span>
+                              <span>{t("goalDetail.ongoingOpenTasksCount", { count: openCount })}</span>
+                            </>
                           ) : (
                             <>
                               <span>{t("today.goalCompletionStat", { completed: completedCount, total: totalCount })}</span>

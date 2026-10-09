@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase/client";
 import type { Theme } from "@/lib/theme";
 import type { TranslationKey } from "@/lib/i18n/en";
+import { computeCycleRange, type RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 
 export type PlanStatus = "draft" | "submitted" | "locked";
 export type GoalStatus =
@@ -1273,6 +1274,12 @@ export type OutcomeGoalType = "one_time" | "ongoing" | "recurring" | "target";
 // yet (that's 2D-3). All three nullable; null for every Goal that isn't
 // (or doesn't yet use) the "target" classification. Manual update model:
 // current_value is only ever set directly, never derived from Tasks.
+// Goal Engine Phase 2D-5A: Recurring Goal cycle data foundation only --
+// no cycle resolution reads these from a Task yet (that's 2D-5B). All
+// three nullable; null for every Goal that isn't (or doesn't yet use)
+// the "recurring" classification. recurrence_start_date doubles as the
+// weekly-cycle anchor (see src/lib/recurringGoalCycle.ts); monthly uses
+// calendar-month boundaries after its own first, partial cycle.
 export type OutcomeGoal = {
   id: string;
   user_id: string;
@@ -1284,6 +1291,9 @@ export type OutcomeGoal = {
   target_value: number | null;
   current_value: number | null;
   target_unit: string | null;
+  recurrence_frequency: RecurrenceFrequency | null;
+  recurrence_start_date: string | null;
+  recurrence_target_count: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -1347,7 +1357,17 @@ export async function createOutcomeGoal(
   // null. Deliberately NOT required just because goalType === "target"
   // -- that validation belongs at the UI/business layer (2D-3+), not
   // here.
-  targetFields?: { target_value?: number | null; current_value?: number | null; target_unit?: string | null }
+  targetFields?: { target_value?: number | null; current_value?: number | null; target_unit?: string | null },
+  // Goal Engine Phase 2D-5A: same optional-options-object shape as
+  // targetFields above -- every existing call site keeps working
+  // unchanged, and all three columns stay null unless explicitly
+  // supplied. No validation that these are only set when
+  // goalType === "recurring"; that belongs at the UI/business layer.
+  recurrenceFields?: {
+    recurrence_frequency?: RecurrenceFrequency | null;
+    recurrence_start_date?: string | null;
+    recurrence_target_count?: number | null;
+  }
 ): Promise<OutcomeGoal> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
@@ -1361,6 +1381,9 @@ export async function createOutcomeGoal(
       target_value: targetFields?.target_value ?? null,
       current_value: targetFields?.current_value ?? null,
       target_unit: targetFields?.target_unit ?? null,
+      recurrence_frequency: recurrenceFields?.recurrence_frequency ?? null,
+      recurrence_start_date: recurrenceFields?.recurrence_start_date ?? null,
+      recurrence_target_count: recurrenceFields?.recurrence_target_count ?? null,
     })
     .select()
     .single();
@@ -1368,11 +1391,23 @@ export async function createOutcomeGoal(
   return toOutcomeGoal(data);
 }
 
-/** Title/details/priority/goal_type/target fields — not status (see setOutcomeGoalStatus). */
+/** Title/details/priority/goal_type/target/recurrence fields — not status (see setOutcomeGoalStatus). */
 export async function updateOutcomeGoal(
   id: string,
   patch: Partial<
-    Pick<OutcomeGoal, "title" | "details" | "priority" | "goal_type" | "target_value" | "current_value" | "target_unit">
+    Pick<
+      OutcomeGoal,
+      | "title"
+      | "details"
+      | "priority"
+      | "goal_type"
+      | "target_value"
+      | "current_value"
+      | "target_unit"
+      | "recurrence_frequency"
+      | "recurrence_start_date"
+      | "recurrence_target_count"
+    >
   >
 ): Promise<OutcomeGoal> {
   const { data, error } = await supabase
@@ -1402,6 +1437,109 @@ export async function setOutcomeGoalStatus(
 export async function deleteOutcomeGoal(id: string): Promise<void> {
   const { error } = await supabase.from("outcome_goals").delete().eq("id", id);
   if (error) throw error;
+}
+
+// Goal Engine Phase 2D-5A: an explicit, historically-frozen cycle record
+// for a Recurring Goal. cycle_start/cycle_end/target_count_snapshot are
+// set once at creation (resolveOrCreateCycle below) and never updated
+// afterward -- a later change to the Goal's own recurrence config must
+// never retroactively change a past cycle's boundaries or target. Not
+// linked to any `goals` row yet; that wiring is Phase 2D-5B.
+export type OutcomeGoalCycle = {
+  id: string;
+  user_id: string;
+  outcome_goal_id: string;
+  cycle_start: string;
+  cycle_end: string;
+  target_count_snapshot: number | null;
+  created_at: string;
+};
+
+// target_count_snapshot is an `integer` column (unlike target_value/
+// current_value, which are `numeric` and need the Number() coercion
+// above) -- PostgREST already returns integers as real JSON numbers, so
+// this normalizer exists only to pin the function's return type, same
+// shape/spirit as toOutcomeGoal.
+function toOutcomeGoalCycle(row: any): OutcomeGoalCycle {
+  return { ...row } as OutcomeGoalCycle;
+}
+
+/**
+ * Resolves the cycle containing `targetDateISO` for a Recurring Goal,
+ * creating it if it doesn't exist yet -- same lazy get-or-insert shape
+ * as getOrCreatePlan. Never updates an existing cycle's boundaries or
+ * target_count_snapshot: once a row exists for a given cycle_start, it
+ * is returned as-is regardless of the Goal's CURRENT recurrence config.
+ *
+ * Throws if the Goal isn't found, isn't owned by the current user, isn't
+ * goal_type "recurring", or is missing recurrence_frequency/
+ * recurrence_start_date -- callers (Task creation/materialization, in a
+ * later phase) must not silently fall back to a default range.
+ *
+ * Does NOT write goals.outcome_goal_cycle_id -- this only resolves/
+ * creates the cycle row itself. Wiring a Task to the result is Phase
+ * 2D-5B.
+ */
+export async function resolveOrCreateCycle(
+  outcomeGoalId: string,
+  targetDateISO: string
+): Promise<OutcomeGoalCycle> {
+  const userId = await getCurrentUserId();
+
+  const goal = await getOutcomeGoalById(outcomeGoalId);
+  if (!goal) throw new Error(`Outcome Goal ${outcomeGoalId} not found`);
+  if (goal.goal_type !== "recurring") {
+    throw new Error(`Outcome Goal ${outcomeGoalId} is not a recurring Goal`);
+  }
+  if (!goal.recurrence_frequency || !goal.recurrence_start_date) {
+    throw new Error(`Outcome Goal ${outcomeGoalId} has no recurrence configuration`);
+  }
+
+  const { cycleStart, cycleEnd } = computeCycleRange({
+    frequency: goal.recurrence_frequency,
+    recurrenceStartDate: goal.recurrence_start_date,
+    targetDate: targetDateISO,
+  });
+
+  const { data: existing, error: selErr } = await supabase
+    .from("outcome_goal_cycles")
+    .select("*")
+    .eq("outcome_goal_id", outcomeGoalId)
+    .eq("cycle_start", cycleStart)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (existing) return toOutcomeGoalCycle(existing);
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("outcome_goal_cycles")
+    .insert({
+      user_id: userId,
+      outcome_goal_id: outcomeGoalId,
+      cycle_start: cycleStart,
+      cycle_end: cycleEnd,
+      target_count_snapshot: goal.recurrence_target_count,
+    })
+    .select("*")
+    .single();
+
+  if (insErr) {
+    // Another concurrent call already created this cycle between our
+    // SELECT and INSERT -- fetch the row it created instead of failing.
+    // Same race-handling shape as getOrCreatePlan's own 23505 fallback.
+    if (insErr.code === "23505") {
+      const { data: winner, error: refetchErr } = await supabase
+        .from("outcome_goal_cycles")
+        .select("*")
+        .eq("outcome_goal_id", outcomeGoalId)
+        .eq("cycle_start", cycleStart)
+        .single();
+      if (refetchErr) throw refetchErr;
+      return toOutcomeGoalCycle(winner);
+    }
+    throw insErr;
+  }
+
+  return toOutcomeGoalCycle(inserted);
 }
 
 // ── Recurring goal templates ──────────────────────────────────────────

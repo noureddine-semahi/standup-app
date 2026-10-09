@@ -154,6 +154,8 @@ export const en = {
   "goalDetail.taskProgressLabel": "Task Progress",
   "goalDetail.targetNotConfigured": "Target not configured",
   "goalDetail.targetSetupLabel": "Target Setup",
+  "goalDetail.saveTask": "Save Task",
+  "goalDetail.taskSaveFailed": "Couldn't save that Task — try again.",
   "goalType.fieldLabel": "Goal Type",
   "goalType.examplesLabel": "Examples",
   "goalType.gotIt": "Got it",

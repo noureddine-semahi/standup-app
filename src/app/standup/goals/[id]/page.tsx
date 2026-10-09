@@ -24,6 +24,8 @@ import {
   resolveBrokenGoal,
   getPlanWithGoals,
   upsertGoals,
+  updateGoalTitle,
+  updateGoalPriority,
   toISODate,
   addDays,
   formatDateDisplay,
@@ -140,6 +142,21 @@ export default function GoalDetailPage() {
   const [editTargetUnit, setEditTargetUnit] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
   const [settingStatus, setSettingStatus] = useState(false);
+
+  // Goal Engine Phase 2D-3B: per-Task structural-edit drafts, keyed by
+  // TERMINAL task.id -- never by root/chain id, and never by an ancestor
+  // row (see this phase's own read-only inspection for why: editing
+  // anything but the terminal would corrupt historical snapshots).
+  // Initialized fresh from openTasks each time Edit Goal opens
+  // (openEditGoal below); tasksWithChain/openTasks themselves are never
+  // mutated just because a draft is being typed. "Dirty" is deliberately
+  // NOT its own stored bit -- it's derived by comparing a draft against
+  // the Task's own current title/priority each render, so a successful
+  // save (which reconciles via refreshTasks()) naturally clears it once
+  // the Task's live data catches up to match the draft.
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, { title: string; priority: number }>>({});
+  const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
+  const [taskSaveErrorById, setTaskSaveErrorById] = useState<Record<string, string>>({});
 
   // Goal Engine Phase 2D-3: a separate, smaller control from the full
   // Edit Goal form -- updates ONLY current_value, for a persisted
@@ -278,6 +295,16 @@ export default function GoalDetailPage() {
     setEditTargetValue(goal.target_value != null ? String(goal.target_value) : "");
     setEditCurrentValue(goal.current_value != null ? String(goal.current_value) : "");
     setEditTargetUnit(goal.target_unit ?? "");
+    // Goal Engine Phase 2D-3B: fresh drafts from the CURRENT openTasks
+    // every time Edit Goal opens -- never carries over stale drafts
+    // from a previous open/close, and never includes completed/
+    // canceled/broken Tasks (they're not in openTasks at all).
+    const drafts: Record<string, { title: string; priority: number }> = {};
+    for (const task of openTasks) {
+      drafts[task.id] = { title: task.title, priority: task.priority ?? DEFAULT_PRIORITY };
+    }
+    setTaskDrafts(drafts);
+    setTaskSaveErrorById({});
     setShowEditGoal(true);
   }
 
@@ -324,6 +351,51 @@ export default function GoalDetailPage() {
       setMsg(e?.message ?? t("goalDetail.editGoalFailed"));
     } finally {
       setSavingGoal(false);
+    }
+  }
+
+  // Goal Engine Phase 2D-3B: structural edit (title/priority) for ONE
+  // open, unlocked child Task -- independent of handleSaveGoal (a
+  // different table, a different button, never bundled together).
+  // Always targets task.id (the chain's current terminal) -- never an
+  // ancestor -- so historical rows earlier in the chain are never
+  // touched. Only calls the API(s) for fields that actually changed.
+  async function handleSaveTask(task: TaskWithChain) {
+    const draft = taskDrafts[task.id];
+    if (!draft || savingTaskId) return;
+    const trimmedTitle = draft.title.trim();
+    if (!trimmedTitle) return;
+    const titleChanged = trimmedTitle !== task.title;
+    const priorityChanged = draft.priority !== (task.priority ?? DEFAULT_PRIORITY);
+    if (!titleChanged && !priorityChanged) return;
+
+    setSavingTaskId(task.id);
+    setTaskSaveErrorById((prev) => {
+      const next = { ...prev };
+      delete next[task.id];
+      return next;
+    });
+    try {
+      if (titleChanged) {
+        await updateGoalTitle(task.id, trimmedTitle);
+      }
+      if (priorityChanged) {
+        // May enforce single-P1 on this Task's own plan (see
+        // updateGoalPriority's own doc comment) -- reusing it exactly
+        // as-is rather than duplicating that logic here.
+        await updateGoalPriority(task.id, task.plan_id, draft.priority);
+      }
+      // Reconcile from source either way -- also picks up any
+      // single-P1 side effect on a DIFFERENT Task in the same plan.
+      await refreshTasks();
+    } catch (e: any) {
+      setTaskSaveErrorById((prev) => ({ ...prev, [task.id]: e?.message ?? t("goalDetail.taskSaveFailed") }));
+      // Don't pretend both calls succeeded (or both failed) -- reconcile
+      // from source so the UI reflects whatever was actually written,
+      // even if only one of the two calls above went through.
+      await refreshTasks().catch(() => {});
+    } finally {
+      setSavingTaskId(null);
     }
   }
 
@@ -948,6 +1020,86 @@ export default function GoalDetailPage() {
                   className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
                 />
               </>
+            )}
+
+            {/* Goal Engine Phase 2D-3B: structural editing (title/
+                priority only) for OPEN child Tasks -- completed/
+                canceled/broken Tasks are never in openTasks, so they
+                never appear here; this editor can't reach them. Each
+                row saves independently of the Goal-level Save button
+                above/below. */}
+            {openTasks.length > 0 && (
+              <div className="space-y-3 pt-2 mt-2 border-t border-white/10">
+                <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
+                  {t("goalDetail.openTasksTitle")}
+                </div>
+                {openTasks.map((task) => {
+                  const draft = taskDrafts[task.id] ?? {
+                    title: task.title,
+                    priority: task.priority ?? DEFAULT_PRIORITY,
+                  };
+                  const assignment = findChainAssignment(assignedOutByGoalId, task.chainIds);
+                  const isLocked = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+                  const trimmedDraftTitle = draft.title.trim();
+                  const isDirty =
+                    trimmedDraftTitle !== task.title || draft.priority !== (task.priority ?? DEFAULT_PRIORITY);
+                  const isSavingThis = savingTaskId === task.id;
+                  const saveError = taskSaveErrorById[task.id];
+
+                  return (
+                    <div key={task.id} className="space-y-1">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={draft.title}
+                          disabled={isLocked || isSavingThis}
+                          onChange={(e) =>
+                            setTaskDrafts((prev) => ({
+                              ...prev,
+                              [task.id]: { ...draft, title: e.target.value },
+                            }))
+                          }
+                          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                        />
+                        <select
+                          value={draft.priority}
+                          disabled={isLocked || isSavingThis}
+                          onChange={(e) =>
+                            setTaskDrafts((prev) => ({
+                              ...prev,
+                              [task.id]: { ...draft, priority: Number(e.target.value) },
+                            }))
+                          }
+                          className="appearance-none rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/30 disabled:opacity-50 flex-shrink-0"
+                        >
+                          {[1, 2, 3, 4, 5].map((p) => (
+                            <option key={p} value={p}>
+                              P{p}
+                            </option>
+                          ))}
+                        </select>
+                        {!isLocked && (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveTask(task)}
+                            disabled={!isDirty || !trimmedDraftTitle || isSavingThis}
+                            className="btn btn-primary flex-shrink-0"
+                            style={{ fontSize: "0.7rem", padding: "0.3rem 0.5rem" }}
+                          >
+                            {isSavingThis ? t("goalDetail.saving") : t("goalDetail.saveTask")}
+                          </button>
+                        )}
+                      </div>
+                      {isLocked && (
+                        <div className="text-[10px] text-white/35">
+                          {t("dashboard.goalTaskMetaAssignedTo", { name: assignment?.recipientDisplayName ?? "" })}
+                        </div>
+                      )}
+                      {saveError && <div className="text-[10px] text-red-400">{saveError}</div>}
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             <div className="flex gap-2 pt-1">

@@ -18,6 +18,7 @@ import {
   findChainRootId,
   collectChainIds,
   toOutcomeGoal,
+  normalizeGoalTitle,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1092,5 +1093,23 @@ describe("toOutcomeGoal (Goal Engine Phase 2D-2: Target data foundation)", () =>
     expect(goal.current_value).toBeNull();
     expect(goal.target_unit).toBeNull();
     expect(goal.goal_type).toBe("one_time");
+  });
+});
+
+describe("normalizeGoalTitle (Goal Engine Phase 2D-3B: child Task title editing)", () => {
+  it("trims surrounding whitespace", () => {
+    expect(normalizeGoalTitle("  Follow up with James  ")).toBe("Follow up with James");
+  });
+
+  it("rejects an empty string", () => {
+    expect(() => normalizeGoalTitle("")).toThrow();
+  });
+
+  it("rejects a whitespace-only string", () => {
+    expect(() => normalizeGoalTitle("   ")).toThrow();
+  });
+
+  it("leaves an already-clean title unchanged", () => {
+    expect(normalizeGoalTitle("Submit application")).toBe("Submit application");
   });
 });

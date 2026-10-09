@@ -2688,6 +2688,32 @@ export async function resolveBrokenGoal(goalId: string, resolution: BrokenGoalRe
   await updateGoalStatus(goalId, resolution);
 }
 
+// Pure, synchronous -- factored out of updateGoalTitle below purely so
+// the validation itself is testable without mocking Supabase (same
+// testability-driven extraction as toOutcomeGoal/findChainRootId
+// elsewhere in this file). Throws rather than silently saving an empty
+// title.
+export function normalizeGoalTitle(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Title cannot be empty.");
+  return trimmed;
+}
+
+/**
+ * Updates ONLY a goal's title -- a narrow counterpart to
+ * updateGoalPriority/updateGoalLink below, deliberately NOT upsertGoals:
+ * upsertGoals' update branch writes every column on the row (including
+ * outcome_goal_id, which it defaults to null when a caller doesn't
+ * re-supply it), so reusing it for a single-field rename risks silently
+ * unlinking the Task from its Goal. This touches only `title`, nothing
+ * else on the row.
+ */
+export async function updateGoalTitle(goalId: string, title: string): Promise<void> {
+  const trimmed = normalizeGoalTitle(title);
+  const { error } = await supabase.from("goals").update({ title: trimmed }).eq("id", goalId);
+  if (error) throw error;
+}
+
 /** Updates a goal's priority and logs it as a timestamped timeline event (see logGoalEvent). */
 export async function updateGoalPriority(goalId: string, planId: string, priority: number) {
   const { error } = await supabase.from("goals").update({ priority }).eq("id", goalId);

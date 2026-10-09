@@ -17,6 +17,7 @@ import {
   buildNextByFromIdMap,
   findChainRootId,
   collectChainIds,
+  toOutcomeGoal,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1035,5 +1036,61 @@ describe("GoalDeleteBlockedError", () => {
     const err = new GoalDeleteBlockedError("assignment");
     expect(err.reason).toBe("assignment");
     expect(err.message).toMatch(/assignment/i);
+  });
+});
+
+describe("toOutcomeGoal (Goal Engine Phase 2D-2: Target data foundation)", () => {
+  // target_value/current_value are Postgres `numeric` columns -- PostgREST
+  // serializes those as JSON strings, same reason payment_accounts'
+  // balance/minimum_payment already need an explicit Number(...)
+  // coercion on read rather than a bare cast.
+  const baseRow = {
+    id: "g1",
+    user_id: "u1",
+    title: "Save for a trip",
+    details: null,
+    priority: 3,
+    status: "active",
+    goal_type: "target",
+    created_at: "2026-10-08T00:00:00.000Z",
+    updated_at: "2026-10-08T00:00:00.000Z",
+  };
+
+  it("leaves target_value/current_value as null when the row has them as null (never coerced to 0)", () => {
+    const goal = toOutcomeGoal({ ...baseRow, target_value: null, current_value: null, target_unit: null });
+    expect(goal.target_value).toBeNull();
+    expect(goal.current_value).toBeNull();
+    expect(goal.target_unit).toBeNull();
+  });
+
+  it("coerces numeric-string target_value/current_value (PostgREST's numeric serialization) to real numbers", () => {
+    const goal = toOutcomeGoal({ ...baseRow, target_value: "5000", current_value: "1750", target_unit: "$" });
+    expect(goal.target_value).toBe(5000);
+    expect(goal.current_value).toBe(1750);
+    expect(typeof goal.target_value).toBe("number");
+    expect(typeof goal.current_value).toBe("number");
+  });
+
+  it("passes through target_unit and every other existing field unchanged", () => {
+    const goal = toOutcomeGoal({ ...baseRow, target_value: "50", current_value: "18", target_unit: "jobs" });
+    expect(goal.target_unit).toBe("jobs");
+    expect(goal.id).toBe("g1");
+    expect(goal.title).toBe("Save for a trip");
+    expect(goal.goal_type).toBe("target");
+    expect(goal.status).toBe("active");
+  });
+
+  it("a non-target Goal with all three fields null round-trips cleanly", () => {
+    const goal = toOutcomeGoal({
+      ...baseRow,
+      goal_type: "one_time",
+      target_value: null,
+      current_value: null,
+      target_unit: null,
+    });
+    expect(goal.target_value).toBeNull();
+    expect(goal.current_value).toBeNull();
+    expect(goal.target_unit).toBeNull();
+    expect(goal.goal_type).toBe("one_time");
   });
 });

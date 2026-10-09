@@ -1268,6 +1268,11 @@ export type OutcomeGoalStatus = "active" | "completed" | "abandoned";
 // unit) are later phases; this is only the classification itself.
 export type OutcomeGoalType = "one_time" | "ongoing" | "recurring" | "target";
 
+// Goal Engine Phase 2D-2: Target Goal data foundation only -- no progress
+// calculation, no automatic increment/completion/clamping reads these
+// yet (that's 2D-3). All three nullable; null for every Goal that isn't
+// (or doesn't yet use) the "target" classification. Manual update model:
+// current_value is only ever set directly, never derived from Tasks.
 export type OutcomeGoal = {
   id: string;
   user_id: string;
@@ -1276,9 +1281,27 @@ export type OutcomeGoal = {
   priority: number;
   status: OutcomeGoalStatus;
   goal_type: OutcomeGoalType;
+  target_value: number | null;
+  current_value: number | null;
+  target_unit: string | null;
   created_at: string;
   updated_at: string;
 };
+
+// target_value/current_value are Postgres `numeric` columns -- PostgREST
+// serializes those as JSON strings (to avoid float precision loss), the
+// same reason payment_accounts.balance/minimum_payment already go
+// through an explicit Number(...) coercion on read rather than a bare
+// cast. `integer` columns (priority) don't need this; numeric ones do.
+// Centralized here so every read/write path that returns an OutcomeGoal
+// agrees on the same shape.
+export function toOutcomeGoal(row: any): OutcomeGoal {
+  return {
+    ...row,
+    target_value: row.target_value == null ? null : Number(row.target_value),
+    current_value: row.current_value == null ? null : Number(row.current_value),
+  } as OutcomeGoal;
+}
 
 export async function getOutcomeGoals(): Promise<OutcomeGoal[]> {
   const userId = await getCurrentUserId();
@@ -1288,7 +1311,7 @@ export async function getOutcomeGoals(): Promise<OutcomeGoal[]> {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as OutcomeGoal[];
+  return (data ?? []).map(toOutcomeGoal);
 }
 
 /**
@@ -1309,29 +1332,48 @@ export async function getOutcomeGoalById(id: string): Promise<OutcomeGoal | null
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return (data ?? null) as OutcomeGoal | null;
+  return data ? toOutcomeGoal(data) : null;
 }
 
 export async function createOutcomeGoal(
   title: string,
   details: string | null = null,
   priority = 3,
-  goalType: OutcomeGoalType = "one_time"
+  goalType: OutcomeGoalType = "one_time",
+  // Goal Engine Phase 2D-2: an options object rather than more positional
+  // params -- every existing call site (createOutcomeGoal(title),
+  // createOutcomeGoal(title, null, 3, goalType)) keeps working unchanged
+  // since this is optional and defaults to leaving all three columns
+  // null. Deliberately NOT required just because goalType === "target"
+  // -- that validation belongs at the UI/business layer (2D-3+), not
+  // here.
+  targetFields?: { target_value?: number | null; current_value?: number | null; target_unit?: string | null }
 ): Promise<OutcomeGoal> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("outcome_goals")
-    .insert({ user_id: userId, title, details, priority, goal_type: goalType })
+    .insert({
+      user_id: userId,
+      title,
+      details,
+      priority,
+      goal_type: goalType,
+      target_value: targetFields?.target_value ?? null,
+      current_value: targetFields?.current_value ?? null,
+      target_unit: targetFields?.target_unit ?? null,
+    })
     .select()
     .single();
   if (error) throw error;
-  return data as OutcomeGoal;
+  return toOutcomeGoal(data);
 }
 
-/** Title/details/priority/goal_type edits — not status (see setOutcomeGoalStatus). */
+/** Title/details/priority/goal_type/target fields — not status (see setOutcomeGoalStatus). */
 export async function updateOutcomeGoal(
   id: string,
-  patch: Partial<Pick<OutcomeGoal, "title" | "details" | "priority" | "goal_type">>
+  patch: Partial<
+    Pick<OutcomeGoal, "title" | "details" | "priority" | "goal_type" | "target_value" | "current_value" | "target_unit">
+  >
 ): Promise<OutcomeGoal> {
   const { data, error } = await supabase
     .from("outcome_goals")
@@ -1340,7 +1382,7 @@ export async function updateOutcomeGoal(
     .select()
     .single();
   if (error) throw error;
-  return data as OutcomeGoal;
+  return toOutcomeGoal(data);
 }
 
 export async function setOutcomeGoalStatus(
@@ -1354,7 +1396,7 @@ export async function setOutcomeGoalStatus(
     .select()
     .single();
   if (error) throw error;
-  return data as OutcomeGoal;
+  return toOutcomeGoal(data);
 }
 
 export async function deleteOutcomeGoal(id: string): Promise<void> {

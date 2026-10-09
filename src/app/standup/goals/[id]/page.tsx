@@ -24,6 +24,7 @@ import {
   resolveBrokenGoal,
   getPlanWithGoals,
   upsertGoals,
+  resolveTaskCycleId,
   updateGoalTitle,
   updateGoalPriority,
   toISODate,
@@ -271,8 +272,20 @@ export default function GoalDetailPage() {
       const { plan, goals: planGoals } = await getPlanWithGoals(date);
       const nextSortOrder =
         planGoals.length > 0 ? Math.max(...planGoals.map((g) => g.sort_order ?? 0)) + 1 : 0;
+      // Goal Engine Phase 2D-5B: resolves to null for every non-Recurring
+      // Goal; throws clearly (surfaced via the catch below) for a
+      // Recurring Goal with missing recurrence config or a date before
+      // its configured start, rather than silently adding a Task with
+      // no cycle ownership.
+      const cycleId = await resolveTaskCycleId(goal.id, date);
       await upsertGoals(plan.id, [
-        { title, priority: newTaskPriority, sort_order: nextSortOrder, outcome_goal_id: goal.id },
+        {
+          title,
+          priority: newTaskPriority,
+          sort_order: nextSortOrder,
+          outcome_goal_id: goal.id,
+          outcome_goal_cycle_id: cycleId,
+        },
       ]);
       setNewTaskTitle("");
       setNewTaskPriority(DEFAULT_PRIORITY);

@@ -122,3 +122,29 @@ describe("computeCycleRange — local date consistency", () => {
     expect(range).toEqual({ cycleStart: "2026-02-23", cycleEnd: "2026-03-01" });
   });
 });
+
+// Goal Engine Phase 2D-5B: conceptual same-cycle / cross-cycle checks for
+// materializeReschedules' own wiring -- the destination's cycle is always
+// computed fresh from item.to_date (never copied from the source row), so
+// "same cycle" vs "cross cycle" must fall out of computeCycleRange alone,
+// with no reschedule-specific branching anywhere. These exercise exactly
+// that: two dates within one reschedule's source/destination pair, bucketed
+// through the same pure function Task creation and materialization both call.
+describe("computeCycleRange — materialization same-cycle vs cross-cycle wiring", () => {
+  const recurrenceStartDate = "2026-10-05"; // cycle 1: 10-05..10-11, cycle 2: 10-12..10-18
+
+  it("a reschedule within the same cycle resolves source and destination to the identical cycle", () => {
+    const source = computeCycleRange({ frequency: "weekly", recurrenceStartDate, targetDate: "2026-10-06" });
+    const destination = computeCycleRange({ frequency: "weekly", recurrenceStartDate, targetDate: "2026-10-09" });
+    expect(destination).toEqual(source);
+    expect(destination.cycleStart).toBe("2026-10-05");
+  });
+
+  it("a reschedule across a cycle boundary resolves the destination to the next cycle, leaving the source's cycle distinct", () => {
+    const source = computeCycleRange({ frequency: "weekly", recurrenceStartDate, targetDate: "2026-10-11" }); // last day of cycle 1
+    const destination = computeCycleRange({ frequency: "weekly", recurrenceStartDate, targetDate: "2026-10-12" }); // first day of cycle 2
+    expect(destination.cycleStart).not.toBe(source.cycleStart);
+    expect(source).toEqual({ cycleStart: "2026-10-05", cycleEnd: "2026-10-11" });
+    expect(destination).toEqual({ cycleStart: "2026-10-12", cycleEnd: "2026-10-18" });
+  });
+});

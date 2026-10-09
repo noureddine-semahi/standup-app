@@ -258,6 +258,11 @@ export type Goal = {
   // write path/UI yet — this just lets existing `select("*")` reads
   // surface the column once a later phase starts setting it.
   outcome_goal_id?: string | null;
+  // Goal Engine Phase 2D-5B: which cycle THIS PHYSICAL row belongs to --
+  // set once at creation (resolveTaskCycleId), never rewritten on a
+  // later edit/reschedule. null for every Task except one created under
+  // a configured "recurring" Outcome Goal.
+  outcome_goal_cycle_id?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;
@@ -778,6 +783,28 @@ async function materializeReschedules(planId: string, planDateISO: string) {
       if (alreadyErr) throw alreadyErr;
       if (already && already.length > 0) continue; // already materialized by an earlier call
 
+      const destinationOutcomeGoalId = outcomeGoalIdByFromGoalId.get(item.from_goal_id) ?? null;
+      // Goal Engine Phase 2D-5B: resolved from item.to_date (the
+      // destination's OWN execution date), never copied from the source
+      // row's cycle -- same-cycle and cross-cycle reschedules both fall
+      // out of this naturally (see resolveTaskCycleId/computeCycleRange).
+      // The source physical row's own outcome_goal_cycle_id is never
+      // read or written here, matching the LOCKED RULE: a reschedule
+      // only ever creates a NEW destination row with its own cycle,
+      // never rewrites the row it came from.
+      //
+      // Deliberately NOT wrapped in a try/catch that degrades to null on
+      // failure: a Recurring Goal with missing recurrence config, or a
+      // destination date before its configured start, must never
+      // materialize an incorrectly unclassified (null-cycle) destination
+      // row -- historical integrity outranks silently completing this
+      // materialization pass. The throw propagates through the normal
+      // materialization failure path like any other error in this loop
+      // (see insErr/alreadyErr/selErr above).
+      const destinationCycleId = destinationOutcomeGoalId
+        ? await resolveTaskCycleId(destinationOutcomeGoalId, item.to_date)
+        : null;
+
       const { data: inserted, error: insErr } = await supabase
         .from("goals")
         .insert({
@@ -788,7 +815,8 @@ async function materializeReschedules(planId: string, planDateISO: string) {
           status: "not_started",
           sort_order: nextSortOrder++,
           priority: typeof item.snapshot_priority === "number" ? item.snapshot_priority : 3,
-          outcome_goal_id: outcomeGoalIdByFromGoalId.get(item.from_goal_id) ?? null,
+          outcome_goal_id: destinationOutcomeGoalId,
+          outcome_goal_cycle_id: destinationCycleId,
         })
         .select("id")
         .single();
@@ -1023,6 +1051,16 @@ export async function upsertGoals(
         is_all_day: !!(g as any).is_all_day,
         link_url: (g as any).link_url || null,
         outcome_goal_id: (g as any).outcome_goal_id || null,
+        // Goal Engine Phase 2D-5B: INSERT-only, deliberately absent from
+        // the UPDATE branch above. Callers resolve this via
+        // resolveTaskCycleId() before calling upsertGoals() and attach
+        // it only on brand-new rows (no `id` yet) -- an update row that
+        // doesn't carry this field at all (e.g. Tomorrow's autosave,
+        // which round-trips existing draft rows that never loaded
+        // outcome_goal_cycle_id) must never have it included in the SET
+        // clause, or an existing Task's cycle would be silently nulled
+        // out on its next unrelated edit. See this row's own LOCKED RULE.
+        outcome_goal_cycle_id: (g as any).outcome_goal_cycle_id ?? null,
       };
       if (typeof (g as any).priority === "number")
         row.priority = (g as any).priority;
@@ -1540,6 +1578,75 @@ export async function resolveOrCreateCycle(
   }
 
   return toOutcomeGoalCycle(inserted);
+}
+
+export type CycleResolutionPlan =
+  | { action: "skip" }
+  | { action: "missing_config" }
+  | { action: "resolve" };
+
+/**
+ * Pure decision logic extracted from resolveTaskCycleId below purely for
+ * testability -- same reasoning as findGoalDeleteBlockReason: given an
+ * already-fetched Outcome Goal (or null, e.g. a standalone Task's
+ * outcome_goal_id), decides WHETHER cycle resolution applies at all,
+ * without doing any I/O or boundary-math itself (that stays solely in
+ * resolveOrCreateCycle/recurringGoalCycle.ts).
+ *
+ * "skip": not a Goal, or a Goal whose type isn't "recurring" --
+ * Target/Ongoing/One-Time/standalone Tasks never get a cycle.
+ * "missing_config": goal_type is "recurring" but recurrence_frequency/
+ * recurrence_start_date aren't both set yet.
+ * "resolve": goal_type is "recurring" and fully configured -- the
+ * caller should proceed to resolveOrCreateCycle.
+ */
+export function planCycleResolution(
+  goal: Pick<OutcomeGoal, "goal_type" | "recurrence_frequency" | "recurrence_start_date"> | null
+): CycleResolutionPlan {
+  if (!goal || goal.goal_type !== "recurring") return { action: "skip" };
+  if (!goal.recurrence_frequency || !goal.recurrence_start_date) return { action: "missing_config" };
+  return { action: "resolve" };
+}
+
+/**
+ * Goal Engine Phase 2D-5B: the ONE place every Goal-linked Task creation
+ * path (Goal Detail Add Task, Today/Tomorrow Major Goal creation,
+ * materializeReschedules) asks "what cycle does this physical Task row
+ * belong to" -- keeps recurrence-specific decisions out of every caller
+ * so none of them duplicate this logic.
+ *
+ * - outcomeGoalId null (standalone Task) -> null, no lookup at all.
+ * - Goal exists but isn't goal_type "recurring" -> null (Target/Ongoing/
+ *   One-Time Tasks never get a cycle).
+ * - Goal is "recurring" but missing recurrence_frequency/
+ *   recurrence_start_date -> throws clearly rather than silently
+ *   returning null -- a Recurring Goal's Task must never be created
+ *   outside its configured recurrence, or with no cycle ownership a
+ *   later history read could mistake it for "not recurring".
+ * - Goal is "recurring" and configured, but planDateISO is before
+ *   recurrence_start_date -> throws (via resolveOrCreateCycle/
+ *   computeCycleRange's own CycleBeforeRecurrenceStartError).
+ *
+ * Callers decide how to handle either throw by surfacing it as a clear,
+ * actionable error (the same error-handling path each already uses for
+ * any other failure) -- including materializeReschedules, which lets it
+ * propagate rather than degrading to a null-cycle destination row (see
+ * its own comment at the call site: historical integrity outranks
+ * silently completing that materialization pass).
+ */
+export async function resolveTaskCycleId(
+  outcomeGoalId: string | null,
+  planDateISO: string
+): Promise<string | null> {
+  if (!outcomeGoalId) return null;
+  const goal = await getOutcomeGoalById(outcomeGoalId);
+  const plan = planCycleResolution(goal);
+  if (plan.action === "skip") return null;
+  if (plan.action === "missing_config") {
+    throw new Error(`Outcome Goal ${outcomeGoalId} has no recurrence configuration`);
+  }
+  const cycle = await resolveOrCreateCycle(outcomeGoalId, planDateISO);
+  return cycle.id;
 }
 
 // ── Recurring goal templates ──────────────────────────────────────────

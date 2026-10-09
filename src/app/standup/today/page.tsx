@@ -43,6 +43,7 @@ import {
   formatTimeOfDay,
   formatDateTimeDisplay,
   upsertGoals,
+  resolveTaskCycleId,
   publishGoalGlimpse,
   unpublishGoalGlimpse,
   getMyGoalGlimpsePost,
@@ -1375,6 +1376,14 @@ export default function TodayPage() {
       );
       setOutcomeGoals((prev) => [created, ...prev]);
 
+      // Goal Engine Phase 2D-5B: resolves to null unless created is a
+      // configured Recurring Goal; throws clearly (surfaced via the
+      // catch below as goalCreateError) for a Recurring Goal missing
+      // recurrence config, rather than silently creating Tasks with no
+      // cycle ownership. Resolved once and reused for every child Task
+      // in this batch -- they all share today's plan date.
+      const cycleId = await resolveTaskCycleId(created.id, todayISO);
+
       const existingIds = new Set(goals.map((g) => g.id));
       const rows = validTasks.map((tk, idx) => ({
         title: tk.title,
@@ -1383,6 +1392,7 @@ export default function TodayPage() {
         status: "not_started" as GoalStatus,
         time_of_day: null,
         outcome_goal_id: created.id,
+        outcome_goal_cycle_id: cycleId,
       }));
       const saved = await upsertGoals(plan.id, rows);
       const newP1 = saved.find((g) => g.priority === 1 && !existingIds.has(g.id));

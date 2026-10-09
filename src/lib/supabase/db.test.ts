@@ -19,6 +19,7 @@ import {
   collectChainIds,
   toOutcomeGoal,
   normalizeGoalTitle,
+  planCycleResolution,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1111,5 +1112,53 @@ describe("normalizeGoalTitle (Goal Engine Phase 2D-3B: child Task title editing)
 
   it("leaves an already-clean title unchanged", () => {
     expect(normalizeGoalTitle("Submit application")).toBe("Submit application");
+  });
+});
+
+describe("planCycleResolution (Goal Engine Phase 2D-5B: Task-to-cycle wiring decision)", () => {
+  it("a standalone Task (null Goal) is skipped", () => {
+    expect(planCycleResolution(null)).toEqual({ action: "skip" });
+  });
+
+  it("a One-Time Goal is skipped", () => {
+    expect(planCycleResolution({ goal_type: "one_time", recurrence_frequency: null, recurrence_start_date: null })).toEqual({
+      action: "skip",
+    });
+  });
+
+  it("an Ongoing Goal is skipped", () => {
+    expect(planCycleResolution({ goal_type: "ongoing", recurrence_frequency: null, recurrence_start_date: null })).toEqual({
+      action: "skip",
+    });
+  });
+
+  it("a Target Goal is skipped, even if (incorrectly) carrying recurrence fields", () => {
+    expect(
+      planCycleResolution({ goal_type: "target", recurrence_frequency: "weekly", recurrence_start_date: "2026-10-05" })
+    ).toEqual({ action: "skip" });
+  });
+
+  it("a configured Recurring Goal resolves", () => {
+    expect(
+      planCycleResolution({ goal_type: "recurring", recurrence_frequency: "weekly", recurrence_start_date: "2026-10-05" })
+    ).toEqual({ action: "resolve" });
+  });
+
+  it("a Recurring Goal missing recurrence_frequency fails clearly (missing_config, not skip)", () => {
+    expect(
+      planCycleResolution({ goal_type: "recurring", recurrence_frequency: null, recurrence_start_date: "2026-10-05" })
+    ).toEqual({ action: "missing_config" });
+  });
+
+  it("a Recurring Goal missing recurrence_start_date fails clearly (missing_config, not skip)", () => {
+    expect(
+      planCycleResolution({ goal_type: "recurring", recurrence_frequency: "weekly", recurrence_start_date: null })
+    ).toEqual({ action: "missing_config" });
+  });
+
+  it("a Recurring Goal missing both fails clearly (missing_config, not skip)", () => {
+    expect(
+      planCycleResolution({ goal_type: "recurring", recurrence_frequency: null, recurrence_start_date: null })
+    ).toEqual({ action: "missing_config" });
   });
 });

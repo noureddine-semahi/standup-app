@@ -20,6 +20,7 @@ import {
   formatDateDisplay,
   formatDateTimeDisplay,
   upsertGoals,
+  resolveTaskCycleId,
   deleteGoal,
   getSuggestedTemplatesForDate,
   addGoalFromTemplate,
@@ -259,7 +260,12 @@ export default function TomorrowGoalsPage() {
   // catches up to a same-tick setGoals one render later (see goalsRef's
   // own sync effect below). Returns false (and sets the shared "max
   // goals" message) if it wouldn't fit.
-  function appendDraftRow(row: { title: string; priority: number; outcome_goal_id: string | null }): boolean {
+  function appendDraftRow(row: {
+    title: string;
+    priority: number;
+    outcome_goal_id: string | null;
+    outcome_goal_cycle_id?: string | null;
+  }): boolean {
     if (goalsRef.current.length >= MAX_GOALS) {
       setMsg(t("tomorrow.maxGoals", { max: MAX_GOALS }));
       return false;
@@ -344,12 +350,24 @@ export default function TomorrowGoalsPage() {
       );
       setOutcomeGoals((prev) => [created, ...prev]);
 
+      // Goal Engine Phase 2D-5B: resolves to null unless created is a
+      // configured Recurring Goal; throws clearly (surfaced via the
+      // catch below as goalCreateError) for a Recurring Goal missing
+      // recurrence config. Resolved once and reused for every child
+      // Task in this batch -- they all share tomorrow's plan date.
+      const cycleId = await resolveTaskCycleId(created.id, tomorrowISO);
+
       if (autosaveTimerRef.current) {
         clearTimeout(autosaveTimerRef.current);
         autosaveTimerRef.current = null;
       }
       for (const tk of validTasks) {
-        appendDraftRow({ title: tk.title, priority: tk.priority, outcome_goal_id: created.id });
+        appendDraftRow({
+          title: tk.title,
+          priority: tk.priority,
+          outcome_goal_id: created.id,
+          outcome_goal_cycle_id: cycleId,
+        });
       }
       await persistGoals(true);
       resetAddFlow();

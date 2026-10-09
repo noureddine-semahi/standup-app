@@ -1048,7 +1048,12 @@ export default function GoalDetailPage() {
 
                   return (
                     <div key={task.id} className="space-y-1">
-                      <div className="flex gap-2">
+                      {/* Mobile: title on its own full-width row, Priority
+                          + Save stacked below as row 2. Desktop (sm+):
+                          same three controls back on one horizontal row
+                          -- purely a flex-direction switch, no behavior
+                          change. */}
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           value={draft.title}
@@ -1059,36 +1064,38 @@ export default function GoalDetailPage() {
                               [task.id]: { ...draft, title: e.target.value },
                             }))
                           }
-                          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                          className="w-full sm:flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
                         />
-                        <select
-                          value={draft.priority}
-                          disabled={isLocked || isSavingThis}
-                          onChange={(e) =>
-                            setTaskDrafts((prev) => ({
-                              ...prev,
-                              [task.id]: { ...draft, priority: Number(e.target.value) },
-                            }))
-                          }
-                          className="appearance-none rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/30 disabled:opacity-50 flex-shrink-0"
-                        >
-                          {[1, 2, 3, 4, 5].map((p) => (
-                            <option key={p} value={p}>
-                              P{p}
-                            </option>
-                          ))}
-                        </select>
-                        {!isLocked && (
-                          <button
-                            type="button"
-                            onClick={() => handleSaveTask(task)}
-                            disabled={!isDirty || !trimmedDraftTitle || isSavingThis}
-                            className="btn btn-primary flex-shrink-0"
-                            style={{ fontSize: "0.7rem", padding: "0.3rem 0.5rem" }}
+                        <div className="flex gap-2">
+                          <select
+                            value={draft.priority}
+                            disabled={isLocked || isSavingThis}
+                            onChange={(e) =>
+                              setTaskDrafts((prev) => ({
+                                ...prev,
+                                [task.id]: { ...draft, priority: Number(e.target.value) },
+                              }))
+                            }
+                            className="flex-1 sm:flex-initial min-w-0 appearance-none rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-white/30 disabled:opacity-50"
                           >
-                            {isSavingThis ? t("goalDetail.saving") : t("goalDetail.saveTask")}
-                          </button>
-                        )}
+                            {[1, 2, 3, 4, 5].map((p) => (
+                              <option key={p} value={p}>
+                                P{p} — {t(getPriorityMeta(p).label)}
+                              </option>
+                            ))}
+                          </select>
+                          {!isLocked && (
+                            <button
+                              type="button"
+                              onClick={() => handleSaveTask(task)}
+                              disabled={!isDirty || !trimmedDraftTitle || isSavingThis}
+                              className="btn btn-primary flex-shrink-0"
+                              style={{ fontSize: "0.7rem", padding: "0.3rem 0.5rem" }}
+                            >
+                              {isSavingThis ? t("goalDetail.saving") : t("goalDetail.saveTask")}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {isLocked && (
                         <div className="text-[10px] text-white/35">

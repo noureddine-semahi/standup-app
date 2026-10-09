@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { getTaskExecutionDestination } from "@/lib/taskNavigation";
 import {
   getOutcomeGoalById,
   getConceptualTasksByOutcomeGoalIds,
@@ -351,9 +352,28 @@ export default function GoalDetailPage() {
       ? t("goalDetail.statusAbandoned")
       : t("goalDetail.statusActive");
 
-  function renderTaskRow(task: TaskWithChain) {
-    return (
-      <div key={task.id} className="dashboard-goal-task-item">
+  // Goal Engine Phase 2C-3: `navigable` defaults to false -- only the Open
+  // Tasks call site below opts in. Completed/Canceled rows (a historical
+  // record, not something to act on) stay exactly as they were: plain,
+  // non-clickable rows. Built entirely from already-loaded TaskWithChain
+  // data (chainIds[0] is always the chain's root) -- no new DB request.
+  // getTaskExecutionDestination (Phase 2C-2, untouched) returns null when
+  // there's no usable plan_date, in which case the row stays a plain div
+  // even when navigable is true.
+  function renderTaskRow(task: TaskWithChain, opts?: { navigable?: boolean }) {
+    const destination =
+      opts?.navigable
+        ? getTaskExecutionDestination({
+            planDate: task.plan_date,
+            todayISO,
+            tomorrowISO,
+            terminalId: task.id,
+            rootId: task.chainIds[0],
+          })
+        : null;
+
+    const rowContent = (
+      <>
         <div className="dashboard-goal-task-row">
           {/* The outer span is the flex container (title truncation can't
               live here -- text-overflow:ellipsis does nothing on an
@@ -391,6 +411,19 @@ export default function GoalDetailPage() {
           </span>
         </div>
         <div className="dashboard-goal-task-meta">{taskMetaLine(task)}</div>
+      </>
+    );
+
+    if (destination) {
+      return (
+        <Link key={task.id} href={destination} className="dashboard-goal-task-item">
+          {rowContent}
+        </Link>
+      );
+    }
+    return (
+      <div key={task.id} className="dashboard-goal-task-item">
+        {rowContent}
       </div>
     );
   }
@@ -531,7 +564,7 @@ export default function GoalDetailPage() {
           <div className="text-xs text-white/40 py-1">{t("goalDetail.noOpenTasks")}</div>
         ) : (
           <div className="dashboard-goal-tasks" style={{ marginTop: 0, paddingTop: 0, borderTop: "none" }}>
-            {openTasks.map(renderTaskRow)}
+            {openTasks.map((task) => renderTaskRow(task, { navigable: true }))}
           </div>
         )}
 
@@ -626,7 +659,7 @@ export default function GoalDetailPage() {
         <div className="card">
           <h2 className="text-sm font-semibold text-white/80 mb-2">{t("goalDetail.completedTasksTitle")}</h2>
           <div className="dashboard-goal-tasks" style={{ marginTop: 0, paddingTop: 0, borderTop: "none" }}>
-            {completedTasks.map(renderTaskRow)}
+            {completedTasks.map((task) => renderTaskRow(task))}
           </div>
         </div>
       )}
@@ -635,7 +668,7 @@ export default function GoalDetailPage() {
         <div className="card opacity-60">
           <h2 className="text-sm font-semibold text-white/50 mb-2">{t("goalDetail.canceledTasksTitle")}</h2>
           <div className="dashboard-goal-tasks" style={{ marginTop: 0, paddingTop: 0, borderTop: "none" }}>
-            {canceledTasks.map(renderTaskRow)}
+            {canceledTasks.map((task) => renderTaskRow(task))}
           </div>
         </div>
       )}

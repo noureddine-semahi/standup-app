@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import { getTaskExecutionDestination } from "@/lib/taskNavigation";
 import {
   toISODate,
   addDays,
@@ -1107,23 +1108,52 @@ export default function DashboardPage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <div key={task.id} className="dashboard-goal-task-item">
-                                    <div className="dashboard-goal-task-row">
-                                      <span className="truncate">{task.title}</span>
-                                      <span
-                                        className="status-chip-sm flex-shrink-0"
-                                        style={{
-                                          "--chip-bg": statusChipColors(task.status).bg,
-                                          "--chip-border": statusChipColors(task.status).border,
-                                          "--chip-color": statusChipColors(task.status).color,
-                                        } as React.CSSProperties}
-                                      >
-                                        <span>{statusLabel(task.status, t)}</span>
-                                        <StatusIcon status={task.status} size={11} />
-                                      </span>
-                                    </div>
-                                    <div className="dashboard-goal-task-meta">{taskMetaLine(task)}</div>
-                                  </div>
+                                  (() => {
+                                    // Goal Engine Phase 2C-3: schedule-aware navigation for a
+                                    // normal (non-broken) Task, built entirely from data this
+                                    // card already has in memory -- chainIds[0] is always the
+                                    // chain's root (collapseGoalLineages always seeds `chain`
+                                    // with the unclaimed root first), so no new DB request is
+                                    // needed here. getTaskExecutionDestination (Phase 2C-2,
+                                    // untouched) returns null when there's no usable plan_date
+                                    // -- the row then stays a plain, non-clickable div exactly
+                                    // as before.
+                                    const destination = getTaskExecutionDestination({
+                                      planDate: task.plan_date,
+                                      todayISO,
+                                      tomorrowISO,
+                                      terminalId: task.id,
+                                      rootId: task.chainIds[0],
+                                    });
+                                    const rowContent = (
+                                      <>
+                                        <div className="dashboard-goal-task-row">
+                                          <span className="truncate">{task.title}</span>
+                                          <span
+                                            className="status-chip-sm flex-shrink-0"
+                                            style={{
+                                              "--chip-bg": statusChipColors(task.status).bg,
+                                              "--chip-border": statusChipColors(task.status).border,
+                                              "--chip-color": statusChipColors(task.status).color,
+                                            } as React.CSSProperties}
+                                          >
+                                            <span>{statusLabel(task.status, t)}</span>
+                                            <StatusIcon status={task.status} size={11} />
+                                          </span>
+                                        </div>
+                                        <div className="dashboard-goal-task-meta">{taskMetaLine(task)}</div>
+                                      </>
+                                    );
+                                    return destination ? (
+                                      <Link key={task.id} href={destination} className="dashboard-goal-task-item">
+                                        {rowContent}
+                                      </Link>
+                                    ) : (
+                                      <div key={task.id} className="dashboard-goal-task-item">
+                                        {rowContent}
+                                      </div>
+                                    );
+                                  })()
                                 )
                               )
                             )}

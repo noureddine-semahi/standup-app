@@ -51,6 +51,7 @@ import {
   type ArchivedGoal,
   type ConceptualTask,
 } from "@/lib/supabase/db";
+import type { RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -230,6 +231,15 @@ export default function TomorrowGoalsPage() {
   const [newGoalTargetValue, setNewGoalTargetValue] = useState("");
   const [newGoalCurrentValue, setNewGoalCurrentValue] = useState("");
   const [newGoalTargetUnit, setNewGoalTargetUnit] = useState("");
+  // Goal Engine Phase 2D-5C: same Recurring Setup fields/semantics as
+  // Today's own creation flow -- see its own comment for why switching
+  // types never clears this state. Start date defaults to tomorrowISO
+  // (this page's own fixed plan date) for the same reason Today
+  // defaults to todayISO: the required child Tasks must never fall
+  // before the Goal's own configured recurrence start.
+  const [newGoalRecurrenceFrequency, setNewGoalRecurrenceFrequency] = useState<RecurrenceFrequency>("weekly");
+  const [newGoalRecurrenceStartDate, setNewGoalRecurrenceStartDate] = useState(tomorrowISO);
+  const [newGoalRecurrenceTargetCount, setNewGoalRecurrenceTargetCount] = useState("");
   const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
     { title: "", priority: DEFAULT_PRIORITY },
     { title: "", priority: DEFAULT_PRIORITY },
@@ -247,6 +257,9 @@ export default function TomorrowGoalsPage() {
     setNewGoalTargetValue("");
     setNewGoalCurrentValue("");
     setNewGoalTargetUnit("");
+    setNewGoalRecurrenceFrequency("weekly");
+    setNewGoalRecurrenceStartDate(tomorrowISO);
+    setNewGoalRecurrenceTargetCount("");
     setNewGoalTasks([
       { title: "", priority: DEFAULT_PRIORITY },
       { title: "", priority: DEFAULT_PRIORITY },
@@ -319,15 +332,36 @@ export default function TomorrowGoalsPage() {
         parsedNewGoalTargetValue !== null &&
         parsedNewGoalTargetValue > 0 &&
         parsedNewGoalCurrentValue !== undefined;
+  // Goal Engine Phase 2D-5C: same semantics as Today's own validation --
+  // see its own comment for why. Start date is compared against
+  // tomorrowISO (this page's own fixed plan date) instead of todayISO.
+  const parseNullablePositiveInteger = (raw: string): number | null | undefined => {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    return Number.isInteger(n) && n > 0 ? n : undefined;
+  };
+  const parsedNewGoalRecurrenceTargetCount = parseNullablePositiveInteger(newGoalRecurrenceTargetCount);
+  const recurringSetupValid =
+    newGoalType !== "recurring"
+      ? true
+      : !!newGoalRecurrenceFrequency &&
+        !!newGoalRecurrenceStartDate &&
+        newGoalRecurrenceStartDate <= tomorrowISO &&
+        parsedNewGoalRecurrenceTargetCount !== undefined;
   const canCreateMajorGoal =
-    newGoalTitle.trim().length > 0 && validGoalTaskCount >= 2 && targetSetupValid && !creatingGoal;
+    newGoalTitle.trim().length > 0 &&
+    validGoalTaskCount >= 2 &&
+    targetSetupValid &&
+    recurringSetupValid &&
+    !creatingGoal;
 
   async function handleCreateMajorGoal() {
     const title = newGoalTitle.trim();
     const validTasks = newGoalTasks
       .map((tk) => ({ title: tk.title.trim(), priority: tk.priority }))
       .filter((tk) => tk.title.length > 0);
-    if (!title || validTasks.length < 2 || creatingGoal || !targetSetupValid) return;
+    if (!title || validTasks.length < 2 || creatingGoal || !targetSetupValid || !recurringSetupValid) return;
     setCreatingGoal(true);
     setGoalCreateError(null);
     try {
@@ -345,6 +379,13 @@ export default function TomorrowGoalsPage() {
               target_value: parsedNewGoalTargetValue as number,
               current_value: parsedNewGoalCurrentValue ?? null,
               target_unit: newGoalTargetUnit.trim() || null,
+            }
+          : undefined,
+        newGoalType === "recurring"
+          ? {
+              recurrence_frequency: newGoalRecurrenceFrequency,
+              recurrence_start_date: newGoalRecurrenceStartDate,
+              recurrence_target_count: parsedNewGoalRecurrenceTargetCount ?? null,
             }
           : undefined
       );
@@ -2464,6 +2505,49 @@ export default function TomorrowGoalsPage() {
                     </div>
                   )}
 
+                  {/* Goal Engine Phase 2D-5C: same Recurring Setup as
+                      Today's creation flow -- see its own comment for
+                      why switching types never clears this state. */}
+                  {newGoalType === "recurring" && (
+                    <div className="space-y-2">
+                      <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
+                        {t("recurringSetup.label")}
+                      </div>
+                      <label className="block text-[11px] text-white/40">{t("recurringSetup.repeatLabel")}</label>
+                      <select
+                        value={newGoalRecurrenceFrequency}
+                        disabled={creatingGoal}
+                        onChange={(e) => setNewGoalRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
+                        className="appearance-none w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white font-bold outline-none focus:border-white/25 disabled:opacity-50"
+                      >
+                        <option value="daily">{t("recurringSetup.frequencyDaily")}</option>
+                        <option value="weekly">{t("recurringSetup.frequencyWeekly")}</option>
+                        <option value="monthly">{t("recurringSetup.frequencyMonthly")}</option>
+                      </select>
+                      <label className="block text-[11px] text-white/40">{t("recurringSetup.startsLabel")}</label>
+                      <input
+                        type="date"
+                        value={newGoalRecurrenceStartDate}
+                        disabled={creatingGoal}
+                        onChange={(e) => setNewGoalRecurrenceStartDate(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                      <label className="block text-[11px] text-white/40">
+                        {t("recurringSetup.targetPerCycleLabel")} ({t("recurringSetup.optionalHint")})
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        step="1"
+                        min="1"
+                        value={newGoalRecurrenceTargetCount}
+                        disabled={creatingGoal}
+                        onChange={(e) => setNewGoalRecurrenceTargetCount(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                    </div>
+                  )}
+
                   <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
                     {t("tomorrow.goalTasksLabel")}
                   </div>
@@ -2545,6 +2629,8 @@ export default function TomorrowGoalsPage() {
                           ? t("tomorrow.goalNeedsTitle")
                           : validGoalTaskCount < 2
                           ? t("tomorrow.goalNeedsTwoTasks")
+                          : !recurringSetupValid
+                          ? t("recurringSetup.invalidSetup")
                           : ""
                       }
                     >

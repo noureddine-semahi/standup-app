@@ -222,6 +222,13 @@ export default function TomorrowGoalsPage() {
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalType, setNewGoalType] = useState<OutcomeGoalType>("one_time");
   const [goalTypeInfo, setGoalTypeInfo] = useState<OutcomeGoalType | null>(null);
+  // Goal Engine Phase 2D-3A: same Target Setup fields/semantics as
+  // Today's own creation flow -- raw strings, only visibility gated on
+  // newGoalType === "target", never cleared just by switching types
+  // away (only resetAddFlow clears them).
+  const [newGoalTargetValue, setNewGoalTargetValue] = useState("");
+  const [newGoalCurrentValue, setNewGoalCurrentValue] = useState("");
+  const [newGoalTargetUnit, setNewGoalTargetUnit] = useState("");
   const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
     { title: "", priority: DEFAULT_PRIORITY },
     { title: "", priority: DEFAULT_PRIORITY },
@@ -236,6 +243,9 @@ export default function TomorrowGoalsPage() {
     setTaskCreateError(null);
     setNewGoalTitle("");
     setNewGoalType("one_time");
+    setNewGoalTargetValue("");
+    setNewGoalCurrentValue("");
+    setNewGoalTargetUnit("");
     setNewGoalTasks([
       { title: "", priority: DEFAULT_PRIORITY },
       { title: "", priority: DEFAULT_PRIORITY },
@@ -280,15 +290,38 @@ export default function TomorrowGoalsPage() {
     }
   }
 
+  // Blank -> null; a valid (possibly decimal) number -> that number;
+  // anything else -> undefined ("invalid, never silently coerced to 0"),
+  // same semantics as Goal Detail's own parseNullableNumber.
+  function parseNullableNumber(raw: string): number | null | undefined {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
   const validGoalTaskCount = newGoalTasks.filter((tk) => tk.title.trim().length > 0).length;
-  const canCreateMajorGoal = newGoalTitle.trim().length > 0 && validGoalTaskCount >= 2 && !creatingGoal;
+  const parsedNewGoalTargetValue = parseNullableNumber(newGoalTargetValue);
+  const parsedNewGoalCurrentValue = parseNullableNumber(newGoalCurrentValue);
+  // Target value is REQUIRED (and must be > 0) only when creating a
+  // Target Goal; Current value stays optional but must still be a real
+  // number if non-blank.
+  const targetSetupValid =
+    newGoalType !== "target"
+      ? true
+      : parsedNewGoalTargetValue !== undefined &&
+        parsedNewGoalTargetValue !== null &&
+        parsedNewGoalTargetValue > 0 &&
+        parsedNewGoalCurrentValue !== undefined;
+  const canCreateMajorGoal =
+    newGoalTitle.trim().length > 0 && validGoalTaskCount >= 2 && targetSetupValid && !creatingGoal;
 
   async function handleCreateMajorGoal() {
     const title = newGoalTitle.trim();
     const validTasks = newGoalTasks
       .map((tk) => ({ title: tk.title.trim(), priority: tk.priority }))
       .filter((tk) => tk.title.length > 0);
-    if (!title || validTasks.length < 2 || creatingGoal) return;
+    if (!title || validTasks.length < 2 || creatingGoal || !targetSetupValid) return;
     setCreatingGoal(true);
     setGoalCreateError(null);
     try {
@@ -296,7 +329,19 @@ export default function TomorrowGoalsPage() {
         setGoalCreateError(t("tomorrow.maxGoals", { max: MAX_GOALS }));
         return;
       }
-      const created = await createOutcomeGoal(title, null, 3, newGoalType);
+      const created = await createOutcomeGoal(
+        title,
+        null,
+        3,
+        newGoalType,
+        newGoalType === "target"
+          ? {
+              target_value: parsedNewGoalTargetValue as number,
+              current_value: parsedNewGoalCurrentValue ?? null,
+              target_unit: newGoalTargetUnit.trim() || null,
+            }
+          : undefined
+      );
       setOutcomeGoals((prev) => [created, ...prev]);
 
       if (autosaveTimerRef.current) {
@@ -2355,6 +2400,51 @@ export default function TomorrowGoalsPage() {
                     autoFocus
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                   />
+
+                  {/* Goal Engine Phase 2D-3A: same Target Setup as
+                      Today's creation flow -- see its own comment for
+                      why switching types never clears this state. */}
+                  {newGoalType === "target" && (
+                    <div className="space-y-2">
+                      <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
+                        {t("goalDetail.targetSetupLabel")}
+                      </div>
+                      <label className="block text-[11px] text-white/40">
+                        {t("goalDetail.editTargetValueLabel")} *
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        value={newGoalTargetValue}
+                        disabled={creatingGoal}
+                        onChange={(e) => setNewGoalTargetValue(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                      <label className="block text-[11px] text-white/40">
+                        {t("goalDetail.editCurrentValueLabel")}
+                      </label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        value={newGoalCurrentValue}
+                        disabled={creatingGoal}
+                        onChange={(e) => setNewGoalCurrentValue(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                      <label className="block text-[11px] text-white/40">
+                        {t("goalDetail.editTargetUnitLabel")}
+                      </label>
+                      <input
+                        type="text"
+                        value={newGoalTargetUnit}
+                        disabled={creatingGoal}
+                        onChange={(e) => setNewGoalTargetUnit(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
+                      />
+                    </div>
+                  )}
 
                   <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
                     {t("tomorrow.goalTasksLabel")}

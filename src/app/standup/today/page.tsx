@@ -310,6 +310,17 @@ export default function TodayPage() {
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalType, setNewGoalType] = useState<OutcomeGoalType>("one_time");
   const [goalTypeInfo, setGoalTypeInfo] = useState<OutcomeGoalType | null>(null);
+  // Goal Engine Phase 2D-3A: Target Setup fields during creation -- raw
+  // input strings (not pre-parsed numbers), same reason Goal Detail's
+  // Edit form keeps them as strings: "blank" must stay distinguishable
+  // from "0" while typing, and invalid text must never get silently
+  // coerced to 0. Only VISIBILITY is gated on newGoalType === "target";
+  // switching away never clears this state, so switching back to Target
+  // before submitting still shows whatever was entered (resetAddFlow is
+  // the only thing that clears it, same as every other field here).
+  const [newGoalTargetValue, setNewGoalTargetValue] = useState("");
+  const [newGoalCurrentValue, setNewGoalCurrentValue] = useState("");
+  const [newGoalTargetUnit, setNewGoalTargetUnit] = useState("");
   const [newGoalTasks, setNewGoalTasks] = useState<{ title: string; priority: number }[]>([
     { title: "", priority: 3 },
     { title: "", priority: 3 },
@@ -324,6 +335,9 @@ export default function TodayPage() {
     setTaskCreateError(null);
     setNewGoalTitle("");
     setNewGoalType("one_time");
+    setNewGoalTargetValue("");
+    setNewGoalCurrentValue("");
+    setNewGoalTargetUnit("");
     setNewGoalTasks([
       { title: "", priority: 3 },
       { title: "", priority: 3 },
@@ -1310,9 +1324,31 @@ export default function TodayPage() {
     }
   }
 
+  // Blank -> null; a valid (possibly decimal) number -> that number;
+  // anything else -> undefined ("invalid, never silently coerced to 0"),
+  // same semantics as Goal Detail's own parseNullableNumber.
+  function parseNullableNumber(raw: string): number | null | undefined {
+    const trimmed = raw.trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
   const validTodayGoalTaskCount = newGoalTasks.filter((tk) => tk.title.trim().length > 0).length;
+  const parsedNewGoalTargetValue = parseNullableNumber(newGoalTargetValue);
+  const parsedNewGoalCurrentValue = parseNullableNumber(newGoalCurrentValue);
+  // Target value is REQUIRED (and must be > 0) only when creating a
+  // Target Goal; Current value stays optional (blank -> null, 0 valid)
+  // but if non-blank it must still be a real number, never silently 0.
+  const targetSetupValid =
+    newGoalType !== "target"
+      ? true
+      : parsedNewGoalTargetValue !== undefined &&
+        parsedNewGoalTargetValue !== null &&
+        parsedNewGoalTargetValue > 0 &&
+        parsedNewGoalCurrentValue !== undefined;
   const canCreateTodayMajorGoal =
-    newGoalTitle.trim().length > 0 && validTodayGoalTaskCount >= 2 && !creatingGoal;
+    newGoalTitle.trim().length > 0 && validTodayGoalTaskCount >= 2 && targetSetupValid && !creatingGoal;
 
   async function handleCreateMajorGoal() {
     if (!plan?.id || creatingGoal) return;
@@ -1320,11 +1356,23 @@ export default function TodayPage() {
     const validTasks = newGoalTasks
       .map((tk) => ({ title: tk.title.trim(), priority: tk.priority }))
       .filter((tk) => tk.title.length > 0);
-    if (!title || validTasks.length < 2) return;
+    if (!title || validTasks.length < 2 || !targetSetupValid) return;
     setCreatingGoal(true);
     setGoalCreateError(null);
     try {
-      const created = await createOutcomeGoal(title, null, 3, newGoalType);
+      const created = await createOutcomeGoal(
+        title,
+        null,
+        3,
+        newGoalType,
+        newGoalType === "target"
+          ? {
+              target_value: parsedNewGoalTargetValue as number,
+              current_value: parsedNewGoalCurrentValue ?? null,
+              target_unit: newGoalTargetUnit.trim() || null,
+            }
+          : undefined
+      );
       setOutcomeGoals((prev) => [created, ...prev]);
 
       const existingIds = new Set(goals.map((g) => g.id));
@@ -2985,6 +3033,55 @@ export default function TodayPage() {
                       autoFocus
                       className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40"
                     />
+
+                    {/* Goal Engine Phase 2D-3A: Target Setup -- visibility
+                        follows newGoalType directly (not a persisted
+                        value, this Goal doesn't exist yet), state is
+                        never cleared just by switching types away from
+                        Target (only resetAddFlow clears it), so
+                        switching back before submitting keeps whatever
+                        was entered. */}
+                    {newGoalType === "target" && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
+                          {t("goalDetail.targetSetupLabel")}
+                        </div>
+                        <label className="block text-[11px] text-white/40">
+                          {t("goalDetail.editTargetValueLabel")} *
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="any"
+                          value={newGoalTargetValue}
+                          disabled={creatingGoal}
+                          onChange={(e) => setNewGoalTargetValue(e.target.value)}
+                          className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                        />
+                        <label className="block text-[11px] text-white/40">
+                          {t("goalDetail.editCurrentValueLabel")}
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="any"
+                          value={newGoalCurrentValue}
+                          disabled={creatingGoal}
+                          onChange={(e) => setNewGoalCurrentValue(e.target.value)}
+                          className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                        />
+                        <label className="block text-[11px] text-white/40">
+                          {t("goalDetail.editTargetUnitLabel")}
+                        </label>
+                        <input
+                          type="text"
+                          value={newGoalTargetUnit}
+                          disabled={creatingGoal}
+                          onChange={(e) => setNewGoalTargetUnit(e.target.value)}
+                          className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                        />
+                      </div>
+                    )}
 
                     <div className="text-[11px] uppercase tracking-wide text-white/40 font-semibold">
                       {t("tomorrow.goalTasksLabel")}

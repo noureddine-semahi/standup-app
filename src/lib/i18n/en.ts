@@ -153,6 +153,7 @@ export const en = {
   "goalDetail.goalProgressLabel": "Goal Progress",
   "goalDetail.taskProgressLabel": "Task Progress",
   "goalDetail.targetNotConfigured": "Target not configured",
+  "goalDetail.targetSetupLabel": "Target Setup",
   "goalType.fieldLabel": "Goal Type",
   "goalType.examplesLabel": "Examples",
   "goalType.gotIt": "Got it",

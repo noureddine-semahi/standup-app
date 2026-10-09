@@ -153,6 +153,7 @@ export const es: Record<keyof typeof en, string> = {
   "goalDetail.goalProgressLabel": "Progreso de la Meta",
   "goalDetail.taskProgressLabel": "Progreso de Tareas",
   "goalDetail.targetNotConfigured": "Objetivo no configurado",
+  "goalDetail.targetSetupLabel": "Configuración del Objetivo",
   "goalType.fieldLabel": "Tipo de Meta",
   "goalType.examplesLabel": "Ejemplos",
   "goalType.gotIt": "Entendido",

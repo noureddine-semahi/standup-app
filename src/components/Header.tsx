@@ -109,6 +109,13 @@ export default function Header() {
   const [mentions, setMentions] = useState<Mention[]>([]);
   const [postActivity, setPostActivity] = useState<PostActivityNotification[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
+  // Header Navigation Refresh: the account dropdown (Profile/Theme/
+  // Language/Logout) that replaces the old plain avatar Link. One
+  // shared open flag, same as every other header dropdown here --
+  // desktop and mobile each render their own trigger+panel pair (see
+  // profileMenu() below) since their layout needs genuinely differ
+  // (inline pill vs icon-only), but both toggle this same state.
+  const [profileOpen, setProfileOpen] = useState(false);
   // Entries clicked from the bell dropdown this session, hidden from it
   // immediately rather than waiting on a refetch round-trip -- for the
   // four bucket types with a real seen_at (mentions, post activity,
@@ -122,6 +129,22 @@ export default function Header() {
   const [dismissedEntryIds, setDismissedEntryIds] = useState<Set<string>>(new Set());
   const moreRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
+  // Header Navigation Refresh: the hamburger's NEW desktop instance is a
+  // real floating dropdown (unlike the existing mobile panel, which is a
+  // full-width block below the header and has never needed click-outside
+  // detection) -- this wraps its trigger button AND its panel together,
+  // same shape as moreRef/bellRef above, so a click on the trigger itself
+  // is never mistaken for an "outside" click. hamburgerMobileBtnRef wraps
+  // only the mobile trigger button (not its panel) for the same reason --
+  // without it, a tap on the mobile button would be seen as "outside"
+  // hamburgerDesktopRef and race against the button's own toggle.
+  const hamburgerDesktopRef = useRef<HTMLDivElement>(null);
+  const hamburgerMobileBtnRef = useRef<HTMLButtonElement>(null);
+  // Profile is a real floating dropdown at BOTH breakpoints (unlike
+  // hamburger's mobile variant), so each of its two trigger+panel pairs
+  // gets its own ref, both checked together in one click-outside effect.
+  const profileDesktopRef = useRef<HTMLDivElement>(null);
+  const profileMobileRef = useRef<HTMLDivElement>(null);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -141,6 +164,18 @@ export default function Header() {
       console.error("Logout error:", error);
       setLoggingOut(false);
     }
+  }
+
+  // Header Navigation Refresh: the ONE place that opens/closes any of the
+  // four header dropdowns (hamburger, bell, More, profile) -- guarantees
+  // "opening one closes the others" by construction (every toggle call
+  // sets all four in one go) rather than relying on each button's own
+  // onClick to remember to close the other three.
+  function toggleMenu(target: "menu" | "bell" | "more" | "profile") {
+    setMenuOpen((v) => (target === "menu" ? !v : false));
+    setBellOpen((v) => (target === "bell" ? !v : false));
+    setMoreOpen((v) => (target === "more" ? !v : false));
+    setProfileOpen((v) => (target === "profile" ? !v : false));
   }
 
   useEffect(() => {
@@ -204,11 +239,16 @@ export default function Header() {
     };
   }, []);
 
-  // Any navigation (desktop link or mobile dropdown link) closes the
-  // mobile dropdown, so it never stays open across a page change.
+  // Any navigation (a hamburger/More/profile link, desktop or mobile)
+  // closes every header dropdown, so none of them stay open across a
+  // page change. Consolidated from two previously-separate effects
+  // (this one plus bellOpen's own below) now that there are four
+  // dropdowns needing the exact same treatment instead of two.
   useEffect(() => {
     setMenuOpen(false);
     setMoreOpen(false);
+    setBellOpen(false);
+    setProfileOpen(false);
   }, [pathname]);
 
   // The header stays mounted across client-side navigation (it lives in
@@ -278,12 +318,42 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [bellOpen]);
 
-  // Closes the bell dropdown on route change -- without this, navigating
-  // via one of its own rows would leave it rendered (just invisible
-  // behind the new page) until the next outside click.
+  // Header Navigation Refresh: only the hamburger's NEW desktop instance
+  // is a floating dropdown needing this -- the existing mobile panel
+  // (full-width, below the header) has never had click-outside-to-close
+  // and keeps that same behavior unchanged. hamburgerMobileBtnRef is
+  // checked too (not just hamburgerDesktopRef) so a tap on the MOBILE
+  // trigger button is never mistaken for an outside click and raced
+  // against that button's own toggle -- the two refs are never both
+  // relevant at the same breakpoint, but checking both is harmless.
   useEffect(() => {
-    setBellOpen(false);
-  }, [pathname]);
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const insideDesktop = hamburgerDesktopRef.current?.contains(target) ?? false;
+      const insideMobileBtn = hamburgerMobileBtnRef.current?.contains(target) ?? false;
+      if (!insideDesktop && !insideMobileBtn) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  // Profile is a real floating dropdown at BOTH breakpoints (unlike
+  // hamburger), so both of its trigger+panel pairs need this -- each ref
+  // wraps its own button AND panel together (same shape as moreRef/
+  // bellRef above), so clicking either trigger is never mistaken for an
+  // outside click.
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const insideDesktop = profileDesktopRef.current?.contains(target) ?? false;
+      const insideMobile = profileMobileRef.current?.contains(target) ?? false;
+      if (!insideDesktop && !insideMobile) setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   // Keeps the newly-active hanging tab centered in the scrollable nav
   // strip whenever the route changes -- explicit user call, otherwise
@@ -562,44 +632,99 @@ export default function Header() {
     return infoLinks(expanded);
   }
 
-  // Always visible regardless of breakpoint, right next to the
-  // notification bell — this used to be the sole way to reach Profile on
-  // desktop before it got folded into secondaryLinks/the More panel;
-  // moved back out since losing the name inline was a regression.
-  function profileLink() {
-    if (!user) return null;
+  // Header Navigation Refresh: the full NAV_TABS list as plain full-text
+  // links (icon + label), shared verbatim by the desktop hamburger
+  // panel, the mobile hamburger panel, AND -- since About/FAQ/Contact
+  // already live in NAV_TABS too (infoGroup entries) -- there's no need
+  // to also call infoLinks()/secondaryLinks() here: NAV_TABS alone is
+  // the complete, single source of truth for all nine destinations, per
+  // the explicit "reuse NAV_TABS, don't duplicate route definitions"
+  // call. gap-2 is the one thing .nav-link's own CSS doesn't already
+  // provide for an icon+text pair (see profileMenu()'s identical need
+  // below) -- everything else (flex/center/chip styling) comes from the
+  // shared class.
+  function hamburgerNavLinks() {
     return (
-      <Link
-        href="/standup/profile"
-        className={
-          pathname === "/standup/profile"
-            ? "nav-link nav-profile header-metal-control font-semibold flex items-center gap-2"
-            : "nav-link nav-profile header-metal-control flex items-center gap-2"
-        }
-      >
-        <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
-        {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
-      </Link>
+      <>
+        {NAV_TABS.map((tab) => {
+          const isActive = pathname === tab.href;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={isActive ? "page" : undefined}
+              className={isActive ? "nav-link font-semibold gap-2" : "nav-link gap-2"}
+            >
+              <tab.icon size={16} />
+              <span>{t(tab.labelKey)}</span>
+            </Link>
+          );
+        })}
+      </>
     );
   }
 
-  function avatar() {
+  // Header Navigation Refresh: the signed-in account dropdown
+  // (Profile/Theme/Language/Logout) -- replaces the old plain avatar
+  // Link. Desktop and mobile each render their OWN trigger+panel pair
+  // (genuinely different layouts: an inline name pill vs an icon-only
+  // circle) but both toggle the same profileOpen state and show
+  // identical panel contents. Reuses .nav-more-panel's exact floating-
+  // dropdown chrome rather than introducing a new panel style.
+  function profileMenu(variant: "desktop" | "mobile") {
     if (!user) return null;
+    const ref = variant === "desktop" ? profileDesktopRef : profileMobileRef;
+    const triggerLabel = profileOpen ? t("nav.closeMenu") : t("nav.profileAriaLabel");
     return (
-      <Link
-        href="/standup/profile"
-        aria-label={t("nav.profileAriaLabel")}
-        className="header-metal-control header-metal-control--round"
-      >
-        <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} />
-      </Link>
+      <div className="nav-profile-wrap" ref={ref}>
+        {variant === "desktop" ? (
+          <button
+            type="button"
+            onClick={() => toggleMenu("profile")}
+            aria-label={triggerLabel}
+            aria-expanded={profileOpen}
+            className={
+              pathname === "/standup/profile"
+                ? "nav-link nav-profile header-metal-control font-semibold flex items-center gap-2"
+                : "nav-link nav-profile header-metal-control flex items-center gap-2"
+            }
+          >
+            <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
+            {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => toggleMenu("profile")}
+            aria-label={triggerLabel}
+            aria-expanded={profileOpen}
+            className="header-metal-control header-metal-control--round"
+          >
+            <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} />
+          </button>
+        )}
+        {profileOpen && (
+          <div className="nav-more-panel">
+            <Link href="/standup/profile" className="nav-link" onClick={() => setProfileOpen(false)}>
+              {t("nav.profileAriaLabel")}
+            </Link>
+            <div className="flex items-center gap-2 px-3 py-1.5">
+              <ThemeToggle size="sm" />
+              <LanguageToggle size="sm" />
+            </div>
+            <button type="button" onClick={handleLogout} disabled={loggingOut} className="nav-link nav-link-logout">
+              {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 
   // Always visible regardless of breakpoint (unlike the primary/secondary
   // split) — a pending-notification indicator is exactly the kind of thing
   // that shouldn't disappear into a menu. Rendered right next to
-  // profileLink()/avatar() now rather than in the utility cluster —
+  // profileMenu() now rather than in the utility cluster —
   // explicit user call.
   //
   // Desktop click opens an attached dropdown listing the actual
@@ -630,10 +755,7 @@ export default function Header() {
           className="nav-bell-btn header-metal-control"
           aria-label={bellOpen ? t("nav.closeMenu") : t("nav.notificationsAriaLabel")}
           aria-expanded={bellOpen}
-          onClick={() => {
-            setBellOpen((v) => !v);
-            setMoreOpen(false);
-          }}
+          onClick={() => toggleMenu("bell")}
         >
           <Bell size={18} />
           {notificationCount > 0 && (
@@ -709,54 +831,63 @@ export default function Header() {
             destinations via navTabs()'s hanging row below instead. */}
         {authLinks()}
 
-        {/* Bell + More(⋯) + Profile grouped together at the very end of
-            the row, all three right next to each other, flush against one
-            another with no daylight between the cluster and the profile
-            chip — explicit user call. A shared wrapper (.nav-end-cluster)
-            is what makes this actually attached: as two separate
-            .app-header-inner children, space-between spaced the cluster
-            and profileLink() apart like any other two items in the row
-            instead of treating them as one unit. Hidden on true mobile,
-            same as before this whole restructure, where nav-mobile-
-            trigger's compact bell + avatar-only icons take over instead
-            (a name label doesn't fit a phone-width row next to the
-            hamburger, and the hamburger itself takes over More's
-            "everything else" role there). */}
+        {/* Hamburger + Bell + (logged-out only) More + Profile grouped
+            together at the very end of the row — explicit user call. A
+            shared wrapper (.nav-end-cluster) is what makes this actually
+            attached: as separate .app-header-inner children,
+            space-between would scatter them apart like any other two
+            items in the row instead of treating them as one unit. Hidden
+            on true mobile, same as before this restructure, where
+            nav-mobile-trigger's compact icon-only cluster takes over
+            instead (full text labels don't fit a phone-width row).
+            Header Navigation Refresh: the hamburger now has a real
+            desktop instance here too (it used to be mobile-only) —
+            signed-in users reach the full NAV_TABS list through it
+            instead of through "More," which now only ever shows for a
+            logged-out visitor (About/FAQ/Contact) since Theme/Language/
+            Logout moved into the new profile dropdown below. */}
         <div className="nav-end-cluster">
           <div className="nav-utility-cluster nav-utility-cluster-desktop">
+            {user && (
+              <div className="nav-hamburger-wrap" ref={hamburgerDesktopRef}>
+                <button
+                  type="button"
+                  className="hamburger-btn header-metal-control"
+                  aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+                  aria-expanded={menuOpen}
+                  onClick={() => toggleMenu("menu")}
+                >
+                  <span className="hamburger-line" />
+                  <span className="hamburger-line" />
+                  <span className="hamburger-line" />
+                </button>
+                {menuOpen && <div className="nav-more-panel">{hamburgerNavLinks()}</div>}
+              </div>
+            )}
+
             {notificationBell("desktop")}
 
-            {/* Secondary links (Theme/Language for a logged-in user; About/
-                FAQ/Contact too for a logged-out one, who never sees
-                navTabs()) live behind this button rather than inline. */}
-            <div className="nav-more-wrap" ref={moreRef}>
-              <button
-                type="button"
-                className="nav-more-btn"
-                aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-                aria-expanded={moreOpen}
-                onClick={() => setMoreOpen((v) => !v)}
-              >
-                <MoreHorizontal size={18} />
-              </button>
-              {moreOpen && (
-                <div className="nav-more-panel">
-                  {secondaryLinks(true)}
-                  {user && (
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      disabled={loggingOut}
-                      className="nav-link nav-link-logout"
-                    >
-                      {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Logged-out only now — About/FAQ/Contact. A signed-in user
+                has nothing left to show here (Theme/Language/Logout live
+                in the profile dropdown, everything else in the hamburger
+                above), so this control disappears for them entirely
+                rather than staying present with nothing to offer. */}
+            {!user && (
+              <div className="nav-more-wrap" ref={moreRef}>
+                <button
+                  type="button"
+                  className="nav-more-btn"
+                  aria-label={moreOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+                  aria-expanded={moreOpen}
+                  onClick={() => toggleMenu("more")}
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+                {moreOpen && <div className="nav-more-panel">{secondaryLinks(true)}</div>}
+              </div>
+            )}
           </div>
-          {profileLink()}
+          {profileMenu("desktop")}
         </div>
 
         {/* Mobile: logo stays on the left (above); hamburger/bell/avatar
@@ -764,24 +895,27 @@ export default function Header() {
             desktop bell-next-to-Profile grouping) rather than next to the
             hamburger. Assignments no longer needs its own icon here —
             it's a navTabs() tab now, visible at every breakpoint already.
-            Secondary links (Theme/Language, Logout, and About/FAQ/Contact
-            for a logged-out visitor) live in the full-width dropdown
-            panel below. Hidden above the mobile breakpoint — see
+            For a signed-in user this button opens the SAME full
+            NAV_TABS list as the new desktop hamburger instance above
+            (see .mobile-menu-panel below); for a logged-out visitor it
+            still opens About/FAQ/Contact + Sign In/Get Started exactly
+            as before. Hidden above the mobile breakpoint — see
             .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
           <button
             type="button"
+            ref={hamburgerMobileBtnRef}
             className="hamburger-btn header-metal-control"
             aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={() => toggleMenu("menu")}
           >
             <span className="hamburger-line" />
             <span className="hamburger-line" />
             <span className="hamburger-line" />
           </button>
           {notificationBell("mobile")}
-          {!loading && avatar()}
+          {!loading && profileMenu("mobile")}
         </div>
       </div>
 
@@ -789,32 +923,35 @@ export default function Header() {
 
       {menuOpen && (
         <div className="mobile-menu-panel">
-          {secondaryLinks(true)}
-          {/* Sign In/Get Started live inline in the desktop row (see
-              .nav-auth-links) but collapse in here on mobile instead --
-              explicit user call. */}
-          {!loading && !user && !isAuthPage && (
+          {/* Header Navigation Refresh: a signed-in user's menu is now
+              the full NAV_TABS list (same content as the new desktop
+              hamburger instance above) -- Theme/Language/Logout moved
+              to the profile dropdown and are deliberately NOT repeated
+              here. A logged-out visitor's content is completely
+              unchanged: About/FAQ/Contact (via secondaryLinks) plus
+              Sign In/Get Started below. */}
+          {user ? (
+            hamburgerNavLinks()
+          ) : (
             <>
-              <Link
-                href="/login"
-                className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}
-              >
-                {t("nav.signIn")}
-              </Link>
-              <Link href="/signup" className="nav-link nav-link-cta">
-                {t("landing.getStarted")}
-              </Link>
+              {secondaryLinks(true)}
+              {/* Sign In/Get Started live inline in the desktop row (see
+                  .nav-auth-links) but collapse in here on mobile instead --
+                  explicit user call. */}
+              {!loading && !isAuthPage && (
+                <>
+                  <Link
+                    href="/login"
+                    className={pathname === "/login" ? "nav-link font-semibold" : "nav-link"}
+                  >
+                    {t("nav.signIn")}
+                  </Link>
+                  <Link href="/signup" className="nav-link nav-link-cta">
+                    {t("landing.getStarted")}
+                  </Link>
+                </>
+              )}
             </>
-          )}
-          {user && (
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="nav-link nav-link-logout"
-            >
-              {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
-            </button>
           )}
         </div>
       )}

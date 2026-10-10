@@ -1270,12 +1270,21 @@ h1, h2, h3, h4, h5, h6 {
   gap: 10px;
 }
 
-/* Secondary nav (About/FAQ/Contact, Theme/Language) always lives behind
-   this button rather than inline — the six primary destinations live in
-   their own hanging tab row now (navTabs()) instead of this header row,
-   so only the bell/Assignments/profile chip ever compete with the logo
-   for space here. */
+/* Secondary nav (About/FAQ/Contact for a logged-out visitor only now --
+   see Header.tsx) always lives behind this button rather than inline —
+   the six primary destinations live in their own hanging tab row now
+   (navTabs()) instead of this header row, so only the bell/hamburger/
+   profile chip ever compete with the logo for space here. */
 .nav-more-wrap {
+  position: relative;
+}
+
+/* Header Navigation Refresh: the hamburger's new desktop instance and
+   the new profile dropdown both anchor their floating panel the exact
+   same way .nav-more-wrap already does above -- reusing that one-
+   property pattern rather than inventing new positioning rules. */
+.nav-hamburger-wrap,
+.nav-profile-wrap {
   position: relative;
 }
 
@@ -1466,6 +1475,16 @@ h1, h2, h3, h4, h5, h6 {
     padding: 10px 18px 16px;
     border-top: 1px solid rgba(245, 158, 11, 0.15);
     background: rgba(var(--panel-rgb), var(--chrome-alpha-hover));
+    /* Header Navigation Refresh: a signed-in user's panel now holds the
+       full 9-item NAV_TABS list instead of 2-3 items -- on a short
+       phone viewport (or with the on-screen keyboard/browser chrome
+       eating vertical space) that can exceed what's left below the
+       fixed header. Caps it to whatever room actually remains (same
+       --header-height var .app-main's own offset already uses) and
+       scrolls internally rather than extending past the bottom of the
+       screen or forcing the page itself to grow. */
+    max-height: calc(100vh - var(--header-height));
+    overflow-y: auto;
   }
 
   .mobile-menu-panel .nav-link {
@@ -2583,15 +2602,20 @@ select.btn {
      call, sits opposite the active tab's pulled-down position below. */
   transform: translateY(-1px);
   /* Colored outline + minimal bevel (a thin inner top highlight, thin
-     inner bottom shade) + a small grounded shadow, same as before --
-     but the glow itself cut way down (was 0 0 8px 1px @46%) so the
-     active tab's own glow reads as the one clearly lit control instead
-     of every tab glowing roughly the same amount. */
+     inner bottom shade) + a small grounded shadow, same as before.
+     Header Navigation Refresh: glow strength restored to match
+     .folder-tab's (Community) own inactive-tab glow exactly (was
+     dimmed to 0 0 3px 0px @26% in an earlier pass so the active tab
+     read as the one clearly lit control) -- explicit follow-up call to
+     bring the two tab systems' INACTIVE treatment back in line with
+     each other; .folder-tab-hanging-active's own glow (already shared
+     via --metal-glow-*) is untouched and still reads as meaningfully
+     brighter than this. */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
     0 3px 5px -3px rgba(0, 0, 0, 0.3),
-    0 0 3px 0px color-mix(in srgb, var(--tab-color) 26%, transparent);
+    0 0 8px 1px color-mix(in srgb, var(--tab-color) 46%, transparent);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -2603,11 +2627,25 @@ select.btn {
   /* Nudges down 1-2px toward the active tab's position, never all the
      way -- explicit user call. */
   transform: translateY(1px);
+  /* Matches .folder-tab's own hover glow exactly -- same follow-up call
+     as the rest-state glow above (was 0 0 6px 0px @34%). */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
     0 4px 6px -3px rgba(0, 0, 0, 0.35),
-    0 0 6px 0px color-mix(in srgb, var(--tab-color) 34%, transparent);
+    0 0 13px 2px color-mix(in srgb, var(--tab-color) 58%, transparent);
+}
+
+/* Light mode: same neutral-shadow softening + ~25% glow reduction as
+   .folder-tab:hover:not(.folder-tab-active)'s own light-mode override
+   -- kept the two inactive treatments matching in both themes, not
+   just dark. */
+[data-theme="light"] .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 0 rgba(40, 32, 28, 0.14),
+    0 4px 6px -3px rgba(40, 32, 28, 0.2),
+    0 0 10px 1px color-mix(in srgb, var(--tab-color) 44%, transparent);
 }
 
 .folder-tab-hanging-active {

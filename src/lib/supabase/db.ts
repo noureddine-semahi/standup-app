@@ -1649,6 +1649,256 @@ export async function resolveTaskCycleId(
   return cycle.id;
 }
 
+export type CycleResultStatus = "achieved" | "partial" | "missed" | "no_commitments" | "unconfigured";
+
+export type CycleAggregation = {
+  committed: number;
+  completed: number;
+  canceled: number;
+  rescheduledOut: number;
+  open: number;
+  targetCountSnapshot: number | null;
+  result: CycleResultStatus;
+};
+
+/**
+ * Goal Engine Phase 2D-5D: pure cycle-classification. Groups the physical
+ * Task rows already assigned to ONE cycle (goals.outcome_goal_cycle_id,
+ * frozen per row by resolveTaskCycleId/materializeReschedules) into
+ * conceptual commitments and classifies each one, respecting reschedule
+ * lineage identity without touching the canonical Task resolver.
+ *
+ * Deliberately NOT a reuse of findChainRootId/collectChainIds: those walk
+ * a lineage's FULL, cycle-agnostic history (correct for their own
+ * callers), whereas grouping here must stop at THIS cycle's own
+ * boundary. Example: A (Cycle 1) -> B (Cycle 2) -> C (Cycle 2, a second,
+ * same-cycle reschedule). Classifying Cycle 2's rows {B, C} must treat B
+ * as its own local root (A is irrelevant here -- it belongs to Cycle 1's
+ * own accounting) and group {B, C} into ONE commitment. findChainRootId
+ * would instead walk all the way back to A, which is the right answer
+ * for the canonical resolver's own purposes but the wrong one for a
+ * single cycle's bookkeeping. So this reimplements the same small
+ * cycle-guarded backward/forward walk shape locally, scoped to the rows
+ * actually passed in, while still reusing buildNextByFromIdMap directly
+ * (identical edge interpretation as every other lineage walk in this
+ * file) rather than re-deriving it.
+ *
+ * Classification per conceptual group (root to its own in-cycle
+ * terminal):
+ * - "completed" if ANY row in the group's local (in-cycle) chain is
+ *   completed -- completed always wins, same principle as
+ *   collapseGoalLineages' own rule, even over a later reschedule.
+ * - else "rescheduledOut" if the chain continues to a row OUTSIDE this
+ *   cycle via a MATERIALIZED edge, or if the local terminal's own
+ *   status is "postponed" and its still-unmaterialized intended
+ *   destination (`pendingIntents`, from the goal_reschedules row
+ *   rescheduleGoalToDate itself inserts at reschedule time -- see this
+ *   review's own inspection) falls OUTSIDE [cycleStart, cycleEnd].
+ *   Materialization is lazy (only runs when the destination day's plan
+ *   is actually opened), so a postponed row can sit unmaterialized
+ *   indefinitely; its real destination date is what decides whether it
+ *   left THIS cycle, never a blind status check. A postponed terminal
+ *   whose intended destination falls INSIDE this cycle (a same-cycle
+ *   reschedule still pending materialization), or one with no intent
+ *   row recorded at all (the rare non-transactional gap
+ *   rescheduleGoalToDate's own comment acknowledges), is classified
+ *   "open" instead -- there's no evidence it actually left.
+ * - else "canceled" if the local terminal is canceled.
+ * - else "open" (committed, unresolved).
+ *
+ * committed = completed + canceled + rescheduledOut + open (always).
+ */
+export function classifyCycleCommitments(params: {
+  cycleRows: { id: string; status: string }[];
+  edges: { from_goal_id: string; materialized_goal_id: string | null }[];
+  // Unmaterialized goal_reschedules intents (materialized: false) for
+  // any of cycleRows' own ids -- lets a postponed-but-not-yet-
+  // materialized terminal be classified by its REAL intended
+  // destination date instead of a blind status guess. If a from_goal_id
+  // appears more than once (rescheduled again before the first move
+  // ever materialized), callers should pass only its MOST RECENT
+  // to_date -- last entry wins when building the lookup below.
+  pendingIntents: { from_goal_id: string; to_date: string }[];
+  cycleStart: string;
+  cycleEnd: string;
+  targetCountSnapshot: number | null;
+}): CycleAggregation {
+  const { cycleRows, edges, pendingIntents, cycleStart, cycleEnd, targetCountSnapshot } = params;
+  const cycleRowById = new Map(cycleRows.map((r) => [r.id, r]));
+  const nextByFromId = buildNextByFromIdMap(edges);
+  const prevByToId = new Map<string, string>();
+  for (const [fromId, toId] of nextByFromId) prevByToId.set(toId, fromId);
+  const pendingToDateByFromId = new Map(pendingIntents.map((p) => [p.from_goal_id, p.to_date]));
+
+  let completed = 0;
+  let canceled = 0;
+  let rescheduledOut = 0;
+  let open = 0;
+  const claimed = new Set<string>();
+
+  for (const row of cycleRows) {
+    // Local root: walk backward only through predecessors that are ALSO
+    // in this cycle's own row set -- stops at this cycle's boundary
+    // rather than the lineage's true (possibly earlier-cycle) root.
+    let rootId = row.id;
+    const backVisited = new Set([rootId]);
+    while (true) {
+      const prevId = prevByToId.get(rootId);
+      if (!prevId || backVisited.has(prevId) || !cycleRowById.has(prevId)) break;
+      backVisited.add(prevId);
+      rootId = prevId;
+    }
+
+    if (claimed.has(rootId)) continue; // already classified via another row in the same local group
+    claimed.add(rootId);
+
+    // Local forward chain from that root, stopping (without consuming)
+    // the first step that leaves this cycle's row set.
+    const localChainIds: string[] = [rootId];
+    const fwdVisited = new Set([rootId]);
+    let currentId = rootId;
+    let leftCycle = false;
+    while (true) {
+      const nextId = nextByFromId.get(currentId);
+      if (!nextId || fwdVisited.has(nextId)) break;
+      if (!cycleRowById.has(nextId)) {
+        leftCycle = true;
+        break;
+      }
+      fwdVisited.add(nextId);
+      localChainIds.push(nextId);
+      currentId = nextId;
+    }
+
+    const localRows = localChainIds.map((id) => cycleRowById.get(id)!);
+    if (localRows.some((r) => r.status === "completed")) {
+      completed++;
+      continue;
+    }
+
+    const terminal = localRows[localRows.length - 1];
+    if (leftCycle) {
+      rescheduledOut++;
+    } else if (terminal.status === "postponed") {
+      const pendingToDate = pendingToDateByFromId.get(terminal.id);
+      const confirmedOutside = pendingToDate != null && (pendingToDate < cycleStart || pendingToDate > cycleEnd);
+      if (confirmedOutside) {
+        rescheduledOut++;
+      } else {
+        // Either the intended destination is inside THIS cycle (a
+        // same-cycle reschedule still pending materialization) or no
+        // intent row was found at all -- not evidence of departure.
+        open++;
+      }
+    } else if (terminal.status === "canceled") {
+      canceled++;
+    } else {
+      open++;
+    }
+  }
+
+  const committed = completed + canceled + rescheduledOut + open;
+
+  let result: CycleResultStatus;
+  if (targetCountSnapshot == null) {
+    // Never invent achieved/partial/missed when no target was
+    // configured -- callers read the raw committed/completed counts
+    // instead for an unconfigured cycle's display.
+    result = "unconfigured";
+  } else if (completed >= targetCountSnapshot) {
+    result = "achieved";
+  } else if (completed > 0) {
+    result = "partial";
+  } else if (committed > 0) {
+    result = "missed";
+  } else {
+    result = "no_commitments";
+  }
+
+  return { committed, completed, canceled, rescheduledOut, open, targetCountSnapshot, result };
+}
+
+export type OutcomeGoalCycleWithAggregation = OutcomeGoalCycle & CycleAggregation;
+
+/**
+ * Goal Engine Phase 2D-5D: read-only cycle history for a Recurring Goal.
+ * Returns only cycles that already exist as rows -- never calls
+ * resolveOrCreateCycle, never inserts/updates anything, never
+ * synthesizes a future cycle that hasn't been created yet. Each cycle's
+ * own frozen cycle_start/cycle_end/target_count_snapshot (set once at
+ * creation, per 2D-5A) is used exactly as stored; the Goal's CURRENT
+ * recurrence_target_count is never substituted in for a past cycle's
+ * own snapshot.
+ *
+ * Ordered oldest-to-newest by cycle_start -- deterministic given the
+ * table's own unique(outcome_goal_id, cycle_start) constraint (no two
+ * cycles of the same Goal can tie).
+ */
+export async function getCycleHistoryForOutcomeGoal(
+  outcomeGoalId: string
+): Promise<OutcomeGoalCycleWithAggregation[]> {
+  // getOutcomeGoalById already scopes by the current user (RLS-backed,
+  // see its own doc comment) -- a bad/foreign id just returns null here.
+  const goal = await getOutcomeGoalById(outcomeGoalId);
+  if (!goal) throw new Error(`Outcome Goal ${outcomeGoalId} not found`);
+
+  const { data: cycleRowsRaw, error: cyclesErr } = await supabase
+    .from("outcome_goal_cycles")
+    .select("*")
+    .eq("outcome_goal_id", outcomeGoalId)
+    .order("cycle_start", { ascending: true });
+  if (cyclesErr) throw cyclesErr;
+  const cycles = (cycleRowsRaw ?? []).map(toOutcomeGoalCycle);
+  if (cycles.length === 0) return [];
+
+  const { data: taskRowsRaw, error: tasksErr } = await supabase
+    .from("goals")
+    .select("id, status, outcome_goal_cycle_id")
+    .eq("outcome_goal_id", outcomeGoalId);
+  if (tasksErr) throw tasksErr;
+  const taskRows = taskRowsRaw ?? [];
+
+  // Same unscoped-by-from_goal_id edge fetch as
+  // getConceptualTasksByOutcomeGoalIds/getConceptualTaskById -- RLS
+  // already restricts this to the current user, and the relevant
+  // subset can't be known in advance without it.
+  const { data: edgeRowsRaw, error: edgesErr } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, materialized_goal_id, materialized")
+    .eq("materialized", true);
+  if (edgesErr) throw edgesErr;
+  const edges = edgeRowsRaw ?? [];
+
+  // Postponed-classification correction: a reschedule is lazily
+  // materialized only when its destination day's plan is opened, so a
+  // postponed row can sit with no materialized edge for a long time.
+  // Its unmaterialized intent row (to_date) is what actually says
+  // whether it left THIS cycle -- see classifyCycleCommitments' own
+  // doc comment. Ordered oldest-first so the Map below naturally keeps
+  // the MOST RECENT to_date if a row was rescheduled more than once
+  // before ever materializing.
+  const { data: pendingRowsRaw, error: pendingErr } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, to_date")
+    .eq("materialized", false)
+    .order("created_at", { ascending: true });
+  if (pendingErr) throw pendingErr;
+  const pendingIntents = pendingRowsRaw ?? [];
+
+  return cycles.map((cycle) => {
+    const cycleRows = taskRows.filter((t) => t.outcome_goal_cycle_id === cycle.id);
+    const aggregation = classifyCycleCommitments({
+      cycleRows,
+      edges,
+      pendingIntents,
+      cycleStart: cycle.cycle_start,
+      cycleEnd: cycle.cycle_end,
+      targetCountSnapshot: cycle.target_count_snapshot,
+    });
+    return { ...cycle, ...aggregation };
+  });
+}
+
 // ── Recurring goal templates ──────────────────────────────────────────
 
 export async function getRecurringGoalTemplates(): Promise<RecurringGoalTemplate[]> {

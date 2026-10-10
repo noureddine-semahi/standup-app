@@ -20,6 +20,7 @@ import {
   toOutcomeGoal,
   normalizeGoalTitle,
   planCycleResolution,
+  classifyCycleCommitments,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1160,5 +1161,348 @@ describe("planCycleResolution (Goal Engine Phase 2D-5B: Task-to-cycle wiring dec
     expect(
       planCycleResolution({ goal_type: "recurring", recurrence_frequency: null, recurrence_start_date: null })
     ).toEqual({ action: "missing_config" });
+  });
+});
+
+describe("classifyCycleCommitments (Goal Engine Phase 2D-5D: cycle aggregation)", () => {
+  // Arbitrary, unused by any test that doesn't specifically exercise the
+  // postponed/pendingIntents boundary check -- a stand-in weekly range.
+  const cycleStart = "2026-01-01";
+  const cycleEnd = "2026-01-07";
+
+  it("an empty cycle has zero of everything and is unconfigured without a target", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result).toEqual({
+      committed: 0,
+      completed: 0,
+      canceled: 0,
+      rescheduledOut: 0,
+      open: 0,
+      targetCountSnapshot: null,
+      result: "unconfigured",
+    });
+  });
+
+  it("one open (unresolved) commitment", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [{ id: "A", status: "not_started" }],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.open).toBe(1);
+    expect(result.completed).toBe(0);
+  });
+
+  it("one completed commitment", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [{ id: "A", status: "completed" }],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.completed).toBe(1);
+  });
+
+  it("one canceled commitment", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [{ id: "A", status: "canceled" }],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.canceled).toBe(1);
+  });
+
+  it("same-cycle reschedule A -> B (already materialized) counts as ONE commitment, not two", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "A", status: "postponed" },
+        { id: "B", status: "not_started" },
+      ],
+      edges: [{ from_goal_id: "A", materialized_goal_id: "B" }],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.open).toBe(1); // B is the local terminal, still unresolved
+  });
+
+  it("same-cycle reschedule where the continuation completes -- completed wins, still ONE commitment", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "A", status: "postponed" },
+        { id: "B", status: "completed" },
+      ],
+      edges: [{ from_goal_id: "A", materialized_goal_id: "B" }],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.completed).toBe(1);
+  });
+
+  it("cross-cycle reschedule (already materialized): the SOURCE cycle sees A alone as rescheduled-out", () => {
+    // B (the destination) lives in a different cycle, so it is NOT part
+    // of this cycle's own cycleRows -- exactly how materializeReschedules
+    // assigns outcome_goal_cycle_id per physical row.
+    const result = classifyCycleCommitments({
+      cycleRows: [{ id: "A", status: "postponed" }],
+      edges: [{ from_goal_id: "A", materialized_goal_id: "B" }],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.rescheduledOut).toBe(1);
+    expect(result.open).toBe(0);
+  });
+
+  it("cross-cycle reschedule: the DESTINATION cycle sees B as its own fresh, independent commitment", () => {
+    // From the destination cycle's own point of view it has no idea A
+    // exists (A isn't in its cycleRows, and the edge list it's given
+    // here is scoped to what's relevant) -- B stands alone.
+    const result = classifyCycleCommitments({
+      cycleRows: [{ id: "B", status: "not_started" }],
+      edges: [{ from_goal_id: "A", materialized_goal_id: "B" }],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.open).toBe(1);
+  });
+
+  it("a same-cycle hop still correctly groups even when the TRUE lineage root lived in an earlier cycle", () => {
+    // A (Cycle 1, not passed in at all) -> B -> C, both B and C in THIS
+    // cycle. findChainRootId would walk all the way back to A; this
+    // cycle's own grouping must stop at B instead.
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "B", status: "postponed" },
+        { id: "C", status: "not_started" },
+      ],
+      edges: [
+        { from_goal_id: "A", materialized_goal_id: "B" },
+        { from_goal_id: "B", materialized_goal_id: "C" },
+      ],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(1);
+    expect(result.open).toBe(1);
+  });
+
+  // Goal Engine Phase 2D-5D (postponed-classification correction): a
+  // reschedule only materializes once its destination day's plan is
+  // opened -- lazily, with no automatic trigger for most target dates
+  // (see rescheduleGoalToDate/materializeReschedules). A postponed row
+  // can sit with no materialized edge for a long time, so its real
+  // intended destination (the unmaterialized goal_reschedules row's own
+  // to_date) -- not a blind status check -- must decide whether it
+  // actually left this cycle.
+  describe("postponed, not yet materialized -- classified by its real intended destination", () => {
+    it("intended destination INSIDE this cycle: still open, not rescheduled-out", () => {
+      const result = classifyCycleCommitments({
+        cycleRows: [{ id: "A", status: "postponed" }],
+        edges: [], // not materialized yet -- no edge exists
+        pendingIntents: [{ from_goal_id: "A", to_date: "2026-01-04" }], // inside cycleStart..cycleEnd
+        cycleStart,
+        cycleEnd,
+        targetCountSnapshot: null,
+      });
+      expect(result.committed).toBe(1);
+      expect(result.open).toBe(1);
+      expect(result.rescheduledOut).toBe(0);
+    });
+
+    it("intended destination OUTSIDE this cycle: rescheduled-out, even before materialization", () => {
+      const result = classifyCycleCommitments({
+        cycleRows: [{ id: "A", status: "postponed" }],
+        edges: [],
+        pendingIntents: [{ from_goal_id: "A", to_date: "2026-02-01" }], // well past cycleEnd
+        cycleStart,
+        cycleEnd,
+        targetCountSnapshot: null,
+      });
+      expect(result.committed).toBe(1);
+      expect(result.rescheduledOut).toBe(1);
+      expect(result.open).toBe(0);
+    });
+
+    it("no intent row recorded at all (the acknowledged non-transactional gap): treated as open, not assumed departed", () => {
+      const result = classifyCycleCommitments({
+        cycleRows: [{ id: "A", status: "postponed" }],
+        edges: [],
+        pendingIntents: [], // no intent row found for A at all
+        cycleStart,
+        cycleEnd,
+        targetCountSnapshot: null,
+      });
+      expect(result.committed).toBe(1);
+      expect(result.open).toBe(1);
+      expect(result.rescheduledOut).toBe(0);
+    });
+
+    it("rescheduled more than once before ever materializing: the MOST RECENT to_date wins", () => {
+      // First reschedule intent pointed inside this cycle; a second,
+      // later reschedule (same from_goal_id) then pointed outside it.
+      // Callers fetch oldest-first, so the later entry in the array
+      // overwrites the earlier one in the lookup Map.
+      const result = classifyCycleCommitments({
+        cycleRows: [{ id: "A", status: "postponed" }],
+        edges: [],
+        pendingIntents: [
+          { from_goal_id: "A", to_date: "2026-01-04" }, // earlier intent: inside
+          { from_goal_id: "A", to_date: "2026-02-01" }, // most recent intent: outside
+        ],
+        cycleStart,
+        cycleEnd,
+        targetCountSnapshot: null,
+      });
+      expect(result.rescheduledOut).toBe(1);
+      expect(result.open).toBe(0);
+    });
+  });
+
+  it("configured target: achieved (completed >= target)", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "A", status: "completed" },
+        { id: "B", status: "completed" },
+        { id: "C", status: "completed" },
+      ],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: 3,
+    });
+    expect(result.result).toBe("achieved");
+  });
+
+  it("configured target: partial (0 < completed < target)", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "A", status: "completed" },
+        { id: "B", status: "not_started" },
+        { id: "C", status: "not_started" },
+      ],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: 3,
+    });
+    expect(result.result).toBe("partial");
+  });
+
+  it("configured target: missed (completed = 0, committed > 0)", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "A", status: "not_started" },
+        { id: "B", status: "canceled" },
+      ],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: 3,
+    });
+    expect(result.result).toBe("missed");
+  });
+
+  it("configured target: no_commitments (committed = 0)", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: 3,
+    });
+    expect(result.result).toBe("no_commitments");
+  });
+
+  it("null target never invents achieved/partial/missed, even with completions present", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [{ id: "A", status: "completed" }],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.result).toBe("unconfigured");
+  });
+
+  it("multiple independent conceptual Tasks in one cycle are each counted separately", () => {
+    const result = classifyCycleCommitments({
+      cycleRows: [
+        { id: "A", status: "completed" },
+        { id: "B", status: "not_started" },
+        { id: "C", status: "canceled" },
+      ],
+      edges: [],
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: null,
+    });
+    expect(result.committed).toBe(3);
+    expect(result.completed).toBe(1);
+    expect(result.open).toBe(1);
+    expect(result.canceled).toBe(1);
+  });
+
+  it("is deterministic regardless of input row order", () => {
+    const cycleRows = [
+      { id: "A", status: "postponed" },
+      { id: "B", status: "completed" },
+      { id: "C", status: "canceled" },
+      { id: "D", status: "not_started" },
+    ];
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
+    const forward = classifyCycleCommitments({
+      cycleRows,
+      edges,
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: 2,
+    });
+    const reversed = classifyCycleCommitments({
+      cycleRows: [...cycleRows].reverse(),
+      edges,
+      pendingIntents: [],
+      cycleStart,
+      cycleEnd,
+      targetCountSnapshot: 2,
+    });
+    expect(reversed).toEqual(forward);
   });
 });

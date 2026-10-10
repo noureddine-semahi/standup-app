@@ -3,6 +3,14 @@
 // Supabase I/O, no presentation/JSX -- that stays in db.ts and each
 // page respectively. Deliberately reads only plain numbers/strings, not
 // an OutcomeGoal, so it has no dependency on db.ts at all.
+//
+// Goal Engine Phase 2D-5E adds one deliberate, separate dependency: a
+// pure import from recurringGoalCycle.ts (computeCycleRange/
+// RecurrenceFrequency) for the display-only current-cycle fallback
+// below. recurringGoalCycle.ts itself has zero imports, so this stays
+// pure-to-pure and does not reintroduce a dependency on db.ts.
+
+import { computeCycleRange, type RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 
 export type TargetProgress =
   | { configured: false }
@@ -81,4 +89,112 @@ export function formatTargetProgress(current: number, target: number, unit: stri
     return `${trimmedUnit}${currentText} / ${trimmedUnit}${targetText}`;
   }
   return `${currentText} / ${applyUnit(targetText, trimmedUnit)}`;
+}
+
+/**
+ * Goal Engine Phase 2D-5E: picks whichever already-fetched cycle (if
+ * any) contains today's LOCAL date -- never assumes the newest
+ * historical cycle is "current" just because it's last in the list.
+ * Generic rather than importing OutcomeGoalCycle from db.ts, keeping
+ * this file's own "no dependency on db.ts" rule (see its header
+ * comment) intact; callers pass whatever cycle-shaped rows they already
+ * have (e.g. getCycleHistoryForOutcomeGoal's result).
+ *
+ * Returns undefined when no persisted cycle covers today -- callers
+ * must show a neutral "no current cycle" state. This function never
+ * creates a cycle; it only selects among ones already fetched.
+ */
+export function findCurrentCycle<T extends { cycle_start: string; cycle_end: string }>(
+  cycles: T[],
+  todayISO: string
+): T | undefined {
+  return cycles.find((c) => c.cycle_start <= todayISO && todayISO <= c.cycle_end);
+}
+
+// Minimum shape every current-cycle summary (persisted or derived)
+// exposes -- lets Goal Detail/Dashboard/Review Today render both kinds
+// through the exact same JSX, branching only on `view.kind` for the
+// outer "which state" decision. OutcomeGoalCycleWithAggregation (db.ts)
+// already structurally satisfies this; no import needed here to accept it.
+export type RecurringCycleSummary = {
+  cycle_start: string;
+  cycle_end: string;
+  committed: number;
+  completed: number;
+  canceled: number;
+  rescheduledOut: number;
+  open: number;
+  targetCountSnapshot: number | null;
+  result: string;
+};
+
+export type RecurringCurrentCycleView =
+  | { kind: "persisted"; cycle: RecurringCycleSummary }
+  | { kind: "derived"; cycle: RecurringCycleSummary }
+  | { kind: "not_started"; recurrenceStartDate: string }
+  | { kind: "unconfigured" };
+
+/**
+ * Goal Engine Phase 2D-5E: the ONE place Goal Detail/Dashboard/Review
+ * Today decide what "today's cycle" looks like for a Recurring Goal,
+ * so the three surfaces cannot drift on this logic.
+ *
+ * Three real states (plus "unconfigured" for a Recurring Goal missing
+ * frequency/start date, e.g. the transitional pre-2D-5C state):
+ *
+ * - "persisted": a real outcome_goal_cycles row already covers today
+ *   (via findCurrentCycle) -- ALWAYS wins. Its own frozen
+ *   target_count_snapshot/aggregation is returned exactly as stored,
+ *   never recomputed from the Goal's CURRENT recurrence_target_count.
+ * - "derived": no persisted row covers today, but
+ *   recurrenceStartDate <= todayISO -- today's cycle boundaries are
+ *   derived (display-only, via computeCycleRange) and represented as
+ *   an empty cycle (every count 0). Nothing is persisted. If a target
+ *   is currently configured, it's shown for DISPLAY ONLY with result
+ *   "no_commitments" (never "achieved"/"partial"/"missed" -- there's
+ *   nothing to judge yet); if not, result is "unconfigured" so callers
+ *   show a raw zero count with no percentage/judgment.
+ * - "not_started": todayISO < recurrenceStartDate -- checked directly
+ *   (never via computeCycleRange's own throw as control flow) --
+ *   there is no current cycle at all yet, distinct from "derived"'s
+ *   empty-but-real cycle.
+ */
+export function getRecurringCurrentCycleView(params: {
+  persistedCycles: RecurringCycleSummary[];
+  recurrenceFrequency: RecurrenceFrequency | null;
+  recurrenceStartDate: string | null;
+  recurrenceTargetCount: number | null;
+  todayISO: string;
+}): RecurringCurrentCycleView {
+  const { persistedCycles, recurrenceFrequency, recurrenceStartDate, recurrenceTargetCount, todayISO } = params;
+
+  const persisted = findCurrentCycle(persistedCycles, todayISO);
+  if (persisted) return { kind: "persisted", cycle: persisted };
+
+  if (!recurrenceFrequency || !recurrenceStartDate) return { kind: "unconfigured" };
+
+  if (todayISO < recurrenceStartDate) {
+    return { kind: "not_started", recurrenceStartDate };
+  }
+
+  const { cycleStart, cycleEnd } = computeCycleRange({
+    frequency: recurrenceFrequency,
+    recurrenceStartDate,
+    targetDate: todayISO,
+  });
+
+  return {
+    kind: "derived",
+    cycle: {
+      cycle_start: cycleStart,
+      cycle_end: cycleEnd,
+      committed: 0,
+      completed: 0,
+      canceled: 0,
+      rescheduledOut: 0,
+      open: 0,
+      targetCountSnapshot: recurrenceTargetCount,
+      result: recurrenceTargetCount != null ? "no_commitments" : "unconfigured",
+    },
+  };
 }

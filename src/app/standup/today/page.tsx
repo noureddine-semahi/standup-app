@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
-import { getTargetProgress, formatTargetProgress } from "@/lib/goalProgress";
+import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView } from "@/lib/goalProgress";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
@@ -44,6 +44,7 @@ import {
   formatDateTimeDisplay,
   upsertGoals,
   resolveTaskCycleId,
+  getCycleHistoryForOutcomeGoal,
   publishGoalGlimpse,
   unpublishGoalGlimpse,
   getMyGoalGlimpsePost,
@@ -73,6 +74,8 @@ import {
   type OutcomeGoalType,
   type ArchivedGoal,
   type ConceptualTask,
+  type OutcomeGoalCycleWithAggregation,
+  type CycleResultStatus,
 } from "@/lib/supabase/db";
 import type { RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 import { supabase } from "@/lib/supabase/client";
@@ -88,6 +91,7 @@ import {
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/en";
 
 // Priority options matching Tomorrow page
 const PRIORITY_OPTIONS = [
@@ -171,6 +175,23 @@ const STATUS_OPTIONS: { value: GoalStatus; label: string }[] = [
   { value: "blocked", label: "Blocked" },
   { value: "postponed", label: "Postponed" },
 ];
+
+// Goal Engine Phase 2D-5E: reuses the exact Recurring Setup frequency
+// labels from Phase 2D-5C rather than duplicating new copy.
+const RECURRING_FREQUENCY_LABEL_KEY: Record<RecurrenceFrequency, TranslationKey> = {
+  daily: "recurringSetup.frequencyDaily",
+  weekly: "recurringSetup.frequencyWeekly",
+  monthly: "recurringSetup.frequencyMonthly",
+};
+// Only ever looked up when a cycle's targetCountSnapshot is non-null,
+// i.e. classifyCycleCommitments' "unconfigured" result never occurs
+// here -- see its own return-type comment in db.ts.
+const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured">, TranslationKey> = {
+  achieved: "recurringProgress.resultAchieved",
+  partial: "recurringProgress.resultPartial",
+  missed: "recurringProgress.resultMissed",
+  no_commitments: "recurringProgress.resultNoCommitments",
+};
 
 export default function TodayPage() {
   const { t } = useLanguage();
@@ -463,9 +484,31 @@ export default function TodayPage() {
   // a Task linked to a Goal that's since gone completed/abandoned still
   // shows its real title instead of silently losing its label).
   const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
+  // Goal Engine Phase 2D-5E: read-only cycle history per Recurring Goal
+  // only (never a trigger for creating a cycle), fetched alongside
+  // outcomeGoals above and keyed by outcome_goal_id for the card render
+  // below to look up synchronously. Same "all statuses" scope as
+  // outcomeGoals itself -- a Goal-group card for a completed/abandoned
+  // Recurring Goal still reads its real history instead of silently
+  // losing it.
+  const [cycleHistoryByGoalId, setCycleHistoryByGoalId] = useState<Map<string, OutcomeGoalCycleWithAggregation[]>>(
+    new Map()
+  );
   useEffect(() => {
     getOutcomeGoals()
-      .then(setOutcomeGoals)
+      .then((goals) => {
+        setOutcomeGoals(goals);
+        const recurring = goals.filter((g) => g.goal_type === "recurring");
+        if (recurring.length === 0) {
+          setCycleHistoryByGoalId(new Map());
+          return;
+        }
+        Promise.all(recurring.map((g) => getCycleHistoryForOutcomeGoal(g.id).catch(() => [] as OutcomeGoalCycleWithAggregation[])))
+          .then((histories) => {
+            setCycleHistoryByGoalId(new Map(recurring.map((g, i) => [g.id, histories[i]])));
+          })
+          .catch(() => {});
+      })
       .catch(() => {});
   }, []);
   const outcomeGoalTitleById = useMemo(() => {
@@ -3432,12 +3475,41 @@ export default function TodayPage() {
                         (g) => g.status !== "completed" && g.status !== "canceled" && (g as any).lifecycle !== "broken"
                       ).length
                     : 0;
-                  // No fake 0% bar for an unconfigured Target, and no bar
-                  // at all for Ongoing -- same "omit the bar entirely"
-                  // rule Goal Detail/Dashboard use.
-                  const showProgressBar = isOngoingGoal ? false : !isTargetGoal || (targetProgress?.configured ?? false);
+                  // Goal Engine Phase 2D-5E: current-cycle progress, never
+                  // lifetime Task completion. A persisted cycle covering
+                  // today always wins; otherwise, if recurrence has
+                  // actually started, today's (empty, display-only) cycle
+                  // is derived rather than claiming no cycle exists --
+                  // see getRecurringCurrentCycleView's own doc comment.
+                  const isRecurringGoal = majorGoal?.goal_type === "recurring";
+                  const recurringCycleView = isRecurringGoal
+                    ? getRecurringCurrentCycleView({
+                        persistedCycles: cycleHistoryByGoalId.get(goalId) ?? [],
+                        recurrenceFrequency: majorGoal!.recurrence_frequency,
+                        recurrenceStartDate: majorGoal!.recurrence_start_date,
+                        recurrenceTargetCount: majorGoal!.recurrence_target_count,
+                        todayISO,
+                      })
+                    : undefined;
+                  const recurringCycle =
+                    recurringCycleView?.kind === "persisted" || recurringCycleView?.kind === "derived"
+                      ? recurringCycleView.cycle
+                      : undefined;
+                  // No fake 0% bar for an unconfigured Target, no bar at
+                  // all for Ongoing, and no bar for Recurring unless the
+                  // current cycle has a configured target -- same "omit
+                  // the bar entirely" rule Goal Detail/Dashboard use.
+                  const showProgressBar = isOngoingGoal
+                    ? false
+                    : isRecurringGoal
+                    ? !!recurringCycle && recurringCycle.targetCountSnapshot != null
+                    : !isTargetGoal || (targetProgress?.configured ?? false);
                   const barProgressFraction = isTargetGoal
                     ? (targetProgress?.configured ? targetProgress.barPct : 0) / 100
+                    : isRecurringGoal
+                    ? recurringCycle && recurringCycle.targetCountSnapshot
+                      ? Math.max(0, Math.min(1, recurringCycle.completed / recurringCycle.targetCountSnapshot))
+                      : 0
                     : completionPct / 100;
 
                   return (
@@ -3492,6 +3564,43 @@ export default function TodayPage() {
                               <span>{t("goalDetail.ongoingTasksCompletedCount", { count: completedCount })}</span>
                               <span>{t("goalDetail.ongoingOpenTasksCount", { count: openCount })}</span>
                             </>
+                          ) : isRecurringGoal ? (
+                            // Goal Engine Phase 2D-5E: current-cycle
+                            // progress, never lifetime Task completion.
+                            // Reviewed/pending-review stats below are NOT
+                            // duplicated here either -- same rule as
+                            // Ongoing above, they render unconditionally
+                            // right after this block regardless of type.
+                            recurringCycleView?.kind === "unconfigured" ? (
+                              <span>{t("recurringProgress.noCurrentCycle")}</span>
+                            ) : recurringCycleView?.kind === "not_started" ? (
+                              <span>
+                                {t("recurringProgress.notStartedYet", {
+                                  date: formatDateDisplay(recurringCycleView.recurrenceStartDate),
+                                })}
+                              </span>
+                            ) : recurringCycle && recurringCycle.targetCountSnapshot != null ? (
+                              <>
+                                <span>
+                                  {t("recurringProgress.completedOfTarget", {
+                                    completed: recurringCycle.completed,
+                                    target: recurringCycle.targetCountSnapshot,
+                                  })}
+                                </span>
+                                <span>
+                                  {t(RECURRING_RESULT_LABEL_KEY[recurringCycle.result as Exclude<CycleResultStatus, "unconfigured">])}
+                                </span>
+                              </>
+                            ) : recurringCycle ? (
+                              <span>
+                                {t(
+                                  recurringCycle.completed === 1
+                                    ? "recurringProgress.completedCountSingular"
+                                    : "recurringProgress.completedCountPlural",
+                                  { count: recurringCycle.completed }
+                                )}
+                              </span>
+                            ) : null
                           ) : (
                             <>
                               <span>{t("today.goalCompletionStat", { completed: completedCount, total: totalCount })}</span>

@@ -14,7 +14,7 @@ import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
-import { getTargetProgress, formatTargetProgress } from "@/lib/goalProgress";
+import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView } from "@/lib/goalProgress";
 import {
   getOutcomeGoalById,
   getConceptualTasksByOutcomeGoalIds,
@@ -25,6 +25,7 @@ import {
   getPlanWithGoals,
   upsertGoals,
   resolveTaskCycleId,
+  getCycleHistoryForOutcomeGoal,
   updateGoalTitle,
   updateGoalPriority,
   toISODate,
@@ -37,7 +38,10 @@ import {
   type ArchivedGoal,
   type GoalAssignment,
   type BrokenGoalResolution,
+  type OutcomeGoalCycleWithAggregation,
+  type CycleResultStatus,
 } from "@/lib/supabase/db";
+import type { RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import StatusIcon from "@/components/StatusIcon";
@@ -93,6 +97,33 @@ const GOAL_TYPE_CHIP_COLORS = {
   border: "rgba(var(--tint-rgb), 0.18)",
   color: "rgba(var(--tint-rgb), 0.7)",
 };
+
+// Goal Engine Phase 2D-5E: reuses the exact Recurring Setup frequency
+// labels from Phase 2D-5C rather than duplicating new copy.
+const RECURRING_FREQUENCY_LABEL_KEY: Record<RecurrenceFrequency, TranslationKey> = {
+  daily: "recurringSetup.frequencyDaily",
+  weekly: "recurringSetup.frequencyWeekly",
+  monthly: "recurringSetup.frequencyMonthly",
+};
+// Only ever looked up when a cycle's targetCountSnapshot is non-null,
+// i.e. classifyCycleCommitments' "unconfigured" result never occurs
+// here -- see its own return-type comment in db.ts.
+const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured">, TranslationKey> = {
+  achieved: "recurringProgress.resultAchieved",
+  partial: "recurringProgress.resultPartial",
+  missed: "recurringProgress.resultMissed",
+  no_commitments: "recurringProgress.resultNoCommitments",
+};
+
+// Goal Engine Phase 2D-5E: "Oct 5" for a single-day (daily) cycle, or
+// "Oct 5 – Oct 11" for a real range -- trivial enough not to warrant a
+// shared pure helper (see this phase's own report), duplicated the same
+// small way on Dashboard/Today.
+function formatCycleDateRange(cycle: { cycle_start: string; cycle_end: string }): string {
+  return cycle.cycle_start === cycle.cycle_end
+    ? formatDateDisplay(cycle.cycle_start)
+    : `${formatDateDisplay(cycle.cycle_start)} – ${formatDateDisplay(cycle.cycle_end)}`;
+}
 
 export default function GoalDetailPage() {
   const params = useParams();
@@ -166,6 +197,11 @@ export default function GoalDetailPage() {
   const [progressValueDraft, setProgressValueDraft] = useState("");
   const [savingProgress, setSavingProgress] = useState(false);
 
+  // Goal Engine Phase 2D-5E: only populated for a Recurring Goal (see
+  // below) -- read-only history from getCycleHistoryForOutcomeGoal,
+  // never a trigger for creating a cycle. Empty for every other type.
+  const [cycleHistory, setCycleHistory] = useState<OutcomeGoalCycleWithAggregation[]>([]);
+
   async function load(goalId: string) {
     setLoading(true);
     setMsg(null);
@@ -178,12 +214,16 @@ export default function GoalDetailPage() {
       }
       setNotFound(false);
       setGoal(g);
-      const [ct, assignments] = await Promise.all([
+      const [ct, assignments, history] = await Promise.all([
         getConceptualTasksByOutcomeGoalIds([goalId]),
         getMyGoalAssignments().catch(() => [] as GoalAssignment[]),
+        g.goal_type === "recurring"
+          ? getCycleHistoryForOutcomeGoal(goalId).catch(() => [] as OutcomeGoalCycleWithAggregation[])
+          : Promise.resolve([] as OutcomeGoalCycleWithAggregation[]),
       ]);
       setTasks(ct);
       setGoalAssignments(assignments);
+      setCycleHistory(history);
     } catch {
       setNotFound(true);
     } finally {
@@ -495,6 +535,21 @@ export default function GoalDetailPage() {
   // "target"; unused (but harmless to compute) otherwise.
   const targetProgress = getTargetProgress({ currentValue: goal.current_value, targetValue: goal.target_value });
 
+  // Goal Engine Phase 2D-5E: a persisted cycle covering today always
+  // wins; otherwise, if recurrence has actually started, derive today's
+  // (empty, display-only) cycle rather than claiming no cycle exists at
+  // all -- see getRecurringCurrentCycleView's own doc comment.
+  // cycleHistory is only ever non-empty for a Recurring Goal (load()
+  // above), so recurringCycleView is only meaningful when goal.goal_type
+  // === "recurring".
+  const recurringCycleView = getRecurringCurrentCycleView({
+    persistedCycles: cycleHistory,
+    recurrenceFrequency: goal.recurrence_frequency,
+    recurrenceStartDate: goal.recurrence_start_date,
+    recurrenceTargetCount: goal.recurrence_target_count,
+    todayISO,
+  });
+
   const openTasks = tasksWithChain.filter(
     (g) => g.status !== "completed" && g.status !== "canceled" && g.lifecycle !== "broken"
   );
@@ -795,6 +850,82 @@ export default function GoalDetailPage() {
               {t("goalDetail.ongoingOpenTasksCount", { count: openTasks.length })}
             </div>
           </div>
+        ) : goal.goal_type === "recurring" ? (
+          // Goal Engine Phase 2D-5E: a Recurring Goal's progress is
+          // CURRENT-CYCLE progress, never lifetime Task completion --
+          // showing "{completed}/{total} · {pct}%" here would imply the
+          // persistent Goal itself is X% complete, which this
+          // classification never claims. recurringCycleView.kind drives
+          // which of the three (plus "unconfigured") states renders --
+          // see getRecurringCurrentCycleView's own doc comment. "persisted"
+          // and "derived" share the exact same body below via `.cycle`.
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-wide text-white/35 font-semibold">
+              {t("recurringProgress.label")}
+            </div>
+            {recurringCycleView.kind === "unconfigured" ? (
+              <div className="mt-1 text-xs text-white/60">{t("recurringProgress.noCurrentCycle")}</div>
+            ) : recurringCycleView.kind === "not_started" ? (
+              <div className="mt-1 text-xs text-white/60">
+                {t("recurringProgress.notStartedYet", {
+                  date: formatDateDisplay(recurringCycleView.recurrenceStartDate),
+                })}
+              </div>
+            ) : (
+              <>
+                {recurringCycleView.cycle.targetCountSnapshot != null ? (
+                  <>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-xs text-white/50">
+                      <span className="font-semibold text-white/80">
+                        {t("recurringProgress.completedOfTarget", {
+                          completed: recurringCycleView.cycle.completed,
+                          target: recurringCycleView.cycle.targetCountSnapshot,
+                        })}
+                      </span>
+                      <span className="font-bold text-pink-300/85">
+                        {t(
+                          RECURRING_RESULT_LABEL_KEY[
+                            recurringCycleView.cycle.result as Exclude<CycleResultStatus, "unconfigured">
+                          ]
+                        )}
+                      </span>
+                    </div>
+                    <div className="dashboard-goal-progress-track">
+                      <div
+                        className="dashboard-goal-progress-fill"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              Math.round(
+                                (recurringCycleView.cycle.completed / recurringCycleView.cycle.targetCountSnapshot) * 100
+                              )
+                            )
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-1 text-xs text-white/50">
+                    {t(
+                      recurringCycleView.cycle.completed === 1
+                        ? "recurringProgress.completedCountSingular"
+                        : "recurringProgress.completedCountPlural",
+                      { count: recurringCycleView.cycle.completed }
+                    )}
+                  </div>
+                )}
+                {goal.recurrence_frequency && (
+                  <div className="mt-1 text-xs text-white/40">
+                    {t(RECURRING_FREQUENCY_LABEL_KEY[goal.recurrence_frequency])} ·{" "}
+                    {formatCycleDateRange(recurringCycleView.cycle)}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         ) : (
           <>
             <div className="mt-4 flex items-center justify-between gap-2 text-xs text-white/50">
@@ -807,6 +938,39 @@ export default function GoalDetailPage() {
           </>
         )}
       </div>
+
+      {goal.goal_type === "recurring" && (
+        <div className="card">
+          <h2 className="text-sm font-semibold text-white/80 mb-2">{t("goalDetail.cycleHistoryLabel")}</h2>
+          {cycleHistory.length === 0 ? (
+            <div className="text-xs text-white/40 py-1">{t("recurringProgress.noCyclesYet")}</div>
+          ) : (
+            <div className="space-y-1.5">
+              {/* Newest first for display -- getCycleHistoryForOutcomeGoal
+                  itself returns oldest-first (deterministic by
+                  cycle_start), never mutated/refetched to reorder. */}
+              {[...cycleHistory].reverse().map((cycle) => (
+                <div
+                  key={cycle.id}
+                  className="flex items-center justify-between gap-2 text-xs text-white/60 py-1 border-b border-white/5 last:border-b-0"
+                >
+                  <span className="truncate">{formatCycleDateRange(cycle)}</span>
+                  <span className="flex-shrink-0 text-white/50">
+                    {cycle.targetCountSnapshot != null
+                      ? `${t("recurringProgress.completedOfTarget", {
+                          completed: cycle.completed,
+                          target: cycle.targetCountSnapshot,
+                        })} · ${t(RECURRING_RESULT_LABEL_KEY[cycle.result as Exclude<CycleResultStatus, "unconfigured">])}`
+                      : t(cycle.completed === 1 ? "recurringProgress.completedCountSingular" : "recurringProgress.completedCountPlural", {
+                          count: cycle.completed,
+                        })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {msg && (
         <div className="card text-sm text-red-300" role="alert">

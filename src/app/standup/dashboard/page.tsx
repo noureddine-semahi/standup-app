@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
-import { getTargetProgress, formatTargetProgress } from "@/lib/goalProgress";
+import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView } from "@/lib/goalProgress";
 import {
   toISODate,
   addDays,
@@ -24,6 +24,7 @@ import {
   ensurePaymentReminderGoals,
   getOutcomeGoals,
   getConceptualTasksByOutcomeGoalIds,
+  getCycleHistoryForOutcomeGoal,
   resolveBrokenGoal,
   type BrokenGoalResolution,
   type ConceptualTaskLifecycle,
@@ -40,7 +41,10 @@ import {
   type OutcomeGoal,
   type ArchivedGoal,
   type ConceptualTask,
+  type OutcomeGoalCycleWithAggregation,
+  type CycleResultStatus,
 } from "@/lib/supabase/db";
+import type { RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 import PendingNotifications from "@/components/PendingNotifications";
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
@@ -140,6 +144,33 @@ const WIDGETS = [
   },
 ] as const;
 
+// Goal Engine Phase 2D-5E: reuses the exact Recurring Setup frequency
+// labels from Phase 2D-5C rather than duplicating new copy.
+const RECURRING_FREQUENCY_LABEL_KEY: Record<RecurrenceFrequency, TranslationKey> = {
+  daily: "recurringSetup.frequencyDaily",
+  weekly: "recurringSetup.frequencyWeekly",
+  monthly: "recurringSetup.frequencyMonthly",
+};
+// Only ever looked up when a cycle's targetCountSnapshot is non-null,
+// i.e. classifyCycleCommitments' "unconfigured" result never occurs
+// here -- see its own return-type comment in db.ts.
+const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured">, TranslationKey> = {
+  achieved: "recurringProgress.resultAchieved",
+  partial: "recurringProgress.resultPartial",
+  missed: "recurringProgress.resultMissed",
+  no_commitments: "recurringProgress.resultNoCommitments",
+};
+
+// Goal Engine Phase 2D-5E: "Oct 5" for a single-day (daily) cycle, or
+// "Oct 5 – Oct 11" for a real range -- trivial enough not to warrant a
+// shared pure helper (see this phase's own report), duplicated the same
+// small way on Goal Detail/Today.
+function formatCycleDateRange(cycle: { cycle_start: string; cycle_end: string }): string {
+  return cycle.cycle_start === cycle.cycle_end
+    ? formatDateDisplay(cycle.cycle_start)
+    : `${formatDateDisplay(cycle.cycle_start)} – ${formatDateDisplay(cycle.cycle_end)}`;
+}
+
 export default function DashboardPage() {
   const { t } = useLanguage();
   const todayISO = useMemo(() => toISODate(new Date()), []);
@@ -232,6 +263,13 @@ export default function DashboardPage() {
   // active Outcome Goals are a small, bounded set in practice.
   const [activeOutcomeGoals, setActiveOutcomeGoals] = useState<OutcomeGoal[]>([]);
   const [outcomeGoalTasks, setOutcomeGoalTasks] = useState<ConceptualTask<ArchivedGoal>[]>([]);
+  // Goal Engine Phase 2D-5E: read-only cycle history per active Recurring
+  // Goal only (never a trigger for creating a cycle) -- fetched alongside
+  // outcomeGoalTasks above, keyed by outcome_goal_id for the card render
+  // below to look up synchronously.
+  const [cycleHistoryByGoalId, setCycleHistoryByGoalId] = useState<Map<string, OutcomeGoalCycleWithAggregation[]>>(
+    new Map()
+  );
   // Which Active Goal cards are expanded to show their Task breakdown --
   // local UI state only, never persisted. Any number may be open at once.
   const [expandedGoalIds, setExpandedGoalIds] = useState<Set<string>>(new Set());
@@ -345,6 +383,7 @@ export default function DashboardPage() {
             .then((goals) => {
               const active = goals.filter((g) => g.status === "active");
               setActiveOutcomeGoals(active);
+              loadCycleHistories(active);
               const allIds = active.map((g) => g.id);
               return allIds.length > 0 ? getConceptualTasksByOutcomeGoalIds(allIds) : Promise.resolve([]);
             })
@@ -601,9 +640,33 @@ export default function DashboardPage() {
     const goals = await getOutcomeGoals();
     const active = goals.filter((g) => g.status === "active");
     setActiveOutcomeGoals(active);
+    loadCycleHistories(active);
     const allIds = active.map((g) => g.id);
     const tasks = allIds.length > 0 ? await getConceptualTasksByOutcomeGoalIds(allIds) : [];
     setOutcomeGoalTasks(tasks);
+  }
+
+  // Goal Engine Phase 2D-5E: fire-and-forget, same pattern as this
+  // file's own getOverdueSummary(...).then(...).catch(() => {}) above --
+  // only active Recurring Goals get a cycle-history fetch at all; every
+  // other type's entry in the Map is simply absent (treated as [] by
+  // the render below). Read-only: getCycleHistoryForOutcomeGoal never
+  // creates a cycle merely by being called here.
+  function loadCycleHistories(goals: OutcomeGoal[]) {
+    const recurringActive = goals.filter((g) => g.goal_type === "recurring");
+    if (recurringActive.length === 0) {
+      setCycleHistoryByGoalId(new Map());
+      return;
+    }
+    Promise.all(
+      recurringActive.map((g) =>
+        getCycleHistoryForOutcomeGoal(g.id).catch(() => [] as OutcomeGoalCycleWithAggregation[])
+      )
+    )
+      .then((histories) => {
+        setCycleHistoryByGoalId(new Map(recurringActive.map((g, i) => [g.id, histories[i]])));
+      })
+      .catch(() => {});
   }
 
   // Owner resolution for a broken conceptual Task (lifecycle: "broken" --
@@ -718,7 +781,19 @@ export default function DashboardPage() {
     // (above) through this object -- no recompute/refetch, just
     // surfacing a count that existed in this same function already, for
     // the Ongoing Goal branch in the render below.
-    return { goal, total, completed, pct, context, sortedTasks, openCount: unfinished.length };
+    // Goal Engine Phase 2D-5E: a persisted cycle covering today always
+    // wins; otherwise, if recurrence has actually started, derive
+    // today's (empty, display-only) cycle rather than claiming no cycle
+    // exists -- see getRecurringCurrentCycleView's own doc comment.
+    // Only meaningful when goal.goal_type === "recurring".
+    const recurringCycleView = getRecurringCurrentCycleView({
+      persistedCycles: cycleHistoryByGoalId.get(goal.id) ?? [],
+      recurrenceFrequency: goal.recurrence_frequency,
+      recurrenceStartDate: goal.recurrence_start_date,
+      recurrenceTargetCount: goal.recurrence_target_count,
+      todayISO,
+    });
+    return { goal, total, completed, pct, context, sortedTasks, openCount: unfinished.length, recurringCycleView };
   });
 
   // The Dashboard itself stays as compact as before by default -- only
@@ -979,7 +1054,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                  {visibleGoalCards.map(({ goal, total, completed, pct, context, sortedTasks, openCount }) => {
+                  {visibleGoalCards.map(({ goal, total, completed, pct, context, sortedTasks, openCount, recurringCycleView }) => {
                     const isExpanded = expandedGoalIds.has(goal.id);
                     return (
                       <div key={goal.id} className="dashboard-goal-card min-w-0">
@@ -1052,6 +1127,68 @@ export default function DashboardPage() {
                             <div className="mt-0.5 text-[10px] text-white/35">
                               {t("goalDetail.ongoingOpenTasksCount", { count: openCount })}
                             </div>
+                          </div>
+                        ) : goal.goal_type === "recurring" ? (
+                          // Goal Engine Phase 2D-5E: current-cycle progress,
+                          // never lifetime Task completion. recurringCycleView
+                          // is "unconfigured"/"not_started" when there's no
+                          // real current cycle (and getRecurringCurrentCycleView
+                          // never fabricates one) -- "persisted" and "derived"
+                          // share the exact same body below via `.cycle`.
+                          <div className="mt-1.5 text-[11px] text-white/50">
+                            {recurringCycleView.kind === "unconfigured" ? (
+                              <div>{t("recurringProgress.noCurrentCycle")}</div>
+                            ) : recurringCycleView.kind === "not_started" ? (
+                              <div>
+                                {t("recurringProgress.notStartedYet", {
+                                  date: formatDateDisplay(recurringCycleView.recurrenceStartDate),
+                                })}
+                              </div>
+                            ) : recurringCycleView.cycle.targetCountSnapshot != null ? (
+                              <>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate">
+                                    {t("recurringProgress.completedOfTarget", {
+                                      completed: recurringCycleView.cycle.completed,
+                                      target: recurringCycleView.cycle.targetCountSnapshot,
+                                    })}
+                                  </span>
+                                  <span className="font-bold text-pink-300/85 flex-shrink-0">
+                                    {t(
+                                      RECURRING_RESULT_LABEL_KEY[
+                                        recurringCycleView.cycle.result as Exclude<CycleResultStatus, "unconfigured">
+                                      ]
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="dashboard-goal-progress-track">
+                                  <div
+                                    className="dashboard-goal-progress-fill"
+                                    style={{
+                                      width: `${Math.max(
+                                        0,
+                                        Math.min(
+                                          100,
+                                          Math.round(
+                                            (recurringCycleView.cycle.completed / recurringCycleView.cycle.targetCountSnapshot) *
+                                              100
+                                          )
+                                        )
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div>
+                                {t(
+                                  recurringCycleView.cycle.completed === 1
+                                    ? "recurringProgress.completedCountSingular"
+                                    : "recurringProgress.completedCountPlural",
+                                  { count: recurringCycleView.cycle.completed }
+                                )}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <>

@@ -671,12 +671,25 @@ export default function Header() {
   // circle) but both toggle the same profileOpen state and show
   // identical panel contents. Reuses .nav-more-panel's exact floating-
   // dropdown chrome rather than introducing a new panel style.
+  //
+  // Both instances are always mounted (same as hamburger's two
+  // instances) -- the mobile one's entire subtree already hides above
+  // 760px via its .nav-mobile-trigger ANCESTOR, but the desktop one had
+  // no equivalent: only its trigger button carried a hide-below-760px
+  // class (.nav-profile), which left the WRAPPER (and therefore its
+  // panel) still mounted and visible on mobile whenever profileOpen was
+  // true -- rendering a second, mispositioned panel alongside the
+  // correct mobile one. nav-profile-wrap-desktop (CSS) hides the whole
+  // wrapper, not just the trigger, closing that gap the same way.
   function profileMenu(variant: "desktop" | "mobile") {
     if (!user) return null;
     const ref = variant === "desktop" ? profileDesktopRef : profileMobileRef;
     const triggerLabel = profileOpen ? t("nav.closeMenu") : t("nav.profileAriaLabel");
     return (
-      <div className="nav-profile-wrap" ref={ref}>
+      <div
+        className={variant === "desktop" ? "nav-profile-wrap nav-profile-wrap-desktop" : "nav-profile-wrap"}
+        ref={ref}
+      >
         {variant === "desktop" ? (
           <button
             type="button"

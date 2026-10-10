@@ -1452,7 +1452,16 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 760px) {
   .nav-profile,
-  .nav-utility-cluster-desktop {
+  .nav-utility-cluster-desktop,
+  /* Mobile Profile Menu fix: hides the desktop profile dropdown's whole
+     wrapper (trigger + panel), not just its trigger button (.nav-profile
+     above already did that part) -- without this, the wrapper and its
+     panel stayed mounted and visible on mobile whenever profileOpen was
+     true, rendering a second, mispositioned panel alongside the correct
+     mobile one. Mirrors .nav-utility-cluster-desktop's own treatment;
+     the mobile instance's equivalent subtree already hides above 760px
+     via its .nav-mobile-trigger ancestor, so it needs no matching rule. */
+  .nav-profile-wrap-desktop {
     display: none;
   }
 

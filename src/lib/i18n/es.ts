@@ -207,6 +207,7 @@ export const es: Record<keyof typeof en, string> = {
   "recurringProgress.resultPartial": "Parcial",
   "recurringProgress.resultMissed": "No logrado",
   "recurringProgress.resultNoCommitments": "Sin compromisos",
+  "recurringProgress.resultInProgress": "En curso",
   "recurringProgress.noCurrentCycle": "Aún no hay un ciclo actual",
   "recurringProgress.notStartedYet": "Comienza el {date}",
   "recurringProgress.noCyclesYet": "Aún no hay ciclos",

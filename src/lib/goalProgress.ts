@@ -134,6 +134,21 @@ export type RecurringCurrentCycleView =
   | { kind: "not_started"; recurrenceStartDate: string }
   | { kind: "unconfigured" };
 
+// Goal Engine Phase 2D-5E (active-cycle correction): classifyCycleCommitments'
+// stored result (db.ts) is a closed-cycle judgment -- "missed"/"partial"/
+// "no_commitments" all assume the cycle is over. Anything
+// getRecurringCurrentCycleView returns as "persisted" or "derived" is, by
+// construction, always TODAY's cycle (findCurrentCycle only ever matches a
+// cycle containing today), i.e. always still active -- so its displayed
+// result is re-derived here from the raw completed/target numbers alone,
+// never read off the stored value. "achieved" needs no correction either
+// way (hitting the target is a real, immediate fact regardless of time
+// left); anything else becomes "in_progress" while active.
+function activeCycleResult(completed: number, targetCountSnapshot: number | null): string {
+  if (targetCountSnapshot == null) return "unconfigured";
+  return completed >= targetCountSnapshot ? "achieved" : "in_progress";
+}
+
 /**
  * Goal Engine Phase 2D-5E: the ONE place Goal Detail/Dashboard/Review
  * Today decide what "today's cycle" looks like for a Recurring Goal,
@@ -143,17 +158,20 @@ export type RecurringCurrentCycleView =
  * frequency/start date, e.g. the transitional pre-2D-5C state):
  *
  * - "persisted": a real outcome_goal_cycles row already covers today
- *   (via findCurrentCycle) -- ALWAYS wins. Its own frozen
- *   target_count_snapshot/aggregation is returned exactly as stored,
- *   never recomputed from the Goal's CURRENT recurrence_target_count.
+ *   (via findCurrentCycle) -- ALWAYS wins. Its committed/completed/
+ *   canceled/rescheduledOut/open counts and its own frozen
+ *   target_count_snapshot are returned exactly as stored (never
+ *   recomputed from the Goal's CURRENT recurrence_target_count), but
+ *   `result` is re-derived via activeCycleResult() above -- a NEW
+ *   object (`{...persisted, result}`), never a mutation of the
+ *   persisted cycle passed in (that same object may also live in a
+ *   caller's own cycleHistory array; mutating it would corrupt that
+ *   list's historical data too).
  * - "derived": no persisted row covers today, but
  *   recurrenceStartDate <= todayISO -- today's cycle boundaries are
  *   derived (display-only, via computeCycleRange) and represented as
- *   an empty cycle (every count 0). Nothing is persisted. If a target
- *   is currently configured, it's shown for DISPLAY ONLY with result
- *   "no_commitments" (never "achieved"/"partial"/"missed" -- there's
- *   nothing to judge yet); if not, result is "unconfigured" so callers
- *   show a raw zero count with no percentage/judgment.
+ *   an empty cycle (every count 0). Nothing is persisted. `result`
+ *   uses the same activeCycleResult() formula as "persisted" above.
  * - "not_started": todayISO < recurrenceStartDate -- checked directly
  *   (never via computeCycleRange's own throw as control flow) --
  *   there is no current cycle at all yet, distinct from "derived"'s
@@ -169,7 +187,12 @@ export function getRecurringCurrentCycleView(params: {
   const { persistedCycles, recurrenceFrequency, recurrenceStartDate, recurrenceTargetCount, todayISO } = params;
 
   const persisted = findCurrentCycle(persistedCycles, todayISO);
-  if (persisted) return { kind: "persisted", cycle: persisted };
+  if (persisted) {
+    return {
+      kind: "persisted",
+      cycle: { ...persisted, result: activeCycleResult(persisted.completed, persisted.targetCountSnapshot) },
+    };
+  }
 
   if (!recurrenceFrequency || !recurrenceStartDate) return { kind: "unconfigured" };
 
@@ -194,7 +217,20 @@ export function getRecurringCurrentCycleView(params: {
       rescheduledOut: 0,
       open: 0,
       targetCountSnapshot: recurrenceTargetCount,
-      result: recurrenceTargetCount != null ? "no_commitments" : "unconfigured",
+      result: activeCycleResult(0, recurrenceTargetCount),
     },
   };
+}
+
+/**
+ * Goal Engine Phase 2D-5E: a cycle is historical once the local date has
+ * advanced strictly past its cycle_end -- a same-day Daily cycle
+ * (cycle_start === cycle_end === today) stays active all day and only
+ * becomes historical the next day, with no special-casing per
+ * frequency (the same plain string comparison applies uniformly).
+ * Local "YYYY-MM-DD" string comparison only, same convention as
+ * findCurrentCycle above -- never Date/toISOString().
+ */
+export function isCycleFinished(cycle: { cycle_end: string }, todayISO: string): boolean {
+  return cycle.cycle_end < todayISO;
 }

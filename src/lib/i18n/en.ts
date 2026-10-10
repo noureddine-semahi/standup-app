@@ -207,6 +207,7 @@ export const en = {
   "recurringProgress.resultPartial": "Partial",
   "recurringProgress.resultMissed": "Missed",
   "recurringProgress.resultNoCommitments": "No commitments",
+  "recurringProgress.resultInProgress": "In progress",
   "recurringProgress.noCurrentCycle": "No current cycle yet",
   "recurringProgress.notStartedYet": "Starts {date}",
   "recurringProgress.noCyclesYet": "No cycles yet",

@@ -185,12 +185,16 @@ const RECURRING_FREQUENCY_LABEL_KEY: Record<RecurrenceFrequency, TranslationKey>
 };
 // Only ever looked up when a cycle's targetCountSnapshot is non-null,
 // i.e. classifyCycleCommitments' "unconfigured" result never occurs
-// here -- see its own return-type comment in db.ts.
-const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured">, TranslationKey> = {
+// here -- see its own return-type comment in db.ts. "in_progress" is a
+// presentation-only value (getRecurringCurrentCycleView, goalProgress.ts)
+// for an ACTIVE cycle -- never stored, never produced by
+// classifyCycleCommitments, which only ever judges a closed cycle.
+const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured"> | "in_progress", TranslationKey> = {
   achieved: "recurringProgress.resultAchieved",
   partial: "recurringProgress.resultPartial",
   missed: "recurringProgress.resultMissed",
   no_commitments: "recurringProgress.resultNoCommitments",
+  in_progress: "recurringProgress.resultInProgress",
 };
 
 export default function TodayPage() {
@@ -3588,7 +3592,11 @@ export default function TodayPage() {
                                   })}
                                 </span>
                                 <span>
-                                  {t(RECURRING_RESULT_LABEL_KEY[recurringCycle.result as Exclude<CycleResultStatus, "unconfigured">])}
+                                  {t(
+                                    RECURRING_RESULT_LABEL_KEY[
+                                      recurringCycle.result as Exclude<CycleResultStatus, "unconfigured"> | "in_progress"
+                                    ]
+                                  )}
                                 </span>
                               </>
                             ) : recurringCycle ? (

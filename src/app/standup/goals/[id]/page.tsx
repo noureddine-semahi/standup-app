@@ -14,7 +14,7 @@ import type { CSSProperties } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
-import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView } from "@/lib/goalProgress";
+import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView, isCycleFinished } from "@/lib/goalProgress";
 import {
   getOutcomeGoalById,
   getConceptualTasksByOutcomeGoalIds,
@@ -107,12 +107,16 @@ const RECURRING_FREQUENCY_LABEL_KEY: Record<RecurrenceFrequency, TranslationKey>
 };
 // Only ever looked up when a cycle's targetCountSnapshot is non-null,
 // i.e. classifyCycleCommitments' "unconfigured" result never occurs
-// here -- see its own return-type comment in db.ts.
-const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured">, TranslationKey> = {
+// here -- see its own return-type comment in db.ts. "in_progress" is a
+// presentation-only value (getRecurringCurrentCycleView, goalProgress.ts)
+// for an ACTIVE cycle -- never stored, never produced by
+// classifyCycleCommitments, which only ever judges a closed cycle.
+const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigured"> | "in_progress", TranslationKey> = {
   achieved: "recurringProgress.resultAchieved",
   partial: "recurringProgress.resultPartial",
   missed: "recurringProgress.resultMissed",
   no_commitments: "recurringProgress.resultNoCommitments",
+  in_progress: "recurringProgress.resultInProgress",
 };
 
 // Goal Engine Phase 2D-5E: "Oct 5" for a single-day (daily) cycle, or
@@ -549,6 +553,12 @@ export default function GoalDetailPage() {
     recurrenceTargetCount: goal.recurrence_target_count,
     todayISO,
   });
+  // Goal Engine Phase 2D-5E (active-cycle correction): the active current
+  // cycle is already represented by "THIS CYCLE" above -- it must not
+  // also appear in Cycle History. isCycleFinished(cycle_end < today)
+  // excludes it; a same-day Daily cycle stays out of this list until the
+  // local date actually advances past cycle_end.
+  const finishedCycleHistory = cycleHistory.filter((cycle) => isCycleFinished(cycle, todayISO));
 
   const openTasks = tasksWithChain.filter(
     (g) => g.status !== "completed" && g.status !== "canceled" && g.lifecycle !== "broken"
@@ -885,7 +895,7 @@ export default function GoalDetailPage() {
                       <span className="font-bold text-pink-300/85">
                         {t(
                           RECURRING_RESULT_LABEL_KEY[
-                            recurringCycleView.cycle.result as Exclude<CycleResultStatus, "unconfigured">
+                            recurringCycleView.cycle.result as Exclude<CycleResultStatus, "unconfigured"> | "in_progress"
                           ]
                         )}
                       </span>
@@ -942,14 +952,14 @@ export default function GoalDetailPage() {
       {goal.goal_type === "recurring" && (
         <div className="card">
           <h2 className="text-sm font-semibold text-white/80 mb-2">{t("goalDetail.cycleHistoryLabel")}</h2>
-          {cycleHistory.length === 0 ? (
+          {finishedCycleHistory.length === 0 ? (
             <div className="text-xs text-white/40 py-1">{t("recurringProgress.noCyclesYet")}</div>
           ) : (
             <div className="space-y-1.5">
               {/* Newest first for display -- getCycleHistoryForOutcomeGoal
                   itself returns oldest-first (deterministic by
                   cycle_start), never mutated/refetched to reorder. */}
-              {[...cycleHistory].reverse().map((cycle) => (
+              {[...finishedCycleHistory].reverse().map((cycle) => (
                 <div
                   key={cycle.id}
                   className="flex items-center justify-between gap-2 text-xs text-white/60 py-1 border-b border-white/5 last:border-b-0"

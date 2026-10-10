@@ -4,6 +4,7 @@ import {
   formatTargetProgress,
   findCurrentCycle,
   getRecurringCurrentCycleView,
+  isCycleFinished,
   type RecurringCycleSummary,
 } from "./goalProgress";
 
@@ -172,7 +173,22 @@ describe("getRecurringCurrentCycleView (Goal Engine Phase 2D-5E: display-only cu
       recurrenceTargetCount: 3,
       todayISO: "2026-10-09",
     });
-    expect(view).toEqual({ kind: "persisted", cycle: persistedCycle });
+    // Same cycle data, but `result` is re-derived for display (active-cycle
+    // correction below) -- never the stored "partial" while still active.
+    expect(view).toEqual({ kind: "persisted", cycle: { ...persistedCycle, result: "in_progress" } });
+  });
+
+  it("does NOT mutate the persisted cycle object from the caller's own cycleHistory array", () => {
+    const original = { ...persistedCycle };
+    getRecurringCurrentCycleView({
+      persistedCycles: [persistedCycle],
+      recurrenceFrequency: "weekly",
+      recurrenceStartDate: "2026-10-05",
+      recurrenceTargetCount: 3,
+      todayISO: "2026-10-09",
+    });
+    expect(persistedCycle).toEqual(original);
+    expect(persistedCycle.result).toBe("partial"); // untouched
   });
 
   it("persisted cycle's own frozen target_count_snapshot wins even when the Goal's CURRENT target differs", () => {
@@ -243,7 +259,7 @@ describe("getRecurringCurrentCycleView (Goal Engine Phase 2D-5E: display-only cu
     }
   });
 
-  it("derived + configured target -> no_commitments, target still available for display", () => {
+  it("derived + configured target -> in_progress (never no_commitments/missed while active), target still available for display", () => {
     const view = getRecurringCurrentCycleView({
       persistedCycles: [],
       recurrenceFrequency: "daily",
@@ -253,7 +269,7 @@ describe("getRecurringCurrentCycleView (Goal Engine Phase 2D-5E: display-only cu
     });
     expect(view.kind).toBe("derived");
     if (view.kind === "derived") {
-      expect(view.cycle.result).toBe("no_commitments");
+      expect(view.cycle.result).toBe("in_progress");
       expect(view.cycle.targetCountSnapshot).toBe(3);
       expect(view.cycle.completed).toBe(0);
     }
@@ -304,5 +320,101 @@ describe("getRecurringCurrentCycleView (Goal Engine Phase 2D-5E: display-only cu
         todayISO: "2026-10-09",
       })
     ).toEqual({ kind: "unconfigured" });
+  });
+});
+
+describe("getRecurringCurrentCycleView -- active-cycle result correction", () => {
+  // Real-phone bug: an active cycle with 0/3 completed was showing
+  // "Missed" (classifyCycleCommitments' own closed-cycle judgment, read
+  // through unmodified). An active cycle must only ever show
+  // "in_progress" or "achieved", regardless of committed/canceled/
+  // rescheduledOut counts -- those stay exactly as persisted/derived.
+  function cycleWith(completed: number): RecurringCycleSummary {
+    return {
+      cycle_start: "2026-10-10",
+      cycle_end: "2026-10-10",
+      committed: 3,
+      completed,
+      canceled: 0,
+      rescheduledOut: 0,
+      open: 3 - completed,
+      targetCountSnapshot: 3,
+      result: completed === 0 ? "missed" : completed < 3 ? "partial" : "achieved", // what classifyCycleCommitments would have stored
+    };
+  }
+
+  it("persisted 0/3 -> in_progress, not missed", () => {
+    const view = getRecurringCurrentCycleView({
+      persistedCycles: [cycleWith(0)],
+      recurrenceFrequency: "daily",
+      recurrenceStartDate: "2026-10-01",
+      recurrenceTargetCount: 3,
+      todayISO: "2026-10-10",
+    });
+    expect(view.kind).toBe("persisted");
+    if (view.kind === "persisted") expect(view.cycle.result).toBe("in_progress");
+  });
+
+  it("persisted 1/3 -> in_progress, not partial", () => {
+    const view = getRecurringCurrentCycleView({
+      persistedCycles: [cycleWith(1)],
+      recurrenceFrequency: "daily",
+      recurrenceStartDate: "2026-10-01",
+      recurrenceTargetCount: 3,
+      todayISO: "2026-10-10",
+    });
+    expect(view.kind).toBe("persisted");
+    if (view.kind === "persisted") expect(view.cycle.result).toBe("in_progress");
+  });
+
+  it("persisted 2/3 -> in_progress, not partial", () => {
+    const view = getRecurringCurrentCycleView({
+      persistedCycles: [cycleWith(2)],
+      recurrenceFrequency: "daily",
+      recurrenceStartDate: "2026-10-01",
+      recurrenceTargetCount: 3,
+      todayISO: "2026-10-10",
+    });
+    expect(view.kind).toBe("persisted");
+    if (view.kind === "persisted") expect(view.cycle.result).toBe("in_progress");
+  });
+
+  it("persisted 3/3 -> achieved, shown immediately even while the cycle is still active", () => {
+    const view = getRecurringCurrentCycleView({
+      persistedCycles: [cycleWith(3)],
+      recurrenceFrequency: "daily",
+      recurrenceStartDate: "2026-10-01",
+      recurrenceTargetCount: 3,
+      todayISO: "2026-10-10",
+    });
+    expect(view.kind).toBe("persisted");
+    if (view.kind === "persisted") expect(view.cycle.result).toBe("achieved");
+  });
+
+  it("persisted with no target configured -> unconfigured, regardless of completed count", () => {
+    const cycle: RecurringCycleSummary = { ...cycleWith(0), targetCountSnapshot: null, result: "no_commitments" };
+    const view = getRecurringCurrentCycleView({
+      persistedCycles: [cycle],
+      recurrenceFrequency: "daily",
+      recurrenceStartDate: "2026-10-01",
+      recurrenceTargetCount: null,
+      todayISO: "2026-10-10",
+    });
+    expect(view.kind).toBe("persisted");
+    if (view.kind === "persisted") expect(view.cycle.result).toBe("unconfigured");
+  });
+});
+
+describe("isCycleFinished (Goal Engine Phase 2D-5E)", () => {
+  it("cycle_end before today -> finished", () => {
+    expect(isCycleFinished({ cycle_end: "2026-10-09" }, "2026-10-10")).toBe(true);
+  });
+
+  it("cycle_end equal to today -> not finished (still active, e.g. a same-day Daily cycle)", () => {
+    expect(isCycleFinished({ cycle_end: "2026-10-10" }, "2026-10-10")).toBe(false);
+  });
+
+  it("cycle_end after today -> not finished", () => {
+    expect(isCycleFinished({ cycle_end: "2026-10-18" }, "2026-10-10")).toBe(false);
   });
 });

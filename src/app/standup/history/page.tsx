@@ -194,8 +194,13 @@ export default function HistoryPage() {
         <p className="text-sm text-white/60 mb-4">{t("history.overviewSubtitle")}</p>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-2xl p-4 metal-surface text-center">
-            <div className="text-2xl font-bold text-amber-300">
+          {/* Follow-Through Rate carries the primary performance insight,
+              so it's the one KPI tinted via --metal-color (same opt-in
+              .metal-surface already supports) and given the larger
+              number -- same tile size/grid position as the other three,
+              not a layout change. */}
+          <div className="rounded-2xl p-4 metal-surface text-center" style={{ "--metal-color": "#f59e0b" } as React.CSSProperties}>
+            <div className="text-3xl font-bold text-amber-300">
               {taskAnalytics ? formatRate(taskAnalytics.completionRate) : "—"}
             </div>
             <div className="mt-1 text-xs font-semibold text-white/70">{t("history.followThroughRate")}</div>
@@ -217,23 +222,26 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* Conceptual Task outcomes */}
-        <div className="mt-5">
+        {/* Conceptual Task outcomes -- ONE shared panel with internal
+            dividers instead of 4 separate bordered boxes, so this reads
+            as one dataset rather than four more cards stacked under the
+            KPI row. Values/labels/source unchanged. */}
+        <div className="mt-4">
           <h3 className="text-sm font-semibold text-white/80 mb-2">{t("history.outcomesTitle")}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-2xl bg-white/5 p-3 text-center">
+          <div className="rounded-2xl bg-white/5 grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-white/10">
+            <div className="p-3 text-center">
               <div className="text-xl font-bold text-emerald-300">{taskAnalytics?.completedConceptualTasks ?? 0}</div>
               <div className="mt-1 text-[11px] text-white/60">{t("history.outcomesCompleted")}</div>
             </div>
-            <div className="rounded-2xl bg-white/5 p-3 text-center">
+            <div className="p-3 text-center">
               <div className="text-xl font-bold text-sky-300">{taskAnalytics?.activeConceptualTasks ?? 0}</div>
               <div className="mt-1 text-[11px] text-white/60">{t("history.outcomesActive")}</div>
             </div>
-            <div className="rounded-2xl bg-white/5 p-3 text-center">
+            <div className="p-3 text-center">
               <div className="text-xl font-bold text-white/70">{taskAnalytics?.canceledConceptualTasks ?? 0}</div>
               <div className="mt-1 text-[11px] text-white/60">{t("history.outcomesCanceled")}</div>
             </div>
-            <div className="rounded-2xl bg-white/5 p-3 text-center">
+            <div className="p-3 text-center">
               <div className="text-xl font-bold text-amber-300">{taskAnalytics?.brokenConceptualTasks ?? 0}</div>
               <div className="mt-1 text-[11px] text-white/60">{t("history.outcomesNeedsReview")}</div>
             </div>
@@ -243,19 +251,19 @@ export default function HistoryPage() {
           )}
         </div>
 
-        {/* Priority performance */}
-        <div className="mt-5">
+        {/* Priority performance -- compact rows: header line (P-level +
+            rate), a thin per-priority-colored progress track, then the
+            total/completed/canceled counts. An empty/neutral track (no
+            fill div at all) when completionRate is null, never a fake
+            0%-wide fill. */}
+        <div className="mt-4">
           <h3 className="text-sm font-semibold text-white/80 mb-2">{t("history.priorityPerformanceTitle")}</h3>
           {taskAnalytics && taskAnalytics.byPriority.length > 0 ? (
-            <div className="space-y-2">
+            <div className="rounded-2xl bg-white/5 divide-y divide-white/10">
               {taskAnalytics.byPriority.map((p) => {
                 const meta = getPriorityMeta(p.priority);
                 return (
-                  <div
-                    key={p.priority}
-                    className="rounded-xl px-3 py-2"
-                    style={{ background: meta.bg, border: `1px solid ${meta.border}` }}
-                  >
+                  <div key={p.priority} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="text-sm font-bold flex-shrink-0" style={{ color: meta.color }}>
@@ -264,6 +272,14 @@ export default function HistoryPage() {
                         <span className="text-xs text-white/50 truncate">{t(meta.label)}</span>
                       </div>
                       <span className="text-sm font-bold text-white flex-shrink-0">{formatRate(p.completionRate)}</span>
+                    </div>
+                    <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      {p.completionRate != null && (
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.round(p.completionRate * 100)}%`, background: meta.color }}
+                        />
+                      )}
                     </div>
                     <div className="mt-1 text-[11px] text-white/50">
                       {t("history.priorityBreakdownLine", { total: p.total, completed: p.completed, canceled: p.canceled })}
@@ -441,7 +457,7 @@ export default function HistoryPage() {
         <h2 className="text-lg font-semibold text-white mb-1">{t("history.goalProgressTitle")}</h2>
         <p className="text-sm text-white/60 mb-4">{t("history.goalProgressSubtitle")}</p>
 
-        <div className="mb-5">
+        <div className="mb-4">
           <h3 className="text-sm font-semibold text-white/80 mb-2 flex items-center gap-1.5">
             <TargetIcon size={14} className="text-pink-400" /> {t("history.targetGoalsTitle")}
           </h3>
@@ -489,7 +505,14 @@ export default function HistoryPage() {
               <div className="mt-1 text-xs text-white/40">{t("history.recurringGoalsEmptyHint")}</div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            // One shared panel, thin per-Goal rows -- a Recurring Goal
+            // list was contributing the most page length of any section
+            // (per this pass' own brief), so each row prioritizes title +
+            // current-cycle result/count only, no per-Goal card chrome
+            // or progress bar. Same getRecurringCurrentCycleView/
+            // RECURRING_RESULT_LABEL_KEY read as before -- no cycle logic
+            // changed, only how compactly it's displayed.
+            <div className="rounded-2xl bg-white/5 divide-y divide-white/10">
               {recurringGoals.map((goal) => {
                 const view = getRecurringCurrentCycleView({
                   persistedCycles: cycleHistoryByGoalId.get(goal.id) ?? [],
@@ -499,40 +522,27 @@ export default function HistoryPage() {
                   todayISO,
                 });
                 return (
-                  <div key={goal.id} className="dashboard-goal-card min-w-0">
-                    <div className="text-sm font-semibold text-white/90 truncate">{goal.title}</div>
-                    <div className="mt-1.5 text-[11px] text-white/50">
+                  <div key={goal.id} className="flex items-center justify-between gap-3 px-3 py-2 min-w-0">
+                    <div className="text-sm font-medium text-white/90 truncate min-w-0 flex-1">{goal.title}</div>
+                    <div className="text-right flex-shrink-0 text-[11px] text-white/50">
                       {view.kind === "unconfigured" ? (
                         <div>{t("recurringProgress.noCurrentCycle")}</div>
                       ) : view.kind === "not_started" ? (
                         <div>{t("recurringProgress.notStartedYet", { date: formatDateDisplay(view.recurrenceStartDate) })}</div>
                       ) : view.cycle.targetCountSnapshot != null ? (
                         <>
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate">
-                              {t("recurringProgress.completedOfTarget", {
-                                completed: view.cycle.completed,
-                                target: view.cycle.targetCountSnapshot,
-                              })}
-                            </span>
-                            <span className="font-bold text-pink-300/85 flex-shrink-0">
-                              {t(
-                                RECURRING_RESULT_LABEL_KEY[
-                                  view.cycle.result as Exclude<CycleResultStatus, "unconfigured"> | "in_progress"
-                                ]
-                              )}
-                            </span>
+                          <div className="font-bold text-pink-300/85">
+                            {t(
+                              RECURRING_RESULT_LABEL_KEY[
+                                view.cycle.result as Exclude<CycleResultStatus, "unconfigured"> | "in_progress"
+                              ]
+                            )}
                           </div>
-                          <div className="dashboard-goal-progress-track">
-                            <div
-                              className="dashboard-goal-progress-fill"
-                              style={{
-                                width: `${Math.max(
-                                  0,
-                                  Math.min(100, Math.round((view.cycle.completed / view.cycle.targetCountSnapshot) * 100))
-                                )}%`,
-                              }}
-                            />
+                          <div>
+                            {t("recurringProgress.completedOfTarget", {
+                              completed: view.cycle.completed,
+                              target: view.cycle.targetCountSnapshot,
+                            })}
                           </div>
                         </>
                       ) : (
@@ -554,41 +564,42 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* D. HISTORY / DRILL-DOWN */}
+      {/* D. HISTORY / DRILL-DOWN -- Lifetime Totals is secondary analytics
+          here: one compact, muted strip of label:value pairs rather than
+          5 prominent tiles, so it doesn't compete with Overview's KPIs.
+          Same 5 values, same source (getLifetimeStats, untouched). */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-white mb-1">{t("history.lifetimeTotalsTitle")}</h2>
-        <p className="text-sm text-white/60 mb-4">{t("history.lifetimeSubtitle")}</p>
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wide mb-2">
+          {t("history.lifetimeTotalsTitle")}
+        </h2>
 
         {lifetimeStats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
-              <div className="text-2xl font-bold text-amber-300">{lifetimeStats.totalDaysClosed}</div>
-              <div className="mt-1 text-xs text-white/60">{t("history.daysClosed")}</div>
-            </div>
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
-              <div className="text-2xl font-bold text-white">{lifetimeStats.maxGoalsCompletedInDay}</div>
-              <div className="mt-1 text-xs text-white/60">{t("history.bestSingleDay")}</div>
-            </div>
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
-              <div className="text-2xl font-bold text-white">{lifetimeStats.reschedulesCompleted}</div>
-              <div className="mt-1 text-xs text-white/60">{t("history.reschedulesFollowed")}</div>
-            </div>
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
-              <div className="text-2xl font-bold text-white">{lifetimeStats.trackedGoalsCompleted}</div>
-              <div className="mt-1 text-xs text-white/60">{t("history.trackedGoalsCompleted")}</div>
-            </div>
-            <div className="rounded-2xl bg-white/5 p-4 text-center">
-              <div className="text-2xl font-bold text-white">{lifetimeStats.totalReferrals}</div>
-              <div className="mt-1 text-xs text-white/60">{t("history.successfulReferrals")}</div>
-            </div>
+          <div className="rounded-xl bg-white/[0.03] px-4 py-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-white/50">
+            <span>
+              <span className="text-white/90 font-semibold">{lifetimeStats.totalDaysClosed}</span> {t("history.daysClosed")}
+            </span>
+            <span>
+              <span className="text-white/90 font-semibold">{lifetimeStats.maxGoalsCompletedInDay}</span> {t("history.bestSingleDay")}
+            </span>
+            <span>
+              <span className="text-white/90 font-semibold">{lifetimeStats.reschedulesCompleted}</span> {t("history.reschedulesFollowed")}
+            </span>
+            <span>
+              <span className="text-white/90 font-semibold">{lifetimeStats.trackedGoalsCompleted}</span> {t("history.trackedGoalsCompleted")}
+            </span>
+            <span>
+              <span className="text-white/90 font-semibold">{lifetimeStats.totalReferrals}</span> {t("history.successfulReferrals")}
+            </span>
           </div>
         )}
 
-        <div className="mt-4">
-          <button type="button" onClick={openCompletedGoalList} className="btn">
-            {t("history.browseCompletedGoals")}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openCompletedGoalList}
+          className="mt-3 text-xs text-amber-300/70 hover:text-amber-300 underline underline-offset-2"
+        >
+          {t("history.browseCompletedGoals")}
+        </button>
       </div>
 
       {goalListOpen && (
@@ -663,7 +674,7 @@ export default function HistoryPage() {
       )}
 
       <div className="card">
-        <h2 className="text-lg font-semibold text-white/90 mb-4">{t("history.pointsUsageTitle")}</h2>
+        <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wide mb-3">{t("history.pointsUsageTitle")}</h2>
 
         {error && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -672,46 +683,55 @@ export default function HistoryPage() {
         )}
 
         {!error && entries.length === 0 && (
-          <div className="text-white/60 text-sm py-8 text-center">
+          <div className="text-white/60 text-sm py-6 text-center">
             {t("history.noPointsYet")}
           </div>
         )}
 
         {entries.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {entries.map((entry) => {
               const total = (entry.awarenessAwarded ? entry.awarenessPoints : 0) +
                 (entry.closureAwarded ? entry.closurePoints : 0) +
                 (entry.planningAwarded ? entry.planningPoints : 0);
 
               return (
-                <div
-                  key={entry.planDate}
-                  className="flex items-center justify-between gap-4 rounded-2xl bg-white/5 px-4 py-3"
-                  style={{ minHeight: "64px" }}
-                >
-                  <div className="min-w-0">
+                // Fixed mobile collision: the right-side "+N" used to sit
+                // in a flex row with no reserved width/flex-shrink-0 next
+                // to a badge line that scrolled horizontally
+                // (flex-nowrap + overflow-x-auto) instead of wrapping --
+                // on narrow phones the two visually overlapped around
+                // whichever row had the most badges. Badges now wrap
+                // (flex-wrap) onto their own line(s) under the date,
+                // inside a flex-1 min-w-0 left column, while the value
+                // gets an explicit flex-shrink-0 + reserved min-width on
+                // its own right column -- the two can never occupy the
+                // same space regardless of badge count or viewport width.
+                <div key={entry.planDate} className="flex items-start justify-between gap-3 rounded-xl bg-white/5 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-white">
                       {formatDateDisplay(entry.planDate)}
                     </div>
-                    <div className="mt-1 flex flex-nowrap gap-x-3 text-xs text-white/60 overflow-x-auto">
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/60">
                       {entry.planningAwarded && (
-                        <span className="whitespace-nowrap">{t("history.planning", { points: entry.planningPoints })}</span>
+                        <span>{t("history.planning", { points: entry.planningPoints })}</span>
                       )}
                       {entry.awarenessAwarded && (
-                        <span className="whitespace-nowrap">{t("history.awareness", { points: entry.awarenessPoints })}</span>
+                        <span>{t("history.awareness", { points: entry.awarenessPoints })}</span>
                       )}
                       {entry.closureAwarded && (
-                        <span className="whitespace-nowrap">{t("history.closure", { points: entry.closurePoints })}</span>
+                        <span>{t("history.closure", { points: entry.closurePoints })}</span>
                       )}
                       {entry.reviewedAt && (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap text-emerald-300/80">
+                        <span className="inline-flex items-center gap-1 text-emerald-300/80">
                           <Check size={12} /> {t("history.dayClosedCheck")}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="text-lg font-bold text-white whitespace-nowrap">+{total}</div>
+                  <div className="text-base font-bold text-white text-right flex-shrink-0" style={{ minWidth: "2.75rem" }}>
+                    +{total}
+                  </div>
                 </div>
               );
             })}
@@ -719,7 +739,7 @@ export default function HistoryPage() {
         )}
       </div>
 
-      <div className="card">
+      <div className="text-center py-2">
         <Link href="/standup/profile" className="btn">
           {t("history.backToProfile")}
         </Link>

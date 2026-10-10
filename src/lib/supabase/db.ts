@@ -3622,6 +3622,159 @@ export async function getLifetimeStats(): Promise<LifetimeStats> {
   };
 }
 
+export type ConceptualPriorityBreakdown = {
+  priority: 1 | 2 | 3 | 4 | 5;
+  total: number;
+  completed: number;
+  canceled: number;
+  // completed / (completed + canceled) for this priority alone -- null
+  // when that denominator is 0 (every Task at this priority is still
+  // active/broken, so there's nothing resolved yet to rate). Same formula
+  // as ConceptualTaskAnalytics.completionRate, see that field's own
+  // comment for why.
+  completionRate: number | null;
+};
+
+export type ConceptualTaskAnalytics = {
+  totalConceptualTasks: number;
+  completedConceptualTasks: number;
+  canceledConceptualTasks: number;
+  // Still open/in-progress/not-yet-started/postponed-with-no-materialized-
+  // continuation-yet -- anything collapseGoalLineages' own lifecycle
+  // resolution didn't resolve to completed/canceled/broken. Deliberately
+  // excluded from completionRate's denominator (see that field) so a
+  // user with legitimate future/unstarted work isn't penalized for it.
+  activeConceptualTasks: number;
+  // A chain whose own recorded reschedule evidence points at a
+  // continuation that no longer exists (collapseGoalLineages' "broken"
+  // lifecycle -- see its doc comment). This is account/data state, not a
+  // record of the user failing to follow through, so it's kept out of
+  // completionRate's denominator too and must stay visible as its own
+  // number rather than silently folding into "active" or disappearing.
+  brokenConceptualTasks: number;
+  // completed / (completed + canceled) -- the "eligible resolved" Tasks.
+  // active is excluded because it hasn't been resolved one way or the
+  // other yet (an open/future Task isn't a failure); broken is excluded
+  // because it reflects missing/inconsistent lineage data, not something
+  // the user did. Whether a *canceled* Task should count against this
+  // rate at all is a product judgment call with no existing precedent
+  // elsewhere in the app (see the Phase A report) -- this picks "yes,
+  // it's a resolved outcome the user chose" as the default; null when
+  // completed+canceled is 0 (nothing resolved yet to rate).
+  completionRate: number | null;
+  // One entry per priority (1-5) that has at least one conceptual Task.
+  // A Task whose terminal row has no priority (null/undefined, or
+  // outside 1-5) is still counted in every total above but excluded from
+  // this breakdown -- there's no bucket for it to belong to.
+  byPriority: ConceptualPriorityBreakdown[];
+};
+
+/**
+ * Pure aggregation core for getConceptualTaskAnalytics -- reuses
+ * collapseGoalLineages for the actual lineage walk/collapse (never
+ * reimplements chain-following here) and only counts lifecycles/
+ * priorities on top of what it returns. Never mutates its input.
+ *
+ * Lifetime-only by design, with no window/date params: a conceptual
+ * Task's `terminal` row carries whichever plan_date its LAST
+ * continuation happened to land on, not when the underlying work
+ * actually started or was truly finished (there is no real completion
+ * timestamp anywhere in the schema -- reviewed_at is day-closure, not
+ * task completion). Bucketing conceptual Tasks into week/month windows
+ * from that field would misattribute history rather than report it, so
+ * this intentionally doesn't attempt it yet.
+ */
+export function computeConceptualTaskAnalytics<
+  T extends { id: string; status: string; priority?: number | null }
+>(
+  goals: T[],
+  edges: { from_goal_id: string; materialized_goal_id: string | null; materialized?: boolean }[]
+): ConceptualTaskAnalytics {
+  const tasks = collapseGoalLineages(goals, edges);
+
+  let completed = 0;
+  let canceled = 0;
+  let active = 0;
+  let broken = 0;
+  const byPriorityMap = new Map<number, { total: number; completed: number; canceled: number }>();
+
+  for (const task of tasks) {
+    if (task.lifecycle === "completed") completed += 1;
+    else if (task.lifecycle === "canceled") canceled += 1;
+    else if (task.lifecycle === "broken") broken += 1;
+    else active += 1;
+
+    const priority = task.terminal.priority;
+    if (priority === 1 || priority === 2 || priority === 3 || priority === 4 || priority === 5) {
+      const entry = byPriorityMap.get(priority) ?? { total: 0, completed: 0, canceled: 0 };
+      entry.total += 1;
+      if (task.lifecycle === "completed") entry.completed += 1;
+      if (task.lifecycle === "canceled") entry.canceled += 1;
+      byPriorityMap.set(priority, entry);
+    }
+  }
+
+  const byPriority: ConceptualPriorityBreakdown[] = ([1, 2, 3, 4, 5] as const)
+    .filter((p) => byPriorityMap.has(p))
+    .map((p) => {
+      const entry = byPriorityMap.get(p)!;
+      const denom = entry.completed + entry.canceled;
+      return {
+        priority: p,
+        total: entry.total,
+        completed: entry.completed,
+        canceled: entry.canceled,
+        completionRate: denom === 0 ? null : entry.completed / denom,
+      };
+    });
+
+  const overallDenom = completed + canceled;
+
+  return {
+    totalConceptualTasks: tasks.length,
+    completedConceptualTasks: completed,
+    canceledConceptualTasks: canceled,
+    activeConceptualTasks: active,
+    brokenConceptualTasks: broken,
+    completionRate: overallDenom === 0 ? null : completed / overallDenom,
+    byPriority,
+  };
+}
+
+/**
+ * Account-wide lineage-aware Task analytics -- the reliable foundation
+ * for the future Progress & Insights page's "how many actual pieces of
+ * work did I follow through on" metrics, as distinct from getDailyActivity's
+ * per-day board snapshots (which stay raw-row-counted on purpose -- see
+ * that function's own doc comment; this one is NOT a replacement for it).
+ *
+ * Fetches every goals row the user has (no outcome_goal_id/plan_id scope)
+ * plus every materialized reschedule edge in the account -- same broad,
+ * RLS-scoped edge query cancelOrphanedReschedules/
+ * getConceptualTasksByOutcomeGoalIds already use. Unlike those two, no
+ * ownership-resolution step is needed: every physical row the user owns
+ * is already in scope, so every edge's both ends are guaranteed present
+ * and collapseGoalLineages can collapse the whole account in one pass.
+ */
+export async function getConceptualTaskAnalytics(): Promise<ConceptualTaskAnalytics> {
+  const userId = await getCurrentUserId();
+
+  const [
+    { data: goalRows, error: goalsErr },
+    { data: edgeRows, error: edgeErr },
+  ] = await Promise.all([
+    supabase.from("goals").select("id, status, priority").eq("user_id", userId),
+    supabase
+      .from("goal_reschedules")
+      .select("from_goal_id, materialized_goal_id, materialized")
+      .eq("materialized", true),
+  ]);
+  if (goalsErr) throw goalsErr;
+  if (edgeErr) throw edgeErr;
+
+  return computeConceptualTaskAnalytics(goalRows ?? [], edgeRows ?? []);
+}
+
 export type ArchivedGoal = Goal & { plan_date: string | null };
 
 /**

@@ -22,6 +22,7 @@ import {
   planCycleResolution,
   classifyCycleCommitments,
   resolveTaskCycleId,
+  computeConceptualTaskAnalytics,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -527,6 +528,130 @@ describe("collapseGoalLineages", () => {
     expect(total).toBe(3);
     expect(completed).toBe(2); // the broken one is never counted completed
     expect(broken).toBe(1); // and is identifiable as needing review, not silently "pending"
+  });
+});
+
+describe("computeConceptualTaskAnalytics (Progress & Insights Phase A)", () => {
+  function goal(id: string, status: string, priority: number | null = null) {
+    return { id, status, priority };
+  }
+  function edge(from: string, to: string | null) {
+    return { from_goal_id: from, materialized_goal_id: to };
+  }
+  function brokenEdge(from: string) {
+    return { from_goal_id: from, materialized_goal_id: null, materialized: true };
+  }
+
+  it("A: a standalone completed Task counts 1 total / 1 completed", () => {
+    const result = computeConceptualTaskAnalytics([goal("A", "completed")], []);
+    expect(result.totalConceptualTasks).toBe(1);
+    expect(result.completedConceptualTasks).toBe(1);
+    expect(result.canceledConceptualTasks).toBe(0);
+    expect(result.activeConceptualTasks).toBe(0);
+    expect(result.brokenConceptualTasks).toBe(0);
+    expect(result.completionRate).toBe(1);
+  });
+
+  it("B: a standalone active Task counts as 1 conceptual Task, not completed, and is excluded from the completion rate denominator", () => {
+    const result = computeConceptualTaskAnalytics([goal("A", "not_started")], []);
+    expect(result.totalConceptualTasks).toBe(1);
+    expect(result.activeConceptualTasks).toBe(1);
+    expect(result.completedConceptualTasks).toBe(0);
+    // 0 completed + 0 canceled -> nothing resolved yet to rate
+    expect(result.completionRate).toBeNull();
+  });
+
+  it("C: A -> B -> C, C completed collapses to 1 conceptual Task / 1 completed (not 3 Tasks)", () => {
+    const result = computeConceptualTaskAnalytics(
+      [goal("A", "postponed"), goal("B", "postponed"), goal("C", "completed")],
+      [edge("A", "B"), edge("B", "C")]
+    );
+    expect(result.totalConceptualTasks).toBe(1);
+    expect(result.completedConceptualTasks).toBe(1);
+    expect(result.canceledConceptualTasks).toBe(0);
+  });
+
+  it("D: A -> B -> C, C canceled collapses to 1 conceptual Task / 1 canceled", () => {
+    const result = computeConceptualTaskAnalytics(
+      [goal("A", "postponed"), goal("B", "postponed"), goal("C", "canceled")],
+      [edge("A", "B"), edge("B", "C")]
+    );
+    expect(result.totalConceptualTasks).toBe(1);
+    expect(result.canceledConceptualTasks).toBe(1);
+    expect(result.completedConceptualTasks).toBe(0);
+  });
+
+  it("E: a broken lineage counts as 1 conceptual Task, +1 broken, +0 completed -- never silently active", () => {
+    const result = computeConceptualTaskAnalytics([goal("A", "postponed")], [brokenEdge("A")]);
+    expect(result.totalConceptualTasks).toBe(1);
+    expect(result.brokenConceptualTasks).toBe(1);
+    expect(result.completedConceptualTasks).toBe(0);
+    expect(result.activeConceptualTasks).toBe(0);
+  });
+
+  it("F: multiple unrelated standalone Tasks produce correct totals", () => {
+    const result = computeConceptualTaskAnalytics(
+      [goal("A", "completed"), goal("B", "not_started"), goal("C", "canceled")],
+      []
+    );
+    expect(result.totalConceptualTasks).toBe(3);
+    expect(result.completedConceptualTasks).toBe(1);
+    expect(result.activeConceptualTasks).toBe(1);
+    expect(result.canceledConceptualTasks).toBe(1);
+  });
+
+  it("G: priority breakdown counts a rescheduled lineage once under its terminal's own priority", () => {
+    // A P1 Task rescheduled A -> B -> C, completed as C (priority carried
+    // on every physical row, as it would be in real data after a
+    // reschedule copies it forward) must contribute P1 total +1,
+    // completed +1 -- never +3.
+    const result = computeConceptualTaskAnalytics(
+      [goal("A", "postponed", 1), goal("B", "postponed", 1), goal("C", "completed", 1)],
+      [edge("A", "B"), edge("B", "C")]
+    );
+    expect(result.byPriority).toHaveLength(1);
+    expect(result.byPriority[0]).toMatchObject({ priority: 1, total: 1, completed: 1, canceled: 0, completionRate: 1 });
+  });
+
+  it("H: rescheduled physical rows never inflate the conceptual total even across many hops", () => {
+    const result = computeConceptualTaskAnalytics(
+      [goal("A", "postponed"), goal("B", "postponed"), goal("C", "postponed"), goal("D", "completed")],
+      [edge("A", "B"), edge("B", "C"), edge("C", "D")]
+    );
+    expect(result.totalConceptualTasks).toBe(1);
+  });
+
+  it("I: a mixed dataset of completed/canceled/active/broken Tasks resolves every lifecycle bucket correctly, including a multi-priority breakdown", () => {
+    const result = computeConceptualTaskAnalytics(
+      [
+        goal("A1", "postponed", 1),
+        goal("A2", "completed", 1), // A1 -> A2, P1 completed
+        goal("B1", "postponed", 2),
+        goal("B2", "canceled", 2), // B1 -> B2, P2 canceled
+        goal("C1", "not_started", 3), // standalone P3 active
+        goal("D1", "postponed", 1), // broken P1 lineage
+        goal("E1", "completed", null), // completed with no priority set
+      ],
+      [edge("A1", "A2"), edge("B1", "B2"), brokenEdge("D1")]
+    );
+    expect(result.totalConceptualTasks).toBe(5);
+    expect(result.completedConceptualTasks).toBe(2);
+    expect(result.canceledConceptualTasks).toBe(1);
+    expect(result.activeConceptualTasks).toBe(1);
+    expect(result.brokenConceptualTasks).toBe(1);
+    // completed(2) / (completed(2) + canceled(1))
+    expect(result.completionRate).toBeCloseTo(2 / 3);
+
+    const p1 = result.byPriority.find((p) => p.priority === 1)!;
+    expect(p1).toMatchObject({ total: 2, completed: 1, canceled: 0 }); // A-chain completed, D1-chain broken (not counted)
+    const p2 = result.byPriority.find((p) => p.priority === 2)!;
+    expect(p2).toMatchObject({ total: 1, completed: 0, canceled: 1 });
+    const p3 = result.byPriority.find((p) => p.priority === 3)!;
+    expect(p3).toMatchObject({ total: 1, completed: 0, canceled: 0, completionRate: null });
+    // E1 (completed, no priority) is in the overall totals but has no
+    // priority bucket to belong to.
+    expect(result.byPriority.find((p) => p.priority === 4)).toBeUndefined();
+    expect(result.byPriority.find((p) => p.priority === 5)).toBeUndefined();
   });
 });
 

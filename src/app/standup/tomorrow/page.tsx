@@ -21,6 +21,7 @@ import {
   formatDateTimeDisplay,
   upsertGoals,
   resolveTaskCycleId,
+  reassignTaskOutcomeGoal,
   deleteGoal,
   getSuggestedTemplatesForDate,
   addGoalFromTemplate,
@@ -1112,6 +1113,36 @@ export default function TomorrowGoalsPage() {
     }, 450);
   }
 
+  // Goal Engine Final V1 integration fix: Link to Goal / Move / Make
+  // Standalone all change an EXISTING Task's outcome_goal_id -- that can
+  // no longer go through plain setGoals()+scheduleAutoSave() (which
+  // defers to persistGoals()'s generic upsertGoals() UPDATE branch,
+  // deliberately never touching outcome_goal_cycle_id -- see
+  // reassignTaskOutcomeGoal's own doc comment in db.ts for why that
+  // protection must stay intact for ordinary edits). This writes both
+  // columns together immediately, and only updates local state once
+  // that write actually succeeds -- never leaving the picker's local
+  // selection showing a new Goal the database rejected (e.g. a Recurring
+  // Goal missing its own recurrence config, which fails clearly instead
+  // of silently attaching with no cycle). Uses tomorrowISO directly --
+  // this page's own fixed plan date, never inferred from recurrence
+  // configuration.
+  async function handleReassignGoal(idx: number, taskId: string, newOutcomeGoalId: string | null) {
+    setOpenGoalPickerId(null);
+    try {
+      const result = await reassignTaskOutcomeGoal({ taskId, newOutcomeGoalId, planDateISO: tomorrowISO });
+      setGoals((prev) =>
+        prev.map((x, i) =>
+          i === idx
+            ? { ...x, outcome_goal_id: result.outcome_goal_id, outcome_goal_cycle_id: result.outcome_goal_cycle_id }
+            : x
+        )
+      );
+    } catch (e: any) {
+      setMsg(e?.message ?? t("tomorrow.saveFailed"));
+    }
+  }
+
   async function saveDraftOrChanges() {
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -1480,10 +1511,13 @@ export default function TomorrowGoalsPage() {
                     (no outcome_goal_id) -- once linked, the Task
                     renders inside its Goal card instead (Phase 4B),
                     where re-showing this same picker would be
-                    redundant. The underlying link/unlink data path
-                    (the "No Goal" menu item's setGoals call below)
-                    is untouched, just no longer reachable from here
-                    once a Task is already linked. */}
+                    redundant.
+                    Goal Engine Final V1 fix: both options now go
+                    through handleReassignGoal (resolves/clears
+                    outcome_goal_cycle_id alongside outcome_goal_id in
+                    one explicit write) instead of plain
+                    setGoals()+scheduleAutoSave() -- see its own doc
+                    comment above. */}
                 {g.id && !(g as any).outcome_goal_id && (
                   <PortalDropdownMenu
                     open={openGoalPickerId === g.id}
@@ -1496,11 +1530,7 @@ export default function TomorrowGoalsPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setGoals((prev) =>
-                              prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: null } : x))
-                            );
-                            setOpenGoalPickerId(null);
-                            scheduleAutoSave();
+                            void handleReassignGoal(idx, g.id as string, null);
                           }}
                           className="conn-card-menu-item"
                           style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
@@ -1518,11 +1548,7 @@ export default function TomorrowGoalsPage() {
                               key={o.id}
                               type="button"
                               onClick={() => {
-                                setGoals((prev) =>
-                                  prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: o.id } : x))
-                                );
-                                setOpenGoalPickerId(null);
-                                scheduleAutoSave();
+                                void handleReassignGoal(idx, g.id as string, o.id);
                               }}
                               className="conn-card-menu-item"
                             >
@@ -1565,9 +1591,10 @@ export default function TomorrowGoalsPage() {
                     Standalone + every OTHER active Goal -- the Task's
                     current Goal is excluded rather than shown
                     disabled, so there's nothing to select that
-                    wouldn't actually change anything. Same setGoals +
-                    scheduleAutoSave data path as every other
-                    link/unlink action here, nothing new. */}
+                    wouldn't actually change anything.
+                    Goal Engine Final V1 fix: both options now go
+                    through handleReassignGoal, same as the Link to
+                    Goal picker above -- see its own doc comment. */}
                 {g.id && (g as any).outcome_goal_id && (
                   <PortalDropdownMenu
                     open={openGoalPickerId === g.id}
@@ -1580,11 +1607,7 @@ export default function TomorrowGoalsPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setGoals((prev) =>
-                              prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: null } : x))
-                            );
-                            setOpenGoalPickerId(null);
-                            scheduleAutoSave();
+                            void handleReassignGoal(idx, g.id as string, null);
                           }}
                           className="conn-card-menu-item"
                           style={{ flexDirection: "column", alignItems: "flex-start", gap: "1px" }}
@@ -1599,11 +1622,7 @@ export default function TomorrowGoalsPage() {
                               key={o.id}
                               type="button"
                               onClick={() => {
-                                setGoals((prev) =>
-                                  prev.map((x, i) => (i === idx ? { ...x, outcome_goal_id: o.id } : x))
-                                );
-                                setOpenGoalPickerId(null);
-                                scheduleAutoSave();
+                                void handleReassignGoal(idx, g.id as string, o.id);
                               }}
                               className="conn-card-menu-item"
                             >

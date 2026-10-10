@@ -1649,6 +1649,57 @@ export async function resolveTaskCycleId(
   return cycle.id;
 }
 
+/**
+ * Goal Engine Final V1 integration fix: the ONE place that changes an
+ * EXISTING physical Task's outcome_goal_id ALSO resolves/clears its
+ * outcome_goal_cycle_id in the same write. Unlike upsertGoals' UPDATE
+ * branch (deliberately never touches outcome_goal_cycle_id, to protect
+ * an already-correct value from being nulled by an unrelated autosave
+ * edit -- see its own comment), this function's entire purpose IS to
+ * change ownership, so both columns are written together, explicitly,
+ * in one request -- never leaving a Task linked to a Goal with a stale
+ * or missing cycle.
+ *
+ * Reuses resolveTaskCycleId for the whole decision matrix rather than
+ * duplicating it:
+ * - newOutcomeGoalId null -> resolveTaskCycleId short-circuits to null
+ *   -> both columns end up null (standalone).
+ * - newOutcomeGoalId set, not a configured Recurring Goal -> resolves
+ *   to null -> outcome_goal_id set, outcome_goal_cycle_id null, same as
+ *   Target/Ongoing/One-Time Tasks everywhere else.
+ * - newOutcomeGoalId set, a configured Recurring Goal -> resolves the
+ *   cycle containing planDateISO and writes it alongside
+ *   outcome_goal_id -- replacing whatever cycle (if any) the Task
+ *   belonged to before, since the write is unconditional.
+ * - newOutcomeGoalId set, a Recurring Goal MISSING its recurrence
+ *   config (or planDateISO before its own start) -> resolveTaskCycleId
+ *   throws; this function does NOT catch it -- no update is sent at
+ *   all, so a Task is never attached to a configured-looking Recurring
+ *   Goal with a null cycle. Callers must not treat a throw here as
+ *   success.
+ *
+ * Uses the Task's own real plan date (planDateISO) -- callers must pass
+ * the Task's actual scheduled date, never one inferred from recurrence
+ * configuration.
+ */
+export async function reassignTaskOutcomeGoal(params: {
+  taskId: string;
+  newOutcomeGoalId: string | null;
+  planDateISO: string;
+}): Promise<{ outcome_goal_id: string | null; outcome_goal_cycle_id: string | null }> {
+  const { taskId, newOutcomeGoalId, planDateISO } = params;
+
+  const outcomeGoalCycleId = await resolveTaskCycleId(newOutcomeGoalId, planDateISO);
+
+  const { error } = await supabase
+    .from("goals")
+    .update({ outcome_goal_id: newOutcomeGoalId, outcome_goal_cycle_id: outcomeGoalCycleId })
+    .eq("id", taskId);
+  if (error) throw error;
+
+  return { outcome_goal_id: newOutcomeGoalId, outcome_goal_cycle_id: outcomeGoalCycleId };
+}
+
 export type CycleResultStatus = "achieved" | "partial" | "missed" | "no_commitments" | "unconfigured";
 
 export type CycleAggregation = {

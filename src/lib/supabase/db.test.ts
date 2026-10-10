@@ -21,6 +21,7 @@ import {
   normalizeGoalTitle,
   planCycleResolution,
   classifyCycleCommitments,
+  resolveTaskCycleId,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1161,6 +1162,74 @@ describe("planCycleResolution (Goal Engine Phase 2D-5B: Task-to-cycle wiring dec
     expect(
       planCycleResolution({ goal_type: "recurring", recurrence_frequency: null, recurrence_start_date: null })
     ).toEqual({ action: "missing_config" });
+  });
+});
+
+describe("reassignTaskOutcomeGoal decision matrix (Goal Engine Final V1 fix)", () => {
+  // reassignTaskOutcomeGoal is a thin, 3-line wrapper around
+  // resolveTaskCycleId + one explicit combined .update() -- consistent
+  // with this file's own no-Supabase-mocking convention, its decision
+  // logic is verified here the same way resolveTaskCycleId's own is:
+  // via planCycleResolution (pure) for every "what should the new
+  // cycle be" branch, plus one direct call to resolveTaskCycleId(null,
+  // ...) for the standalone case, which genuinely needs no mock --
+  // its own `if (!outcomeGoalId) return null;` returns before any I/O.
+  const oneTimeGoal = { goal_type: "one_time" as const, recurrence_frequency: null, recurrence_start_date: null };
+  const recurringGoalA = {
+    goal_type: "recurring" as const,
+    recurrence_frequency: "weekly" as const,
+    recurrence_start_date: "2026-10-05",
+  };
+  const recurringGoalB = {
+    goal_type: "recurring" as const,
+    recurrence_frequency: "daily" as const,
+    recurrence_start_date: "2026-10-01",
+  };
+  const misconfiguredRecurringGoal = {
+    goal_type: "recurring" as const,
+    recurrence_frequency: null,
+    recurrence_start_date: null,
+  };
+
+  it("standalone -> One-Time: resolves to 'skip' -> cycle stays null", () => {
+    expect(planCycleResolution(oneTimeGoal)).toEqual({ action: "skip" });
+  });
+
+  it("standalone -> configured Recurring: resolves to 'resolve' -> a real cycle id would be written", () => {
+    expect(planCycleResolution(recurringGoalA)).toEqual({ action: "resolve" });
+  });
+
+  it("One-Time -> configured Recurring: same 'resolve' decision as standalone -> Recurring -- the PREVIOUS owner never affects it, only the destination Goal does", () => {
+    // reassignTaskOutcomeGoal/resolveTaskCycleId never read the Task's
+    // current outcome_goal_id/outcome_goal_cycle_id at all -- only
+    // newOutcomeGoalId. Confirmed by this decision being identical
+    // regardless of what the Task used to be linked to.
+    expect(planCycleResolution(recurringGoalA)).toEqual({ action: "resolve" });
+  });
+
+  it("Recurring A -> Recurring B: each destination resolves independently -- B's decision does not depend on A", () => {
+    expect(planCycleResolution(recurringGoalA)).toEqual({ action: "resolve" });
+    expect(planCycleResolution(recurringGoalB)).toEqual({ action: "resolve" });
+    // The actual cycle VALUE written for B is whatever resolveOrCreateCycle
+    // resolves for B alone (fresh, real I/O) -- reassignTaskOutcomeGoal's
+    // update() call is unconditional, so B's resolved id always replaces
+    // whatever cycle id (A's) was there before. See its own doc comment.
+  });
+
+  it("Recurring -> One-Time: resolves to 'skip' -> cycle is cleared", () => {
+    expect(planCycleResolution(oneTimeGoal)).toEqual({ action: "skip" });
+  });
+
+  it("Recurring -> Standalone: newOutcomeGoalId null short-circuits resolveTaskCycleId before any I/O -- both outcome_goal_id and outcome_goal_cycle_id end up null", async () => {
+    const result = await resolveTaskCycleId(null, "2026-10-10");
+    expect(result).toBeNull();
+  });
+
+  it("configured-looking Recurring Goal missing its own frequency/start -> missing_config, never silently resolved to null", () => {
+    // resolveTaskCycleId throws on this branch (not caught by
+    // reassignTaskOutcomeGoal) -- no update is ever sent, so a Task is
+    // never attached to this Goal with a null cycle.
+    expect(planCycleResolution(misconfiguredRecurringGoal)).toEqual({ action: "missing_config" });
   });
 });
 

@@ -302,10 +302,10 @@ export default function GoalsManagementPanel() {
         ))}
       </div>
 
-      {/* Secondary Goal-type filters -- horizontal scroll on narrow
-          phones rather than wrapping/shrinking, same tradeoff the
-          hanging tab bar already makes. */}
-      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
+      {/* Secondary Goal-type filters -- wraps onto as many lines as the
+          available width needs rather than scrolling horizontally, so
+          all five options stay visible at once on any phone width. */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
         {([
           ["all", t("tools.goalsTypeFilterAll")],
           ["one_time", t("goalType.oneTime.chip")],
@@ -317,7 +317,7 @@ export default function GoalsManagementPanel() {
             key={value}
             type="button"
             onClick={() => setTypeFilter(value)}
-            className="btn flex-shrink-0"
+            className="btn"
             style={{
               padding: "0.3rem 0.6rem",
               fontSize: "0.72rem",

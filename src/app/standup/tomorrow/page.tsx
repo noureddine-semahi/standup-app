@@ -36,6 +36,8 @@ import {
   rescheduleGoalToDate,
   getOutcomeGoals,
   createOutcomeGoal,
+  setOutcomeGoalQuickAddHidden,
+  isOutcomeGoalQuickAddEligible,
   findOrphanedContinuationIds,
   getConceptualTasksByOutcomeGoalIds,
   getConceptualTaskById,
@@ -79,7 +81,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -979,6 +981,25 @@ export default function TomorrowGoalsPage() {
       setMsg(e?.message ?? t("tomorrow.quickAddPickerAddFailed"));
     } finally {
       setAddingExistingTaskId(null);
+    }
+  }
+
+  // Tools -> Goals Phase 1: "Hide from Quick Add" -- a pure display
+  // preference (see hidden_from_quick_add's own type comment), never a
+  // status/type change and never touches this Goal's Tasks. Persists via
+  // setOutcomeGoalQuickAddHidden, then updates local state directly
+  // (rather than a full refetch) so the Goal's chip disappears from this
+  // render immediately -- same optimistic-local-update shape as the rest
+  // of this page's own outcomeGoals mutations.
+  async function handleHideGoalFromQuickAdd(goalId: string) {
+    setOpenQuickAddGoalId(null);
+    try {
+      await setOutcomeGoalQuickAddHidden(goalId, true);
+      setOutcomeGoals((prev) =>
+        prev.map((g) => (g.id === goalId ? { ...g, hidden_from_quick_add: true } : g))
+      );
+    } catch (e: any) {
+      setMsg(e?.message ?? t("tomorrow.quickAddHideFailed"));
     }
   }
 
@@ -2100,7 +2121,7 @@ export default function TomorrowGoalsPage() {
           // the SAME activeGoals/items split Phase 4B already computed
           // per-goal, just partitioned once up front instead of
           // rendering every active Goal unconditionally.
-          const activeGoals = outcomeGoals.filter((goal) => goal.status === "active");
+          const activeGoals = outcomeGoals.filter(isOutcomeGoalQuickAddEligible);
           const goalsWithItems: { goal: OutcomeGoal; items: typeof sortedForDisplay }[] = [];
           const goalsWithoutItems: OutcomeGoal[] = [];
           for (const goal of activeGoals) {
@@ -2246,6 +2267,22 @@ export default function TomorrowGoalsPage() {
                               >
                                 <span className="inline-flex items-center gap-1.5">
                                   <Plus size={12} /> {t("tomorrow.quickAddPickerNewTask")}
+                                </span>
+                              </button>
+                              {/* Tools -> Goals Phase 1: a pure display
+                                  preference, never a status/Task change --
+                                  see setOutcomeGoalQuickAddHidden's own
+                                  comment. Removes this Goal's chip from
+                                  the row immediately (local state update),
+                                  restorable later from Tools -> Goals
+                                  (Phase 2; no restore UI exists yet). */}
+                              <button
+                                type="button"
+                                onClick={() => handleHideGoalFromQuickAdd(goal.id)}
+                                className="conn-card-menu-item"
+                              >
+                                <span className="inline-flex items-center gap-1.5">
+                                  <EyeOff size={12} /> {t("tomorrow.quickAddPickerHide")}
                                 </span>
                               </button>
                             </>

@@ -367,6 +367,8 @@ export const en = {
   "tomorrow.quickAddPickerNewTask": "+ New Task",
   "tomorrow.quickAddPickerRescheduleReason": "Brought forward via Quick Add from Goals",
   "tomorrow.quickAddPickerAddFailed": "Couldn't add that task — try again.",
+  "tomorrow.quickAddPickerHide": "Hide from Quick Add",
+  "tomorrow.quickAddHideFailed": "Couldn't hide that Goal — try again.",
   "tomorrow.neverMind": "Never mind",
   "tomorrow.goalTitlePlaceholder": "Goal title",
   "tomorrow.creatingGoal": "Creating…",

@@ -1332,6 +1332,14 @@ export type OutcomeGoal = {
   recurrence_frequency: RecurrenceFrequency | null;
   recurrence_start_date: string | null;
   recurrence_target_count: number | null;
+  // Tools -> Goals Phase 1: a pure display preference for the Quick Add
+  // from Goals candidate list (Plan Tomorrow) -- deliberately NOT a
+  // lifecycle/status field. Never read by Dashboard, Progress & Insights,
+  // recurring cycle resolution, assignments, or Task history; see
+  // setOutcomeGoalQuickAddHidden's own comment for the one place it's
+  // actually written, and isOutcomeGoalQuickAddEligible for the one
+  // place it's read.
+  hidden_from_quick_add: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -1475,6 +1483,46 @@ export async function setOutcomeGoalStatus(
 export async function deleteOutcomeGoal(id: string): Promise<void> {
   const { error } = await supabase.from("outcome_goals").delete().eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Tools -> Goals Phase 1: sets (or clears) a Goal's "hidden from Quick
+ * Add" preference -- a pure display toggle for Plan Tomorrow's Quick Add
+ * from Goals candidate list, never a lifecycle change. Deliberately its
+ * own narrow function rather than folded into updateOutcomeGoal's own
+ * patch shape (same "don't overload Goal status/edit with an unrelated
+ * concern" reasoning as setOutcomeGoalStatus living apart from
+ * updateOutcomeGoal above) -- callers never need to touch title/details/
+ * priority/type/target/recurrence fields just to flip this preference.
+ * `hidden = false` is the same call, used by the eventual restore
+ * action (Phase 2's Tools -> Goals workspace).
+ */
+export async function setOutcomeGoalQuickAddHidden(id: string, hidden: boolean): Promise<OutcomeGoal> {
+  const { data, error } = await supabase
+    .from("outcome_goals")
+    .update({ hidden_from_quick_add: hidden, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return toOutcomeGoal(data);
+}
+
+/**
+ * Pure: the Goal-level half of Plan Tomorrow's "Quick Add from Goals"
+ * eligibility check -- status must be "active" and the Goal must not be
+ * hidden. Deliberately does NOT cover the other half (whether the Goal
+ * already has a Task committed to the target day), which stays in
+ * tomorrow/page.tsx since it depends on that page's own in-progress plan
+ * state, not on the Goal row alone. Extracted here (rather than left
+ * inline) purely so this one rule is independently testable, same
+ * "pure decision logic lives in one place" pattern as
+ * findGoalDeleteBlockReason/planCycleResolution elsewhere in this file.
+ */
+export function isOutcomeGoalQuickAddEligible(
+  goal: Pick<OutcomeGoal, "status" | "hidden_from_quick_add">
+): boolean {
+  return goal.status === "active" && !goal.hidden_from_quick_add;
 }
 
 // Goal Engine Phase 2D-5A: an explicit, historically-frozen cycle record

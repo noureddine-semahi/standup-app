@@ -23,6 +23,7 @@ import {
   classifyCycleCommitments,
   resolveTaskCycleId,
   computeConceptualTaskAnalytics,
+  isOutcomeGoalQuickAddEligible,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1221,6 +1222,40 @@ describe("toOutcomeGoal (Goal Engine Phase 2D-2: Target data foundation)", () =>
     expect(goal.current_value).toBeNull();
     expect(goal.target_unit).toBeNull();
     expect(goal.goal_type).toBe("one_time");
+  });
+});
+
+describe("isOutcomeGoalQuickAddEligible (Tools -> Goals Phase 1: Quick Add visibility)", () => {
+  it("a default (not hidden) active Goal remains eligible", () => {
+    expect(isOutcomeGoalQuickAddEligible({ status: "active", hidden_from_quick_add: false })).toBe(true);
+  });
+
+  it("a hidden active Goal is excluded", () => {
+    expect(isOutcomeGoalQuickAddEligible({ status: "active", hidden_from_quick_add: true })).toBe(false);
+  });
+
+  it("hiding is independent of status -- toggling hidden alone (status held constant) flips eligibility", () => {
+    const shown = isOutcomeGoalQuickAddEligible({ status: "active", hidden_from_quick_add: false });
+    const hidden = isOutcomeGoalQuickAddEligible({ status: "active", hidden_from_quick_add: true });
+    expect(shown).toBe(true);
+    expect(hidden).toBe(false);
+    // Same status both times -- only the hidden flag changed. Proves this
+    // function doesn't conflate the two concerns (e.g. hidden silently
+    // reading as a status change) the way setOutcomeGoalQuickAddHidden's
+    // own doc comment promises it never does.
+  });
+
+  it("existing eligibility rules are preserved: a completed Goal stays ineligible even when not hidden", () => {
+    expect(isOutcomeGoalQuickAddEligible({ status: "completed", hidden_from_quick_add: false })).toBe(false);
+  });
+
+  it("existing eligibility rules are preserved: an abandoned Goal stays ineligible even when not hidden", () => {
+    expect(isOutcomeGoalQuickAddEligible({ status: "abandoned", hidden_from_quick_add: false })).toBe(false);
+  });
+
+  it("a completed or abandoned Goal stays ineligible regardless of the hidden flag", () => {
+    expect(isOutcomeGoalQuickAddEligible({ status: "completed", hidden_from_quick_add: true })).toBe(false);
+    expect(isOutcomeGoalQuickAddEligible({ status: "abandoned", hidden_from_quick_add: true })).toBe(false);
   });
 });
 

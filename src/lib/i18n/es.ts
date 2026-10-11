@@ -362,6 +362,8 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.quickAddPickerNewTask": "+ Nueva tarea",
   "tomorrow.quickAddPickerRescheduleReason": "Adelantada mediante Agregar rápido desde Metas",
   "tomorrow.quickAddPickerAddFailed": "No se pudo agregar esa tarea — intenta de nuevo.",
+  "tomorrow.quickAddPickerHide": "Ocultar de Agregado Rápido",
+  "tomorrow.quickAddHideFailed": "No se pudo ocultar ese Objetivo — intenta de nuevo.",
   "tomorrow.neverMind": "Cancelar",
   "tomorrow.goalTitlePlaceholder": "Título de la meta",
   "tomorrow.creatingGoal": "Creando…",

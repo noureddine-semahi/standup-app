@@ -96,6 +96,12 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useLanguage();
+  // TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps) --
+  // a plain DOM/state change instead of alert(), since some mobile
+  // browsers can silently suppress alert()/confirm() depending on how
+  // "trusted"/direct the triggering gesture looks to them -- this can't
+  // be blocked the same way. Remove once the real cause is found.
+  const [tapDebugMsg, setTapDebugMsg] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -651,7 +657,7 @@ export default function Header() {
     // TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps) --
     // confirms whether this handler fires at all on the physical phone,
     // before any other logic runs. Remove once the real cause is found.
-    alert(`Hamburger tap: ${href}`);
+    setTapDebugMsg(`Hamburger tap: ${href}`);
     e.preventDefault();
     setMenuOpen(false);
     router.push(href);
@@ -858,6 +864,31 @@ export default function Header() {
 
   return (
     <header className="app-header">
+      {/* TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps)
+          -- plain inline styles, maximal z-index, fixed positioning:
+          deliberately not dependent on any existing CSS class so it
+          can't be hidden/clipped by anything already on the page.
+          Remove once the real cause is found. */}
+      {tapDebugMsg && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 999999,
+            background: "red",
+            color: "white",
+            padding: "10px",
+            textAlign: "center",
+            fontSize: "14px",
+            fontWeight: "bold",
+          }}
+          onClick={() => setTapDebugMsg(null)}
+        >
+          {tapDebugMsg} (tap to dismiss)
+        </div>
+      )}
       <div className="app-header-inner">
         <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
           {/* eslint-disable-next-line @next/next/no-img-element */}

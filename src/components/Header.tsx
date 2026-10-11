@@ -96,21 +96,6 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useLanguage();
-  // TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps) --
-  // a plain DOM/state change instead of alert(), since some mobile
-  // browsers can silently suppress alert()/confirm() depending on how
-  // "trusted"/direct the triggering gesture looks to them -- this can't
-  // be blocked the same way. Remove once the real cause is found.
-  const [tapDebugMsg, setTapDebugMsg] = useState<string | null>(null);
-  // TEMPORARY, same debug pass: a SEPARATE flag set by the panel's own
-  // wrapper (not any individual item) -- bubbling means both this and
-  // tapDebugMsg can end up set from one real tap, but keeping them in
-  // two different state slots (instead of one shared message) lets the
-  // banner show both pieces of information at once rather than one
-  // overwriting the other, so it's possible to tell whether a tap is
-  // reaching the panel's own DOM bounds at all even when it isn't
-  // reaching a specific item's handler.
-  const [panelTapDebugMsg, setPanelTapDebugMsg] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,6 +142,20 @@ export default function Header() {
   // hamburgerDesktopRef and race against the button's own toggle.
   const hamburgerDesktopRef = useRef<HTMLDivElement>(null);
   const hamburgerMobileBtnRef = useRef<HTMLButtonElement>(null);
+  // ROOT CAUSE (mobile hamburger nav bug): the mousedown-based outside-
+  // click effect below is a single document-wide listener -- it was
+  // written assuming only the NEW desktop dropdown needed it ("the
+  // existing mobile panel... has never had click-outside-to-close"), but
+  // that listener isn't actually scoped to desktop; it runs for every
+  // tap everywhere. Without the mobile panel's own content wrapped in a
+  // ref it recognizes as "inside," a tap on ANY mobile nav item reads as
+  // an outside click -- mousedown fires before click on touch devices,
+  // so setMenuOpen(false) unmounts the tapped <Link> a beat before its
+  // own click/onClick can ever run, silently eating the navigation. This
+  // wraps the mobile panel's actual content (not just its outer
+  // conditional wrapper) so the effect recognizes a tap inside it as
+  // genuinely "inside."
+  const mobileMenuPanelRef = useRef<HTMLDivElement>(null);
   // Profile is a real floating dropdown at BOTH breakpoints (unlike
   // hamburger's mobile variant), so each of its two trigger+panel pairs
   // gets its own ref, both checked together in one click-outside effect.
@@ -335,21 +334,22 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [bellOpen]);
 
-  // Header Navigation Refresh: only the hamburger's NEW desktop instance
-  // is a floating dropdown needing this -- the existing mobile panel
-  // (full-width, below the header) has never had click-outside-to-close
-  // and keeps that same behavior unchanged. hamburgerMobileBtnRef is
-  // checked too (not just hamburgerDesktopRef) so a tap on the MOBILE
+  // This mousedown listener is document-wide, not desktop-scoped, despite
+  // originally being written only with the new desktop dropdown in mind
+  // -- see mobileMenuPanelRef's own comment above for the bug this caused
+  // on mobile and why its ref is now checked here too. hamburgerMobileBtnRef
+  // is checked too (not just hamburgerDesktopRef) so a tap on the MOBILE
   // trigger button is never mistaken for an outside click and raced
-  // against that button's own toggle -- the two refs are never both
-  // relevant at the same breakpoint, but checking both is harmless.
+  // against that button's own toggle -- the three refs are never all
+  // relevant at the same breakpoint, but checking all of them is harmless.
   useEffect(() => {
     if (!menuOpen) return;
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as Node;
       const insideDesktop = hamburgerDesktopRef.current?.contains(target) ?? false;
       const insideMobileBtn = hamburgerMobileBtnRef.current?.contains(target) ?? false;
-      if (!insideDesktop && !insideMobileBtn) setMenuOpen(false);
+      const insideMobilePanel = mobileMenuPanelRef.current?.contains(target) ?? false;
+      if (!insideDesktop && !insideMobileBtn && !insideMobilePanel) setMenuOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -663,10 +663,6 @@ export default function Header() {
   // default action never ALSO fires alongside router.push (that would be
   // a double navigation, not just a redundant one).
   function handleHamburgerNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
-    // TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps) --
-    // confirms whether this handler fires at all on the physical phone,
-    // before any other logic runs. Remove once the real cause is found.
-    setTapDebugMsg(`Hamburger tap: ${href}`);
     e.preventDefault();
     setMenuOpen(false);
     router.push(href);
@@ -873,34 +869,6 @@ export default function Header() {
 
   return (
     <header className="app-header">
-      {/* TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps)
-          -- plain inline styles, maximal z-index, fixed positioning:
-          deliberately not dependent on any existing CSS class so it
-          can't be hidden/clipped by anything already on the page.
-          Remove once the real cause is found. */}
-      {(tapDebugMsg || panelTapDebugMsg) && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 999999,
-            background: "red",
-            color: "white",
-            padding: "10px",
-            textAlign: "center",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
-          onClick={() => {
-            setTapDebugMsg(null);
-            setPanelTapDebugMsg(null);
-          }}
-        >
-          {panelTapDebugMsg ?? "(panel did not fire)"} / {tapDebugMsg ?? "(item did not fire)"} (tap to dismiss)
-        </div>
-      )}
       <div className="app-header-inner">
         <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1004,16 +972,7 @@ export default function Header() {
       {navTabs()}
 
       {menuOpen && (
-        <div
-          className="mobile-menu-panel"
-          // TEMPORARY, same debug pass: fires on ANY tap landing inside
-          // this panel's bounds, even one that doesn't land on a
-          // specific <Link>'s own clickable area -- tells us whether
-          // the tap is reaching this container's real DOM bounds at
-          // all. Deliberately does not call stopPropagation, so an
-          // individual item's own onClick (if it fires) still runs too.
-          onClick={() => setPanelTapDebugMsg("Panel container received a tap")}
-        >
+        <div className="mobile-menu-panel" ref={mobileMenuPanelRef}>
           {/* Header Navigation Refresh: a signed-in user's menu is now
               the full NAV_TABS list (same content as the new desktop
               hamburger instance above) -- Theme/Language/Logout moved

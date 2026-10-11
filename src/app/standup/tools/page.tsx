@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History, Target } from "lucide-react";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
+import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import {
   addBacklogGoal,
@@ -67,13 +68,18 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
 }
 
-type ToolsTab = "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "assignments";
+type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "assignments";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
 // descriptionKey backs the Tools card's own description, which now
 // swaps per-tab instead of the page keeping one fixed subtitle.
+// Tools -> Goals Phase 2: "goals" added as the FIRST entry -- the new
+// central Goal management workspace. Pink/#f472b6 reuses this app's own
+// existing "Goal" color identity (Dashboard's Target icon, Goal Detail's
+// active-status chip) rather than picking an arbitrary new accent.
 const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; color: string; descriptionKey: TranslationKey }[] = [
+  { key: "goals", labelKey: "backlog.tabGoals", icon: Target, color: "#f472b6", descriptionKey: "tools.descGoals" },
   { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa", descriptionKey: "tools.descBacklog" },
   { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock, color: "#a78bfa", descriptionKey: "tools.descLongTerm" },
   { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
@@ -84,7 +90,7 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
 
 export default function ToolsPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<ToolsTab>("backlog");
+  const [activeTab, setActiveTab] = useState<ToolsTab>("goals");
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -621,6 +627,8 @@ export default function ToolsPage() {
         <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
       </div>
     </div>
+
+    {activeTab === "goals" && <GoalsManagementPanel />}
 
     {activeTab === "backlog" && (
     <div className="card card-highlight">

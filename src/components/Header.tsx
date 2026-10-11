@@ -648,6 +648,10 @@ export default function Header() {
   // default action never ALSO fires alongside router.push (that would be
   // a double navigation, not just a redundant one).
   function handleHamburgerNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    // TEMPORARY runtime diagnostic (debug: trace mobile hamburger taps) --
+    // confirms whether this handler fires at all on the physical phone,
+    // before any other logic runs. Remove once the real cause is found.
+    alert(`Hamburger tap: ${href}`);
     e.preventDefault();
     setMenuOpen(false);
     router.push(href);

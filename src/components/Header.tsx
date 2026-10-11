@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import {
   getOrCreateProfile,
@@ -94,6 +94,7 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -633,6 +634,25 @@ export default function Header() {
     return infoLinks(expanded);
   }
 
+  // Hamburger-menu tap reliability fix: a hamburger item's own panel
+  // (.nav-more-panel / .mobile-menu-panel) unmounts the instant
+  // setMenuOpen(false) commits -- that's the SAME element the tap just
+  // landed on. Letting the <Link>'s native navigation resolve on its own
+  // after that (the previous behavior: no onClick at all, closing left
+  // entirely to the [pathname] effect further below) raced an anchor's
+  // default navigation against its own DOM node disappearing, which is
+  // exactly the class of bug mobile Safari is known to drop navigations
+  // for. router.push doesn't depend on the clicked node surviving, so
+  // explicitly owning the close+navigate sequence here removes that race
+  // entirely -- preventDefault is genuinely necessary so the Link's own
+  // default action never ALSO fires alongside router.push (that would be
+  // a double navigation, not just a redundant one).
+  function handleHamburgerNavClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    e.preventDefault();
+    setMenuOpen(false);
+    router.push(href);
+  }
+
   // Header Navigation Refresh: the full NAV_TABS list as plain full-text
   // links (icon + label), shared verbatim by the desktop hamburger
   // panel, the mobile hamburger panel, AND -- since About/FAQ/Contact
@@ -655,6 +675,7 @@ export default function Header() {
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
               className={isActive ? "nav-link font-semibold gap-2" : "nav-link gap-2"}
+              onClick={(e) => handleHamburgerNavClick(e, tab.href)}
             >
               <tab.icon size={16} />
               <span>{t(tab.labelKey)}</span>

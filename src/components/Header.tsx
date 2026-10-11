@@ -102,6 +102,15 @@ export default function Header() {
   // "trusted"/direct the triggering gesture looks to them -- this can't
   // be blocked the same way. Remove once the real cause is found.
   const [tapDebugMsg, setTapDebugMsg] = useState<string | null>(null);
+  // TEMPORARY, same debug pass: a SEPARATE flag set by the panel's own
+  // wrapper (not any individual item) -- bubbling means both this and
+  // tapDebugMsg can end up set from one real tap, but keeping them in
+  // two different state slots (instead of one shared message) lets the
+  // banner show both pieces of information at once rather than one
+  // overwriting the other, so it's possible to tell whether a tap is
+  // reaching the panel's own DOM bounds at all even when it isn't
+  // reaching a specific item's handler.
+  const [panelTapDebugMsg, setPanelTapDebugMsg] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -869,7 +878,7 @@ export default function Header() {
           deliberately not dependent on any existing CSS class so it
           can't be hidden/clipped by anything already on the page.
           Remove once the real cause is found. */}
-      {tapDebugMsg && (
+      {(tapDebugMsg || panelTapDebugMsg) && (
         <div
           style={{
             position: "fixed",
@@ -884,9 +893,12 @@ export default function Header() {
             fontSize: "14px",
             fontWeight: "bold",
           }}
-          onClick={() => setTapDebugMsg(null)}
+          onClick={() => {
+            setTapDebugMsg(null);
+            setPanelTapDebugMsg(null);
+          }}
         >
-          {tapDebugMsg} (tap to dismiss)
+          {panelTapDebugMsg ?? "(panel did not fire)"} / {tapDebugMsg ?? "(item did not fire)"} (tap to dismiss)
         </div>
       )}
       <div className="app-header-inner">
@@ -992,7 +1004,16 @@ export default function Header() {
       {navTabs()}
 
       {menuOpen && (
-        <div className="mobile-menu-panel">
+        <div
+          className="mobile-menu-panel"
+          // TEMPORARY, same debug pass: fires on ANY tap landing inside
+          // this panel's bounds, even one that doesn't land on a
+          // specific <Link>'s own clickable area -- tells us whether
+          // the tap is reaching this container's real DOM bounds at
+          // all. Deliberately does not call stopPropagation, so an
+          // individual item's own onClick (if it fires) still runs too.
+          onClick={() => setPanelTapDebugMsg("Panel container received a tap")}
+        >
           {/* Header Navigation Refresh: a signed-in user's menu is now
               the full NAV_TABS list (same content as the new desktop
               hamburger instance above) -- Theme/Language/Logout moved

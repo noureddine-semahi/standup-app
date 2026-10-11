@@ -11,6 +11,7 @@ export const en = {
   "nav.faq": "FAQ",
   "nav.contact": "Contact",
   "nav.calendar": "Calendar",
+  "nav.progressInsights": "Progress & Insights",
   "nav.tools": "Tools",
   "nav.assignments": "Goal Assignments",
   "nav.dashboard": "Dashboard",

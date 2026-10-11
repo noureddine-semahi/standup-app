@@ -11,6 +11,7 @@ export const es: Record<keyof typeof en, string> = {
   "nav.faq": "FAQ",
   "nav.contact": "Contacto",
   "nav.calendar": "Calendario",
+  "nav.progressInsights": "Progreso y Perspectivas",
   "nav.tools": "Herramientas",
   "nav.assignments": "Objetivos Asignados",
   "nav.dashboard": "Panel",

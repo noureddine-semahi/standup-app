@@ -2485,9 +2485,16 @@ select.btn {
      unit (matching the supplied reference's own border-top AND
      border-bottom), sitting just above the Tools panel rather than
      fused into it. */
-  padding: 10px 9px;
+  /* Tightened further (was 10px 9px) -- explicit follow-up call to
+     make the gap between the tabs and this outline minimal, matching
+     the supplied reference's own tight fit. Top is still overridden to
+     28px further down for the active tab's glow clearance (unrelated
+     to this visual spacing, kept as-is). */
+  padding: 4px 4px 4px;
   margin-bottom: 10px;
-  border-radius: 14px;
+  /* Nudged down from 14px to nest cleanly with the tighter padding
+     above (each tab's own 8px radius + 4px padding). */
+  border-radius: 12px;
   /* Metallic steel-gray outer rim -- explicit fix: the original
      rgba(0,0,0,0.55) was pure black against an already near-black
      dark-mode page (--tint-rgb: 20,22,30), so it rendered with almost

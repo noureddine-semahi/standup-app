@@ -1,9 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { matchesGoalFilters, isGoalQuickAddOn, matchesGoalSearch, isGoalReadyToComplete } from "./GoalsManagementPanel";
+import {
+  matchesGoalFilters,
+  isGoalQuickAddOn,
+  matchesGoalSearch,
+  isGoalReadyToComplete,
+  DEFAULT_MANAGEMENT_VIEW,
+  type ManagementView,
+} from "./GoalsManagementPanel";
 
 // Pure-function tests only, same style as db.test.ts -- no React render/
 // browser harness needed, matching this phase's own "don't build a large
 // testing harness solely for this" instruction.
+
+describe("ManagementView (Assigned -> Goals consolidation Phase 1: My Goals / Assigned switch)", () => {
+  it("defaults to My Goals", () => {
+    expect(DEFAULT_MANAGEMENT_VIEW).toBe("myGoals");
+  });
+
+  // "Switching to Assigned selects Assigned" is a direct setManagementView("assigned")
+  // call on the toggle button's onClick, with no derived/branching logic of
+  // this app's own to unit test -- it's React's own setState primitive, not
+  // app-specific behavior like matchesGoalFilters' branching is. The one
+  // thing worth asserting without a render harness is that "assigned" is a
+  // real, valid ManagementView value distinct from the default, which a type
+  // error here would catch just as well as a runtime assertion would.
+  it("\"assigned\" is a valid, distinct ManagementView value", () => {
+    const assigned: ManagementView = "assigned";
+    expect(assigned).not.toBe(DEFAULT_MANAGEMENT_VIEW);
+  });
+});
 
 describe("matchesGoalFilters (Tools -> Goals Phase 2: primary/secondary filters)", () => {
   const active = { status: "active" as const, goal_type: "one_time" as const };

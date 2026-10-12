@@ -31,12 +31,25 @@ import { DEFAULT_PRIORITY } from "@/lib/goalLogic";
 import { statusChipColors } from "@/lib/goalStatus";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
+import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 import { Plus, MoreHorizontal, TriangleAlert, Eye, EyeOff, X, CheckCircle2 } from "lucide-react";
 
 export type StatusFilter = "all" | OutcomeGoalStatus;
 export type TypeFilter = "all" | OutcomeGoalType;
+
+// Assigned -> Goals consolidation, Phase 1: a local view switch, NOT
+// another global nav tab -- "My Goals" is this component's existing
+// Phase 2/2B experience, completely unchanged; "Assigned" mounts the
+// existing GoalAssignmentsPanel verbatim (same component already reused
+// by Tools' own "Assigned Goals" tab, /standup/assignments, and Social --
+// see this phase's own architecture report). No new data fetching, no
+// reshaping assignments into Outcome Goals, no outcome_goal_id
+// requirement -- a standalone assigned Task keeps working exactly as it
+// already does inside GoalAssignmentsPanel.
+export type ManagementView = "myGoals" | "assigned";
+export const DEFAULT_MANAGEMENT_VIEW: ManagementView = "myGoals";
 
 // Pure, exported for focused testing (see GoalsManagementPanel.test.ts)
 // without needing a React/browser rendering harness -- same "pure
@@ -141,6 +154,7 @@ function Chip({ label, bg, border, color, icon }: { label: string; bg: string; b
 
 export default function GoalsManagementPanel() {
   const { t } = useLanguage();
+  const [managementView, setManagementView] = useState<ManagementView>(DEFAULT_MANAGEMENT_VIEW);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
@@ -266,10 +280,6 @@ export default function GoalsManagementPanel() {
     }
   }
 
-  if (loading) {
-    return <div className="text-white/60 text-center py-8">{t("tools.goalsLoading")}</div>;
-  }
-
   const todayISO = toISODate(new Date());
 
   const counts = {
@@ -319,6 +329,48 @@ export default function GoalsManagementPanel() {
 
   return (
     <div className="card card-highlight">
+      {/* Management view switch -- a local toggle, not another global
+          nav tab, so it's deliberately smaller/lighter than the main
+          Tools folder-tab bar above this card. Switching to Assigned
+          works immediately even if My Goals' own load() is still in
+          flight, since GoalAssignmentsPanel manages its own loading
+          state independently -- it was never gated on this component's
+          `loading`. */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setManagementView("myGoals")}
+          className="btn"
+          style={{
+            padding: "0.3rem 0.65rem",
+            fontSize: "0.78rem",
+            background: managementView === "myGoals" ? "rgba(244, 114, 182, 0.18)" : undefined,
+            borderColor: managementView === "myGoals" ? "rgba(244, 114, 182, 0.5)" : undefined,
+          }}
+        >
+          {t("tools.goalsViewMyGoals")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setManagementView("assigned")}
+          className="btn"
+          style={{
+            padding: "0.3rem 0.65rem",
+            fontSize: "0.78rem",
+            background: managementView === "assigned" ? "rgba(244, 114, 182, 0.18)" : undefined,
+            borderColor: managementView === "assigned" ? "rgba(244, 114, 182, 0.5)" : undefined,
+          }}
+        >
+          {t("tools.goalsViewAssigned")}
+        </button>
+      </div>
+
+      {managementView === "assigned" ? (
+        <GoalAssignmentsPanel />
+      ) : loading ? (
+        <div className="text-white/60 text-center py-8">{t("tools.goalsLoading")}</div>
+      ) : (
+      <>
       {msg && (
         <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">{msg}</div>
       )}
@@ -700,6 +752,8 @@ export default function GoalsManagementPanel() {
             );
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   );

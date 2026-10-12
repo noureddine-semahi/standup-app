@@ -609,6 +609,8 @@ export const es: Record<keyof typeof en, string> = {
   "tools.goalsQuickAddToggleFailed": "No se pudo actualizar la visibilidad de Agregado Rápido — intenta de nuevo.",
   "tools.goalsOpenManage": "Abrir Objetivo",
   "tools.goalsArchiveAction": "Archivar",
+  "tools.goalsViewMyGoals": "Mis Objetivos",
+  "tools.goalsViewAssigned": "Asignados",
   "tools.goalsSearchPlaceholder": "Buscar objetivos…",
   "tools.goalsSearchClear": "Borrar búsqueda",
   "tools.goalsEmptySearch": "Ningún objetivo coincide con tu búsqueda.",

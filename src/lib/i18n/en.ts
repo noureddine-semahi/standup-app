@@ -614,6 +614,8 @@ export const en = {
   "tools.goalsQuickAddToggleFailed": "Couldn't update Quick Add visibility — try again.",
   "tools.goalsOpenManage": "Open Goal",
   "tools.goalsArchiveAction": "Archive",
+  "tools.goalsViewMyGoals": "My Goals",
+  "tools.goalsViewAssigned": "Assigned",
   "tools.goalsSearchPlaceholder": "Search goals…",
   "tools.goalsSearchClear": "Clear search",
   "tools.goalsEmptySearch": "No goals match your search.",

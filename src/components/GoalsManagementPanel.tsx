@@ -21,6 +21,7 @@ import {
   type OutcomeGoalStatus,
   type OutcomeGoalType,
   type ConceptualTask,
+  type ConceptualTaskLifecycle,
   type ArchivedGoal,
   type OutcomeGoalCycleWithAggregation,
   type CycleResultStatus,
@@ -32,7 +33,7 @@ import GoalTypeSelect from "@/components/GoalTypeSelect";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
-import { Plus, MoreHorizontal, TriangleAlert, Eye, EyeOff } from "lucide-react";
+import { Plus, MoreHorizontal, TriangleAlert, Eye, EyeOff, X, CheckCircle2 } from "lucide-react";
 
 export type StatusFilter = "all" | OutcomeGoalStatus;
 export type TypeFilter = "all" | OutcomeGoalType;
@@ -59,6 +60,35 @@ export function matchesGoalFilters(
 // silently drifting apart.
 export function isGoalQuickAddOn(goal: Pick<OutcomeGoal, "hidden_from_quick_add">): boolean {
   return !goal.hidden_from_quick_add;
+}
+
+// Pure, composed with matchesGoalFilters via a plain && in the caller
+// rather than folded into it -- matchesGoalFilters already has its own
+// tests exercising its 3-arg shape; keeping search as a separate
+// predicate means those stay valid unchanged. Case-insensitive,
+// substring match on title only; an empty/whitespace-only search is
+// defined to match everything (same as "no search").
+export function matchesGoalSearch(goal: Pick<OutcomeGoal, "title">, search: string): boolean {
+  const trimmed = search.trim();
+  if (!trimmed) return true;
+  return goal.title.toLowerCase().includes(trimmed.toLowerCase());
+}
+
+// Pure, informational-only rule -- never calls setOutcomeGoalStatus or
+// mutates anything itself; the component only ever reads this to decide
+// whether to show a chip. Deliberately narrow: only a one-time Goal (no
+// finish-line concept for ongoing; Target/Recurring already have their
+// own progress indicators) with at least one conceptual Task, where
+// EVERY one is lifecycle "completed" -- canceled and broken both fail
+// this (neither is "completed"), so either one correctly prevents
+// readiness without needing a separate check.
+export function isGoalReadyToComplete(
+  goal: Pick<OutcomeGoal, "status" | "goal_type">,
+  tasks: { lifecycle: ConceptualTaskLifecycle }[]
+): boolean {
+  if (goal.status !== "active" || goal.goal_type !== "one_time") return false;
+  if (tasks.length === 0) return false;
+  return tasks.every((task) => task.lifecycle === "completed");
 }
 
 // Same mapping convention as goals/[id]/page.tsx's own outcomeStatusChip
@@ -121,6 +151,7 @@ export default function GoalsManagementPanel() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [searchText, setSearchText] = useState("");
 
   const [showNewGoalForm, setShowNewGoalForm] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState("");
@@ -248,7 +279,12 @@ export default function GoalsManagementPanel() {
     abandoned: outcomeGoals.filter((g) => g.status === "abandoned").length,
   };
 
-  const filtered = outcomeGoals.filter((g) => matchesGoalFilters(g, statusFilter, typeFilter));
+  // Split into two steps so the empty-state logic below can tell "the
+  // status/type filter itself has nothing" apart from "search is what
+  // narrowed it to zero" -- filtered is what actually renders, client-
+  // side only, no extra query either step.
+  const filteredByStatusType = outcomeGoals.filter((g) => matchesGoalFilters(g, statusFilter, typeFilter));
+  const filtered = filteredByStatusType.filter((g) => matchesGoalSearch(g, searchText));
 
   function tasksForGoal(goalId: string) {
     return conceptualTasks.filter((ct) => (ct.terminal as any).outcome_goal_id === goalId);
@@ -260,15 +296,25 @@ export default function GoalsManagementPanel() {
     return t("tools.goalsFilterArchived"); // "abandoned" presents as "Archived" -- no new status
   }
 
+  const hasSearchText = searchText.trim().length > 0;
+
+  // A: no Goals exist at all. B: the status/type filter itself has no
+  // matches (search irrelevant or also empty). C: status/type DID match
+  // something, but the search text narrowed it to zero -- distinct
+  // wording so the user knows to adjust their search, not their filter.
   const emptyKey =
     outcomeGoals.length === 0
       ? "tools.goalsEmptyNone"
-      : statusFilter === "active"
-      ? "tools.goalsEmptyActive"
-      : statusFilter === "completed"
-      ? "tools.goalsEmptyCompleted"
-      : statusFilter === "abandoned"
-      ? "tools.goalsEmptyArchived"
+      : hasSearchText && filteredByStatusType.length > 0 && filtered.length === 0
+      ? "tools.goalsEmptySearch"
+      : filteredByStatusType.length === 0
+      ? statusFilter === "active"
+        ? "tools.goalsEmptyActive"
+        : statusFilter === "completed"
+        ? "tools.goalsEmptyCompleted"
+        : statusFilter === "abandoned"
+        ? "tools.goalsEmptyArchived"
+        : "tools.goalsEmptyNone"
       : "tools.goalsEmptyNone";
 
   return (
@@ -328,6 +374,30 @@ export default function GoalsManagementPanel() {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Search -- client-side only against already-loaded Goal titles,
+          no query per keystroke, combined with the status/type filters
+          above via matchesGoalSearch (see its own comment). */}
+      <div className="relative mb-5">
+        <input
+          type="text"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          placeholder={t("tools.goalsSearchPlaceholder")}
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 pr-9 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40"
+        />
+        {searchText && (
+          <button
+            type="button"
+            onClick={() => setSearchText("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+            aria-label={t("tools.goalsSearchClear")}
+            title={t("tools.goalsSearchClear")}
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       {/* New Goal */}
@@ -395,6 +465,7 @@ export default function GoalsManagementPanel() {
             const broken = tasks.filter((ct) => ct.lifecycle === "broken").length;
             const statusColors = outcomeStatusChipColors(goal.status);
             const quickAddOn = isGoalQuickAddOn(goal);
+            const readyToComplete = isGoalReadyToComplete(goal, tasks);
 
             return (
               <div key={goal.id} className="dashboard-goal-card min-w-0">
@@ -425,6 +496,18 @@ export default function GoalsManagementPanel() {
                           border="rgba(245, 158, 11, 0.4)"
                           color="#fcd34d"
                           icon={<TriangleAlert size={10} />}
+                        />
+                      )}
+                      {/* Informational only -- see isGoalReadyToComplete's
+                          own comment. Never auto-completes; the user still
+                          uses ••• -> Complete manually. */}
+                      {readyToComplete && (
+                        <Chip
+                          label={t("tools.goalsReadyToComplete")}
+                          bg="rgba(16, 185, 129, 0.12)"
+                          border="rgba(16, 185, 129, 0.4)"
+                          color="#6ee7b7"
+                          icon={<CheckCircle2 size={10} />}
                         />
                       )}
                     </div>

@@ -2456,7 +2456,13 @@ select.btn {
    cue here is either inset (reads as physically recessed) or a tight
    edge-hugging glow (reads as a small LED, not a halo). */
 .folder-tabbar-tools {
-  gap: 0;
+  /* Small visible gap between segments (explicit follow-up call,
+     matching a supplied reference implementation exactly) -- each tab
+     now draws its own complete, individually-rounded border rather
+     than sharing a seam line with its neighbor; the housing's own fill
+     shows through the gap, reading as buttons sitting IN a tray rather
+     than one continuous strip. */
+  gap: 6px;
   border-radius: 12px 12px 0 0;
   /* Metallic steel-gray outer rim -- explicit fix: the original
      rgba(0,0,0,0.55) was pure black against an already near-black
@@ -2488,35 +2494,24 @@ select.btn {
 }
 
 .folder-tab-tools {
-  border-radius: 0;
-  border: none;
-  /* Thin dark outer edge between segments -- the left border every tab
-     but the first carries, rather than each tab drawing a full 4-sided
-     border and doubling up at the seam. */
-  border-left: 1px solid rgba(0, 0, 0, 0.4);
+  /* Every tab now draws its own complete, individually-rounded border
+     (was: square corners + a shared left-only seam line) -- matches a
+     supplied reference implementation where each button is its own
+     bordered pill sitting inside the housing, not a flush segment. */
+  border-radius: 8px;
+  border: 1px solid rgba(110, 114, 124, 0.45);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
     color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
   );
-  /* Raised bevel: metallic highlight top/left, darker edge bottom/
-     right, plus a true external drop shadow -- this is the face
-     catching light, sitting above the recessed active well. */
+  /* Raised bevel: metallic highlight top, darker edge bottom, plus a
+     true external drop shadow -- this is the face catching light,
+     sitting above the recessed active well. */
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.04),
     inset 0 -2px 2px -1px rgba(0, 0, 0, 0.4),
-    inset -1px 0 0 0 rgba(0, 0, 0, 0.2),
     0 3px 5px -2px rgba(0, 0, 0, 0.45);
-}
-
-.folder-tabbar-tools .folder-tab-tools:first-child {
-  border-left: none;
-  border-top-left-radius: 11px;
-}
-
-.folder-tabbar-tools .folder-tab-tools:last-child {
-  border-top-right-radius: 11px;
 }
 
 .folder-tab-tools:hover:not(.folder-tab-active) {
@@ -2527,9 +2522,7 @@ select.btn {
   );
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.05),
     inset 0 -2px 2px -1px rgba(0, 0, 0, 0.45),
-    inset -1px 0 0 0 rgba(0, 0, 0, 0.22),
     0 4px 7px -2px rgba(0, 0, 0, 0.5);
 }
 
@@ -2543,22 +2536,21 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 4%, rgba(0, 0, 0, 0.62)),
     color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.48))
   );
-  border-left: 1px solid color-mix(in srgb, var(--tab-color) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tab-color) 50%, transparent);
   z-index: 2;
   /* Pressed-well construction: a strong top inset shadow (the dominant
      depth cue) + a thin bottom inset highlight catching light at the
      well's lip, then the LED glow itself as a pair of OUTWARD (not
-     inset) side shadows -- reads as light leaking out of the gap
-     between the recessed tab and its two neighbors, the same "glow
-     lives on the seam, not inside the well" construction a reference
-     CodePen implementation of this exact look uses (its glow sits on
-     the ADJACENT buttons' facing edges via their own pseudo-elements;
-     reproduced here as the active tab's own outward shadow instead,
-     same visual result without needing sibling selectors). */
+     inset) side shadows reaching into the real gap on either side --
+     reads as light leaking out of the gap between the recessed tab and
+     its two neighbors, the exact construction the supplied reference
+     implementation uses (its glow sits in the gap via the ADJACENT
+     buttons' own pseudo-elements; reproduced here as the active tab's
+     own outward shadow instead, same visual result without needing
+     sibling selectors). */
   box-shadow:
     inset 0 6px 8px -2px rgba(0, 0, 0, 0.75),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.1),
-    0 0 0 1px color-mix(in srgb, var(--tab-color) 40%, transparent),
     3px 0 10px -3px color-mix(in srgb, var(--tab-color) 55%, transparent),
     -3px 0 10px -3px color-mix(in srgb, var(--tab-color) 55%, transparent);
   /* Layered glow on the icon+label themselves -- a soft white core plus
@@ -2570,10 +2562,6 @@ select.btn {
      in the reference image. */
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.55))
     drop-shadow(0 0 7px color-mix(in srgb, var(--tab-color) 80%, transparent));
-}
-
-.folder-tabbar-tools .folder-tab-tools.folder-tab-active:first-child {
-  border-left: none;
 }
 
 /* Top rim reduced to a hairline -- deliberately no longer the dominant
@@ -2626,7 +2614,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-tools {
-  border-left-color: rgba(40, 32, 28, 0.28);
+  border-color: rgba(40, 32, 28, 0.28);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
@@ -2634,9 +2622,7 @@ select.btn {
   );
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.4),
     inset 0 -2px 2px -1px rgba(40, 32, 28, 0.24),
-    inset -1px 0 0 0 rgba(40, 32, 28, 0.14),
     0 3px 5px -2px rgba(40, 32, 28, 0.22);
 }
 
@@ -2648,9 +2634,7 @@ select.btn {
   );
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.45),
     inset 0 -2px 2px -1px rgba(40, 32, 28, 0.28),
-    inset -1px 0 0 0 rgba(40, 32, 28, 0.16),
     0 4px 7px -2px rgba(40, 32, 28, 0.26);
 }
 
@@ -2661,11 +2645,10 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 6%, rgba(40, 32, 28, 0.3)),
     color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.2))
   );
-  border-left-color: color-mix(in srgb, var(--tab-color) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tab-color) 45%, transparent);
   box-shadow:
     inset 0 6px 8px -2px rgba(40, 32, 28, 0.48),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.55),
-    0 0 0 1px color-mix(in srgb, var(--tab-color) 38%, transparent),
     3px 0 9px -3px color-mix(in srgb, var(--tab-color) 48%, transparent),
     -3px 0 9px -3px color-mix(in srgb, var(--tab-color) 48%, transparent);
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))
@@ -5674,9 +5657,9 @@ select:focus {
 }
 
 @media (max-width: 859px) {
-  /* gap stays 0 here too (no longer 2px) -- the connected segmented-
-     control look (explicit user call) applies at every width, not just
-     desktop; the hairline seam borders already carry the separation. */
+  /* .folder-tabbar-tools' own row gap (6px) is untouched here -- it
+     applies at every width, not just desktop; only this gap (icon-to-
+     label, WITHIN a tab) differs by breakpoint. */
   /* Inactive tabs are explicitly flex: 0 0 auto -- never grow, never
      shrink -- so they stay a stable, predictable icon-only width. That
      stability is what makes the active tab's own sizing below correct:

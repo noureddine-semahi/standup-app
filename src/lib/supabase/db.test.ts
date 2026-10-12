@@ -24,6 +24,7 @@ import {
   resolveTaskCycleId,
   computeConceptualTaskAnalytics,
   isOutcomeGoalQuickAddEligible,
+  resolveConceptualTasksForIds,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -1021,6 +1022,103 @@ describe("getConceptualTaskById pipeline (backward walk + chain collection + col
     expect(() => resolveById("A", [A, B], edges)).not.toThrow();
     const { task } = resolveById("A", [A, B], edges);
     expect(task).toBeUndefined();
+  });
+});
+
+describe("resolveConceptualTasksForIds (Assigned -> Goals Phase 2: batched lineage resolution)", () => {
+  function edge(from: string, to: string | null) {
+    return { from_goal_id: from, materialized_goal_id: to };
+  }
+  function brokenEdge(from: string) {
+    return { from_goal_id: from, materialized_goal_id: null, materialized: true };
+  }
+
+  it("A -> A2: resolving by the stale original id A returns A2 as the terminal", () => {
+    const A = { id: "A", status: "postponed" };
+    const A2 = { id: "A2", status: "not_started" };
+    const result = resolveConceptualTasksForIds(["A"], [A, A2], [edge("A", "A2")]);
+    expect(result.get("A")?.terminal).toBe(A2);
+  });
+
+  it("A -> A2 -> A3: resolving by the original id A returns A3 as the terminal", () => {
+    const A = { id: "A", status: "postponed" };
+    const A2 = { id: "A2", status: "postponed" };
+    const A3 = { id: "A3", status: "not_started" };
+    const result = resolveConceptualTasksForIds(
+      ["A"],
+      [A, A2, A3],
+      [edge("A", "A2"), edge("A2", "A3")]
+    );
+    expect(result.get("A")?.terminal).toBe(A3);
+    expect(result.get("A")?.chain).toEqual([A, A2, A3]);
+  });
+
+  it("B -> B2 (recipient side): resolving by the stale recipient id B returns B2 as the terminal", () => {
+    const B = { id: "B", status: "postponed" };
+    const B2 = { id: "B2", status: "in_progress" };
+    const result = resolveConceptualTasksForIds(["B"], [B, B2], [edge("B", "B2")]);
+    expect(result.get("B")?.terminal).toBe(B2);
+  });
+
+  it("no reschedule: resolving by an id with no edges returns the row itself", () => {
+    const A = { id: "A", status: "not_started" };
+    const result = resolveConceptualTasksForIds(["A"], [A], []);
+    expect(result.get("A")?.terminal).toBe(A);
+    expect(result.get("A")?.lifecycle).toBe("active");
+  });
+
+  it("preserves a completed conceptual lifecycle", () => {
+    const A = { id: "A", status: "postponed" };
+    const A2 = { id: "A2", status: "completed" };
+    const result = resolveConceptualTasksForIds(["A"], [A, A2], [edge("A", "A2")]);
+    expect(result.get("A")?.lifecycle).toBe("completed");
+  });
+
+  it("preserves a canceled conceptual lifecycle", () => {
+    const A = { id: "A", status: "postponed" };
+    const A2 = { id: "A2", status: "canceled" };
+    const result = resolveConceptualTasksForIds(["A"], [A, A2], [edge("A", "A2")]);
+    expect(result.get("A")?.lifecycle).toBe("canceled");
+  });
+
+  it("a broken continuation resolves lifecycle='broken', same existing semantics collapseGoalLineages already defines", () => {
+    const A = { id: "A", status: "postponed" };
+    const result = resolveConceptualTasksForIds(["A"], [A], [brokenEdge("A")]);
+    expect(result.get("A")?.lifecycle).toBe("broken");
+  });
+
+  it("a requested id with no corresponding fetched row simply has no Map entry (never throws, never a placeholder)", () => {
+    const A = { id: "A", status: "not_started" };
+    const result = resolveConceptualTasksForIds(["A", "does-not-exist"], [A], []);
+    expect(result.has("A")).toBe(true);
+    expect(result.has("does-not-exist")).toBe(false);
+    expect(result.size).toBe(1);
+  });
+
+  it("multiple independent chains resolve correctly without cross-contamination", () => {
+    const A = { id: "A", status: "postponed" };
+    const A2 = { id: "A2", status: "completed" };
+    const B = { id: "B", status: "postponed" };
+    const B2 = { id: "B2", status: "in_progress" };
+    const C = { id: "C", status: "not_started" }; // standalone, no reschedule at all
+    const result = resolveConceptualTasksForIds(
+      ["A", "B", "C"],
+      [A, A2, B, B2, C],
+      [edge("A", "A2"), edge("B", "B2")]
+    );
+    expect(result.get("A")?.terminal).toBe(A2);
+    expect(result.get("A")?.lifecycle).toBe("completed");
+    expect(result.get("B")?.terminal).toBe(B2);
+    expect(result.get("B")?.lifecycle).toBe("active");
+    expect(result.get("C")?.terminal).toBe(C);
+  });
+
+  it("requesting the same id from both sides of an assignment (duplicate ids) still maps correctly -- Map keys are naturally unique", () => {
+    const A = { id: "A", status: "postponed" };
+    const A2 = { id: "A2", status: "not_started" };
+    const result = resolveConceptualTasksForIds(["A", "A"], [A, A2], [edge("A", "A2")]);
+    expect(result.size).toBe(1);
+    expect(result.get("A")?.terminal).toBe(A2);
   });
 });
 

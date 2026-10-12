@@ -4141,6 +4141,113 @@ export async function getConceptualTaskById(
 }
 
 /**
+ * Assigned -> Goals Phase 2: pure, batched equivalent of what
+ * getConceptualTaskById's own body does for one id -- resolves many
+ * arbitrary physical ids to their current conceptual Task in one pass.
+ * `collapseGoalLineages` remains the sole lifecycle authority (completed-
+ * wins/broken-detection); this never re-implements any of that -- it only
+ * builds a reverse index from every chain member's id to the ONE
+ * conceptual Task collapseGoalLineages already resolved that chain to, so
+ * looking up ANY id in a chain (root, an intermediate hop, or the
+ * terminal) returns the same task, same guarantee getConceptualTaskById
+ * documents for the single-id case. `rows` must already be the full set
+ * every requested id's chain could reach (see getConceptualTasksByIds
+ * below, which computes and fetches exactly that before calling this) --
+ * this function does no I/O and performs no chain discovery of its own.
+ * A requested id with no corresponding row in `rows` simply has no entry
+ * in the returned Map -- never a thrown error, never a fabricated
+ * placeholder.
+ */
+export function resolveConceptualTasksForIds<T extends { id: string; status: string }>(
+  requestedIds: string[],
+  rows: T[],
+  edges: { from_goal_id: string; materialized_goal_id: string | null; materialized?: boolean }[]
+): Map<string, ConceptualTask<T>> {
+  const tasks = collapseGoalLineages(rows, edges);
+
+  const taskByMemberId = new Map<string, ConceptualTask<T>>();
+  for (const task of tasks) {
+    for (const member of task.chain) {
+      taskByMemberId.set(member.id, task);
+    }
+  }
+
+  const result = new Map<string, ConceptualTask<T>>();
+  for (const id of requestedIds) {
+    const task = taskByMemberId.get(id);
+    if (task) result.set(id, task);
+  }
+  return result;
+}
+
+/**
+ * I/O wrapper around resolveConceptualTasksForIds above -- the batched
+ * equivalent of calling getConceptualTaskById once per id, but in a fixed
+ * 3 round trips total (edges, union of chain rows, plan dates) regardless
+ * of how many ids are requested, instead of re-running getConceptualTaskById's
+ * own account-wide edges query once per id. Built for
+ * getMyGoalAssignmentsWithLiveTasks below (resolving assigner_goal_id/
+ * recipient_goal_id for every assignment at once), but takes plain ids so
+ * it carries no assignment-specific knowledge itself.
+ */
+export async function getConceptualTasksByIds(
+  ids: string[]
+): Promise<Map<string, ConceptualTask<ArchivedGoal>>> {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) return new Map();
+
+  const userId = await getCurrentUserId();
+
+  // Same broad, RLS-scoped edge query getConceptualTaskById/
+  // getConceptualTasksByOutcomeGoalIds already use -- fetched once here
+  // regardless of how many ids are requested, unlike calling
+  // getConceptualTaskById in a loop (which would re-fetch this same,
+  // account-wide query once per id).
+  const { data: edgeRows, error: edgeErr } = await supabase
+    .from("goal_reschedules")
+    .select("from_goal_id, materialized_goal_id, materialized")
+    .eq("materialized", true);
+  if (edgeErr) throw edgeErr;
+  const edges = edgeRows ?? [];
+  const nextByFromId = buildNextByFromIdMap(edges);
+
+  // In memory only -- every requested id's full chain of ids, unioned
+  // into one fetch set. findChainRootId/collectChainIds never touch the
+  // network.
+  const allChainIds = new Set<string>();
+  for (const id of uniqueIds) {
+    const rootId = findChainRootId(id, nextByFromId);
+    for (const chainId of collectChainIds(rootId, nextByFromId)) {
+      allChainIds.add(chainId);
+    }
+  }
+
+  const { data: rows, error: rowsErr } = await supabase
+    .from("goals")
+    .select("*")
+    .in("id", [...allChainIds])
+    .eq("user_id", userId);
+  if (rowsErr) throw rowsErr;
+  const goalRows = (rows ?? []) as Goal[];
+
+  const planIds = [...new Set(goalRows.map((g) => g.plan_id).filter(Boolean))];
+  const planDateById: Record<string, string> = {};
+  if (planIds.length > 0) {
+    const { data: plans, error: plansErr } = await supabase
+      .from("daily_plans")
+      .select("id, plan_date")
+      .in("id", planIds);
+    if (plansErr) throw plansErr;
+    (plans ?? []).forEach((p) => {
+      planDateById[p.id] = p.plan_date;
+    });
+  }
+  const chainRows: ArchivedGoal[] = goalRows.map((g) => ({ ...g, plan_date: planDateById[g.plan_id] ?? null }));
+
+  return resolveConceptualTasksForIds(uniqueIds, chainRows, edges);
+}
+
+/**
  * Notes + logged history events for a batch of goals — feeds
  * buildGoalTimeline for each. Goes through the get_goal_notes RPC rather
  * than a plain client query: for any requested goal the caller has
@@ -4566,6 +4673,46 @@ export async function getMyGoalAssignments(): Promise<GoalAssignment[]> {
     canceledBy: r.canceled_by,
     cancelReason: r.cancel_reason,
     recipientSeenAt: r.recipient_seen_at,
+  }));
+}
+
+/**
+ * Assigned -> Goals Phase 2: GoalAssignment enriched with each side's
+ * CURRENT conceptual Task, lineage-resolved from the stored, write-once
+ * assigner_goal_id/recipient_goal_id (see those fields' own comments on
+ * GoalAssignment for why the stored id alone can go stale after a
+ * reschedule). Purely additive -- every existing GoalAssignment field,
+ * including the frozen snapshot (title/details/priority/plan_date), is
+ * passed through completely unchanged.
+ */
+export type GoalAssignmentWithLiveTasks = GoalAssignment & {
+  assignerCurrentTask: ConceptualTask<ArchivedGoal> | null;
+  recipientCurrentTask: ConceptualTask<ArchivedGoal> | null;
+};
+
+/**
+ * getMyGoalAssignments(), enriched with lineage-resolved live Task data
+ * for both sides -- does not change getMyGoalAssignments or the RPC it
+ * calls at all; this just layers one batched getConceptualTasksByIds call
+ * on top of its unchanged result. null when the side's stored goal id is
+ * itself null (pending/declined recipient side, or a deleted Task on
+ * either side) or when resolution finds no row for it (same "null, not
+ * thrown" behavior getConceptualTaskById/getConceptualTasksByIds use).
+ */
+export async function getMyGoalAssignmentsWithLiveTasks(): Promise<GoalAssignmentWithLiveTasks[]> {
+  const assignments = await getMyGoalAssignments();
+
+  const idsToResolve = new Set<string>();
+  for (const a of assignments) {
+    if (a.assignerGoalId) idsToResolve.add(a.assignerGoalId);
+    if (a.recipientGoalId) idsToResolve.add(a.recipientGoalId);
+  }
+  const resolved = await getConceptualTasksByIds([...idsToResolve]);
+
+  return assignments.map((a) => ({
+    ...a,
+    assignerCurrentTask: a.assignerGoalId ? resolved.get(a.assignerGoalId) ?? null : null,
+    recipientCurrentTask: a.recipientGoalId ? resolved.get(a.recipientGoalId) ?? null : null,
   }));
 }
 

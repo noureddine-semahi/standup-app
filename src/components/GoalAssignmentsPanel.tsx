@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 import {
-  getMyGoalAssignments,
+  getMyGoalAssignmentsWithLiveTasks,
   respondToGoalAssignment,
   removeGoalAssignment,
   cancelGoalAssignment,
-  type GoalAssignment,
+  type GoalAssignmentWithLiveTasks,
 } from "@/lib/supabase/db";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import StatusIcon from "@/components/StatusIcon";
-import { Hourglass, XCircle, Lock, Unlock } from "lucide-react";
+import { Hourglass, XCircle, Lock, Unlock, TriangleAlert } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -27,7 +27,7 @@ const ACTION_BTN_STYLE = { padding: "0.25rem 0.6rem", fontSize: "0.7rem" } as co
  */
 export default function GoalAssignmentsPanel() {
   const { t } = useLanguage();
-  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignmentWithLiveTasks[]>([]);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [busyAssignmentIds, setBusyAssignmentIds] = useState<Set<string>>(new Set());
   // At most one row's cancel/retract reason box open at a time -- mirrors
@@ -35,8 +35,12 @@ export default function GoalAssignmentsPanel() {
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [cancelReasonDraft, setCancelReasonDraft] = useState("");
 
+  // Assigned -> Goals Phase 2: lineage-resolved recipientCurrentTask
+  // replaces the stale recipientGoalStatus join for display below --
+  // same assignment fetch as before, just the enriched reader. All other
+  // fields (snapshot/status/direction/etc.) are identical and unchanged.
   function refreshGoalAssignments() {
-    return getMyGoalAssignments()
+    return getMyGoalAssignmentsWithLiveTasks()
       .then(setGoalAssignments)
       .catch((e: any) => setAssignmentError(e?.message ?? t("social.failedLoadAssignments")));
   }
@@ -187,6 +191,18 @@ export default function GoalAssignmentsPanel() {
           ) : (
             <div className="space-y-1.5">
               {goalsAssignedToYou.map((a) => {
+                // Assigned -> Goals Phase 2: lineage-resolved status --
+                // recipientCurrentTask.terminal.status reflects wherever
+                // the recipient's Task currently sits after any
+                // reschedule(s), not just the stale row recipientGoalId
+                // originally pointed at. Falls back to the old
+                // recipientGoalStatus field only if resolution genuinely
+                // found nothing (defensive, not expected in practice).
+                // isBroken surfaces the existing Needs Review convention
+                // instead of ever rendering a broken chain as an
+                // ordinary status.
+                const liveStatus = a.recipientCurrentTask?.terminal.status ?? a.recipientGoalStatus;
+                const isBroken = a.recipientCurrentTask?.lifecycle === "broken";
                 // "canceled" here always means the ASSIGNER pulled it back
                 // (a recipient-caused cancellation self-acknowledges and
                 // wouldn't need this row to stay actionable) -- reuses
@@ -195,7 +211,9 @@ export default function GoalAssignmentsPanel() {
                 const chip =
                   a.status === "declined" || a.status === "canceled"
                     ? statusChipColors("canceled")
-                    : statusChipColors(a.recipientGoalStatus ?? "not_started");
+                    : isBroken
+                    ? { bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.4)", color: "#fcd34d" }
+                    : statusChipColors(liveStatus ?? "not_started");
                 return (
                   <div key={a.id} className="assignment-row rounded-lg bg-white/5 px-3 py-2.5">
                     <div className="assignment-row-primary">
@@ -235,11 +253,16 @@ export default function GoalAssignmentsPanel() {
                             <XCircle size={12} />
                             <span>{t("social.assignmentCanceled")}</span>
                           </>
+                        ) : isBroken ? (
+                          <>
+                            <TriangleAlert size={12} />
+                            <span>{t("dashboard.goalTaskNeedsReview")}</span>
+                          </>
                         ) : (
-                          a.recipientGoalStatus && (
+                          liveStatus && (
                             <>
-                              <StatusIcon status={a.recipientGoalStatus} size={12} />
-                              <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                              <StatusIcon status={liveStatus} size={12} />
+                              <span>{statusLabel(liveStatus, t)}</span>
                             </>
                           )
                         )}
@@ -273,6 +296,13 @@ export default function GoalAssignmentsPanel() {
           ) : (
             <div className="space-y-1.5">
               {assignedByYou.map((a) => {
+                // Assigned -> Goals Phase 2: same lineage-resolved status
+                // swap as the "Goals Assigned to You" section above --
+                // this is the assigner's own view of the RECIPIENT's
+                // progress, so it's still recipientCurrentTask (not
+                // assignerCurrentTask) being resolved here.
+                const liveStatus = a.recipientCurrentTask?.terminal.status ?? a.recipientGoalStatus;
+                const isBroken = a.recipientCurrentTask?.lifecycle === "broken";
                 // Declined reuses "canceled"'s established slate treatment --
                 // semantically the same thing (didn't happen), not an alarm.
                 const chip =
@@ -280,8 +310,10 @@ export default function GoalAssignmentsPanel() {
                     ? { bg: "rgba(245, 158, 11, 0.1)", border: "rgba(245, 158, 11, 0.35)", color: "#fcd34d" }
                     : a.status === "declined" || a.status === "canceled"
                     ? statusChipColors("canceled")
-                    : a.recipientGoalStatus
-                    ? statusChipColors(a.recipientGoalStatus)
+                    : isBroken
+                    ? { bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.4)", color: "#fcd34d" }
+                    : liveStatus
+                    ? statusChipColors(liveStatus)
                     : null;
                 return (
                   <div key={a.id} className="assignment-row rounded-lg bg-white/5 px-3 py-2.5">
@@ -328,11 +360,16 @@ export default function GoalAssignmentsPanel() {
                               <XCircle size={12} />
                               <span>{t("social.assignmentCanceled")}</span>
                             </>
+                          ) : isBroken ? (
+                            <>
+                              <TriangleAlert size={12} />
+                              <span>{t("dashboard.goalTaskNeedsReview")}</span>
+                            </>
                           ) : (
-                            a.recipientGoalStatus && (
+                            liveStatus && (
                               <>
-                                <StatusIcon status={a.recipientGoalStatus} size={12} />
-                                <span>{statusLabel(a.recipientGoalStatus, t)}</span>
+                                <StatusIcon status={liveStatus} size={12} />
+                                <span>{statusLabel(liveStatus, t)}</span>
                               </>
                             )
                           )}
@@ -382,7 +419,7 @@ function CancelOrDismissControl({
   onDismiss,
   t,
 }: {
-  assignment: GoalAssignment;
+  assignment: GoalAssignmentWithLiveTasks;
   busy: boolean;
   canceling: boolean;
   reasonDraft: string;

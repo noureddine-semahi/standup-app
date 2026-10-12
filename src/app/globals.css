@@ -2418,6 +2418,17 @@ select.btn {
   border-top-left-radius: 0;
 }
 
+/* Tools-only: the segmented-control housing above this panel is now a
+   fully self-contained unit with a real gap beneath it (see
+   .folder-tabbar-tools' own margin-bottom), not fused flush into this
+   panel the way Social's own tab bar still is -- the flat top-left
+   corner above only made sense for that flush merge, so it's restored
+   to .card's normal radius here, scoped to this adjacency so Social's
+   unrelated tab bar/panel pairing is completely unaffected. */
+.folder-tabbar-tools + .folder-tabbar-panel {
+  border-top-left-radius: 10px;
+}
+
 /* Tools-page-only "connected metallic segmented control" redesign
    (approved mockup, explicit user call) — scoped to "only the six
    Tools tabs," which share .folder-tab/.folder-tab-active MARKUP
@@ -2463,7 +2474,20 @@ select.btn {
      shows through the gap, reading as buttons sitting IN a tray rather
      than one continuous strip. */
   gap: 6px;
-  border-radius: 12px 12px 0 0;
+  /* Full rounding + a complete 4-sided border + real padding on every
+     side (was: top-only radius, no bottom border, 2px side padding
+     inherited from .folder-tabbar) -- explicit fix: the previous
+     flush-merge-into-the-panel-below construction meant the housing
+     had no visible bottom edge at all, and almost no side padding, so
+     its own rim sat right on top of the buttons' own borders instead
+     of framing them -- it never read as an outline "going around" the
+     tabs. This fully encloses the housing as its own self-contained
+     unit (matching the supplied reference's own border-top AND
+     border-bottom), sitting just above the Tools panel rather than
+     fused into it. */
+  padding: 10px 9px;
+  margin-bottom: 10px;
+  border-radius: 14px;
   /* Metallic steel-gray outer rim -- explicit fix: the original
      rgba(0,0,0,0.55) was pure black against an already near-black
      dark-mode page (--tint-rgb: 20,22,30), so it rendered with almost
@@ -2471,10 +2495,8 @@ select.btn {
      cool gray is what actually reads as a visible physical edge here;
      a true "black" rim only looks black in real hardware because it
      sits against a LIGHTER surrounding surface, which isn't the case
-     on this dark theme. No bottom border: stays flush/open into
-     .folder-tabbar-panel below, same merge as before. */
-  border: 1px solid rgba(130, 134, 145, 0.55);
-  border-bottom: none;
+     on this dark theme. */
+  border: 1.5px solid rgba(140, 144, 155, 0.6);
   background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.11), rgba(var(--tint-rgb), 0.04));
   box-shadow:
     /* Thin metallic highlight just inside the rim + a subtle top-edge
@@ -2528,28 +2550,37 @@ select.btn {
 
 .folder-tab-tools.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  /* Near-black recessed well, darker than every neighboring inactive
-     face -- tab-color share stays minimal, color here is the LED glow
-     (below/sides/text), not the face itself. */
+  /* Near-black recessed well, PUSHED darker than before -- explicit
+     follow-up call ("missing the effect of the button pushed in"):
+     raised the black mix from 0.62/0.48 to 0.78/0.62 so the contrast
+     against the (lighter, raised) inactive faces is unmistakable even
+     before accounting for shadow. tab-color share stays minimal, color
+     here is the LED glow (below/sides/text), not the face itself. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--tab-color) 4%, rgba(0, 0, 0, 0.62)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.48))
+    color-mix(in srgb, var(--tab-color) 4%, rgba(0, 0, 0, 0.78)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.62))
   );
-  border: 1px solid color-mix(in srgb, var(--tab-color) 50%, transparent);
+  /* Toned down from 50% to 32% tab-color strength -- a bright colored
+     ring was competing with the shadow for attention and reading as
+     "highlighted," not "recessed." The border still identifies the
+     category, just doesn't out-shout the depth cue anymore. */
+  border: 1px solid color-mix(in srgb, var(--tab-color) 32%, rgba(0, 0, 0, 0.5));
   z-index: 2;
   /* Pressed-well construction: a strong top inset shadow (the dominant
-     depth cue) + a thin bottom inset highlight catching light at the
-     well's lip, then the LED glow itself as a pair of OUTWARD (not
-     inset) side shadows reaching into the real gap on either side --
-     reads as light leaking out of the gap between the recessed tab and
-     its two neighbors, the exact construction the supplied reference
+     depth cue -- deepened and widened further this pass) + a thin
+     bottom inset highlight catching light at the well's lip, then the
+     LED glow itself as a pair of OUTWARD (not inset) side shadows
+     reaching into the real gap on either side -- reads as light
+     leaking out of the gap between the recessed tab and its two
+     neighbors, the exact construction the supplied reference
      implementation uses (its glow sits in the gap via the ADJACENT
      buttons' own pseudo-elements; reproduced here as the active tab's
      own outward shadow instead, same visual result without needing
      sibling selectors). */
   box-shadow:
-    inset 0 6px 8px -2px rgba(0, 0, 0, 0.75),
+    inset 0 8px 11px -3px rgba(0, 0, 0, 0.88),
+    inset 0 3px 4px -2px rgba(0, 0, 0, 0.6),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.1),
     3px 0 10px -3px color-mix(in srgb, var(--tab-color) 55%, transparent),
     -3px 0 10px -3px color-mix(in srgb, var(--tab-color) 55%, transparent);
@@ -2640,14 +2671,18 @@ select.btn {
 
 [data-theme="light"] .folder-tab-tools.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 85%, black 25%);
+  /* Deepened from 0.3/0.2 to 0.42/0.3 -- same contrast-strengthening
+     pass as dark mode, so the recessed well reads as genuinely darker
+     than the (lighter, raised) inactive faces around it. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--tab-color) 6%, rgba(40, 32, 28, 0.3)),
-    color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.2))
+    color-mix(in srgb, var(--tab-color) 6%, rgba(40, 32, 28, 0.42)),
+    color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.3))
   );
-  border: 1px solid color-mix(in srgb, var(--tab-color) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tab-color) 30%, rgba(40, 32, 28, 0.4));
   box-shadow:
-    inset 0 6px 8px -2px rgba(40, 32, 28, 0.48),
+    inset 0 8px 11px -3px rgba(40, 32, 28, 0.58),
+    inset 0 3px 4px -2px rgba(40, 32, 28, 0.38),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.55),
     3px 0 9px -3px color-mix(in srgb, var(--tab-color) 48%, transparent),
     -3px 0 9px -3px color-mix(in srgb, var(--tab-color) 48%, transparent);

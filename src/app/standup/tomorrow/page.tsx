@@ -29,7 +29,8 @@ import {
   listConnections,
   connectionDisplayName,
   createGoalAssignment,
-  getMyGoalAssignments,
+  getMyGoalAssignmentsWithLiveTasks,
+  buildAssignmentTaskMaps,
   getStreakPassBalance,
   getStreakPassCoveredDates,
   useStreakPass,
@@ -45,7 +46,7 @@ import {
   type GoalAttachment,
   type RecurringGoalTemplate,
   type Connection,
-  type GoalAssignment,
+  type GoalAssignmentWithLiveTasks,
   type GoalAssignmentType,
   type Goal,
   type StreakPassBalance,
@@ -164,7 +165,7 @@ export default function TomorrowGoalsPage() {
   const [showLinkInput, setShowLinkInput] = useState<Record<number, boolean>>({});
 
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
-  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignmentWithLiveTasks[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
   const [assignError, setAssignError] = useState<string | null>(null);
   // Which type the "Assign to" picker will use for a row's NEXT assignment
@@ -527,8 +528,10 @@ export default function TomorrowGoalsPage() {
   // close handling now lives inside PortalDropdownMenu, same reasoning as
   // openPrivacyMenuId above.
 
+  // Assigned -> Goals lineage safety fix: lineage-resolved reader instead
+  // of the old getMyGoalAssignments(), same reasoning as today/page.tsx.
   function refreshGoalAssignments() {
-    return getMyGoalAssignments()
+    return getMyGoalAssignmentsWithLiveTasks()
       .then(setGoalAssignments)
       .catch(() => {});
   }
@@ -540,31 +543,15 @@ export default function TomorrowGoalsPage() {
 
   // Goals assigned out to a connection (declined ones excluded -- a
   // decline voids the delegation and the goal reverts to fully normal),
-  // keyed by the assigner's own goals.id so a row can look itself up in
-  // O(1) and switch to read-only + the recipient's live status.
-  const assignedOutByGoalId = useMemo(() => {
-    const map = new Map<string, GoalAssignment>();
-    for (const a of goalAssignments) {
-      if (a.direction === "assigned" && a.status !== "declined" && a.status !== "canceled" && a.assignerGoalId) {
-        map.set(a.assignerGoalId, a);
-      }
-    }
-    return map;
-  }, [goalAssignments]);
-
-  // Mirror of the map above, for the other side: goals of mine that are
-  // themselves the materialized product of an assignment I received and
-  // accepted. Locks the Assign-to control on that row -- see the same
-  // map in today/page.tsx for the full reasoning.
-  const receivedByGoalId = useMemo(() => {
-    const map = new Map<string, GoalAssignment>();
-    for (const a of goalAssignments) {
-      if (a.direction === "received" && a.status === "accepted" && a.recipientGoalId) {
-        map.set(a.recipientGoalId, a);
-      }
-    }
-    return map;
-  }, [goalAssignments]);
+  // keyed by EVERY physical id in the assignment's current conceptual
+  // chain (not just the stored, write-once assignerGoalId) so a row
+  // rescheduled after being assigned still looks itself up correctly --
+  // see buildAssignmentTaskMaps' own comment (db.ts) for the full
+  // reasoning. receivedByGoalId is the mirror for the recipient side.
+  const { assignedOutByTaskId: assignedOutByGoalId, receivedByTaskId: receivedByGoalId } = useMemo(
+    () => buildAssignmentTaskMaps(goalAssignments),
+    [goalAssignments]
+  );
 
   useEffect(() => {
     if (pendingFocusIndex == null) return;
@@ -1744,12 +1731,21 @@ export default function TomorrowGoalsPage() {
                         name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
                       })}
                       {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                      {assignment.status === "accepted" && assignment.recipientGoalStatus && (
-                        <span className="inline-flex items-center gap-1">
-                          · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
-                          {statusLabel(assignment.recipientGoalStatus, t)}
-                        </span>
-                      )}
+                      {assignment.status === "accepted" && (() => {
+                        // Assigned -> Goals lineage safety fix:
+                        // recipientCurrentTask (lineage-resolved) over
+                        // the raw recipientGoalStatus field, same as
+                        // today/page.tsx.
+                        const liveStatus = assignment.recipientCurrentTask?.terminal.status ?? assignment.recipientGoalStatus;
+                        return (
+                          liveStatus && (
+                            <span className="inline-flex items-center gap-1">
+                              · <StatusIcon status={liveStatus} size={12} />{" "}
+                              {statusLabel(liveStatus, t)}
+                            </span>
+                          )
+                        );
+                      })()}
                     </span>
                   ) : (
                     // A goal that's itself the product of an

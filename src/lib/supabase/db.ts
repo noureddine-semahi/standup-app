@@ -4716,6 +4716,59 @@ export async function getMyGoalAssignmentsWithLiveTasks(): Promise<GoalAssignmen
   }));
 }
 
+/**
+ * Exclusive-assignment lineage safety fix: Today/Tomorrow/Dashboard each
+ * independently built a Map<string, GoalAssignment> keyed ONLY by the
+ * assignment's stored (write-once) assignerGoalId/recipientGoalId, then
+ * looked up a rendered Task by its OWN id -- which misses entirely once
+ * that Task is rescheduled (A -> A2: the map only has key "A", but the
+ * rendered row's id is now "A2"). This is the single shared replacement:
+ * registers EVERY physical id in the assignment's CURRENT conceptual
+ * chain (assignerCurrentTask.chain / recipientCurrentTask.chain -- data
+ * Phase 2's getMyGoalAssignmentsWithLiveTasks already fetched, no new
+ * query here) as a key pointing at the same assignment, so a lookup by
+ * ANY id in the chain (A, A2, A3, ...) finds it -- same reusable pattern
+ * reassignTaskOutcomeGoal/getConceptualTaskById already guarantee for a
+ * single id, just indexed up front for O(1) lookups across many Tasks
+ * instead of walking lineage per render.
+ *
+ * Falls back to registering the bare stored id when currentTask is null
+ * (Task deleted, or resolution genuinely found nothing) so existing
+ * behavior for that edge case is unchanged, never worse.
+ *
+ * Deliberately pure and synchronous -- no new lifecycle authority, no new
+ * I/O: it only reorganizes data collapseGoalLineages (via
+ * getConceptualTasksByIds) already produced. Same inclusion rules the
+ * three pages' own original per-page maps used (declined/canceled
+ * excluded from the "assigned out" side; only "accepted" counts for the
+ * "received" side) are reproduced here so every existing consumer's
+ * `.get(g.id)` call sites keep working unchanged -- this is a drop-in
+ * replacement for how those maps are BUILT, not for how they're READ.
+ * Applies identically to "shared" and "exclusive" assignments -- the
+ * type-based lock decision stays entirely in each caller's own
+ * isExclusive check, downstream of finding the right assignment here.
+ */
+export function buildAssignmentTaskMaps(assignments: GoalAssignmentWithLiveTasks[]): {
+  assignedOutByTaskId: Map<string, GoalAssignmentWithLiveTasks>;
+  receivedByTaskId: Map<string, GoalAssignmentWithLiveTasks>;
+} {
+  const assignedOutByTaskId = new Map<string, GoalAssignmentWithLiveTasks>();
+  const receivedByTaskId = new Map<string, GoalAssignmentWithLiveTasks>();
+
+  for (const a of assignments) {
+    if (a.direction === "assigned" && a.status !== "declined" && a.status !== "canceled" && a.assignerGoalId) {
+      const ids = a.assignerCurrentTask ? a.assignerCurrentTask.chain.map((t) => t.id) : [a.assignerGoalId];
+      for (const id of ids) assignedOutByTaskId.set(id, a);
+    }
+    if (a.direction === "received" && a.status === "accepted" && a.recipientGoalId) {
+      const ids = a.recipientCurrentTask ? a.recipientCurrentTask.chain.map((t) => t.id) : [a.recipientGoalId];
+      for (const id of ids) receivedByTaskId.set(id, a);
+    }
+  }
+
+  return { assignedOutByTaskId, receivedByTaskId };
+}
+
 /** Acknowledges a resolved goal assignment on the assigner's side (see GoalAssignment.assignerSeenAt) — a security definer RPC, same reasoning as markConnectionSeen. */
 export async function markGoalAssignmentSeen(id: string): Promise<void> {
   const { error } = await supabase.rpc("mark_goal_assignment_seen", { p_assignment_id: id });

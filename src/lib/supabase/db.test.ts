@@ -25,6 +25,8 @@ import {
   computeConceptualTaskAnalytics,
   isOutcomeGoalQuickAddEligible,
   resolveConceptualTasksForIds,
+  buildAssignmentTaskMaps,
+  type GoalAssignmentWithLiveTasks,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
 
@@ -257,6 +259,40 @@ describe("walkMaterializedChain", () => {
   it("ignores rows with a null materialized_goal_id", () => {
     const rows = [{ from_goal_id: "A", materialized_goal_id: null }];
     expect(walkMaterializedChain(rows, "A")).toEqual([]);
+  });
+});
+
+describe("cancel_goal_assignment lineage-aware fix (20261012000100 migration): the forward-walk target it must land on", () => {
+  // cancel_goal_assignment is a plpgsql RPC and can't be unit tested
+  // directly in this suite -- the strongest feasible test at this layer
+  // is proving, against walkMaterializedChain (the already-proven-correct
+  // TS-side lineage walker this migration's own SQL loop was written to
+  // mirror), exactly which goal id the fix must resolve the stale
+  // recipient_goal_id to and then cancel -- the last entry of the walk,
+  // or the stored id itself when it was never rescheduled further.
+  function currentContinuationId(
+    rows: { from_goal_id: string; materialized_goal_id: string | null }[],
+    storedId: string
+  ): string {
+    const descendants = walkMaterializedChain(rows, storedId);
+    return descendants.length > 0 ? descendants[descendants.length - 1] : storedId;
+  }
+
+  it("B never rescheduled: the stored recipient_goal_id itself is the target to cancel", () => {
+    expect(currentContinuationId([], "B")).toBe("B");
+  });
+
+  it("B -> B2: the target to cancel is B2, not the stale stored id B", () => {
+    const rows = [{ from_goal_id: "B", materialized_goal_id: "B2" }];
+    expect(currentContinuationId(rows, "B")).toBe("B2");
+  });
+
+  it("B -> B2 -> B3: the target to cancel is the final continuation B3, regardless of hop count", () => {
+    const rows = [
+      { from_goal_id: "B", materialized_goal_id: "B2" },
+      { from_goal_id: "B2", materialized_goal_id: "B3" },
+    ];
+    expect(currentContinuationId(rows, "B")).toBe("B3");
   });
 });
 
@@ -1122,6 +1158,167 @@ describe("resolveConceptualTasksForIds (Assigned -> Goals Phase 2: batched linea
   });
 });
 
+describe("buildAssignmentTaskMaps (exclusive assignments lineage safety fix)", () => {
+  function chainOf(ids: string[]): GoalAssignmentWithLiveTasks["assignerCurrentTask"] {
+    const rows = ids.map((id) => ({ id, status: "not_started" }));
+    return { terminal: rows[rows.length - 1], chain: rows, lifecycle: "active" as const } as unknown as GoalAssignmentWithLiveTasks["assignerCurrentTask"];
+  }
+
+  function makeAssignment(overrides: Partial<GoalAssignmentWithLiveTasks> & { id: string }): GoalAssignmentWithLiveTasks {
+    return {
+      status: "accepted",
+      createdAt: "2026-10-01T00:00:00Z",
+      respondedAt: "2026-10-01T00:00:00Z",
+      planDate: "2026-10-01",
+      snapshotTitle: "Test goal",
+      snapshotDetails: null,
+      snapshotPriority: 3,
+      assignerId: "assigner-user",
+      assignerDisplayName: "Assigner",
+      recipientId: "recipient-user",
+      recipientDisplayName: "Recipient",
+      assignerGoalStatus: null,
+      recipientGoalStatus: null,
+      direction: "assigned",
+      assignerSeenAt: null,
+      assignerGoalId: null,
+      assignmentType: "exclusive",
+      recipientGoalId: null,
+      recipientPlanDate: null,
+      canceledBy: null,
+      cancelReason: null,
+      recipientSeenAt: null,
+      assignerCurrentTask: null,
+      recipientCurrentTask: null,
+      ...overrides,
+    };
+  }
+
+  it("owner side, no reschedule: A maps to the assignment", () => {
+    const a = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      assignerGoalId: "A",
+      assignerCurrentTask: chainOf(["A"]),
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([a]);
+    expect(assignedOutByTaskId.get("A")).toBe(a);
+  });
+
+  it("owner side, A -> A2: BOTH A and A2 map to the same assignment", () => {
+    const a = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      assignerGoalId: "A",
+      assignerCurrentTask: chainOf(["A", "A2"]),
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([a]);
+    expect(assignedOutByTaskId.get("A")).toBe(a);
+    expect(assignedOutByTaskId.get("A2")).toBe(a);
+  });
+
+  it("owner side, A -> A2 -> A3: all three physical ids map to the same assignment", () => {
+    const a = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      assignerGoalId: "A",
+      assignerCurrentTask: chainOf(["A", "A2", "A3"]),
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([a]);
+    expect(assignedOutByTaskId.get("A")).toBe(a);
+    expect(assignedOutByTaskId.get("A2")).toBe(a);
+    expect(assignedOutByTaskId.get("A3")).toBe(a);
+  });
+
+  it("recipient side, accepted, B -> B2: both B and B2 map to the same assignment in receivedByTaskId", () => {
+    const a = makeAssignment({
+      id: "assign-2",
+      direction: "received",
+      status: "accepted",
+      recipientGoalId: "B",
+      recipientCurrentTask: chainOf(["B", "B2"]),
+    });
+    const { receivedByTaskId } = buildAssignmentTaskMaps([a]);
+    expect(receivedByTaskId.get("B")).toBe(a);
+    expect(receivedByTaskId.get("B2")).toBe(a);
+  });
+
+  it("multiple assignments do not cross-contaminate each other's chains", () => {
+    const a = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      assignerGoalId: "A",
+      assignerCurrentTask: chainOf(["A", "A2"]),
+    });
+    const b = makeAssignment({
+      id: "assign-2",
+      direction: "assigned",
+      assignerGoalId: "C",
+      assignerCurrentTask: chainOf(["C", "C2"]),
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([a, b]);
+    expect(assignedOutByTaskId.get("A2")).toBe(a);
+    expect(assignedOutByTaskId.get("C2")).toBe(b);
+    expect(assignedOutByTaskId.size).toBe(4);
+  });
+
+  it("fallback: when currentTask is null (Task deleted or unresolved), the bare stored id is still registered", () => {
+    const a = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      assignerGoalId: "A",
+      assignerCurrentTask: null,
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([a]);
+    expect(assignedOutByTaskId.get("A")).toBe(a);
+  });
+
+  it("a 'shared' assignment's lineage is still registered in the map -- it is not excluded for being non-exclusive; exclusivity stays a downstream caller decision", () => {
+    const a = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      assignmentType: "shared",
+      assignerGoalId: "A",
+      assignerCurrentTask: chainOf(["A", "A2"]),
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([a]);
+    expect(assignedOutByTaskId.get("A2")).toBe(a);
+    expect(assignedOutByTaskId.get("A2")?.assignmentType).toBe("shared");
+  });
+
+  it("preserves the original inclusion rules: a declined/canceled outgoing assignment is excluded from assignedOutByTaskId", () => {
+    const declined = makeAssignment({
+      id: "assign-1",
+      direction: "assigned",
+      status: "declined",
+      assignerGoalId: "A",
+      assignerCurrentTask: chainOf(["A"]),
+    });
+    const canceled = makeAssignment({
+      id: "assign-2",
+      direction: "assigned",
+      status: "canceled",
+      assignerGoalId: "D",
+      assignerCurrentTask: chainOf(["D"]),
+    });
+    const { assignedOutByTaskId } = buildAssignmentTaskMaps([declined, canceled]);
+    expect(assignedOutByTaskId.has("A")).toBe(false);
+    expect(assignedOutByTaskId.has("D")).toBe(false);
+  });
+
+  it("preserves the original inclusion rules: a still-pending incoming assignment is excluded from receivedByTaskId", () => {
+    const pending = makeAssignment({
+      id: "assign-1",
+      direction: "received",
+      status: "pending",
+      recipientGoalId: "B",
+      recipientCurrentTask: chainOf(["B"]),
+    });
+    const { receivedByTaskId } = buildAssignmentTaskMaps([pending]);
+    expect(receivedByTaskId.has("B")).toBe(false);
+  });
+});
+
 describe("findOrphanedContinuationIds", () => {
   it("B is flagged: A rescheduled to B, A later Completed, B auto-canceled by reconciliation (the real controlled-repro shape)", () => {
     const edges = [{ from_goal_id: "A", materialized_goal_id: "B" }];
@@ -1250,6 +1447,81 @@ describe("findGoalDeleteBlockReason", () => {
       isAssignmentRecipient: false,
     });
     expect(reason).toBe("reschedule");
+  });
+});
+
+describe("findGoalDeleteBlockReason -- exclusive assignment lineage safety (A -> A2 -> A3)", () => {
+  // Mirrors deleteGoal()'s own flag derivation (db.ts) against an
+  // in-memory goal_reschedules/goal_assignments shape, to prove the
+  // chain-wide invariant the "LINEAGE SAFETY FIX" task asked for
+  // already holds without any code change: isRescheduleTarget alone
+  // (independent of the assignment check) already protects every
+  // materialized continuation in a reschedule chain, because a
+  // continuation is -- by construction -- always the materialized
+  // TARGET of the edge that created it. A prior read-only audit of
+  // this codebase incorrectly reported A2 as "not protected by
+  // findGoalDeleteBlockReason, deletable"; these tests document the
+  // correction instead of changing already-correct guard logic.
+  function deriveDeleteFlags(
+    goalId: string,
+    edges: { from_goal_id: string; materialized_goal_id: string | null }[],
+    assignments: { assigner_goal_id: string | null; recipient_goal_id: string | null }[]
+  ) {
+    return {
+      isRescheduleSource: edges.some((e) => e.from_goal_id === goalId),
+      isRescheduleTarget: edges.some((e) => e.materialized_goal_id === goalId),
+      isAssignmentSource: assignments.some((a) => a.assigner_goal_id === goalId),
+      isAssignmentRecipient: assignments.some((a) => a.recipient_goal_id === goalId),
+    };
+  }
+
+  it("A (the assignment's stored assigner_goal_id, itself the reschedule SOURCE of A2) is blocked -- blocked for two independent reasons at once, 'reschedule' wins by existing precedence", () => {
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "A2" },
+      { from_goal_id: "A2", materialized_goal_id: "A3" },
+    ];
+    const assignments = [{ assigner_goal_id: "A", recipient_goal_id: null }];
+    const flags = deriveDeleteFlags("A", edges, assignments);
+    expect(flags.isAssignmentSource).toBe(true);
+    expect(flags.isRescheduleSource).toBe(true);
+    expect(findGoalDeleteBlockReason(flags)).toBe("reschedule");
+  });
+
+  it("A2 (A's reschedule continuation, not itself referenced by the assignment) is STILL blocked -- reason 'reschedule', via isRescheduleTarget", () => {
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "A2" },
+      { from_goal_id: "A2", materialized_goal_id: "A3" },
+    ];
+    const assignments = [{ assigner_goal_id: "A", recipient_goal_id: null }];
+    const reason = findGoalDeleteBlockReason(deriveDeleteFlags("A2", edges, assignments));
+    expect(reason).toBe("reschedule");
+  });
+
+  it("A3 (multi-hop continuation, two reschedules away from the assignment's stored id) is STILL blocked -- reason 'reschedule'", () => {
+    const edges = [
+      { from_goal_id: "A", materialized_goal_id: "A2" },
+      { from_goal_id: "A2", materialized_goal_id: "A3" },
+    ];
+    const assignments = [{ assigner_goal_id: "A", recipient_goal_id: null }];
+    const reason = findGoalDeleteBlockReason(deriveDeleteFlags("A3", edges, assignments));
+    expect(reason).toBe("reschedule");
+  });
+
+  it("the same invariant holds on the recipient side: B -> B2, assignment stores recipient_goal_id=B, both B and B2 are blocked (B2 via isRescheduleTarget alone, with no assignment flag set on it at all)", () => {
+    const edges = [{ from_goal_id: "B", materialized_goal_id: "B2" }];
+    const assignments = [{ assigner_goal_id: null, recipient_goal_id: "B" }];
+    expect(findGoalDeleteBlockReason(deriveDeleteFlags("B", edges, assignments))).toBe("reschedule");
+    const b2Flags = deriveDeleteFlags("B2", edges, assignments);
+    expect(b2Flags.isAssignmentRecipient).toBe(false);
+    expect(b2Flags.isRescheduleTarget).toBe(true);
+    expect(findGoalDeleteBlockReason(b2Flags)).toBe("reschedule");
+  });
+
+  it("an unrelated Task with no reschedule edges and no assignment reference remains deletable", () => {
+    const edges = [{ from_goal_id: "A", materialized_goal_id: "A2" }];
+    const assignments = [{ assigner_goal_id: "A", recipient_goal_id: null }];
+    const reason = findGoalDeleteBlockReason(deriveDeleteFlags("unrelated-task", edges, assignments));
+    expect(reason).toBeNull();
   });
 });
 

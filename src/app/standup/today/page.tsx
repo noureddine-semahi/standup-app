@@ -51,7 +51,8 @@ import {
   listConnections,
   connectionDisplayName,
   createGoalAssignment,
-  getMyGoalAssignments,
+  getMyGoalAssignmentsWithLiveTasks,
+  buildAssignmentTaskMaps,
   respondToGoalAssignment,
   ensurePaymentReminderGoals,
   getPaymentAccounts,
@@ -68,7 +69,7 @@ import {
   type GoalStatus,
   type PostVisibility,
   type Connection,
-  type GoalAssignment,
+  type GoalAssignmentWithLiveTasks,
   type GoalAssignmentType,
   type OutcomeGoal,
   type OutcomeGoalType,
@@ -284,7 +285,7 @@ export default function TodayPage() {
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
-  const [goalAssignments, setGoalAssignments] = useState<GoalAssignment[]>([]);
+  const [goalAssignments, setGoalAssignments] = useState<GoalAssignmentWithLiveTasks[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
   const [assignError, setAssignError] = useState<string | null>(null);
   // Which type the "Assign to" picker will use for a row's NEXT assignment
@@ -694,8 +695,12 @@ export default function TodayPage() {
   // never consult this set at all.
   const [expandedCompactTaskIds, setExpandedCompactTaskIds] = useState<Set<string>>(new Set());
 
+  // Assigned -> Goals lineage safety fix: lineage-resolved reader instead
+  // of the old getMyGoalAssignments(), so assignedOutByGoalId/
+  // receivedByGoalId below (built via buildAssignmentTaskMaps) can
+  // recognize a Task even after it's been rescheduled.
   function refreshGoalAssignments() {
-    return getMyGoalAssignments()
+    return getMyGoalAssignmentsWithLiveTasks()
       .then(setGoalAssignments)
       .catch(() => {});
   }
@@ -707,34 +712,16 @@ export default function TodayPage() {
 
   // Goals assigned out to a connection (declined ones excluded -- a
   // decline voids the delegation and the goal reverts to fully normal),
-  // keyed by the assigner's own goals.id so a row can look itself up in
-  // O(1) and switch to read-only + the recipient's live status.
-  const assignedOutByGoalId = useMemo(() => {
-    const map = new Map<string, GoalAssignment>();
-    for (const a of goalAssignments) {
-      if (a.direction === "assigned" && a.status !== "declined" && a.status !== "canceled" && a.assignerGoalId) {
-        map.set(a.assignerGoalId, a);
-      }
-    }
-    return map;
-  }, [goalAssignments]);
-
-  // The mirror of the map above: goals of MINE that are themselves the
-  // materialized product of an assignment I received and accepted. Only
-  // "accepted" matters here (a pending assignment hasn't materialized a
-  // real goal yet — that's the separate pendingReceivedForToday banner).
-  // Keyed by the recipient's own goals.id so a row can recognize itself
-  // and lock its own Assign-to control — re-assigning a goal that was
-  // assigned to you isn't a scenario this data model represents.
-  const receivedByGoalId = useMemo(() => {
-    const map = new Map<string, GoalAssignment>();
-    for (const a of goalAssignments) {
-      if (a.direction === "received" && a.status === "accepted" && a.recipientGoalId) {
-        map.set(a.recipientGoalId, a);
-      }
-    }
-    return map;
-  }, [goalAssignments]);
+  // keyed by EVERY physical id in the assignment's current conceptual
+  // chain (not just the stored, write-once assignerGoalId) so a row
+  // rescheduled after being assigned (A -> A2) still looks itself up
+  // correctly and switches to read-only + the recipient's live status.
+  // receivedByGoalId is the mirror for the recipient side -- see
+  // buildAssignmentTaskMaps' own comment for the full reasoning.
+  const { assignedOutByTaskId: assignedOutByGoalId, receivedByTaskId: receivedByGoalId } = useMemo(
+    () => buildAssignmentTaskMaps(goalAssignments),
+    [goalAssignments]
+  );
 
   async function handlePublish(visibility: PostVisibility, targetUserId?: string) {
     if (publishing) return;
@@ -1541,7 +1528,12 @@ export default function TodayPage() {
     // treat it as already reviewed — it's excluded from this user's
     // own review requirement (reviewableGoals, above) so it
     // shouldn't keep showing a "pending review" nag either.
-    const effectiveStatus = isExclusive && assignment?.recipientGoalStatus ? assignment.recipientGoalStatus : g.status;
+    // Assigned -> Goals lineage safety fix: recipientCurrentTask
+    // (lineage-resolved) is preferred over the raw recipientGoalStatus
+    // field, which goes stale the moment the recipient reschedules their
+    // own copy -- see getMyGoalAssignmentsWithLiveTasks' own comment.
+    const liveRecipientStatus = assignment?.recipientCurrentTask?.terminal.status ?? assignment?.recipientGoalStatus;
+    const effectiveStatus = isExclusive && liveRecipientStatus ? liveRecipientStatus : g.status;
     const reviewed = isExclusive ? true : !!g.reviewed_at;
     // "postponed" always means rescheduled — rescheduleGoalToDate()
     // is the only path that ever sets it, and it unconditionally
@@ -2168,10 +2160,10 @@ export default function TodayPage() {
                       name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
                     })}
                     {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                    {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                    {assignment.status === "accepted" && liveRecipientStatus && (
                       <span className="inline-flex items-center gap-1">
-                        · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
-                        {statusLabel(assignment.recipientGoalStatus, t)}
+                        · <StatusIcon status={liveRecipientStatus} size={12} />{" "}
+                        {statusLabel(liveRecipientStatus, t)}
                       </span>
                     )}
                   </span>
@@ -2464,10 +2456,10 @@ export default function TodayPage() {
                       name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
                     })}
                     {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                    {assignment.status === "accepted" && assignment.recipientGoalStatus && (
+                    {assignment.status === "accepted" && liveRecipientStatus && (
                       <span className="inline-flex items-center gap-1">
-                        · <StatusIcon status={assignment.recipientGoalStatus} size={12} />{" "}
-                        {statusLabel(assignment.recipientGoalStatus, t)}
+                        · <StatusIcon status={liveRecipientStatus} size={12} />{" "}
+                        {statusLabel(liveRecipientStatus, t)}
                       </span>
                     )}
                   </span>
@@ -2962,19 +2954,27 @@ export default function TodayPage() {
                       {t("goalAssign.assignedToLabel", { name: a.recipientDisplayName ?? t("social.anonymousUser") })}
                     </div>
                   </div>
-                  {a.recipientGoalStatus && (
-                    <div
-                      className="status-chip-sm flex-shrink-0"
-                      style={{
-                        "--chip-bg": statusChipColors(a.recipientGoalStatus).bg,
-                        "--chip-border": statusChipColors(a.recipientGoalStatus).border,
-                        "--chip-color": statusChipColors(a.recipientGoalStatus).color,
-                      } as React.CSSProperties}
-                    >
-                      <StatusIcon status={a.recipientGoalStatus} size={12} />
-                      <span>{statusLabel(a.recipientGoalStatus, t)}</span>
-                    </div>
-                  )}
+                  {(() => {
+                    // Assigned -> Goals lineage safety fix: same
+                    // recipientCurrentTask preference as the main card's
+                    // liveRecipientStatus above.
+                    const liveStatus = a.recipientCurrentTask?.terminal.status ?? a.recipientGoalStatus;
+                    return (
+                      liveStatus && (
+                        <div
+                          className="status-chip-sm flex-shrink-0"
+                          style={{
+                            "--chip-bg": statusChipColors(liveStatus).bg,
+                            "--chip-border": statusChipColors(liveStatus).border,
+                            "--chip-color": statusChipColors(liveStatus).color,
+                          } as React.CSSProperties}
+                        >
+                          <StatusIcon status={liveStatus} size={12} />
+                          <span>{statusLabel(liveStatus, t)}</span>
+                        </div>
+                      )
+                    );
+                  })()}
                 </div>
               ))}
             </div>

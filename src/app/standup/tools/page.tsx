@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, ClipboardList, CreditCard, History, Target } from "lucide-react";
-import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
+import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, History, Target } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import {
@@ -68,7 +67,7 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
 }
 
-type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "assignments";
+type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
@@ -85,7 +84,6 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
   { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
   { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
   { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e", descriptionKey: "tools.descPayments" },
-  { key: "assignments", labelKey: "backlog.tabAssignments", icon: ClipboardList, color: "#f59e0b", descriptionKey: "tools.descAssignments" },
 ];
 
 export default function ToolsPage() {
@@ -1457,8 +1455,6 @@ export default function ToolsPage() {
       )}
     </div>
     )}
-
-    {activeTab === "assignments" && <GoalAssignmentsPanel />}
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">

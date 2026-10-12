@@ -719,12 +719,16 @@ export default function TomorrowGoalsPage() {
     }
 
     // Attach reschedule origin to goals -- excluding auto-canceled orphan
-    // continuations entirely. They stay in the database (and Calendar/
-    // history views) but never render as an active Commitment here, and
-    // never count toward totals/validation/submission below, all of
-    // which are derived from this `goals` state.
+    // continuations entirely, AND any row that is already canceled in its
+    // own right (e.g. the recipient's current continuation canceled
+    // directly via cancel_goal_assignment, which has nothing to do with
+    // this row's own reschedule SOURCE being resolved, so orphanIds never
+    // catches it). Both cases stay in the database (and Calendar/history
+    // views) but never render as an active Commitment here, and never
+    // count toward totals/validation/submission below, all of which are
+    // derived from this `goals` state.
     const goalsWithOrigin = dbGoals
-      .filter((g) => !orphanIds.has(g.id))
+      .filter((g) => !orphanIds.has(g.id) && g.status !== "canceled")
       .map(g => ({
         ...g,
         rescheduled_from_date: rescheduleOrigins[g.id]?.from_date || null,
@@ -737,11 +741,14 @@ export default function TomorrowGoalsPage() {
       previous_actions: notesMap[g.id] || [],
     }));
 
-    // Excluded orphans are left out of the tracked id set too, so the
-    // next autosave's delete-diff (toDelete in persistGoals) never
-    // mistakes their absence from `goals` state for the user having
-    // deleted them -- they must never be deleted, only hidden.
-    originalIdsRef.current = new Set(goalIds.filter((id) => !orphanIds.has(id)));
+    // Excluded orphans (and now already-canceled rows, same reasoning) are
+    // left out of the tracked id set too, so the next autosave's
+    // delete-diff (toDelete in persistGoals) never mistakes their absence
+    // from `goals` state for the user having deleted them -- they must
+    // never be deleted, only hidden. Derived from goalsWithOrigin's own
+    // ids rather than re-filtering goalIds a second time, since that list
+    // already applied both exclusions above.
+    originalIdsRef.current = new Set(goalsWithOrigin.map((g) => g.id).filter(Boolean) as string[]);
 
     const rows = compactForUI(goalsWithData);
     setGoals(rows);

@@ -238,7 +238,7 @@ export default function GoalAssignmentsPanel() {
                         )}
                       </div>
                     </div>
-                    <div className="assignment-row-secondary">
+                    <div className="assignment-row-secondary" style={{ flexWrap: "wrap" }}>
                       <div
                         className="status-chip-sm"
                         style={{ "--chip-bg": chip.bg, "--chip-border": chip.border, "--chip-color": chip.color } as React.CSSProperties}
@@ -339,7 +339,7 @@ export default function GoalAssignmentsPanel() {
                         )}
                       </div>
                     </div>
-                    <div className="assignment-row-secondary">
+                    <div className="assignment-row-secondary" style={{ flexWrap: "wrap" }}>
                       {chip && (
                         <div
                           className="status-chip-sm"
@@ -440,22 +440,24 @@ function CancelOrDismissControl({
 
   if (canceling) {
     return (
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto sm:flex-shrink-0 min-w-0">
         <input
           type="text"
           value={reasonDraft}
           onChange={(e) => onReasonDraftChange(e.target.value)}
           placeholder={t("social.cancelReasonPlaceholder")}
           disabled={busy}
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
-          style={{ width: "140px" }}
+          className="min-w-0 flex-1 sm:flex-initial sm:w-[140px] rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+          style={{ minWidth: "80px" }}
         />
-        <button type="button" onClick={onConfirmCancel} disabled={busy} className="btn tools-destructive-btn" style={ACTION_BTN_STYLE}>
-          {t("social.confirmCancel")}
-        </button>
-        <button type="button" onClick={onCancelCancel} disabled={busy} className="btn" style={ACTION_BTN_STYLE}>
-          {t("social.neverMind")}
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button type="button" onClick={onConfirmCancel} disabled={busy} className="btn tools-destructive-btn" style={ACTION_BTN_STYLE}>
+            {t("social.confirmCancel")}
+          </button>
+          <button type="button" onClick={onCancelCancel} disabled={busy} className="btn" style={ACTION_BTN_STYLE}>
+            {t("social.neverMind")}
+          </button>
+        </div>
       </div>
     );
   }

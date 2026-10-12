@@ -400,17 +400,20 @@ export default function GoalsManagementPanel() {
         )}
       </div>
 
-      {/* New Goal */}
+      {/* New Goal -- mb-3 (not mb-5, matching the filter/search rows
+          above) so the Goal list below starts noticeably sooner on
+          mobile without losing all separation from the creation
+          action. */}
       {!showNewGoalForm ? (
         <button
           type="button"
           onClick={() => setShowNewGoalForm(true)}
-          className="btn btn-primary inline-flex items-center gap-1.5 mb-5"
+          className="btn btn-primary inline-flex items-center gap-1.5 mb-3"
         >
           <Plus size={14} /> {t("tools.goalsNewGoal")}
         </button>
       ) : (
-        <div className="space-y-3 mb-5 rounded-2xl bg-white/5 p-3">
+        <div className="space-y-3 mb-3 rounded-2xl bg-white/5 p-3">
           <div className="flex flex-wrap items-center gap-3">
             <input
               type="text"

@@ -2540,8 +2540,12 @@ select.btn {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* Small gap, nearly touching -- same call as .folder-tabbar above. */
-  gap: 3px;
+  /* Small gap, nearly touching -- same call as .folder-tabbar above.
+     Fluid (clamp, not a fixed px) as part of the desktop fit
+     correction below .folder-tab-hanging's own rule -- shrinks a
+     little further as the viewport narrows, before anything about an
+     individual tab's own content gives. */
+  gap: clamp(1.5px, 0.25vw, 3px);
   /* No negative margin here (previously -1px, tuned to let the active
      tab's background visually erase .app-header-inner's old 1px border
      where it overlapped) -- explicit user call for the red divider
@@ -2568,35 +2572,72 @@ select.btn {
    the red divider line at the same left x-position (18px) this tab row
    starts from by default -- without this, the first tab would render
    directly underneath where the logo overlaps. Pushed right to clear
-   the logo's reserved width at each breakpoint it's enlarged at; below
-   1024px/above 1025px matches .brand-oversized's own breakpoints so
-   both change together. Declared AFTER the base rule's shorthand
-   `padding` above so this longhand override actually wins the cascade
-   (equal specificity, source order decides) -- do not move this above
-   the base rule again. */
+   the logo's reserved width at each breakpoint it's enlarged at. Global
+   Header Nav auto-fit: now reads --nav-tab-left-clearance, a CSS custom
+   property Header.tsx's own ResizeObserver effect sets from the logo's
+   REAL rendered right edge (brandRef), rather than this fixed number
+   alone -- the fixed value (214px/162px, matching .brand-oversized's
+   own breakpoints) survives as the var()'s fallback, for the brief
+   pre-measure window on first paint and for no-JS/SSR rendering, so
+   nothing regresses if the effect hasn't run yet. padding-right is the
+   same idea for the OTHER side: --nav-tab-right-clearance comes from
+   the end-cluster's (hamburger/bell/profile) real left edge
+   (navEndClusterRef) -- important because the signed-in profile pill's
+   width varies with the user's own display name length, so no fixed
+   pixel guess could ever be correct for every account. Declared AFTER
+   the base rule's shorthand `padding` above so these longhand overrides
+   actually win the cascade (equal specificity, source order decides) --
+   do not move this above the base rule again. */
 @media (min-width: 1025px) {
   .folder-tabbar-hanging {
-    padding-left: 214px;
+    padding-left: var(--nav-tab-left-clearance, 214px);
+    padding-right: var(--nav-tab-right-clearance, 18px);
   }
 }
 
 @media (min-width: 761px) and (max-width: 1024px) {
   .folder-tabbar-hanging {
-    padding-left: 162px;
+    padding-left: var(--nav-tab-left-clearance, 162px);
+    padding-right: var(--nav-tab-right-clearance, 18px);
   }
 }
 
 /* Rounded browser-tab shape, mirrored from .folder-tab (rounded at the
    BOTTOM instead of the top, since this one hangs down from the header
    rather than rising from a panel) -- same revert away from the
-   clip-path trapezoid experiment, same reasoning. */
+   clip-path trapezoid experiment, same reasoning.
+   Desktop fit correction: a prior attempt collapsed every tab to
+   icon-only below 1450px (reusing the <=760px mobile mechanism). That
+   was wrong for desktop/tablet -- every tab keeps its full icon+label
+   down through 1024px (see the <=760px rule further below for where
+   icon-only is actually meant to start), just packed more tightly as
+   width shrinks. Horizontal padding is --nav-tab-h-padding, a CSS
+   custom property Header.tsx's own ResizeObserver effect solves for
+   from REAL measured overflow (how much the tab row's content actually
+   exceeds its now-accurately-measured available width) -- a CSS-only
+   clamp() formula guessing that same value from viewport width alone
+   proved inaccurate in practice (confirmed by real-phone/real-browser
+   testing), since it can't know the true pixel width of either the
+   logo or the profile pill (which varies with the signed-in user's own
+   display name) or of the rendered label text itself. That same
+   clamp() expression survives as the var()'s fallback -- for the brief
+   pre-measure window on first paint and for any no-JS/SSR render, so
+   the row still degrades gracefully rather than defaulting to the full
+   (potentially too-wide) 1rem. flex-shrink changed from 0 to the flex
+   default (1) so the row can still compress a tab's padding further
+   through normal flex distribution if even the measured value is
+   somehow insufficient at some exact instant (e.g. mid-resize) --
+   white-space:nowrap (unchanged below) still floors each tab at its
+   own label's min-content width, so this can only ever compress
+   padding/gap, never truncate or wrap text. Font-size, icon size, tab
+   height, colors, borders, and glow are all untouched. */
 .folder-tab-hanging {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  flex-shrink: 0;
+  gap: clamp(0.25rem, 0.4vw, 0.45rem);
+  flex-shrink: 1;
   white-space: nowrap;
-  padding: 0.45rem 1rem;
+  padding: 0.45rem var(--nav-tab-h-padding, clamp(0.25rem, 1.34vw - 9.7px, 1rem));
   font-size: 0.78rem;
   font-weight: 600;
   text-decoration: none;

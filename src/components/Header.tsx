@@ -161,6 +161,14 @@ export default function Header() {
   // gets its own ref, both checked together in one click-outside effect.
   const profileDesktopRef = useRef<HTMLDivElement>(null);
   const profileMobileRef = useRef<HTMLDivElement>(null);
+  // Global Header Nav auto-fit: refs on the logo and the end-cluster
+  // (hamburger/bell/profile) so the hanging tab row below can measure
+  // their REAL rendered edges instead of guessing a fixed clearance --
+  // see the ResizeObserver effect further below and
+  // .folder-tabbar-hanging's padding-left/padding-right in globals.css,
+  // which consume the CSS custom properties that effect sets.
+  const brandRef = useRef<HTMLAnchorElement>(null);
+  const navEndClusterRef = useRef<HTMLDivElement>(null);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -381,6 +389,94 @@ export default function Header() {
     const active = document.querySelector(".folder-tab-hanging-active");
     active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [pathname]);
+
+  // Global Header Nav auto-fit: measures the logo's and the end-cluster's
+  // REAL rendered edges (brandRef/navEndClusterRef above) and exposes them
+  // as CSS custom properties the hanging tab row's own padding-left/
+  // padding-right consume (see .folder-tabbar-hanging in globals.css) --
+  // replaces a guessed, per-breakpoint fixed clearance with the tab row
+  // actually starting right where the logo ends and extending right up
+  // to where the end-cluster begins, at every width. This matters most
+  // for the right side: the desktop profile pill's own width varies with
+  // the signed-in user's display name length (see profileMenu() below),
+  // so no single fixed pixel guess could ever be correct for everyone.
+  // Also solves for the exact per-tab horizontal padding that makes
+  // every tab's full icon+label fit inside that now-accurately-known
+  // width -- see updateNavLayout's own comment below for why this
+  // replaced a guessed CSS clamp() formula.
+  // ResizeObserver (not just a resize listener) also catches the
+  // end-cluster's own width changing independent of the viewport -- e.g.
+  // the hamburger/profile dropdown mounting doesn't change this, but a
+  // future addition to that cluster would be picked up automatically
+  // without needing a new hardcoded number here. The CSS var()s this
+  // writes keep the original fixed per-breakpoint values as their own
+  // fallback (see globals.css), so there's no flash of an unconstrained
+  // row before this effect's first run, and nothing breaks if JS is
+  // unavailable.
+  useEffect(() => {
+    const header = document.querySelector(".app-header") as HTMLElement | null;
+    if (!header) return;
+
+    // After setting the measured left/right clearance, also measures
+    // actual overflow (row.scrollWidth vs its now-correctly-bounded
+    // clientWidth) and solves for the exact per-tab horizontal padding
+    // that makes it fit -- real DOM measurement rather than a guessed
+    // CSS clamp() formula, which proved inaccurate in practice (it was
+    // tuned against estimated label widths and a since-corrected
+    // assumption about how much room the right side actually had).
+    // --nav-tab-h-padding is reset to the full/comfortable value before
+    // each measurement so widening the window can always recover full
+    // spacing, not stay stuck compressed from a prior narrower width.
+    // The relationship between padding and total row width is linear
+    // (each tab contributes the same padding twice), so one
+    // measure-and-solve pass lands on the right value directly, no
+    // iteration needed. Reading scrollWidth/clientWidth right after the
+    // style change forces a synchronous layout flush -- acceptable
+    // here since this only runs on resize/mount/relevant state changes,
+    // not on every render. .folder-tab-hanging's own CSS clamp()
+    // formula (globals.css) remains this custom property's fallback,
+    // so the row still degrades gracefully before this effect's first
+    // run and if JS is ever unavailable.
+    function updateNavLayout() {
+      if (!header || !brandRef.current || !navEndClusterRef.current) return;
+      const brandRect = brandRef.current.getBoundingClientRect();
+      const endRect = navEndClusterRef.current.getBoundingClientRect();
+      const left = Math.max(0, Math.round(brandRect.right));
+      const right = Math.max(0, Math.round(window.innerWidth - endRect.left));
+      header.style.setProperty("--nav-tab-left-clearance", `${left}px`);
+      header.style.setProperty("--nav-tab-right-clearance", `${right}px`);
+      header.style.setProperty("--nav-tab-h-padding", "16px");
+
+      const row = document.querySelector(".folder-tabbar-hanging") as HTMLElement | null;
+      if (!row) return;
+      const overflow = row.scrollWidth - row.clientWidth;
+      if (overflow <= 0) return;
+
+      const tabs = row.querySelectorAll(".folder-tab-hanging").length;
+      if (tabs === 0) return;
+      const reductionPerSide = overflow / (tabs * 2);
+      const nextPadding = Math.max(2, 16 - reductionPerSide);
+      header.style.setProperty("--nav-tab-h-padding", `${nextPadding}px`);
+    }
+
+    updateNavLayout();
+    window.addEventListener("resize", updateNavLayout);
+
+    // Deliberately does NOT observe the tab row itself -- this effect is
+    // what changes its size (via --nav-tab-h-padding), so watching it
+    // too would risk a resize-observer feedback loop. brandRef/
+    // navEndClusterRef are never mutated by this effect, so observing
+    // them is safe.
+    const ro = new ResizeObserver(updateNavLayout);
+    if (brandRef.current) ro.observe(brandRef.current);
+    if (navEndClusterRef.current) ro.observe(navEndClusterRef.current);
+
+    return () => {
+      window.removeEventListener("resize", updateNavLayout);
+      ro.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile, loading, pathname]);
 
   type NotificationEntry = {
     id: string;
@@ -870,7 +966,7 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized">
+        <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized" ref={brandRef}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -896,7 +992,7 @@ export default function Header() {
             instead of through "More," which now only ever shows for a
             logged-out visitor (About/FAQ/Contact) since Theme/Language/
             Logout moved into the new profile dropdown below. */}
-        <div className="nav-end-cluster">
+        <div className="nav-end-cluster" ref={navEndClusterRef}>
           <div className="nav-utility-cluster nav-utility-cluster-desktop">
             {user && (
               <div className="nav-hamburger-wrap" ref={hamburgerDesktopRef}>

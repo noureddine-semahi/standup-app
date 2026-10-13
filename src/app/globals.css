@@ -2429,118 +2429,66 @@ select.btn {
   border-top-left-radius: 10px;
 }
 
-/* Tools-page-only "connected metallic segmented control" redesign
-   (approved mockup, explicit user call) — scoped to "only the six
-   Tools tabs," which share .folder-tab/.folder-tab-active MARKUP
-   (shape constants, icons, labels, per-tab --tab-color hues) with
-   Social's own tab bar, but every VISUAL property here is overridden
-   rather than editing the shared rules, so Social's tab bar is
-   completely unaffected.
+/* Tools-page-only segmented control (explicit follow-up call: match the
+   supplied CodePen's actual rendered silhouette, not an invented
+   capsule/tray shape) -- scoped to "only the six Tools tabs," which
+   share .folder-tab/.folder-tab-active MARKUP (shape constants, icons,
+   labels, per-tab --tab-color hues) with Social's own tab bar, but
+   every VISUAL property here is overridden rather than editing the
+   shared rules, so Social's tab bar is completely unaffected.
 
-   Replaces the previous "individual rounded tabs with gaps" look with
-   one continuous metal tray (.folder-tabbar-tools itself gets the
-   outer bevel/shadow + top-rounded corners -- bottom stays square,
-   unchanged, so it still merges into .folder-tabbar-panel exactly as
-   before); each .folder-tab-tools is a flush segment inside it (gap:0,
-   square corners except the two ends, separated from its neighbor by
-   one hairline seam -- a left border every tab but the first carries,
-   rather than each tab drawing its own 4-sided border and doubling up
-   at the seam).
-
-   Recessed-keypad pass (explicit follow-up call, reversing the prior
-   "projects outward" direction back to pressed-in -- reference: a
-   physical EMS/stereo keypad where the selected number sits visibly
-   LOWER and darker than its neighbors, lit by thin blue LED glow along
-   its SIDE edges rather than a bright top bar). .folder-tabbar-tools
-   keeps its real outer rim (border) and inset metallic highlight,
-   layered OUTSIDE→INSIDE as dark outer shadow -> dark rim -> metallic
-   highlight -> tray fill -> button faces, with a broad soft shadow
-   lifting the whole assembly off the Tools card beneath it. Inactive
-   .folder-tab-tools sit raised (translateY negative, their own thin
-   bevel + external drop shadow). The active tab alone sinks DOWN
-   (translateY positive) into a near-black recessed well: a strong top
-   inset shadow (no light reaches the bottom of a well), colored LED-
-   style glow concentrated on its LEFT/RIGHT inset edges (the reference
-   image's own dominant cue, not a top bar), and a subtle bottom inset
-   highlight catching light at the well's lip. No outward drop shadow
-   or floating glow bar on the active tab at all -- every active-state
-   cue here is either inset (reads as physically recessed) or a tight
-   edge-hugging glow (reads as a small LED, not a halo). */
+   Silhouette correction: the reference is ONE continuous horizontal
+   strip with thin top/bottom hairlines (no thick rounded outline, no
+   heavy outer box-shadow ring) containing six small, individually-
+   rounded, EQUAL-HEIGHT segments with a minimal 2px gap -- confirmed
+   against the reference's own rendered screenshot, not just its glow.
+   All six tabs sit at the SAME resting position; nothing lifts or
+   sinks via transform. The active tab is distinguished ONLY by a
+   modestly darker face, a thin 1px inset ring, and glow (the label/
+   icon glow, a thin top rim, a soft reflection spilling onto the panel
+   below, and -- on its LEFT-of-active/RIGHT-of-active neighbors -- a
+   thin LED-style side line), exactly the reference's own hierarchy:
+   silhouette and connected geometry first, glow as a secondary accent
+   layered on top, never a substitute for correct shape. */
 .folder-tabbar-tools {
-  /* Small visible gap between segments (explicit follow-up call,
-     matching a supplied reference implementation exactly) -- each tab
-     now draws its own complete, individually-rounded border rather
-     than sharing a seam line with its neighbor; the housing's own fill
-     shows through the gap, reading as buttons sitting IN a tray rather
-     than one continuous strip. */
-  gap: 6px;
-  /* Full rounding + a complete 4-sided border + real padding on every
-     side (was: top-only radius, no bottom border, 2px side padding
-     inherited from .folder-tabbar) -- explicit fix: the previous
-     flush-merge-into-the-panel-below construction meant the housing
-     had no visible bottom edge at all, and almost no side padding, so
-     its own rim sat right on top of the buttons' own borders instead
-     of framing them -- it never read as an outline "going around" the
-     tabs. This fully encloses the housing as its own self-contained
-     unit (matching the supplied reference's own border-top AND
-     border-bottom), sitting just above the Tools panel rather than
-     fused into it. */
-  /* Tightened further (was 10px 9px) -- explicit follow-up call to
-     make the gap between the tabs and this outline minimal, matching
-     the supplied reference's own tight fit. Top is still overridden to
-     28px further down for the active tab's glow clearance (unrelated
-     to this visual spacing, kept as-is). */
-  padding: 4px 4px 4px;
-  margin-bottom: 10px;
-  /* Nudged down from 14px to nest cleanly with the tighter padding
-     above (each tab's own 8px radius + 4px padding). */
-  border-radius: 12px;
-  /* Metallic steel-gray outer rim -- explicit fix: the original
-     rgba(0,0,0,0.55) was pure black against an already near-black
-     dark-mode page (--tint-rgb: 20,22,30), so it rendered with almost
-     no perceivable contrast and effectively disappeared. A lighter,
-     cool gray is what actually reads as a visible physical edge here;
-     a true "black" rim only looks black in real hardware because it
-     sits against a LIGHTER surrounding surface, which isn't the case
-     on this dark theme. */
-  border: 1.5px solid rgba(140, 144, 155, 0.6);
-  background: linear-gradient(to bottom, rgba(var(--tint-rgb), 0.11), rgba(var(--tint-rgb), 0.04));
-  box-shadow:
-    /* Thin metallic highlight just inside the rim + a subtle top-edge
-       reflection, then a darker lower edge inside the tray itself. */
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.06),
-    inset -1px 0 0 0 rgba(255, 255, 255, 0.06),
-    inset 0 -3px 4px -2px rgba(0, 0, 0, 0.45),
-    /* A second, outermost ring just outside the border itself -- extra
-       definition so the housing's edge reads clearly even where the
-       border color and the page behind it are close in value. */
-    0 0 0 1px rgba(0, 0, 0, 0.4),
-    /* Broad soft shadow underneath the ENTIRE assembly -- lifts it off
-       the Tools card beneath it (depth level 2). */
-    0 14px 28px -12px rgba(0, 0, 0, 0.65),
-    0 3px 8px -2px rgba(0, 0, 0, 0.55);
+  /* Minimal gap (was 6px) -- tabs read as connected segments of one
+     rail, matching the reference's own ~2px button spacing. */
+  gap: 2px;
+  /* Small radius (was 12px), no border at all (was a visible 1.5px
+     rim) -- the reference's outer housing has no drawn border, just
+     thin top/bottom hairlines (below) and a solid fill; a full
+     4-sided outline was exactly the "thick rounded capsule" look
+     explicitly called out as wrong. */
+  padding: 4px;
+  margin-bottom: 8px;
+  border-radius: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  background: rgba(var(--tint-rgb), 0.14);
+  /* One modest grounded shadow -- enough to lift the strip off the
+     Tools card beneath it, nowhere near the previous multi-layer ring
+     + broad halo. */
+  box-shadow: 0 4px 10px -6px rgba(0, 0, 0, 0.5);
 }
 
 .folder-tab-tools {
-  /* Every tab now draws its own complete, individually-rounded border
-     (was: square corners + a shared left-only seam line) -- matches a
-     supplied reference implementation where each button is its own
-     bordered pill sitting inside the housing, not a flush segment. */
-  border-radius: 8px;
-  border: 1px solid rgba(110, 114, 124, 0.45);
+  /* Small individual rounding (was 8px) matching the reference's own
+     modest per-button radius -- six small rounded segments reading as
+     one connected rail via the minimal 2px gap above, not six
+     separate floating pills. */
+  border-radius: 5px;
+  border: 1px solid rgba(110, 114, 124, 0.3);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
     color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
   );
-  /* Raised bevel: metallic highlight top, darker edge bottom, plus a
-     true external drop shadow -- this is the face catching light,
-     sitting above the recessed active well. */
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-    inset 0 -2px 2px -1px rgba(0, 0, 0, 0.4),
-    0 3px 5px -2px rgba(0, 0, 0, 0.45);
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  /* A light top bevel is the only depth cue at rest -- no outward drop
+     shadow and no translateY lift at all: every tab sits at the same
+     height, matching the reference exactly. */
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 .folder-tab-tools:hover:not(.folder-tab-active) {
@@ -2549,47 +2497,30 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
     color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
   );
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
-    inset 0 -2px 2px -1px rgba(0, 0, 0, 0.45),
-    0 4px 7px -2px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
 }
 
 .folder-tab-tools.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  /* Near-black recessed well, PUSHED darker than before -- explicit
-     follow-up call ("missing the effect of the button pushed in"):
-     raised the black mix from 0.62/0.48 to 0.78/0.62 so the contrast
-     against the (lighter, raised) inactive faces is unmistakable even
-     before accounting for shadow. tab-color share stays minimal, color
-     here is the LED glow (below/sides/text), not the face itself. */
+  /* Only modestly darker than the inactive face (was a dramatic
+     0.78/0.62 near-black well) -- the reference's own active button is
+     barely darker than its neighbors (#2d2d2d vs #343434); the real
+     "this one is active" signal is the glow, not a deep recess. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--tab-color) 4%, rgba(0, 0, 0, 0.78)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.62))
+    color-mix(in srgb, var(--tab-color) 4%, rgba(0, 0, 0, 0.42)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.32))
   );
-  /* Toned down from 50% to 32% tab-color strength -- a bright colored
-     ring was competing with the shadow for attention and reading as
-     "highlighted," not "recessed." The border still identifies the
-     category, just doesn't out-shout the depth cue anymore. */
   border: 1px solid color-mix(in srgb, var(--tab-color) 32%, rgba(0, 0, 0, 0.5));
   z-index: 2;
-  /* Pressed-well construction: a strong top inset shadow (the dominant
-     depth cue -- deepened and widened further this pass) + a thin
-     bottom inset highlight catching light at the well's lip. The LED
-     side-glow itself now lives on the LEFT-of-active/RIGHT-of-active
-     neighbors' own pseudo-elements (.folder-tab-tools-left-of-active/
-     -right-of-active below) instead of the active tab's own box-shadow
-     -- matches the supplied reference's actual construction exactly
-     (its glow sits on the ADJACENT buttons via their own :before, not
-     on the active button itself), and means the glow only ever
-     reaches as far as the one real neighbor on each side exists (no
-     neighbor past either end of the row, e.g. nothing left of the
-     first tab when it's active). */
-  box-shadow:
-    inset 0 8px 11px -3px rgba(0, 0, 0, 0.88),
-    inset 0 3px 4px -2px rgba(0, 0, 0, 0.6),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.1);
+  /* Just a thin inset ring -- was a multi-layer "pressed well" shadow
+     stack; the reference's own active state is literally
+     `box-shadow: rgba(0,0,0,0.4) 0 0 0 1px inset` plus glow, nothing
+     more elaborate. The LED side-glow lives on the LEFT-of-active/
+     RIGHT-of-active neighbors' own pseudo-elements below, matching the
+     reference's actual construction (its glow sits on the ADJACENT
+     buttons via their own :before, not on the active button itself). */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
   /* Layered glow on the icon+label themselves -- a soft white core plus
      a wider colored halo, the same two-layer construction the
      reference's own glowing-digit text-shadow uses, via drop-shadow
@@ -2680,35 +2611,27 @@ select.btn {
 }
 
 /* Light theme: a genuinely different construction (silver/light-metal
-   hardware), not an inverted dark-mode wash -- medium-gray outer rim,
-   silver housing, pearl/light-silver inactive faces, crisp white
-   highlights, medium/dark-gray lower bevels and drop shadows instead
-   of flat black. The active well stays a genuinely darker gray-on-gray
-   recess (not a colored wash) with the same side-edge LED glow as dark
-   mode. */
+   hardware), not an inverted dark-mode wash -- a solid pearl-gray
+   strip with thin hairlines (no drawn border, matching the dark-mode
+   correction above), pearl/light-silver inactive faces, crisp white
+   highlights. The active face is only modestly darker gray-on-gray
+   (not a deep recess), same "glow carries the signal, not shape or
+   shadow" principle as dark mode. */
 [data-theme="light"] .folder-tabbar-tools {
-  border-color: rgba(40, 32, 28, 0.38);
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(var(--panel-rgb), 0.6));
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
-    inset 1px 0 0 0 rgba(255, 255, 255, 0.5),
-    inset -1px 0 0 0 rgba(255, 255, 255, 0.5),
-    inset 0 -3px 4px -2px rgba(40, 32, 28, 0.22),
-    0 12px 24px -12px rgba(40, 32, 28, 0.42),
-    0 3px 8px -2px rgba(40, 32, 28, 0.34);
+  border-top-color: rgba(255, 255, 255, 0.7);
+  border-bottom-color: rgba(40, 32, 28, 0.25);
+  background: rgba(var(--panel-rgb), 0.55);
+  box-shadow: 0 3px 8px -6px rgba(40, 32, 28, 0.4);
 }
 
 [data-theme="light"] .folder-tab-tools {
-  border-color: rgba(40, 32, 28, 0.28);
+  border-color: rgba(40, 32, 28, 0.22);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
     color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
   );
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
-    inset 0 -2px 2px -1px rgba(40, 32, 28, 0.24),
-    0 3px 5px -2px rgba(40, 32, 28, 0.22);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="light"] .folder-tab-tools:hover:not(.folder-tab-active) {
@@ -2717,58 +2640,26 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
     color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
   );
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
-    inset 0 -2px 2px -1px rgba(40, 32, 28, 0.28),
-    0 4px 7px -2px rgba(40, 32, 28, 0.26);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
 }
 
 [data-theme="light"] .folder-tab-tools.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 85%, black 25%);
-  /* Deepened from 0.3/0.2 to 0.42/0.3 -- same contrast-strengthening
-     pass as dark mode, so the recessed well reads as genuinely darker
-     than the (lighter, raised) inactive faces around it. */
+  /* Only modestly darker than the inactive face, same correction as
+     dark mode above. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--tab-color) 6%, rgba(40, 32, 28, 0.42)),
-    color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.3))
+    color-mix(in srgb, var(--tab-color) 6%, rgba(40, 32, 28, 0.2)),
+    color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.12))
   );
   border: 1px solid color-mix(in srgb, var(--tab-color) 30%, rgba(40, 32, 28, 0.4));
-  /* Side LED glow moved to the left-of-active/right-of-active
-     neighbors' own pseudo-elements, same as dark mode above. */
-  box-shadow:
-    inset 0 8px 11px -3px rgba(40, 32, 28, 0.58),
-    inset 0 3px 4px -2px rgba(40, 32, 28, 0.38),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(40, 32, 28, 0.3);
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))
     drop-shadow(0 0 6px color-mix(in srgb, var(--tab-color) 65%, transparent));
 }
 
 [data-theme="light"] .folder-tab-tools.folder-tab-active::after {
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tab-color) 38%, transparent) 0%, transparent 72%);
-}
-
-/* Desktop-only: inactive segments sit raised above the tray's resting
-   plane; the active segment stays put at that resting plane itself
-   (translateY(0), not pushed further down) -- explicit correction: the
-   "pushed in" read should come entirely from the shading (the strong
-   top inset shadow, darker fill, and glow above) the same way a real
-   recessed keypad button reads as sunken without actually being at a
-   different height than its neighbors' baseline. Inactive tabs lifting
-   up is what creates the relative depth, not the active tab moving
-   down. */
-@media (min-width: 641px) {
-  .folder-tab-tools {
-    transform: translateY(-2px);
-    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
-      box-shadow 0.2s ease, transform 0.2s ease;
-  }
-  .folder-tab-tools:hover:not(.folder-tab-active) {
-    transform: translateY(-1px);
-  }
-  .folder-tab-tools.folder-tab-active {
-    transform: translateY(0);
-  }
 }
 
 /* Mobile: all 6 tabs fit on screen icon-only (no horizontal scroll needed

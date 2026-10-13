@@ -601,23 +601,49 @@ export default function ToolsPage() {
         .folder-tabbar's negative margin-bottom in globals.css. */}
     <div>
       <div className="folder-tabbar folder-tabbar-tools" role="tablist">
-        {TABS.map((tab) => {
-          const isActive = tab.key === activeTab;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setActiveTab(tab.key)}
-              className={`folder-tab folder-tab-tools${isActive ? " folder-tab-active" : ""}`}
-              style={{ "--tab-color": tab.color } as React.CSSProperties}
-            >
-              <tab.icon size={15} />
-              <span>{t(tab.labelKey)}</span>
-            </button>
-          );
-        })}
+        {(() => {
+          // CodePen-reference segmented nav: the tabs immediately LEFT
+          // and RIGHT of the active one each get their own transition
+          // shape (a glowing vertical line reaching into the gap toward
+          // the active tab), derived purely from index -- the exact
+          // "prev()/next() of whichever button was just clicked" rule
+          // the reference's own jQuery used, done here declaratively
+          // from React state instead. --active-glow-color carries the
+          // ACTIVE tab's own accent color onto its neighbors (who each
+          // have their OWN --tab-color already) -- the glow in the gap
+          // represents light leaking from whichever tab is lit, not the
+          // neighbor's own color, matching the reference's own render
+          // (its glow sits on the ADJACENT button but visually "belongs"
+          // to the active one next to it).
+          const activeIndex = TABS.findIndex((t) => t.key === activeTab);
+          const activeColor = TABS[activeIndex]?.color;
+          return TABS.map((tab, idx) => {
+            const isActive = idx === activeIndex;
+            const isLeftOfActive = idx === activeIndex - 1;
+            const isRightOfActive = idx === activeIndex + 1;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.key)}
+                className={`folder-tab folder-tab-tools${isActive ? " folder-tab-active" : ""}${
+                  isLeftOfActive ? " folder-tab-tools-left-of-active" : ""
+                }${isRightOfActive ? " folder-tab-tools-right-of-active" : ""}`}
+                style={
+                  {
+                    "--tab-color": tab.color,
+                    "--active-glow-color": activeColor,
+                  } as React.CSSProperties
+                }
+              >
+                <tab.icon size={15} />
+                <span>{t(tab.labelKey)}</span>
+              </button>
+            );
+          });
+        })()}
       </div>
 
       <div className="card card-highlight folder-tabbar-panel">

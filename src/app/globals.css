@@ -2576,21 +2576,20 @@ select.btn {
   z-index: 2;
   /* Pressed-well construction: a strong top inset shadow (the dominant
      depth cue -- deepened and widened further this pass) + a thin
-     bottom inset highlight catching light at the well's lip, then the
-     LED glow itself as a pair of OUTWARD (not inset) side shadows
-     reaching into the real gap on either side -- reads as light
-     leaking out of the gap between the recessed tab and its two
-     neighbors, the exact construction the supplied reference
-     implementation uses (its glow sits in the gap via the ADJACENT
-     buttons' own pseudo-elements; reproduced here as the active tab's
-     own outward shadow instead, same visual result without needing
-     sibling selectors). */
+     bottom inset highlight catching light at the well's lip. The LED
+     side-glow itself now lives on the LEFT-of-active/RIGHT-of-active
+     neighbors' own pseudo-elements (.folder-tab-tools-left-of-active/
+     -right-of-active below) instead of the active tab's own box-shadow
+     -- matches the supplied reference's actual construction exactly
+     (its glow sits on the ADJACENT buttons via their own :before, not
+     on the active button itself), and means the glow only ever
+     reaches as far as the one real neighbor on each side exists (no
+     neighbor past either end of the row, e.g. nothing left of the
+     first tab when it's active). */
   box-shadow:
     inset 0 8px 11px -3px rgba(0, 0, 0, 0.88),
     inset 0 3px 4px -2px rgba(0, 0, 0, 0.6),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.1),
-    3px 0 10px -3px color-mix(in srgb, var(--tab-color) 55%, transparent),
-    -3px 0 10px -3px color-mix(in srgb, var(--tab-color) 55%, transparent);
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.1);
   /* Layered glow on the icon+label themselves -- a soft white core plus
      a wider colored halo, the same two-layer construction the
      reference's own glowing-digit text-shadow uses, via drop-shadow
@@ -2629,6 +2628,54 @@ select.btn {
   right: 15%;
   height: 9px;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tab-color) 45%, transparent) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+/* Left-of-active / right-of-active transition shapes -- the reference
+   CodePen's own ".MainNav-Button_LeftOfActive"/"_RightOfActive", derived
+   purely from index (see tools/page.tsx). A thin vertical glow line
+   reaches from each neighbor's edge INTO the gap toward the active tab,
+   colored by --active-glow-color (the ACTIVE tab's own accent, passed
+   down via inline style since that's a different element with its own
+   --tab-color) -- this reads as light leaking out of the active well
+   onto whichever tab sits beside it, not as either neighbor's own
+   color. Only ever one line per gap: the active tab's own box-shadow
+   carries no side glow of its own (see .folder-tab-tools.folder-tab-
+   active above), so there's nothing to double up with. Naturally
+   absent when the active tab is the first/last (no neighbor exists on
+   that side to receive it), matching the reference's own jQuery
+   .prev()/.next() no-op at either end. */
+.folder-tab-tools-left-of-active::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  right: -5px;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--active-glow-color, var(--tab-color)) 85%, transparent) 50%,
+    transparent
+  );
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--active-glow-color, var(--tab-color)) 55%, transparent);
+  pointer-events: none;
+}
+
+.folder-tab-tools-right-of-active::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: -5px;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--active-glow-color, var(--tab-color)) 85%, transparent) 50%,
+    transparent
+  );
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--active-glow-color, var(--tab-color)) 55%, transparent);
   pointer-events: none;
 }
 
@@ -2687,12 +2734,12 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.3))
   );
   border: 1px solid color-mix(in srgb, var(--tab-color) 30%, rgba(40, 32, 28, 0.4));
+  /* Side LED glow moved to the left-of-active/right-of-active
+     neighbors' own pseudo-elements, same as dark mode above. */
   box-shadow:
     inset 0 8px 11px -3px rgba(40, 32, 28, 0.58),
     inset 0 3px 4px -2px rgba(40, 32, 28, 0.38),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.55),
-    3px 0 9px -3px color-mix(in srgb, var(--tab-color) 48%, transparent),
-    -3px 0 9px -3px color-mix(in srgb, var(--tab-color) 48%, transparent);
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.55);
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))
     drop-shadow(0 0 6px color-mix(in srgb, var(--tab-color) 65%, transparent));
 }

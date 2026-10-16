@@ -6404,6 +6404,23 @@ select:focus {
   }
 }
 
+/* Mobile-only internal alignment -- the taller mobile card (from the
+   earlier min-height fix) left its badge/ring/fraction stack centered
+   as one group, reading as everything clustered mid-card rather than
+   occupying three distinct top/middle/bottom zones. transform (not
+   margin) nudges the ring and fraction down WITHOUT touching flex
+   flow/sizing -- no effect on the badge above, no effect on card
+   height, no resize of the ring itself, and nothing for a badge-less
+   cell to jump around: the ring/fraction simply sit a couple px lower
+   than the group's own centered position, same amount whether or not
+   a badge is present. Reset to none at 640px+ -- the Calendar's own
+   existing tablet/desktop breakpoint -- leaving that tier untouched. */
+@media (max-width: 639px) {
+  .calendar-ring-wrap {
+    transform: translateY(2px);
+  }
+}
+
 /* Mobile-only grid-width reclaim -- a tiny negative margin on the grid
    itself (not .card, which is a shared class used app-wide and must
    stay untouched) reaches ~3.5px into .card's own left/right padding
@@ -6586,6 +6603,18 @@ select:focus {
   }
   .calendar-ring-fraction {
     font-size: 13px;
+  }
+}
+
+/* Mobile-only internal alignment -- pairs with .calendar-ring-wrap's
+   own translateY nudge above: pushes the fraction row a little closer
+   to the card's bottom edge so it reads as its own zone rather than
+   sitting right under the ring. 1.5px keeps a safe margin short of
+   the card's bottom border/glow -- the card has headroom for this
+   after the earlier min-height fix. Reset at 640px+, same as above. */
+@media (max-width: 639px) {
+  .calendar-ring-fraction {
+    transform: translateY(1.5px);
   }
 }
 

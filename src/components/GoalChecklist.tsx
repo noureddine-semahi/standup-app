@@ -205,7 +205,7 @@ export default function GoalChecklist({
           {sorted.length === 0 && <div className="text-xs text-white/40 italic">{t("checklist.noItemsYet")}</div>}
 
           {!readOnly && (
-            <div className="flex gap-2 mt-1.5">
+            <div className="flex gap-2 mt-1.5 w-full" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
               <input
                 type="text"
                 value={draft}
@@ -224,7 +224,7 @@ export default function GoalChecklist({
                 type="button"
                 onClick={handleAdd}
                 disabled={adding || !draft.trim()}
-                className="btn"
+                className="btn flex-shrink-0"
                 style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
               >
                 {adding ? t("checklist.adding") : t("checklist.add")}
@@ -245,7 +245,21 @@ export default function GoalChecklist({
               {showListPicker && (
                 <div
                   className="card"
-                  style={{ position: "absolute", top: "calc(100% + 0.25rem)", left: 0, width: "220px", zIndex: 30, padding: "0.35rem" }}
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 0.25rem)",
+                    left: 0,
+                    // Was a fixed 220px -- wider than a Task card's own
+                    // available inner width on a narrow phone, so it
+                    // overflowed past the card's right edge the same
+                    // way the checklist rows did. min() caps it at
+                    // whatever width the card actually has left.
+                    width: "min(220px, 100%)",
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    zIndex: 30,
+                    padding: "0.35rem",
+                  }}
                 >
                   {pickerLoading ? (
                     <div className="px-2 py-1.5 text-xs text-white/50">{t("checklist.loadingLists")}</div>

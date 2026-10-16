@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronUp, ChevronDown, TriangleAlert, Ticket, Check, Redo2 } from "lucide-react";
+import { ChevronUp, ChevronDown, TriangleAlert, Ticket, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
   toISODate,
@@ -30,6 +30,12 @@ type DayData = {
   // only path that ever sets it). Secondary metadata only, never changes
   // the primary tone by itself.
   rescheduledCount: number;
+  // Genuinely canceled Commitments on this day -- same already-fetched
+  // `status` field as completedGoals/rescheduledGoals below, no extra
+  // query. Used only by the mobile proportional progress ring (see
+  // ringSegments()); never read elsewhere, so this adds no new meaning
+  // to any existing calculation.
+  canceledCount: number;
   // A past, never-closed day still counts as handled once every one of its
   // Commitments has either been reviewed or re-attempted (rescheduled
   // forward) — rescheduling sets a goal's status to "postponed" but never
@@ -53,8 +59,8 @@ function toneStyles(tone: "neutral" | "today" | "active" | "attention") {
   switch (tone) {
     case "today":
       return {
-        bg: "rgba(168, 85, 247, 0.10)",
-        border: "rgba(168, 85, 247, 0.3)",
+        bg: "color-mix(in srgb, var(--calendar-status-today) 10%, transparent)",
+        border: "color-mix(in srgb, var(--calendar-status-today) 30%, transparent)",
       };
     case "active":
       return {
@@ -78,14 +84,83 @@ function toneStyles(tone: "neutral" | "today" | "active" | "attention") {
   }
 }
 
-// Shared by every secondary in-cell indicator (Reviewed/Covered/Cleared/
-// Missed/rescheduled) so each one isn't a separate inline conditional.
-function renderCellIcon(icon: "check" | "redo" | "ticket" | "warn") {
-  if (icon === "check") return <Check size={8} className="flex-shrink-0" />;
-  if (icon === "redo") return <Redo2 size={8} className="flex-shrink-0" />;
-  if (icon === "ticket") return <Ticket size={8} className="flex-shrink-0" />;
-  return <TriangleAlert size={8} className="flex-shrink-0" />;
+// Universal proportional progress ring (every viewport -- desktop,
+// tablet, mobile all use the same ring now): the REAL distribution of a
+// day's goal outcomes, mapped from the exact same `status` values
+// already fetched/aggregated into DayData above -- no new stored
+// status, no DB change, no lifecycle change. "postponed" is this
+// schema's one and only rescheduled-away status (same mapping
+// DayData.rescheduledCount above already uses); "pending" is simply
+// everything left over once completed/rescheduled/canceled are
+// subtracted from the total (e.g. in_progress, blocked, or a plan with
+// no status recorded yet) -- not a new status, just "whatever isn't
+// one of the other three."
+type RingSegment = { color: string; pct: number };
+
+function ringSegments(data: DayData | undefined): RingSegment[] {
+  const total = data?.commitmentCount ?? 0;
+  if (!data || total === 0) return [];
+
+  const pending = Math.max(0, total - data.completedCount - data.rescheduledCount - data.canceledCount);
+  const raw: { count: number; color: string }[] = [
+    { count: data.completedCount, color: "var(--calendar-status-completed)" },
+    { count: data.rescheduledCount, color: "var(--calendar-status-rescheduled)" },
+    { count: data.canceledCount, color: "var(--calendar-status-canceled)" },
+    { count: pending, color: "var(--calendar-status-pending)" },
+  ];
+
+  // Dynamically computed from the real counts above -- never a
+  // hardcoded percentage. Zero-count segments are dropped so the
+  // conic-gradient stop list only contains real boundaries.
+  return raw.filter((s) => s.count > 0).map((s) => ({ color: s.color, pct: (s.count / total) * 100 }));
 }
+
+function conicGradientFromSegments(segments: RingSegment[]): string | undefined {
+  if (segments.length === 0) return undefined;
+  let cursor = 0;
+  const stops = segments.map((s) => {
+    const start = cursor;
+    cursor += s.pct;
+    return `${s.color} ${start}% ${cursor}%`;
+  });
+  return `conic-gradient(${stops.join(", ")})`;
+}
+
+type DominantStatus = "completed" | "rescheduled" | "canceled" | "pending";
+
+// Tile glass-glow accent ONLY -- picks the single largest of the same
+// four counts ringSegments() already breaks the ring into. Never
+// changes the ring itself (still fully multi-segment/proportional, see
+// ringSegments above) or any stored status -- purely which existing
+// count is biggest. Ties are broken by this fixed visual precedence
+// (canceled > rescheduled > completed > pending), listed in that exact
+// order below so the first `count > best.count` comparison that can
+// win is always the higher-precedence one.
+function dominantRingStatus(data: DayData | undefined): DominantStatus | null {
+  const total = data?.commitmentCount ?? 0;
+  if (!data || total === 0) return null;
+
+  const pending = Math.max(0, total - data.completedCount - data.rescheduledCount - data.canceledCount);
+  const candidates: { key: DominantStatus; count: number }[] = [
+    { key: "canceled", count: data.canceledCount },
+    { key: "rescheduled", count: data.rescheduledCount },
+    { key: "completed", count: data.completedCount },
+    { key: "pending", count: pending },
+  ];
+
+  let best = candidates[0];
+  for (const c of candidates) {
+    if (c.count > best.count) best = c;
+  }
+  return best.count > 0 ? best.key : null;
+}
+
+const DOMINANT_GLOW_COLOR: Record<DominantStatus, string> = {
+  completed: "var(--calendar-status-completed)",
+  rescheduled: "var(--calendar-status-rescheduled)",
+  canceled: "var(--calendar-status-canceled)",
+  pending: "var(--calendar-status-pending)",
+};
 
 export default function CalendarPage() {
   const { t, language } = useLanguage();
@@ -193,6 +268,11 @@ export default function CalendarPage() {
           // ever sets it), so this is a plain, read-only count already
           // implied by data this view fetches regardless.
           const rescheduledGoals = planGoals.filter((g) => g.status === "postponed");
+          // Same already-fetched status field; the orphaned-continuation
+          // filter above (canceledIds/orphanIds) already ran before this
+          // loop, so a goal counted here is genuinely user/system
+          // canceled, not a stale auto-canceled continuation.
+          const canceledGoals = planGoals.filter((g) => g.status === "canceled");
 
           dataMap[plan.plan_date] = {
             date: plan.plan_date,
@@ -201,6 +281,7 @@ export default function CalendarPage() {
             reviewed: !!plan.reviewed_at,
             completedCount: completedGoals.length,
             rescheduledCount: rescheduledGoals.length,
+            canceledCount: canceledGoals.length,
             allCommitmentsHandled:
               !!plan.cleared_at ||
               (planGoals.length > 0 &&
@@ -345,7 +426,7 @@ export default function CalendarPage() {
 
           {/* Days */}
           {calendarDays.map((date, idx) => {
-            if (!date) return <div key={`empty-${idx}`} className="aspect-square" />;
+            if (!date) return <div key={`empty-${idx}`} className="aspect-square calendar-cell-empty" />;
 
             const dateISO = toISODate(date);
             const data = dayData[dateISO];
@@ -355,144 +436,89 @@ export default function CalendarPage() {
             const completed = data?.completedCount ?? 0;
             const count = data?.commitmentCount ?? 0;
             const rescheduled = data?.rescheduledCount ?? 0;
+            // A FULLY completed day only -- not "some goals completed".
+            const isFullyCompleted = hasCommitments && count > 0 && completed === count;
+            // Preserved as-is (status mapping, unchanged) even though the
+            // tile's own background/border no longer reads from the old
+            // tone system below -- see the glass-glow block instead.
             const isCovered = isPast && !!data?.coveredByPass;
-            const isCleared = isPast && hasCommitments && !data?.reviewed && data?.allCommitmentsHandled && !isCovered;
             const isOverdue = isPast && hasCommitments && !data?.reviewed && !data?.allCommitmentsHandled && !isCovered;
 
-            // Reduced to 4 tones (see toneStyles) -- "attention" is the one
-            // state that still needs to visually stand out; everything
-            // else that has real Commitments (future-planned, reviewed,
-            // cleared, covered) shares one calm "active" tone, with the
-            // actual distinction spelled out in-cell below instead of
-            // through a dedicated background color each.
-            const tone = isToday ? "today" : isOverdue ? "attention" : hasCommitments ? "active" : "neutral";
-            const toneStyle = toneStyles(tone);
+            // Glass-glow accent: Today is always purple (the strongest
+            // identity layer); every other populated day's glow color is
+            // its DOMINANT ring segment (dominantRingStatus, see above --
+            // same counts the ring itself uses, tile color only, ring
+            // itself is untouched); a day with no Commitments gets no
+            // glow class at all and keeps the old quiet neutral look.
+            const dominantStatus = dominantRingStatus(data);
+            const glowColor = isToday ? "var(--calendar-status-today)" : dominantStatus ? DOMINANT_GLOW_COLOR[dominantStatus] : undefined;
 
-            // Primary line: a past (or already-reviewed) day always shows
-            // its truthful completion fraction, even 0/N -- that's real,
-            // meaningful data once the day has actually happened. A
-            // future/current day with nothing completed yet shows a bare
-            // Commitment count instead of an ambiguous "0/3".
-            // Today always shows the bare plan count here -- its own
-            // completed-so-far count renders as a separate row below
-            // (todayStatsParts), never folded into a fraction.
-            const showFraction = hasCommitments && !isToday && (isPast || !!data?.reviewed || completed > 0);
-            const primaryValue = showFraction ? `${completed}/${count}` : hasCommitments ? `${count}` : "";
-            const primaryWord = showFraction ? t("calendar.completedWord") : t("calendar.commitmentsWord");
-
-            // Secondary row (non-today): at most ONE row total. A status
-            // word (Reviewed/Covered/Cleared/Missed) plus, horizontally
-            // alongside it on the SAME row, a bare icon+count for any
-            // rescheduled work -- never spelled out as its own word, so
-            // this never grows past one row regardless of how many things
-            // apply. Reviewed/Covered/Cleared/Missed are mutually
-            // exclusive by construction (isCovered/isCleared/isOverdue
-            // above already exclude each other and a reviewed day).
-            type Part = { icon?: "check" | "redo" | "ticket" | "warn"; text: string };
-            let secondary: { parts: Part[]; tone: "good" | "muted" | "warn" } | null = null;
-            if (!isToday) {
-              if (data?.reviewed) {
-                secondary = {
-                  parts:
-                    rescheduled > 0
-                      ? [{ icon: "check", text: t("calendar.reviewedShort") }, { icon: "redo", text: String(rescheduled) }]
-                      : [{ icon: "check", text: t("calendar.reviewedShort") }],
-                  tone: "good",
-                };
-              } else if (isCovered) {
-                secondary = { parts: [{ icon: "ticket", text: t("calendar.dayCovered") }], tone: "muted" };
-              } else if (isCleared) {
-                secondary = { parts: [{ icon: "redo", text: t("calendar.dayCleared") }], tone: "muted" };
-              } else if (isOverdue) {
-                secondary = { parts: [{ icon: "warn", text: t("calendar.dayMissed") }], tone: "warn" };
-              } else if (rescheduled > 0) {
-                secondary = { parts: [{ icon: "redo", text: String(rescheduled) }], tone: "muted" };
-              }
-            }
-
-            // Today gets two rows instead of one combined row: its own
-            // completed-so-far count (+ rescheduled, combined onto the
-            // same row as a bare icon+count) is a distinct concept from
-            // Reviewed (today's own plan can already be closed same-day),
-            // which always gets its own final row rather than merging
-            // with the reschedule count -- matches the target layout.
-            const todayStatsParts: Part[] = [];
-            if (isToday) {
-              if (completed > 0) todayStatsParts.push({ text: `${completed} ${t("calendar.completedWord")}` });
-              if (rescheduled > 0) todayStatsParts.push({ icon: "redo", text: String(rescheduled) });
-            }
-            const todayReviewed = isToday && !!data?.reviewed;
+            // Proportional ring -- dynamically computed from the real
+            // counts above (ringSegments), never a hardcoded percentage.
+            // A day with zero Commitments gets no segments at all
+            // (ringSegments returns []), which the CSS below renders as a
+            // flat, very subtle "inactive" ring instead of a
+            // conic-gradient -- never fake progress on an empty day. This
+            // is now the ONE Calendar cell presentation at every
+            // viewport -- the previous separate desktop text/icon layout
+            // was removed entirely rather than hidden behind a
+            // breakpoint; responsive CSS below only resizes the ring/
+            // cell/typography, it never swaps back to that old design.
+            const segments = ringSegments(data);
+            const ringBackground = conicGradientFromSegments(segments);
 
             return (
               <Link
                 key={dateISO}
                 href={isToday ? "/standup/today" : `/standup/date/${dateISO}`}
                 className={[
-                  "aspect-square rounded-2xl border transition-all duration-200",
+                  "aspect-square rounded-2xl border transition-all duration-200 relative",
                   "flex flex-col items-center justify-center text-center gap-0.5",
                   "hover:scale-[1.04] active:scale-[0.98]",
                   "focus:outline-none focus:ring-2 focus:ring-white/40",
+                  // Glass-glow structure (background tint/border/inner
+                  // highlight/outer glow), colored via the --glow-color
+                  // custom property set below -- only applied when there's
+                  // an actual glow color (Today, or a populated day with a
+                  // dominant status). A day with no Commitments skips this
+                  // entirely and keeps the plain quiet neutral tile.
+                  glowColor ? "calendar-cell-glow" : "calendar-cell-glow-none",
+                  // Today ADDS a stronger outer glow on top of the same
+                  // glass structure above -- the "strongest identity
+                  // layer" -- it never replaces it.
+                  isToday ? "calendar-cell-today" : "",
                 ].join(" ")}
-                style={{
-                  background: toneStyle.bg,
-                  borderColor: toneStyle.border,
-                }}
+                style={glowColor ? ({ "--glow-color": glowColor } as React.CSSProperties) : undefined}
                 title={formatDateDisplay(dateISO)}
               >
-                {/* Date + compact Today badge -- date stays the strongest
-                    element (unchanged size); the badge is a small inline
-                    pill, not a second oversized label. */}
-                <div className="flex items-center gap-1 leading-none">
-                  <span className="select-none text-white/85 font-bold text-sm sm:text-2xl">{date.getDate()}</span>
-                  {isToday && <span className="calendar-today-badge">{t("calendar.today")}</span>}
-                </div>
-
-                {/* Primary line -- the Commitment/completion summary.
-                    calendar-cell-label keeps the existing sub-360px font
-                    override (globals.css); calendar-cell-word is the
-                    descriptive word, hidden only at that same narrowest
-                    width so the number itself is never cramped out. */}
-                {primaryValue && (
-                  <div className="calendar-cell-label text-[8px] sm:text-[10px] font-semibold text-white/90 leading-none">
-                    {primaryValue} <span className="calendar-cell-word">{primaryWord}</span>
-                  </div>
+                {isToday && <span className="calendar-today-badge">{t("calendar.today")}</span>}
+                {/* Reschedule count -- a small cyan corner badge, upper-
+                    right, independent of (never replacing) the ring's own
+                    amber segment: the ring shows the PROPORTION
+                    rescheduled, this shows the exact COUNT. Shown for any
+                    day (Today included) with rescheduled > 0. Absolutely
+                    positioned against the Link's own `relative` above, so
+                    it never affects the day number or the ring's own
+                    centering. */}
+                {rescheduled > 0 && (
+                  <span className="calendar-cell-reschedule-badge" aria-label={`${rescheduled} rescheduled`}>
+                    ↪{rescheduled}
+                  </span>
                 )}
-
-                {/* Today's completed-so-far + rescheduled, combined onto
-                    one row (each part its own color -- completed in the
-                    same green as "good" status elsewhere, rescheduled
-                    muted). Reviewed (below) never merges into this row. */}
-                {todayStatsParts.length > 0 && (
-                  <div className="calendar-cell-secondary inline-flex items-center gap-1 flex-wrap justify-center leading-none">
-                    {todayStatsParts.map((part, i) => (
-                      <span
-                        key={i}
-                        className={`inline-flex items-center gap-0.5 ${part.icon ? "calendar-cell-secondary-muted" : "calendar-cell-secondary-good"}`}
-                      >
-                        {part.icon && renderCellIcon(part.icon)}
-                        <span className="calendar-cell-word">{part.text}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {todayReviewed && (
-                  <div className="calendar-cell-secondary calendar-cell-secondary-good inline-flex items-center gap-0.5 leading-none">
-                    <Check size={8} className="flex-shrink-0" />
-                    <span className="calendar-cell-word">{t("calendar.reviewedShort")}</span>
-                  </div>
-                )}
-
-                {secondary && (
+                <div className="calendar-ring-wrap">
                   <div
-                    className={`calendar-cell-secondary calendar-cell-secondary-${secondary.tone} inline-flex items-center gap-1 flex-wrap justify-center leading-none`}
-                  >
-                    {secondary.parts.map((part, i) => (
-                      <span key={i} className="inline-flex items-center gap-0.5">
-                        {part.icon && renderCellIcon(part.icon)}
-                        <span className="calendar-cell-word">{part.text}</span>
-                      </span>
-                    ))}
+                    className={`calendar-ring${ringBackground ? "" : " calendar-ring-empty"}`}
+                    style={ringBackground ? { background: ringBackground } : undefined}
+                  />
+                  <span className="calendar-ring-number">{date.getDate()}</span>
+                </div>
+                {hasCommitments && (
+                  <div className="calendar-ring-fraction">
+                    {completed}/{count}
+                    {/* Fully-completed days only -- never for "some
+                        goals completed". Small and secondary to the
+                        ring, per spec. */}
+                    {isFullyCompleted && <Check size={10} className="calendar-ring-fraction-check" />}
                   </div>
                 )}
               </Link>
@@ -500,44 +526,38 @@ export default function CalendarPage() {
           })}
         </div>
 
-        {/* Legend -- P5A: reduced from 7 entries to 3. Every cell now
-            spells out its own state in text (count/fraction, "Reviewed",
-            "Missed", "Cleared", "Covered", rescheduled count) rather than
-            relying on color alone, so Reviewed/Cleared/Covered/No-Plan no
-            longer need a dedicated legend row to be understood -- only the
-            3 primary tones themselves (toneStyles) are left ambiguous
-            without a key, and only "Missed" genuinely needs calling out
-            as the one state meant to catch the eye. */}
-        <div className="calendar-legend text-xs text-white/60">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("today").bg,
-                borderColor: toneStyles("today").border,
-              }}
-            />
-            <span>{t("calendar.today")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("active").bg,
-                borderColor: toneStyles("active").border,
-              }}
-            />
-            <span>{t("calendar.legendActive")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-4 h-4 rounded-md border flex-shrink-0"
-              style={{
-                background: toneStyles("attention").bg,
-                borderColor: toneStyles("attention").border,
-              }}
-            />
-            <span>{t("calendar.legendMissed")}</span>
+        {/* Legend -- explains the proportional ring's 4 segment colors
+            (same mapping as ringSegments() above) plus Today's purple
+            tile accent. Applies at every viewport now -- the ring is the
+            one Calendar cell presentation everywhere, not a mobile-only
+            variant. Wrapped in its own glass housing (.calendar-legend-
+            housing) so it reads as one belonging-to-the-Calendar unit
+            rather than loose text floating under the grid; the housing
+            is purely a visual shell around the EXISTING .calendar-legend
+            layout/children below, nothing about the grid/flex structure
+            or its items changed. */}
+        <div className="calendar-legend-housing">
+          <div className="calendar-legend text-sm text-white/60">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-today" />
+              <span>{t("calendar.today")}</span>
+            </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-completed" />
+              <span>{t("status.completed")}</span>
+            </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-rescheduled" />
+              <span>{t("status.rescheduled")}</span>
+            </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-canceled" />
+              <span>{t("status.canceled")}</span>
+            </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-pending" />
+              <span>{t("status.notStarted")}</span>
+            </div>
           </div>
         </div>
 

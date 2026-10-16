@@ -117,6 +117,24 @@ a {
   --status-postponed: #c084fc;
   --status-canceled: #94a3b8;
 
+  /* Calendar-scoped status/accent colors -- the Calendar's proportional
+     ring, tile glass-glow, legend, and Today/reschedule accents read
+     from THESE, never from the shared --status-* tokens or --accent-amber above directly.
+     Those shared tokens also color goal-status chips and other UI
+     throughout the app; richening them in place would silently recolor
+     every one of those unrelated surfaces. Values here are a deliberate
+     vividness bump off the same hue families (green/amber/red/gray/
+     purple/cyan) rather than a new palette, scoped so only the Calendar
+     page sees the richer result. */
+  --calendar-status-completed: #2ee6a6;
+  /* Small follow-up bump -- warmer/brighter orange-gold, still not
+     yellow, to match the other four Calendar accents' vividness. */
+  --calendar-status-rescheduled: #ffa229;
+  --calendar-status-canceled: #ff5a5f;
+  --calendar-status-pending: #9fb0c4;
+  --calendar-status-today: #a93ffa;
+  --calendar-reschedule-cyan: #2fe0f5;
+
   /* Background/border washes for status pills (Today's quick-action
      dropdown, admin/settings danger buttons) — dim = resting state,
      active = selected/emphasized state. Low-opacity color-on-black reads
@@ -250,6 +268,19 @@ a {
   --status-blocked: #b91c1c;
   --status-postponed: #7e22ce;
   --status-canceled: #475569;
+
+  /* Calendar-scoped overrides -- see the dark :root block for why these
+     are separate from the shared --status-* tokens and --accent-amber above. Light mode gets
+     the larger adjustment: more saturation/contrast so the ring reads
+     clearly against an ivory tile instead of leaning pastel. */
+  --calendar-status-completed: #00b36b;
+  /* Small follow-up bump -- richer/more saturated, still enough depth
+     against ivory to avoid reading as pale/washed-out gold. */
+  --calendar-status-rescheduled: #dc7d09;
+  --calendar-status-canceled: #d9302f;
+  --calendar-status-pending: #3f4c5e;
+  --calendar-status-today: #7c3aed;
+  --calendar-reschedule-cyan: #0c6e8a;
 
   /* Same darker/more-saturated base color as the text tokens above, at
      roughly double the dark-theme's alpha — a wash that reads as pale
@@ -446,20 +477,23 @@ a {
 
 html, body {
   pointer-events: auto;
-  /* Safety net: a single element anywhere with a non-shrinking width wider
-     than the viewport would otherwise push the whole page wider, silently
-     shifting content (like action buttons) off past the right edge instead
-     of visibly breaking — this caps it at the viewport instead. */
-  overflow-x: hidden;
 }
 
 /* html stays pinned to exactly the viewport height -- this (combined with
-   overflow-x:hidden above forcing overflow-y to compute as auto, per the
+   overflow-x:hidden below forcing overflow-y to compute as auto, per the
    overflow shorthand's axis-homogenization rule) is what makes it the
    page's one real scrolling container, same as a normal page with no
    height overrides at all. */
 html {
   height: 100%;
+  /* Safety net: a single element anywhere with a non-shrinking width wider
+     than the viewport would otherwise push the whole page wider, silently
+     shifting content (like action buttons) off past the right edge instead
+     of visibly breaking — this caps it at the viewport instead. Kept here
+     (not shared with body below) specifically BECAUSE of the axis-
+     homogenization side effect noted above -- html needs to actually
+     become a scroll container for the page to scroll at all. */
+  overflow-x: hidden;
 }
 
 /* body previously also had height:100% (an equal, separately-capped box),
@@ -474,6 +508,26 @@ html {
    still fills at least the full viewport for background-color purposes. */
 body {
   min-height: 100%;
+  /* clip, not hidden -- runtime-diagnosed fix (getComputedStyle/
+     getBoundingClientRect audit, see memory). Even though body never
+     actually has anything to scroll (by construction, via min-height
+     above), the OLD shared `overflow-x: hidden` here still forced
+     overflow-y to compute as auto via the same axis-homogenization
+     rule used for html above -- making body ALSO register as a scroll
+     container, and `position: sticky` resolves against the NEAREST
+     one, which was this one, not html. Since body's own scrollTop
+     never moves (confirmed: always 0), every sticky descendant on the
+     page (the Community/Tools mobile sub-tab bars) was anchored to a
+     reference frame that never scrolls, so they never actually stuck
+     -- they just rendered at their normal flow position and scrolled
+     away with the page, indistinguishable from position:static.
+     `overflow: clip` (both axes, matching values so neither triggers
+     homogenization against the other) keeps the exact same horizontal
+     safety-net clipping with none of that side effect: clip is
+     explicitly defined to NOT establish a scroll container, so sticky
+     now skips past body entirely and correctly resolves against html,
+     the actual scrolling element. */
+  overflow: clip;
 }
 
 /* Native <select> dropdowns: the closed box picks up our custom dark
@@ -1303,6 +1357,17 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
 }
 
+/* Housing recolored to the SAME metallic-housing recipe as
+   .folder-tabbar-tools (steel-gray 4-sided outline, near-black panel
+   surface, layered inset "recessed channel" shadows, genuine outer
+   drop shadow) -- explicit visual-consistency call, replacing the old
+   amber-tinted border so this reads as the same navigation family as
+   the tab housings. Position/z-index/layout/backdrop-filter untouched
+   -- this is a reused COLOR recipe only, not a shape/positioning
+   change. Shared by the hamburger, logged-out "More", and Profile
+   dropdowns (all three mount this same class) -- all three pick up the
+   housing refresh together, consistent with how .header-metal-control
+   fixes previously reached every consumer of that shared class too. */
 .nav-more-panel {
   position: absolute;
   top: calc(100% + 8px);
@@ -1314,10 +1379,63 @@ h1, h2, h3, h4, h5, h6 {
   min-width: 200px;
   padding: 8px;
   border-radius: 12px;
-  border: 1px solid rgba(245, 158, 11, 0.15);
-  background: rgba(var(--panel-rgb), 0.98);
+  border: 1px solid rgba(90, 94, 102, 0.45);
+  border-top-color: rgba(60, 63, 70, 0.55);
+  border-bottom-color: rgba(140, 144, 155, 0.35);
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
   backdrop-filter: blur(12px) saturate(180%);
-  box-shadow: var(--shadow-dropdown);
+  /* Glossy metallic rim added to the outer edge -- same "double ring"
+     technique .header-metal-control's own rim uses (a thin bright inner
+     line + a slightly wider, dimmer outer line, read together as a
+     reflective machined perimeter), keyed off the neutral steel token
+     since this housing isn't tied to any single destination's accent. */
+  box-shadow:
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
+    inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
+    inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%),
+    0 0 0 2px color-mix(in srgb, var(--metal-edge-neutral) 22%, transparent),
+    0 3px 8px -4px rgba(0, 0, 0, 0.55),
+    var(--shadow-dropdown);
+}
+
+/* Specular glint across the housing's own top edge -- same technique
+   .folder-tab-tools::before uses (a 1px line that fades in from both
+   corners toward a bright peak in the middle), the detail that reads
+   as "glossy" rather than just a flat metal bar. */
+.nav-more-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  border-radius: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.12) 72%,
+    transparent 85%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+[data-theme="light"] .nav-more-panel {
+  border-color: rgba(40, 32, 28, 0.3);
+  border-top-color: rgba(40, 32, 28, 0.38);
+  border-bottom-color: rgba(255, 255, 255, 0.75);
+  background: rgba(var(--panel-rgb), 0.9);
+  box-shadow:
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
+    inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%),
+    0 0 0 2px color-mix(in srgb, var(--metal-edge-neutral) 18%, transparent),
+    0 3px 8px -4px rgba(40, 32, 28, 0.35),
+    var(--shadow-dropdown);
 }
 
 .nav-more-panel .nav-link {
@@ -1326,6 +1444,28 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   justify-content: flex-start;
   text-align: left;
+}
+
+/* Hamburger/mobile menu items -- layout-only sizing for a VERTICAL
+   stacked list, coexisting with .folder-tab-hanging/-active's own
+   color/shadow/pressed-face recipe (Header.tsx's hamburgerNavLinks()),
+   which is otherwise completely unchanged/reused as-is. */
+.nav-menu-item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+/* .folder-tab-hanging-active::after is a reflection glow spilling
+   DOWN past the tab's own bottom edge -- correct for a horizontal tab
+   row with open space below it, but here the next menu item sits
+   immediately underneath with only a 4px gap, so that same glow would
+   bleed across it. Suppressed only inside these two stacked-list
+   contexts; the real header hanging tabs keep it untouched. */
+.nav-more-panel .folder-tab-hanging-active::after,
+.mobile-menu-panel .folder-tab-hanging-active::after {
+  content: none;
 }
 
 /* Bell dropdown — desktop only (see notificationBell()'s "mobile" variant,
@@ -1497,8 +1637,19 @@ h1, h2, h3, h4, h5, h6 {
     flex-direction: column;
     gap: 4px;
     padding: 10px 18px 16px;
-    border-top: 1px solid rgba(245, 158, 11, 0.15);
-    background: rgba(var(--panel-rgb), var(--chrome-alpha-hover));
+    position: relative;
+    /* Same metallic-housing recipe as .nav-more-panel above, adapted
+       for a docked (border-top only, no corners) panel instead of a
+       floating card -- explicit visual-consistency call, replacing the
+       old amber-tinted border. The glossy rim here is the specular
+       glint (::before, below) plus a brighter top edge -- a docked
+       panel only has the one visible edge to work with, unlike
+       .nav-more-panel's full 4-sided double ring. */
+    border-top: 1px solid color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%);
+    background: rgba(var(--panel-rgb), var(--panel-alpha));
+    box-shadow:
+      inset 0 4px 6px -4px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
     /* Header Navigation Refresh: a signed-in user's panel now holds the
        full 9-item NAV_TABS list instead of 2-3 items -- on a short
        phone viewport (or with the on-screen keyboard/browser chrome
@@ -1517,6 +1668,34 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     justify-content: flex-start;
     text-align: left;
+  }
+
+  /* Specular glint on the panel's one visible (top) edge -- same
+     technique as .nav-more-panel::before above. */
+  .mobile-menu-panel::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      transparent 15%,
+      rgba(255, 255, 255, 0.55) 50%,
+      rgba(255, 255, 255, 0.12) 72%,
+      transparent 85%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  [data-theme="light"] .mobile-menu-panel {
+    border-top-color: color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%);
+    box-shadow:
+      inset 0 4px 6px -4px rgba(40, 32, 28, 0.18),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
   }
 }
 
@@ -2308,14 +2487,48 @@ select.btn {
   border-top-color: rgba(60, 63, 70, 0.55);
   border-bottom: none;
   background: rgba(var(--panel-rgb), var(--panel-alpha));
+  position: relative;
+  /* Glossy metallic rim -- same "double ring" as .folder-tabbar-tools,
+     but DIRECTIONAL (top/left/right only, each its own zero-blur
+     offset layer) rather than a uniform spread ring: this housing has
+     no bottom border by design (it attaches flush to the card below,
+     "no visible seam") -- a spread-based ring would draw a ring right
+     across that exact attachment line and break it. */
   box-shadow:
     inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
     inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
     inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    0 -1px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%),
+    -1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%),
+    1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%),
+    0 -2px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 22%, transparent),
+    -2px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 22%, transparent),
+    2px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 22%, transparent),
     0 3px 8px -4px rgba(0, 0, 0, 0.55);
   padding-left: 5px;
   padding-right: 5px;
   padding-bottom: 5px;
+}
+
+/* Specular glint across the housing's own top edge (the one genuinely
+   free edge here) -- same technique as .folder-tabbar-tools::before. */
+.folder-tabbar.folder-tabbar-community::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.12) 72%,
+    transparent 85%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 @media (min-width: 850px) {
@@ -2332,6 +2545,12 @@ select.btn {
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
     inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
     inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    0 -1px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%),
+    -1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%),
+    1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%),
+    0 -2px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 18%, transparent),
+    -2px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 18%, transparent),
+    2px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 18%, transparent),
     0 3px 8px -4px rgba(40, 32, 28, 0.35);
 }
 
@@ -2713,11 +2932,41 @@ select.btn {
      (non-inset) outer drop shadow -- the housing's own physical edge
      casting a shadow onto the Tools card beneath it, separate from the
      inset "inside the channel" shadows above. */
+  position: relative;
+  /* Glossy metallic rim -- same "double ring" technique as
+     .nav-more-panel's own housing (a thin bright inner line + a wider,
+     dimmer outer line). Safe as a uniform spread ring here specifically
+     because this housing is fully closed on all 4 sides (a real
+     margin-bottom gap before its panel, unlike Community/Hanging below,
+     which each leave one edge seam-free on purpose). */
   box-shadow:
     inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
     inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
     inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%),
+    0 0 0 2px color-mix(in srgb, var(--metal-edge-neutral) 22%, transparent),
     0 3px 8px -4px rgba(0, 0, 0, 0.55);
+}
+
+/* Specular glint across the housing's own top edge -- same technique
+   .folder-tab-tools::before uses on each individual tab. */
+.folder-tabbar-tools::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.12) 72%,
+    transparent 85%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 /* Shrink-wrap the housing to the six tabs' own content width --
@@ -2965,6 +3214,8 @@ select.btn {
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
     inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
     inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%),
+    0 0 0 2px color-mix(in srgb, var(--metal-edge-neutral) 18%, transparent),
     0 3px 8px -4px rgba(40, 32, 28, 0.35);
 }
 
@@ -3096,10 +3347,22 @@ select.btn {
   border-top: none;
   border-bottom-color: rgba(140, 144, 155, 0.35);
   background: rgba(var(--panel-rgb), var(--panel-alpha));
+  /* Glossy metallic rim, INSET rather than outset here specifically --
+     this element has overflow-x:auto/overflow-y:hidden just below
+     (needed for its own horizontal-scroll behavior), and overflow
+     clips an element's own OUTSET box-shadow at its border edge, which
+     would make an outset ring here invisible (the exact clipping trap
+     already documented elsewhere on this page). An inset bright line
+     just inside the bottom/left/right edges (skipping top, which has
+     no border by design -- flush to the red divider line) achieves the
+     same "glossy edge" read without being clipped. */
   box-shadow:
     inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
     inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
     inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    inset 0 1px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 40%, white 20%),
+    inset -1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 40%, white 20%),
+    inset 1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 40%, white 20%),
     0 3px 8px -4px rgba(0, 0, 0, 0.55);
   overflow-x: auto;
   overflow-y: hidden;
@@ -3147,6 +3410,9 @@ select.btn {
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
     inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
     inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    inset 0 1px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 35%, white 30%),
+    inset -1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 35%, white 30%),
+    inset 1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 35%, white 30%),
     0 3px 8px -4px rgba(40, 32, 28, 0.35);
 }
 
@@ -5916,6 +6182,81 @@ select:focus {
   flex-wrap: wrap;
 }
 
+/* Glass housing around the legend -- same smoked-glass language as the
+   Calendar tiles (.calendar-cell-glow-none's own recipe: translucent
+   panel fill, thin neutral border, a faint upper-edge specular via
+   ::before, restrained inset/outer shadow for depth) but deliberately
+   NOT colored -- this wraps all 5 statuses as one neutral belonging-
+   to-the-Calendar unit, never a status-colored glow of its own.
+
+   Glossy metallic rim -- the SAME "double ring" (thin bright inner
+   line + wider dimmer outer line) + top-edge specular glint used on
+   .folder-tabbar-tools/.folder-tabbar-community/.nav-more-panel. Safe
+   as a uniform outset ring here (not the inset variant .folder-tabbar-
+   hanging needed) because this housing is fully closed on all 4 sides
+   with no overflow:hidden/auto of its own. */
+.calendar-legend-housing {
+  position: relative;
+  margin-top: 5px;
+  border-radius: 1rem;
+  padding: 0.85rem 1.1rem;
+  background: rgba(var(--panel-rgb), 0.5);
+  border: 1px solid rgba(var(--tint-rgb), 0.12);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 20px -12px rgba(0, 0, 0, 0.55),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%),
+    0 0 0 2px color-mix(in srgb, var(--metal-edge-neutral) 22%, transparent),
+    0 4px 14px -10px rgba(0, 0, 0, 0.5);
+}
+
+.calendar-legend-housing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 70% 45% at 25% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Top-edge specular glint -- same technique as .folder-tabbar-tools::
+   before, a separate layer from the broad reflection above (::before
+   is already taken), fading in from both corners to a bright peak at
+   the housing's horizontal center. */
+.calendar-legend-housing::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.12) 72%,
+    transparent 85%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+[data-theme="light"] .calendar-legend-housing {
+  background: rgba(var(--panel-rgb), 0.55);
+  border-color: rgba(40, 32, 28, 0.1);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 16px -10px rgba(40, 32, 28, 0.22),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%),
+    0 0 0 2px color-mix(in srgb, var(--metal-edge-neutral) 18%, transparent),
+    0 3px 10px -8px rgba(40, 32, 28, 0.22);
+}
+
+[data-theme="light"] .calendar-legend-housing::before {
+  background: radial-gradient(ellipse 70% 45% at 25% 0%, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
+}
+
 /* Legend: free flex-wrap measured at 6 rows / ~176px tall at 320px --
    longer labels ("Cleared (rescheduled)", "Covered (streak pass)")
    each claimed a full row alone, same pattern in Spanish (its
@@ -5924,11 +6265,13 @@ select:focus {
    nowrap+ellipsis (that version clipped text outright and was
    rejected) -- cuts this to 4 rows / ~118px (EN) with zero clipping.
    Reverts to the original flex-wrap at >=640px, where the earlier
-   audit already confirmed it reads fine (2 rows at 768px). */
+   audit already confirmed it reads fine (2 rows at 768px). Gaps
+   widened (breathing room) now that the legend sits inside its own
+   padded housing above rather than loose under the grid. */
 .calendar-legend {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem 0.75rem;
+  gap: 0.75rem 1rem;
   align-items: start;
 }
 
@@ -5936,7 +6279,8 @@ select:focus {
   .calendar-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    justify-content: space-between;
+    gap: 1.25rem;
   }
 }
 
@@ -5958,26 +6302,18 @@ select:focus {
    that's the width that needed it; 390px+ was already fine unreduced
    (minimum measured margin 1.4px at 390px) and is left alone. The date
    number (text-sm/sm:text-2xl) remains untouched and dominant. */
-@media (max-width: 360px) {
-  .calendar-cell-label {
-    font-size: 6px;
-    letter-spacing: -0.02em;
-  }
-
-  /* P5A: at the narrowest real cell width there isn't room for both the
-     number/fraction AND its descriptive word ("commitments"/"completed")
-     -- the number alone is still unambiguous (never a bare "0/3" fraction,
-     see the day-cell's own showFraction logic), so the word is dropped
-     only here; every wider breakpoint keeps it. */
-  .calendar-cell-word {
-    display: none;
-  }
-}
-
 /* P5A — Month Calendar execution-summary redesign: a small pill next to
    the date number instead of replacing the whole cell's content with the
    word "Today" (the old single-label design). */
 .calendar-today-badge {
+  /* position:relative (no offset, zero layout effect) is only here so
+     this non-positioned-by-default inline content paints in the same
+     stacking step as -- and after, by tree order -- the new
+     .calendar-cell-glow::before reflection layer below; without it,
+     plain in-flow inline content paints BEFORE a positioned sibling
+     pseudo-element regardless of DOM order, which would bury the badge
+     under the glass reflection. */
+  position: relative;
   font-size: 6px;
   font-weight: 700;
   line-height: 1;
@@ -5989,6 +6325,18 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* Light mode only -- the dark-mode low-alpha wash above (0.22 purple
+   over near-black) reads fine, but the same low-alpha background over
+   an ivory tile loses almost all contrast against the light lavender
+   text. Solid, deeper purple fill + near-white text fixes readability
+   without touching size/position/radius/typography, or the Today
+   tile's own glass/glow/ring/reflection (untouched, separate rules). */
+[data-theme="light"] .calendar-today-badge {
+  background: color-mix(in srgb, var(--calendar-status-today) 88%, black 4%);
+  color: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--calendar-status-today) 45%, white 25%);
+}
+
 @media (min-width: 640px) {
   .calendar-today-badge {
     font-size: 8px;
@@ -5996,34 +6344,475 @@ select:focus {
   }
 }
 
-/* Secondary in-cell indicator (Reviewed/Missed/Cleared/Covered/
-   rescheduled count) -- compact, always smaller than the primary line,
-   never a competing background color of its own (that's what the cell's
-   tone already covers). Three tone variants map to the same semantic
-   colors used elsewhere in the app for the same meanings (green=good,
-   neutral=muted secondary info, red=warn). */
-.calendar-cell-secondary {
-  font-size: 7px;
-  font-weight: 600;
-  line-height: 1;
+/* Calendar redesign -- proportional progress ring, the ONE Calendar
+   cell presentation at every viewport (desktop/tablet/mobile) -- not a
+   mobile-only variant layered over an older design. conic-gradient
+   (page.tsx's conicGradientFromSegments) draws the real completed/
+   rescheduled/canceled/pending split as colored arcs; the mask below
+   punches a transparent hollow center through it (not a solid inner
+   div needing to match the tile's own translucent background) so
+   whatever's actually behind the ring -- the tile's own blurred/
+   translucent fill -- shows through naturally. The day number is a
+   SEPARATE sibling layer (.calendar-ring-number), not a child of the
+   masked ring itself -- a mask applies to an element's entire rendered
+   subtree, so nesting the number inside .calendar-ring would make it
+   fade out right along with the punched-out center. Segment colors
+   read from the Calendar-scoped --calendar-status-completed/
+   -rescheduled/-canceled/-pending tokens (see the :root block -- kept
+   separate from the shared --status-* tokens and --accent-amber so this
+   ring's color tuning never bleeds into goal-status chips elsewhere),
+   so light mode's richer values apply automatically with no separate
+   light-mode ring logic.
+
+   Sizing is the one thing that's genuinely responsive here -- three
+   tiers (mobile base, 640px tablet, 1024px desktop), same breakpoints
+   already used elsewhere on this page -- but every tier renders the
+   exact same ring/number/fraction/today-glow system, never a different
+   design. */
+.calendar-ring-wrap {
+  position: relative;
+  width: clamp(32px, 11vw, 46px);
+  height: clamp(32px, 11vw, 46px);
+  flex-shrink: 0;
 }
 
 @media (min-width: 640px) {
-  .calendar-cell-secondary {
-    font-size: 9px;
+  .calendar-ring-wrap {
+    width: clamp(42px, 7vw, 58px);
+    height: clamp(42px, 7vw, 58px);
   }
 }
 
-.calendar-cell-secondary-good {
-  color: rgb(110, 231, 183);
+@media (min-width: 1024px) {
+  .calendar-ring-wrap {
+    width: clamp(52px, 4.5vw, 68px);
+    height: clamp(52px, 4.5vw, 68px);
+  }
 }
 
-.calendar-cell-secondary-muted {
-  color: rgba(var(--tint-rgb), 0.55);
+.calendar-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  /* Glossy/luminous ring finish -- four drop-shadow layers (filter, not
+     box-shadow: it respects the mask above, so it traces the actual
+     donut shape rather than the full circle). drop-shadow works on the
+     ELEMENT'S rendered alpha, so these layers are the ring's conic-
+     gradient colors themselves (page.tsx, untouched) with light/depth
+     added on top -- never a replacement for the segmented proportions.
+       1. crisp near-white edge, almost no blur -- "brighter crisp
+          luminous edge" (B), deliberately NOT colored so it reads as
+          glass catching light, not more status color.
+       2. unchanged neutral depth shadow.
+       3-4. soft colored halo immediately around the ring (A), two
+          layers (tight + wide) off the tile's own --glow-color --
+          transparent fallback means a day with no glow color (no
+          Commitments) renders with no colored layer at all. */
+  filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.65))
+    drop-shadow(0 0 2px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 0 4px color-mix(in srgb, var(--glow-color, transparent) 60%, transparent))
+    drop-shadow(0 0 8px color-mix(in srgb, var(--glow-color, transparent) 32%, transparent));
 }
 
-.calendar-cell-secondary-warn {
-  color: rgb(252, 165, 165);
+/* D. Inner shadow/depth around the hollow center -- a second masked
+   layer (same donut mask as .calendar-ring, so it's confined to the
+   visible ring band) with a radial gradient that darkens toward the
+   middle of the circle -- since most of that gradient's dark center
+   falls inside the masked-out hole, what actually shows within the
+   ring band itself reads as "darker near the inner edge, lighter near
+   the outer edge," the same depth cue a recessed glass channel would
+   have. Purely decorative, painted on top of .calendar-ring's own
+   conic-gradient background (a separate pseudo-element, not touching
+   that background/mask/math at all). */
+.calendar-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+/* C/3. Specular highlight -- a SMALL bright arc over the upper-left
+   portion of the ring only (conic-gradient "from 300deg", fading out
+   by ~70deg later), smooth not a hard stripe, mostly white/neutral so
+   it reads as reflected light rather than more status color. Same
+   donut mask as .calendar-ring, so it never becomes a full white ring
+   and never touches the proportional segment colors underneath. */
+.calendar-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  background: conic-gradient(
+    from 300deg at 50% 50%,
+    rgba(255, 255, 255, 0.6) 0deg,
+    rgba(255, 255, 255, 0.18) 35deg,
+    transparent 70deg,
+    transparent 360deg
+  );
+  pointer-events: none;
+}
+
+/* Zero-Commitment day -- no conic-gradient at all (page.tsx passes no
+   background), just a very subtle flat ring. Never a fake progress
+   read; quieter than the "100% pending" --status-canceled gray used
+   when a day genuinely has Commitments but nothing resolved yet. Still
+   gets its own (fainter) specular highlight via .calendar-ring::after
+   above -- "even future/neutral tiles belong to the same material
+   system" -- just a softer edge/halo via the filter's transparent
+   --glow-color fallback. */
+.calendar-ring-empty {
+  background: rgba(var(--tint-rgb), 0.1);
+}
+
+.calendar-ring-number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(var(--tint-rgb), 0.92);
+  pointer-events: none;
+}
+
+.calendar-ring-fraction {
+  /* Same stacking reason as .calendar-today-badge above. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(var(--tint-rgb), 0.68);
+}
+
+/* Fully-completed days only (isFullyCompleted, page.tsx) -- small and
+   secondary to the ring itself, per spec. Reuses the same green the
+   ring's own completed segment uses, so it reads as "the same
+   completed signal," not a separate color language. */
+.calendar-ring-fraction-check {
+  color: var(--calendar-status-completed);
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .calendar-ring-number {
+    font-size: 17px;
+  }
+  .calendar-ring-fraction {
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .calendar-ring-number {
+    font-size: 20px;
+  }
+  .calendar-ring-fraction {
+    font-size: 13px;
+  }
+}
+
+/* Rescheduled-away count -- a small cyan corner badge, upper-right,
+   restored per explicit request: the ring's own amber segment already
+   shows the PROPORTION rescheduled, this shows the exact COUNT -- both
+   intentionally coexist. Position only (no size/breakpoint hiding), so
+   it's present at every viewport, matching the rest of this card. */
+.calendar-cell-reschedule-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--calendar-reschedule-cyan) 20%, transparent);
+  color: color-mix(in srgb, var(--calendar-reschedule-cyan) 75%, white 25%);
+  border: 1px solid color-mix(in srgb, var(--calendar-reschedule-cyan) 50%, transparent);
+  pointer-events: none;
+}
+
+[data-theme="light"] .calendar-cell-reschedule-badge {
+  background: color-mix(in srgb, var(--calendar-reschedule-cyan) 16%, transparent);
+  color: color-mix(in srgb, var(--calendar-reschedule-cyan) 88%, black 12%);
+  border-color: color-mix(in srgb, var(--calendar-reschedule-cyan) 48%, transparent);
+}
+
+@media (min-width: 640px) {
+  .calendar-cell-reschedule-badge {
+    top: 6px;
+    right: 6px;
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .calendar-cell-reschedule-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+/* Glass-glow tile treatment -- "illuminated smoked glass", extending
+   the "15th"/Today glass look to every populated day. --glow-color is
+   set inline per tile (page.tsx): purple for Today, or the day's
+   DOMINANT ring segment color (completed/rescheduled/canceled/pending)
+   otherwise -- tile glow only, the ring itself stays fully
+   multi-segment/proportional regardless. Still restrained -- every
+   layer below is a low-alpha color-mix() off the SAME single
+   --glow-color, so there's never more than one glow hue per tile, and
+   the background wash stays a diagonal TINT (not a flat saturated
+   fill) -- but now built from the full stack the spec asked for:
+   dark translucent base, diagonal status tint, soft top highlight, a
+   genuinely luminous inner+outer edge, a restrained inner glow, a
+   restrained outer glow, and a neutral depth shadow separating the
+   tile from the page behind it. */
+.calendar-cell-glow {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--glow-color) 16%, transparent) 0%, transparent 55%),
+    color-mix(in srgb, var(--glow-color) 7%, rgba(var(--panel-rgb), var(--panel-alpha)));
+  /* Edge lighting varies by side instead of one uniform colored
+     outline -- top/left (the implied light source) brighter, bottom/
+     right darker and more grounded -- the same diagonal-bevel
+     convention the app's other metal surfaces already use, applied
+     here to create actual depth instead of a flat neon rectangle. */
+  border-top-color: color-mix(in srgb, var(--glow-color) 58%, white 8%);
+  border-left-color: color-mix(in srgb, var(--glow-color) 54%, white 4%);
+  border-bottom-color: color-mix(in srgb, var(--glow-color) 34%, transparent);
+  border-right-color: color-mix(in srgb, var(--glow-color) 38%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px color-mix(in srgb, var(--glow-color) 32%, transparent),
+    inset 0 0 16px -6px color-mix(in srgb, var(--glow-color) 48%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--glow-color) 26%, transparent),
+    0 0 9px -2px color-mix(in srgb, var(--glow-color) 42%, transparent),
+    0 6px 16px -11px rgba(0, 0, 0, 0.6);
+}
+
+/* 1. True glass specular reflection -- a separate pseudo-element layer
+   on top of the glass background above (never replacing it), reading
+   as light hitting polished glass rather than more status color:
+   mostly white/neutral, a soft bright patch concentrated near the
+   upper-left, fading smoothly (not a hard stripe), plus a much
+   fainter secondary catch-light near the right side. border-radius:
+   inherit keeps it clipped to the tile's own rounded corners
+   regardless of breakpoint. Painted BEHIND the real content (day
+   number/ring/fraction/badges) by ordinary pseudo-element paint order
+   -- see the .calendar-today-badge/.calendar-ring-fraction comments
+   above for why those two specifically needed position:relative to
+   guarantee that. */
+.calendar-cell-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 75% 55% at 20% 14%, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.1) 32%, transparent 62%),
+    radial-gradient(ellipse 35% 55% at 88% 60%, rgba(255, 255, 255, 0.09) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+[data-theme="light"] .calendar-cell-glow {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--glow-color) 14%, transparent) 0%, transparent 55%),
+    color-mix(in srgb, var(--glow-color) 6%, rgba(var(--panel-rgb), 0.7));
+  border-top-color: color-mix(in srgb, var(--glow-color) 50%, white 20%);
+  border-left-color: color-mix(in srgb, var(--glow-color) 46%, white 14%);
+  border-bottom-color: color-mix(in srgb, var(--glow-color) 26%, transparent);
+  border-right-color: color-mix(in srgb, var(--glow-color) 30%, transparent);
+  box-shadow:
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 0 1px color-mix(in srgb, var(--glow-color) 30%, transparent),
+    inset 0 0 14px -6px color-mix(in srgb, var(--glow-color) 32%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--glow-color) 28%, transparent),
+    0 0 8px -2px color-mix(in srgb, var(--glow-color) 30%, transparent),
+    0 5px 14px -11px rgba(40, 32, 28, 0.45);
+}
+
+[data-theme="light"] .calendar-cell-glow::before {
+  background:
+    radial-gradient(ellipse 75% 55% at 20% 14%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.2) 32%, transparent 62%),
+    radial-gradient(ellipse 35% 55% at 88% 60%, rgba(255, 255, 255, 0.16) 0%, transparent 65%);
+}
+
+/* No Commitments at all (future/no-activity) -- the OLD plain neutral
+   look (toneStyles("neutral")'s own values), no colored glow, so these
+   days visually recede next to populated ones -- but still get a VERY
+   faint neutral reflection of their own (6. "even future/neutral tiles
+   belong to the same material system"), far softer than the status
+   glow version above. */
+.calendar-cell-glow-none {
+  background: rgba(var(--tint-rgb), 0.03);
+  border-color: rgba(var(--tint-rgb), 0.1);
+  position: relative;
+}
+
+.calendar-cell-glow-none::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 70% 50% at 20% 14%, rgba(255, 255, 255, 0.07) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Today: ADDS a stronger, wider outer glow via `filter` (a separate
+   property from .calendar-cell-glow's own `box-shadow` above, so it
+   layers on top rather than replacing it) -- "the strongest identity
+   layer". Still purple (--glow-color is already --calendar-status-today
+   for Today, set in page.tsx), just extra reach on top of the shared
+   glass structure every other tile also gets now. color-mix off the
+   Calendar-scoped token (not a literal) so this automatically picks up
+   the light-mode override below. */
+.calendar-cell-today {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--calendar-status-today) 40%, transparent))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--calendar-status-today) 40%, transparent));
+}
+
+/* Today's reflection -- the SAME layer structure as the shared
+   .calendar-cell-glow::before, just a modest alpha boost ("richest
+   glass treatment... but not dramatically brighter than everything
+   else"). Restates the full background (equal-specificity classes on
+   one element, declared after .calendar-cell-glow, so this fully wins
+   for .calendar-cell-today tiles) rather than trying to layer a second
+   background onto the same pseudo-element. */
+.calendar-cell-today::before {
+  background:
+    radial-gradient(ellipse 75% 55% at 20% 14%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.13) 32%, transparent 62%),
+    radial-gradient(ellipse 35% 55% at 88% 60%, rgba(255, 255, 255, 0.12) 0%, transparent 65%);
+}
+
+[data-theme="light"] .calendar-cell-today::before {
+  background:
+    radial-gradient(ellipse 75% 55% at 20% 14%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.26) 32%, transparent 62%),
+    radial-gradient(ellipse 35% 55% at 88% 60%, rgba(255, 255, 255, 0.2) 0%, transparent 65%);
+}
+
+/* Blank cells before/after the month -- previously fully invisible (no
+   background/border at all); a very subtle metallic fill now preserves
+   the grid shape without competing with real day tiles, at every
+   viewport. */
+.calendar-cell-empty {
+  background: rgba(var(--tint-rgb), 0.015);
+  border: 1px solid rgba(var(--tint-rgb), 0.05);
+  border-radius: 1rem;
+}
+
+[data-theme="light"] .calendar-cell-empty {
+  background: rgba(40, 32, 28, 0.02);
+  border-color: rgba(40, 32, 28, 0.06);
+}
+
+/* Legend swatches, matching the ring's 4 segment colors plus Today's
+   purple exactly (the same Calendar-scoped --calendar-status-* tokens
+   the ring/tile-glow/Today-badge read from -- see the :root block for
+   why these are separate from the shared --status-* tokens and
+   --accent-amber). Round, not the old square-ish rounded-md, to read
+   as "a slice of the ring" rather than an unrelated color chip. Not
+   mobile-scoped: the legend renders at every width.
+
+   Each is a "miniature illuminated glass status light" -- colored
+   inner fill (background), a brighter rim (border mixed toward white),
+   a small matching halo (box-shadow, kept tight/restrained so 5 of
+   these sitting next to each other never reads as a row of glowing
+   orbs), and a small neutral specular highlight in the upper-left via
+   ::before (shared structure below, color-specific fill/rim/halo per
+   class). */
+.calendar-legend-swatch-today,
+.calendar-legend-swatch-completed,
+.calendar-legend-swatch-rescheduled,
+.calendar-legend-swatch-canceled,
+.calendar-legend-swatch-pending {
+  position: relative;
+}
+
+.calendar-legend-swatch-today::before,
+.calendar-legend-swatch-completed::before,
+.calendar-legend-swatch-rescheduled::before,
+.calendar-legend-swatch-canceled::before,
+.calendar-legend-swatch-pending::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 60% 55% at 28% 22%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.22) 38%, transparent 68%);
+  pointer-events: none;
+}
+
+[data-theme="light"] .calendar-legend-swatch-today::before,
+[data-theme="light"] .calendar-legend-swatch-completed::before,
+[data-theme="light"] .calendar-legend-swatch-rescheduled::before,
+[data-theme="light"] .calendar-legend-swatch-canceled::before,
+[data-theme="light"] .calendar-legend-swatch-pending::before {
+  background: radial-gradient(ellipse 60% 55% at 28% 22%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.35) 38%, transparent 68%);
+}
+
+.calendar-legend-swatch-today {
+  background: color-mix(in srgb, var(--calendar-status-today) 42%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-today) 85%, white 15%);
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-today) 55%, transparent);
+}
+.calendar-legend-swatch-completed {
+  background: color-mix(in srgb, var(--calendar-status-completed) 42%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-completed) 85%, white 15%);
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-completed) 55%, transparent);
+}
+.calendar-legend-swatch-rescheduled {
+  background: color-mix(in srgb, var(--calendar-status-rescheduled) 42%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-rescheduled) 85%, white 15%);
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-rescheduled) 55%, transparent);
+}
+.calendar-legend-swatch-canceled {
+  background: color-mix(in srgb, var(--calendar-status-canceled) 42%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-canceled) 85%, white 15%);
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-canceled) 55%, transparent);
+}
+.calendar-legend-swatch-pending {
+  background: color-mix(in srgb, var(--calendar-status-pending) 42%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-pending) 85%, white 15%);
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-pending) 45%, transparent);
+}
+
+/* Light mode -- a white-mixed rim loses contrast against an ivory
+   housing, so the rim mixes toward black instead (same tokens, denser
+   fill) to stay "clearly visible against the light background" per
+   spec, without introducing any new color. */
+[data-theme="light"] .calendar-legend-swatch-today {
+  background: color-mix(in srgb, var(--calendar-status-today) 48%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-today) 92%, black 6%);
+  box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-today) 45%, transparent);
+}
+[data-theme="light"] .calendar-legend-swatch-completed {
+  background: color-mix(in srgb, var(--calendar-status-completed) 48%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-completed) 92%, black 6%);
+  box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-completed) 45%, transparent);
+}
+[data-theme="light"] .calendar-legend-swatch-rescheduled {
+  background: color-mix(in srgb, var(--calendar-status-rescheduled) 48%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-rescheduled) 92%, black 6%);
+  box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-rescheduled) 45%, transparent);
+}
+[data-theme="light"] .calendar-legend-swatch-canceled {
+  background: color-mix(in srgb, var(--calendar-status-canceled) 48%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-canceled) 92%, black 6%);
+  box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-canceled) 45%, transparent);
+}
+[data-theme="light"] .calendar-legend-swatch-pending {
+  background: color-mix(in srgb, var(--calendar-status-pending) 48%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-pending) 92%, black 6%);
+  box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-pending) 35%, transparent);
 }
 
 /* Phase 10C: the passes-pill's dark-mode colors (unchanged from
@@ -6092,22 +6881,16 @@ select:focus {
 }
 
 @media (max-width: 859px) {
-  /* Sticks directly under the fixed primary header while the page
-     scrolls beneath it -- same mechanism/offset/z-index as the
-     Community sub-tabs' own mobile sticky rule (see
-     .folder-tabbar-community above), explicit "same sticky behavior
-     for both" call. Single-class selector here, unlike Community's
-     .folder-tabbar.folder-tabbar-community, so no specificity
-     workaround is needed for the background override. */
-  .folder-tabbar-tools {
-    position: sticky;
-    top: var(--header-height);
-    z-index: 40;
-    background: rgba(var(--panel-rgb), 0.97);
-  }
-  [data-theme="light"] .folder-tabbar-tools {
-    background: rgba(var(--panel-rgb), 0.97);
-  }
+  /* position:sticky was abandoned here (real-device testing kept
+     failing even after the diagnosed body-overflow fix) in favor of a
+     JS-driven position:fixed, applied via inline style from
+     useFixedSubNav() in tools/page.tsx -- see that hook. Pinning (and
+     the near-opaque background that goes with it while pinned) is now
+     active at EVERY viewport width via that hook's own inline style,
+     not just here -- the mobile-only background override that used to
+     live in this rule was itself part of the same wrong "mobile-only"
+     assumption and has been removed; the hook handles it everywhere
+     instead. */
   /* .folder-tabbar-tools' own row gap (6px) is untouched here -- it
      applies at every width, not just desktop; only this gap (icon-to-
      label, WITHIN a tab) differs by breakpoint. */
@@ -6384,33 +7167,19 @@ select:focus {
 @media (max-width: 849px) {
   .folder-tabbar-community {
     gap: 2px;
-    /* Sticks directly under the fixed primary header while the page
-       scrolls beneath it -- explicit mobile-only call. --header-height
-       is the SAME existing var() .app-main's own top padding already
-       clears the fixed header with (see .app-main above); reused as-is
-       rather than guessing a new offset. z-index:40 sits below the
-       header itself (50) and the profile/hamburger dropdown panels
-       (60) but above ordinary page content. Needs .app-shell's
-       overflow-y to be `clip` rather than `hidden` to actually work
-       (fixed above) -- `hidden` establishes a scroll container, and
-       sticky resolves against the NEAREST one, which would otherwise
-       silently be .app-shell instead of the real document scroller.
-       The housing's existing background (rgba(var(--panel-rgb),
-       var(--panel-alpha)), ~0.6 alpha) is too translucent once this is
-       floating over scrolling content instead of sitting on the page's
-       own canvas -- bumped near-opaque here only, not in the base
-       rule, so the normal (non-stuck) look elsewhere is untouched. */
-    position: sticky;
-    top: var(--header-height);
-    z-index: 40;
   }
-  /* Matches the base rule's own .folder-tabbar.folder-tabbar-community
-     (two classes) specificity -- a plain .folder-tabbar-community
-     override here would lose the cascade to that rule's own
-     `background` declaration regardless of media query/source order. */
-  .folder-tabbar.folder-tabbar-community {
-    background: rgba(var(--panel-rgb), 0.97);
-  }
+  /* position:sticky was abandoned here (real-device testing kept
+     failing even after the diagnosed body-overflow fix) in favor of a
+     JS-driven position:fixed, applied via inline style from
+     useFixedSubNav() in social/page.tsx -- see that hook. Pinning (and
+     the near-opaque background that goes with it while pinned) is now
+     active at EVERY viewport width via that hook's own inline style,
+     not just here -- the mobile-only background override that used to
+     live in this rule was itself part of the same wrong "mobile-only"
+     assumption and has been removed; the hook handles it everywhere
+     instead. The rest of this media query block below is genuine
+     responsive icon-collapse styling (unrelated to pinning) and is
+     unchanged. */
   .folder-tabbar-community .folder-tab-community {
     flex: 0 0 auto;
     gap: 0;
@@ -6440,9 +7209,6 @@ select:focus {
     max-width: none;
     margin-left: 0.4rem;
     opacity: 1;
-  }
-  [data-theme="light"] .folder-tabbar.folder-tabbar-community {
-    background: rgba(var(--panel-rgb), 0.97);
   }
 }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, History, Target } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
+import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
   addBacklogGoal,
   addLongTermGoal,
@@ -89,6 +90,11 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
 export default function ToolsPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<ToolsTab>("goals");
+  // Fixed-on-scroll for the Tools sub-tab bar -- active at every
+  // viewport width, not just mobile (see useFixedSubNav's own comment).
+  // activeTab is passed through so the hook can correct scroll position
+  // under the pinned bar when the user switches sub-tabs.
+  const { sentinelRef, barRef, wrapperRef, contentRef, barStyle, wrapperStyle } = useFixedSubNav(activeTab);
   const [items, setItems] = useState<BacklogGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -599,8 +605,9 @@ export default function ToolsPage() {
         file-folder tabs." This wrapper (not space-y-6) is what lets the
         tab bar sit flush against the card that follows it — see
         .folder-tabbar's negative margin-bottom in globals.css. */}
-    <div>
-      <div className="folder-tabbar folder-tabbar-tools" role="tablist">
+    <div ref={wrapperRef} style={wrapperStyle}>
+      <div ref={sentinelRef} style={{ height: 0 }} />
+      <div ref={barRef} className="folder-tabbar folder-tabbar-tools" style={barStyle} role="tablist">
         {(() => {
           // CodePen-reference segmented nav: the tabs immediately LEFT
           // and RIGHT of the active one each get their own transition
@@ -646,16 +653,38 @@ export default function ToolsPage() {
         })()}
       </div>
 
-      <div className="card card-highlight folder-tabbar-panel">
+      {/* contentRef: the landmark useFixedSubNav scrolls to the top of on
+          a tab switch while the bar is pinned -- always present
+          regardless of which sub-tab is active. */}
+      <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
         <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
       </div>
-    </div>
 
-    {activeTab === "goals" && <GoalsManagementPanel />}
+      {/* This outer wrapper (opened above, around the tab bar) now
+          extends down to enclose all tab content too, instead of
+          closing right after the hero card -- required for
+          .folder-tabbar-tools' position:sticky (mobile) to work at
+          all. A sticky element can never remain visible past its OWN
+          DIRECT PARENT's bottom edge; when this div closed right after
+          the hero card, that parent was only ~150px tall, so the tab
+          bar stopped sticking almost immediately regardless of how
+          much content followed as its sibling. Each tab-content block
+          below gets an explicit mt-6 to replace the 1.5rem gap it used
+          to get for free from being a direct child of the ROOT
+          space-y-6 wrapper -- it's now a child of this plain
+          (non-space-y) div instead. The trailing "Plan Tomorrow /
+          Dashboard" link row at the very end of this component is
+          NOT tab-specific content and stays outside this wrapper,
+          unchanged. */}
+    {activeTab === "goals" && (
+      <div className="mt-6">
+        <GoalsManagementPanel />
+      </div>
+    )}
 
     {activeTab === "backlog" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight mt-6">
       {msg && (
         <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
           {msg}
@@ -801,7 +830,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "longTerm" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight mt-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.longTermTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.longTermSubtitle")}</p>
@@ -964,7 +993,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "recurring" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight mt-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.recurringTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.recurringSubtitle")}</p>
@@ -1092,7 +1121,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "lists" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight mt-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.listsTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.listsSubtitle")}</p>
@@ -1242,7 +1271,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "payments" && (
-    <div className="card card-highlight">
+    <div className="card card-highlight mt-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.paymentsTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.paymentsSubtitle")}</p>
@@ -1481,6 +1510,7 @@ export default function ToolsPage() {
       )}
     </div>
     )}
+    </div>
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">

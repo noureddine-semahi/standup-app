@@ -441,7 +441,16 @@ export default function Header() {
       if (!header || !brandRef.current || !navEndClusterRef.current) return;
       const brandRect = brandRef.current.getBoundingClientRect();
       const endRect = navEndClusterRef.current.getBoundingClientRect();
-      const left = Math.max(0, Math.round(brandRect.right));
+      // Anchored to the logo's own LEFT edge (where it starts), not its
+      // right edge (where it ends) -- explicit user call: the first tab
+      // (Dashboard) sits directly under the logo's start, not pushed
+      // right past it, reclaiming the large clearance gap that used to
+      // sit empty between them. The oversized logo image does dip down
+      // slightly into this row (see .brand-oversized in globals.css),
+      // but only touches the very top sliver of the first tab's own
+      // padding, not its label -- an explicit, accepted tradeoff here,
+      // not an oversight.
+      const left = Math.max(0, Math.round(brandRect.left));
       const right = Math.max(0, Math.round(window.innerWidth - endRect.left));
       header.style.setProperty("--nav-tab-left-clearance", `${left}px`);
       header.style.setProperty("--nav-tab-right-clearance", `${right}px`);
@@ -775,6 +784,15 @@ export default function Header() {
   // provide for an icon+text pair (see profileMenu()'s identical need
   // below) -- everything else (flex/center/chip styling) comes from the
   // shared class.
+  // Reuses the SAME finalized physical-tab recipe as the header's own
+  // hanging nav tabs (.folder-tab-hanging/-active in globals.css)
+  // instead of the old flat .nav-link chip -- explicit visual-
+  // consistency call. nav-menu-item is a small layout-only class
+  // (vertical list sizing) that coexists with folder-tab-hanging's own
+  // color/shadow/pressed-face recipe, which is otherwise untouched.
+  // --tab-color carries each destination's own existing NAV_TABS accent
+  // (already defined, previously only consumed by the hanging tab row
+  // itself) into this same CSS the same way navTabs() already does.
   function hamburgerNavLinks() {
     return (
       <>
@@ -785,7 +803,8 @@ export default function Header() {
               key={tab.href}
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
-              className={isActive ? "nav-link font-semibold gap-2" : "nav-link gap-2"}
+              className={`folder-tab-hanging nav-menu-item${isActive ? " folder-tab-hanging-active" : ""}`}
+              style={{ "--tab-color": tab.color } as React.CSSProperties}
               onClick={(e) => handleHamburgerNavClick(e, tab.href)}
             >
               <tab.icon size={16} />

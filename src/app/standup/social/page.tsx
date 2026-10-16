@@ -38,6 +38,7 @@ import CommunityGuidelinesModal from "@/components/CommunityGuidelinesModal";
 import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
+import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, MoreVertical, Pencil, ChevronDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -57,6 +58,15 @@ export default function SocialPage() {
   // (tab clicks are plain setActiveTab, not router.push), so there's no
   // risk of this fighting with later in-page navigation.
   const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<SocialTab>(() => {
+    const tabParam = searchParams.get("tab");
+    return SOCIAL_TAB_VALUES.includes(tabParam as SocialTab) ? (tabParam as SocialTab) : "myFeed";
+  });
+  // Fixed-on-scroll for the Community sub-tab bar -- active at every
+  // viewport width, not just mobile (see useFixedSubNav's own comment).
+  // activeTab is passed through so the hook can correct scroll position
+  // under the pinned bar when the user switches sub-tabs.
+  const { sentinelRef, barRef, wrapperRef, contentRef, barStyle, wrapperStyle } = useFixedSubNav(activeTab);
   const highlightPostId = searchParams.get("post");
   const highlightCommentId = searchParams.get("comment");
   const scrolledToHighlightRef = useRef(false);
@@ -67,10 +77,6 @@ export default function SocialPage() {
   const [guidelinesAccepted, setGuidelinesAccepted] = useState<boolean | null>(null);
   const [guidelinesSaving, setGuidelinesSaving] = useState(false);
   const [guidelinesError, setGuidelinesError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<SocialTab>(() => {
-    const tabParam = searchParams.get("tab");
-    return SOCIAL_TAB_VALUES.includes(tabParam as SocialTab) ? (tabParam as SocialTab) : "myFeed";
-  });
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // Community landing header — the signed-in user's own profile card above
   // the tab bar. Reuses the same getOrCreateProfile() call already made
@@ -591,8 +597,9 @@ export default function SocialPage() {
           bar sit flush against the card that follows it — see
           .folder-tabbar's negative margin-bottom in globals.css for the
           actual overlap that erases the seam under the active tab. */}
-      <div>
-        <div className="folder-tabbar folder-tabbar-community" role="tablist">
+      <div ref={wrapperRef} style={wrapperStyle}>
+        <div ref={sentinelRef} style={{ height: 0 }} />
+        <div ref={barRef} className="folder-tabbar folder-tabbar-community" style={barStyle} role="tablist">
           {TABS.map((tab) => {
             const isActive = tab.key === activeTab;
             return (
@@ -616,8 +623,11 @@ export default function SocialPage() {
 
         {/* Compact, per-tab hero — replaces a single generic "Community"
             header that repeated on every sub-tab and ate a lot of mobile
-            vertical space before any actual tab content appeared. */}
-        <div className="card card-highlight folder-tabbar-panel">
+            vertical space before any actual tab content appeared.
+            contentRef: the landmark useFixedSubNav scrolls to the top of
+            on a tab switch while the bar is pinned -- always present
+            regardless of which sub-tab is active. */}
+        <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
           <div className="flex items-center gap-2 mb-1">
             <span style={{ color: activeTabMeta.color }}>
               <activeTabMeta.icon size={20} />
@@ -626,14 +636,24 @@ export default function SocialPage() {
           </div>
           <p className="text-sm text-white/70">{t(activeTabMeta.descriptionKey)}</p>
         </div>
-      </div>
 
-      {/* Motivational composer + general feed — My Feed/Global/My Circle/
-          My Posts only. Friends and Goals are purpose-built (people-first
-          and team-goals-first respectively) rather than sharing this same
-          top template — explicit user call. */}
+        {/* This outer wrapper (opened above, around the tab bar) now
+            extends down to enclose all of the tab content too, instead
+            of closing right after the hero card -- required for
+            .folder-tabbar-community's position:sticky (mobile) to work
+            at all. A sticky element can never remain visible past its
+            OWN DIRECT PARENT's bottom edge; when this div closed right
+            after the hero card, that parent was only ~150px tall, so
+            the tab bar stopped sticking almost immediately regardless
+            of how much content followed as its sibling. Each
+            conditional content block below gets an explicit mt-6
+            (lines 636/807/1030) to replace the 1.5rem gap it used to
+            get for free from being a direct child of the ROOT
+            space-y-6 wrapper -- it's now a child of this plain
+            (non-space-y) div instead, which applies no spacing of its
+            own. */}
       {(activeTab === "myFeed" || activeTab === "global" || activeTab === "circle" || activeTab === "myPosts") && (
-        <div className="space-y-6">
+        <div className="space-y-6 mt-6">
           {/* Composer — a motivational post is the one content type a user
               writes themselves; goal glimpses come from Today's Publish
               buttons, achievements auto-post on unlock. */}
@@ -804,7 +824,7 @@ export default function SocialPage() {
       )}
 
       {activeTab === "friends" && (
-        <div className="space-y-6">
+        <div className="space-y-6 mt-6">
           <div className="card card-highlight">
             <h2 className="text-lg font-semibold mb-1">{t("social.discoverTitle")}</h2>
             <p className="text-sm text-white/60 mb-4">{t("social.discoverSubtitle")}</p>
@@ -1027,7 +1047,7 @@ export default function SocialPage() {
           team_goal list leads, with the existing 1:1 Assigned Goals
           shortcut panel below it. */}
       {activeTab === "goals" && (
-        <div className="space-y-6">
+        <div className="space-y-6 mt-6">
           {!showTeamGoalComposer ? (
             <button
               type="button"
@@ -1187,6 +1207,7 @@ export default function SocialPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

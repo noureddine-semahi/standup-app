@@ -739,7 +739,7 @@ export default function ToolsPage() {
           type="button"
           onClick={handleAdd}
           disabled={adding || !draftTitle.trim()}
-          className="btn btn-primary"
+          className="btn standup-metal-btn standup-metal-btn--accent"
         >
           {adding ? t("backlog.adding") : t("backlog.addToBacklog")}
         </button>
@@ -792,7 +792,7 @@ export default function ToolsPage() {
                     type="button"
                     onClick={() => handlePush(item, tomorrowISO)}
                     disabled={busy}
-                    className="btn flex-1 min-w-0 flex items-center justify-center"
+                    className="btn standup-metal-btn flex-1 min-w-0 flex items-center justify-center"
                     style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem", minWidth: "130px" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
@@ -814,7 +814,7 @@ export default function ToolsPage() {
                   type="button"
                   onClick={() => handlePush(item)}
                   disabled={busy || !pushDate[item.id]}
-                  className="btn btn-primary w-full"
+                  className="btn standup-metal-btn standup-metal-btn--accent w-full"
                   style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
                 >
                   {t("backlog.push")}
@@ -910,7 +910,7 @@ export default function ToolsPage() {
           type="button"
           onClick={handleAddLongTerm}
           disabled={addingLongTerm || !ltDraftTitle.trim() || !ltDraftTargetDate}
-          className="btn btn-primary"
+          className="btn standup-metal-btn standup-metal-btn--accent"
         >
           {addingLongTerm ? t("backlog.adding") : t("backlog.addLongTermGoal")}
         </button>
@@ -976,7 +976,7 @@ export default function ToolsPage() {
                       type="button"
                       onClick={() => handlePushLongTerm(item)}
                       disabled={busy || !(ltPushDate[item.id] ?? item.target_date)}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
                     >
                       {t("backlog.push")}
@@ -1040,7 +1040,7 @@ export default function ToolsPage() {
           type="button"
           onClick={handleAddTemplate}
           disabled={addingTemplate || !newTemplateTitle.trim() || newTemplateDays.size === 0}
-          className="btn btn-primary"
+          className="btn standup-metal-btn standup-metal-btn--accent"
         >
           {addingTemplate ? t("backlog.addingTemplate") : t("backlog.addTemplate")}
         </button>
@@ -1075,7 +1075,7 @@ export default function ToolsPage() {
                       type="button"
                       onClick={() => handleDeleteTemplate(template)}
                       disabled={busy}
-                      className="btn tools-destructive-btn"
+                      className="btn standup-metal-btn standup-metal-btn--danger"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {t("backlog.confirmDeleteTemplateYes")}
@@ -1084,7 +1084,7 @@ export default function ToolsPage() {
                       type="button"
                       onClick={() => setConfirmingDeleteId(null)}
                       disabled={busy}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {t("backlog.confirmDeleteTemplateNo")}
@@ -1096,7 +1096,7 @@ export default function ToolsPage() {
                       type="button"
                       onClick={() => handleToggleTemplateActive(template)}
                       disabled={busy}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {template.active ? t("backlog.retireTemplate") : t("backlog.reactivateTemplate")}
@@ -1105,7 +1105,7 @@ export default function ToolsPage() {
                       type="button"
                       onClick={() => setConfirmingDeleteId(template.id)}
                       disabled={busy}
-                      className="btn tools-destructive-btn"
+                      className="btn standup-metal-btn standup-metal-btn--danger"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {t("backlog.deleteTemplate")}
@@ -1149,7 +1149,7 @@ export default function ToolsPage() {
           type="button"
           onClick={handleAddList}
           disabled={addingList || !newListName.trim()}
-          className="btn btn-primary"
+          className="btn standup-metal-btn standup-metal-btn--accent"
         >
           {addingList ? t("backlog.adding") : t("backlog.addList")}
         </button>
@@ -1194,7 +1194,7 @@ export default function ToolsPage() {
                     type="button"
                     onClick={() => handlePushList(list, tomorrowISO)}
                     disabled={busy}
-                    className="btn flex-1 min-w-0 flex items-center justify-center"
+                    className="btn standup-metal-btn flex-1 min-w-0 flex items-center justify-center"
                     style={{ height: "36px", padding: "0 0.6rem", fontSize: "0.75rem", minWidth: "116px" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
@@ -1214,7 +1214,7 @@ export default function ToolsPage() {
                   type="button"
                   onClick={() => handlePushList(list)}
                   disabled={busy || !listPushDate[list.id]}
-                  className="btn btn-primary w-full mb-3"
+                  className="btn standup-metal-btn standup-metal-btn--accent w-full mb-3"
                   style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                 >
                   {t("backlog.push")}
@@ -1256,7 +1256,7 @@ export default function ToolsPage() {
                     type="button"
                     onClick={() => handleAddListItem(list.id)}
                     disabled={addingItemListId === list.id || !(newListItemDraft[list.id] ?? "").trim()}
-                    className="btn flex-shrink-0 flex items-center justify-center"
+                    className="btn standup-metal-btn flex-shrink-0 flex items-center justify-center"
                     style={{ height: "36px", padding: "0 0.75rem", fontSize: "0.75rem" }}
                   >
                     {addingItemListId === list.id ? t("backlog.adding") : t("backlog.addItem")}
@@ -1336,7 +1336,7 @@ export default function ToolsPage() {
           type="button"
           onClick={handleAddPayment}
           disabled={addingPayment || !newPaymentName.trim() || !newPaymentDueDay}
-          className="btn btn-primary"
+          className="btn standup-metal-btn standup-metal-btn--accent"
           style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
         >
           {addingPayment ? t("backlog.adding") : t("backlog.addPayment")}
@@ -1513,10 +1513,10 @@ export default function ToolsPage() {
     </div>
 
       <div className="flex flex-wrap gap-4 items-center justify-between">
-        <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
+        <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tomorrow">
           {t("backlog.planTomorrowArrow")}
         </Link>
-        <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">
+        <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">
           {t("nav.dashboard")} →
         </Link>
       </div>

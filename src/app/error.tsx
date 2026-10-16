@@ -15,7 +15,7 @@ export default function Error({
       <div className="card text-center max-w-md">
         <h1 className="text-3xl font-bold mb-2">{t("errorPage.title")}</h1>
         <p className="text-white/70 mb-6">{error.message || t("errorPage.unexpectedError")}</p>
-        <button onClick={() => reset()} className="btn btn-primary">
+        <button onClick={() => reset()} className="btn standup-metal-btn standup-metal-btn--accent">
           {t("errorPage.tryAgain")}
         </button>
       </div>

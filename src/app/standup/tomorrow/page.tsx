@@ -1978,7 +1978,7 @@ export default function TomorrowGoalsPage() {
                         type="button"
                         onClick={() => submitNote(g.id as string, idx)}
                         disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
-                        className="btn"
+                        className="btn standup-metal-btn"
                         style={{ padding: "0.375rem 1rem" }}
                       >
                         {savingNote[g.id] ? t("tomorrow.adding") : t("tomorrow.add")}
@@ -2094,7 +2094,7 @@ export default function TomorrowGoalsPage() {
                   type="button"
                   onClick={() => handleAddSuggestedTemplate(template)}
                   disabled={addingTemplateId === template.id}
-                  className="btn"
+                  className="btn standup-metal-btn"
                   style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
                 >
                   {addingTemplateId === template.id ? t("tomorrow.addingSuggested") : `+ ${template.title}`}
@@ -2161,7 +2161,7 @@ export default function TomorrowGoalsPage() {
                     </div>
                     <button
                       type="button"
-                      className="btn hover-scale inline-flex items-center gap-1.5"
+                      className="btn standup-metal-btn hover-scale inline-flex items-center gap-1.5"
                       style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
                       onClick={() => addTaskLinkedToGoal(goal.id)}
                       disabled={!canAddMore}
@@ -2370,7 +2370,7 @@ export default function TomorrowGoalsPage() {
                   <div className="inline-flex items-center gap-1.5">
                     <button
                       type="button"
-                      className="btn hover-scale"
+                      className="btn standup-metal-btn hover-scale"
                       style={{ padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}
                       onClick={() => setAddFlowStep("task")}
                     >
@@ -2378,7 +2378,7 @@ export default function TomorrowGoalsPage() {
                     </button>
                     <button
                       type="button"
-                      className="btn hover-scale"
+                      className="btn standup-metal-btn hover-scale"
                       style={{ padding: "0.45rem 0.7rem", fontSize: "0.8rem" }}
                       onClick={() => setAddFlowStep("goal")}
                     >
@@ -2467,7 +2467,7 @@ export default function TomorrowGoalsPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="btn btn-primary hover-scale"
+                      className="btn standup-metal-btn standup-metal-btn--accent hover-scale"
                       style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
                       disabled={creatingTask || !newTaskTitle.trim()}
                       onClick={handleCreateStandaloneTask}
@@ -2670,7 +2670,7 @@ export default function TomorrowGoalsPage() {
                     type="button"
                     disabled={creatingGoal}
                     onClick={() => setNewGoalTasks((prev) => [...prev, { title: "", priority: DEFAULT_PRIORITY }])}
-                    className="btn hover-scale inline-flex items-center gap-1.5"
+                    className="btn standup-metal-btn hover-scale inline-flex items-center gap-1.5"
                     style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                   >
                     {t("tomorrow.addAnotherGoalTask")}
@@ -2679,7 +2679,7 @@ export default function TomorrowGoalsPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="btn btn-primary hover-scale"
+                      className="btn standup-metal-btn standup-metal-btn--accent hover-scale"
                       style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
                       disabled={!canCreateMajorGoal}
                       onClick={handleCreateMajorGoal}
@@ -2784,9 +2784,9 @@ export default function TomorrowGoalsPage() {
         )}
 
         <div className="tomorrow-bottom-nav-links mt-6 flex items-center gap-2 sm:gap-3">
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tools" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.tools")}</Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tools" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.tools")}</Link>
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
         </div>
 
         {msg && (

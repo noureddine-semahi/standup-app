@@ -258,7 +258,7 @@ export default function AboutPage() {
         <div className="scroll-reveal text-center mt-16">
           {!signedIn && (
             <>
-              <Link href="/signup" className="btn btn-primary text-lg px-8 py-4">
+              <Link href="/signup" className="btn standup-metal-btn standup-metal-btn--accent text-lg px-8 py-4">
                 {t("about.getStarted")}
               </Link>
               <p className="mt-4 text-sm text-page-tertiary">

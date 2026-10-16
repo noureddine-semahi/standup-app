@@ -119,7 +119,7 @@ export default function GoalTypeInfoModal({
         <p className="mt-3 text-sm text-white/70">{t(content.behavior)}</p>
 
         <div className="flex gap-3 mt-4">
-          <button type="button" onClick={onDismiss} className="btn btn-primary flex-1">
+          <button type="button" onClick={onDismiss} className="btn standup-metal-btn standup-metal-btn--accent flex-1">
             {t("goalType.gotIt")}
           </button>
         </div>

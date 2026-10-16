@@ -231,7 +231,7 @@ export default function CommentThread({
               type="button"
               onClick={() => handlePost(draft, null, draftMentionedIds, () => setDraft(""), () => setDraftMentionedIds([]), setPosting)}
               disabled={posting || !draft.trim()}
-              className="btn"
+              className="btn standup-metal-btn standup-metal-btn--accent"
               style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}
             >
               {posting ? t("comments.posting") : t("comments.postButton")}
@@ -328,7 +328,7 @@ function CommentRow({
                 type="button"
                 onClick={onSubmitReply}
                 disabled={postingReply || !replyDraft?.trim()}
-                className="btn"
+                className="btn standup-metal-btn standup-metal-btn--accent"
                 style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
               >
                 {postingReply ? t("comments.posting") : t("comments.postButton")}

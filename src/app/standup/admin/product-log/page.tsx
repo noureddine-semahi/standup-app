@@ -231,7 +231,7 @@ export default function ProductLogPage() {
               later.
             </p>
           </div>
-          <Link href="/standup/admin" className="btn btn-ghost whitespace-nowrap">
+          <Link href="/standup/admin" className="btn standup-metal-btn whitespace-nowrap">
             ← Admin
           </Link>
         </div>

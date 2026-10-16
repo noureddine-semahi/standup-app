@@ -12,7 +12,7 @@ export default function NotFound() {
         <p className="text-white/70 mb-6">
           {t("notFound.body")}
         </p>
-        <Link href="/" className="btn btn-primary">
+        <Link href="/" className="btn standup-metal-btn standup-metal-btn--accent">
           {t("notFound.backHome")}
         </Link>
       </div>

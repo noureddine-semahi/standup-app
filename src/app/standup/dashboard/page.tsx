@@ -563,7 +563,7 @@ export default function DashboardPage() {
             onClick={handleRetry}
             disabled={retrying}
             aria-busy={retrying}
-            className="btn btn-primary dashboard-banner-cta"
+            className="btn standup-metal-btn standup-metal-btn--accent dashboard-banner-cta"
           >
             {retrying ? t("dashboard.retrying") : t("dashboard.retry")}
           </button>
@@ -938,7 +938,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href="/standup/tomorrow"
-                className="btn dashboard-banner-cta inline-block"
+                className="btn standup-metal-btn dashboard-banner-cta inline-block"
                 onClick={dismissWelcome}
               >
                 {t("dashboard.planTomorrowArrow")}
@@ -989,7 +989,7 @@ export default function DashboardPage() {
               <p className="dashboard-banner-body">
                 {t("dashboard.overdueBody")}
               </p>
-              <Link href="/standup/calendar?unreviewed=1" className="btn dashboard-banner-cta inline-block">
+              <Link href="/standup/calendar?unreviewed=1" className="btn standup-metal-btn dashboard-banner-cta inline-block">
                 {t("dashboard.viewUnreviewed")}
               </Link>
             </div>
@@ -1006,7 +1006,7 @@ export default function DashboardPage() {
               <p className="dashboard-banner-body">
                 {t(todayPending === 1 ? "dashboard.pendingReviewBanner.one" : "dashboard.pendingReviewBanner.other", { count: todayPending })}
               </p>
-              <Link href="/standup/today" className="btn dashboard-banner-cta inline-block">
+              <Link href="/standup/today" className="btn standup-metal-btn dashboard-banner-cta inline-block">
                 {t("nav.reviewToday")} →
               </Link>
             </div>
@@ -1939,12 +1939,12 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3">
             <div className="quick-actions-primary">
               {todayPending > 0 && (
-                <Link href="/standup/today" className="btn btn-primary inline-flex items-center justify-center gap-2">
+                <Link href="/standup/today" className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center justify-center gap-2">
                   <Zap size={15} /> {t(todayPending > 1 ? "dashboard.reviewPending.other" : "dashboard.reviewPending.one", { count: todayPending })}
                 </Link>
               )}
               {!todayClosed && todayTotal > 0 && todayPending === 0 && (
-                <Link href="/standup/today" className="btn btn-primary inline-flex items-center justify-center gap-2">
+                <Link href="/standup/today" className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center justify-center gap-2">
                   <CheckCircle2 size={15} /> {t("dashboard.closeOutDay")}
                 </Link>
               )}
@@ -1955,7 +1955,7 @@ export default function DashboardPage() {
                 </div>
               )}
               {tomorrowTotal === 0 && (
-                <Link href="/standup/tomorrow" className="btn btn-primary inline-flex items-center justify-center gap-2">
+                <Link href="/standup/tomorrow" className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center justify-center gap-2">
                   <Target size={15} /> {t("nav.planTomorrow")}
                 </Link>
               )}

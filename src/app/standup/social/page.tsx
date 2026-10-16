@@ -505,7 +505,7 @@ export default function SocialPage() {
               <h1 className="text-xl font-bold mb-2">{profile?.display_name || t("social.anonymousUser")}</h1>
               <Link
                 href="/standup/settings"
-                className="btn inline-flex items-center gap-1.5"
+                className="btn standup-metal-btn inline-flex items-center gap-1.5"
                 style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
               >
                 <Pencil size={12} /> {t("social.editProfile")}
@@ -727,7 +727,7 @@ export default function SocialPage() {
                   type="button"
                   onClick={() => postImageInputRef.current?.click()}
                   disabled={posting}
-                  className="btn inline-flex items-center gap-1.5"
+                  className="btn standup-metal-btn inline-flex items-center gap-1.5"
                   style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                 >
                   <ImagePlus size={13} /> {t("social.addPhoto")}
@@ -736,7 +736,7 @@ export default function SocialPage() {
                   type="button"
                   onClick={() => postVideoInputRef.current?.click()}
                   disabled={posting}
-                  className="btn inline-flex items-center gap-1.5"
+                  className="btn standup-metal-btn inline-flex items-center gap-1.5"
                   style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                 >
                   <Video size={13} /> {t("social.addVideo")}
@@ -783,7 +783,7 @@ export default function SocialPage() {
                 type="button"
                 onClick={handlePost}
                 disabled={posting || !postBody.trim()}
-                className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
+                className="btn standup-metal-btn standup-metal-btn--accent text-sm px-4 py-2 whitespace-nowrap"
               >
                 {posting ? t("social.posting") : t("social.postButton")}
               </button>
@@ -853,7 +853,7 @@ export default function SocialPage() {
                           type="button"
                           onClick={() => handleInvite(user)}
                           disabled={busy || user.invited}
-                          className="btn w-full inline-flex items-center justify-center gap-1.5"
+                          className="btn standup-metal-btn w-full inline-flex items-center justify-center gap-1.5"
                           style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                         >
                           {user.invited ? (
@@ -875,7 +875,7 @@ export default function SocialPage() {
                     type="button"
                     onClick={handleLoadMoreDiscover}
                     disabled={discoverLoadingMore}
-                    className="btn"
+                    className="btn standup-metal-btn"
                     style={{ padding: "0.4rem 1rem", fontSize: "0.8rem" }}
                   >
                     {discoverLoadingMore ? t("dashboard.loading") : t("social.loadMore")}
@@ -915,7 +915,7 @@ export default function SocialPage() {
                           type="button"
                           onClick={() => handleRespond(c.id, true)}
                           disabled={busyConnectionIds.has(c.id)}
-                          className="btn flex-1"
+                          className="btn standup-metal-btn standup-metal-btn--accent flex-1"
                           style={{ padding: "0.3rem 0.4rem", fontSize: "0.72rem" }}
                         >
                           {t("social.accept")}
@@ -924,7 +924,7 @@ export default function SocialPage() {
                           type="button"
                           onClick={() => handleRespond(c.id, false)}
                           disabled={busyConnectionIds.has(c.id)}
-                          className="btn flex-1"
+                          className="btn standup-metal-btn flex-1"
                           style={{ padding: "0.3rem 0.4rem", fontSize: "0.72rem" }}
                         >
                           {t("social.decline")}
@@ -955,7 +955,7 @@ export default function SocialPage() {
                         type="button"
                         onClick={() => handleRemoveConnection(c.id)}
                         disabled={busyConnectionIds.has(c.id)}
-                        className="btn w-full"
+                        className="btn standup-metal-btn w-full"
                         style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                       >
                         {t("social.cancelRequest")}
@@ -992,7 +992,7 @@ export default function SocialPage() {
                       <div className="flex items-center gap-1.5 w-full">
                         <Link
                           href={`/standup/social/profile/${c.otherUserId}`}
-                          className="btn flex-1"
+                          className="btn standup-metal-btn flex-1"
                           style={{ padding: "0.3rem 0.5rem", fontSize: "0.72rem" }}
                         >
                           {t("social.viewProfile")}
@@ -1052,7 +1052,7 @@ export default function SocialPage() {
             <button
               type="button"
               onClick={() => setShowTeamGoalComposer(true)}
-              className="btn btn-primary inline-flex items-center gap-1.5"
+              className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center gap-1.5"
             >
               <ListChecks size={14} /> {t("teamGoal.startButton")}
             </button>
@@ -1113,7 +1113,7 @@ export default function SocialPage() {
                 type="button"
                 onClick={() => setTeamGoalItemDrafts((prev) => [...prev, ""])}
                 disabled={creatingTeamGoal}
-                className="btn inline-flex items-center gap-1.5 mb-3"
+                className="btn standup-metal-btn inline-flex items-center gap-1.5 mb-3"
                 style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
               >
                 <Plus size={13} /> {t("teamGoal.addAnotherItem")}
@@ -1159,7 +1159,7 @@ export default function SocialPage() {
                     type="button"
                     onClick={() => setShowTeamGoalComposer(false)}
                     disabled={creatingTeamGoal}
-                    className="btn text-sm px-3 py-2"
+                    className="btn standup-metal-btn text-sm px-3 py-2"
                   >
                     {t("teamGoal.cancel")}
                   </button>
@@ -1167,7 +1167,7 @@ export default function SocialPage() {
                     type="button"
                     onClick={handleCreateTeamGoal}
                     disabled={creatingTeamGoal || !teamGoalTitle.trim()}
-                    className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap"
+                    className="btn standup-metal-btn standup-metal-btn--accent text-sm px-4 py-2 whitespace-nowrap"
                   >
                     {creatingTeamGoal ? t("teamGoal.creating") : t("teamGoal.createButton")}
                   </button>

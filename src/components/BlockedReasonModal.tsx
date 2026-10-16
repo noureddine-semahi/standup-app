@@ -76,11 +76,11 @@ export default function BlockedReasonModal({ goalTitle, saving, error, onCancel,
           <button
             onClick={() => onConfirm(reason)}
             disabled={saving || !reason.trim()}
-            className="btn btn-primary flex-1"
+            className="btn standup-metal-btn standup-metal-btn--accent flex-1"
           >
             {saving ? t("blocked.saving") : t("blocked.markBlocked")}
           </button>
-          <button onClick={onCancel} disabled={saving} className="btn btn-ghost">
+          <button onClick={onCancel} disabled={saving} className="btn standup-metal-btn">
             {t("blocked.cancel")}
           </button>
         </div>

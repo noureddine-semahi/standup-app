@@ -158,7 +158,7 @@ export default function ModerationPage() {
               the community guidelines, not for everyday browsing.
             </p>
           </div>
-          <Link href="/standup/admin" className="btn btn-ghost whitespace-nowrap">
+          <Link href="/standup/admin" className="btn standup-metal-btn whitespace-nowrap">
             ← Admin
           </Link>
         </div>
@@ -228,8 +228,7 @@ export default function ModerationPage() {
                     type="button"
                     onClick={() => handleDeletePost(post)}
                     disabled={busyPostIds.has(post.id)}
-                    className="btn flex-shrink-0 inline-flex items-center gap-1.5"
-                    style={{ borderColor: "rgba(239, 68, 68, 0.35)", color: "#fca5a5" }}
+                    className="btn standup-metal-btn standup-metal-btn--danger flex-shrink-0 inline-flex items-center gap-1.5"
                   >
                     <Trash2 size={13} /> {busyPostIds.has(post.id) ? "Removing…" : "Remove"}
                   </button>
@@ -257,8 +256,8 @@ export default function ModerationPage() {
                             type="button"
                             onClick={() => handleDeleteComment(c)}
                             disabled={busyCommentIds.has(c.id)}
-                            className="btn flex-shrink-0"
-                            style={{ padding: "0.2rem 0.5rem", fontSize: "0.65rem", borderColor: "rgba(239, 68, 68, 0.35)", color: "#fca5a5" }}
+                            className="btn standup-metal-btn standup-metal-btn--danger flex-shrink-0"
+                            style={{ padding: "0.2rem 0.5rem", fontSize: "0.65rem" }}
                           >
                             <Trash2 size={11} />
                           </button>

@@ -163,7 +163,7 @@ export default function ProfilePage() {
         <div className="flex-1 grid grid-cols-1 gap-3 w-full" style={{ boxSizing: "border-box" }}>
           <Link
             href="/standup/settings"
-            className="btn flex items-center justify-between"
+            className="btn standup-metal-btn flex items-center justify-between"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
             <span className="flex-1 text-left">Profile &amp; Settings</span>
@@ -174,7 +174,7 @@ export default function ProfilePage() {
           </Link>
           <Link
             href="/standup/history"
-            className="btn text-center"
+            className="btn standup-metal-btn text-center"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
             {t("profile.dataMetrics")}
@@ -182,7 +182,7 @@ export default function ProfilePage() {
           {profile?.is_admin && (
             <Link
               href="/standup/admin"
-              className="btn text-center"
+              className="btn standup-metal-btn text-center"
               style={{ boxSizing: "border-box", width: "100%" }}
             >
               {t("profile.adminPanel")}
@@ -191,7 +191,7 @@ export default function ProfilePage() {
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="btn"
+            className="btn standup-metal-btn"
             style={{ boxSizing: "border-box", width: "100%" }}
           >
             {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
@@ -315,10 +315,10 @@ export default function ProfilePage() {
             onFocus={(e) => e.currentTarget.select()}
             className="flex-1 min-w-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70"
           />
-          <button onClick={handleCopyLink} className="btn text-sm px-4 py-2 whitespace-nowrap">
+          <button onClick={handleCopyLink} className="btn standup-metal-btn text-sm px-4 py-2 whitespace-nowrap">
             {t("profile.copyLink")}
           </button>
-          <button onClick={handleShare} className="btn btn-primary text-sm px-4 py-2 whitespace-nowrap">
+          <button onClick={handleShare} className="btn standup-metal-btn standup-metal-btn--accent text-sm px-4 py-2 whitespace-nowrap">
             {t("profile.share")}
           </button>
         </div>

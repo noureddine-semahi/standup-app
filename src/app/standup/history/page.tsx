@@ -611,7 +611,7 @@ export default function HistoryPage() {
                 {t(goalList.length === 1 ? "history.goalCount.one" : "history.goalCount.other", { count: goalList.length })}
               </p>
             </div>
-            <button type="button" className="btn inline-flex items-center gap-1.5" onClick={() => setGoalListOpen(false)}>
+            <button type="button" className="btn standup-metal-btn inline-flex items-center gap-1.5" onClick={() => setGoalListOpen(false)}>
               <X size={13} /> {t("history.close")}
             </button>
           </div>
@@ -740,7 +740,7 @@ export default function HistoryPage() {
       </div>
 
       <div className="text-center py-2">
-        <Link href="/standup/profile" className="btn">
+        <Link href="/standup/profile" className="btn standup-metal-btn">
           {t("history.backToProfile")}
         </Link>
       </div>

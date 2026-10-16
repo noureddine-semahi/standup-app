@@ -116,7 +116,7 @@ export default function PendingNotifications({
                 type="button"
                 onClick={() => run(c.id, () => respondToConnectionRequest(c.id, true))}
                 disabled={busyIds.has(c.id)}
-                className="btn"
+                className="btn standup-metal-btn standup-metal-btn--accent"
                 style={ACTION_BTN_STYLE}
               >
                 {t("social.accept")}
@@ -125,7 +125,7 @@ export default function PendingNotifications({
                 type="button"
                 onClick={() => run(c.id, () => respondToConnectionRequest(c.id, false))}
                 disabled={busyIds.has(c.id)}
-                className="btn"
+                className="btn standup-metal-btn"
                 style={ACTION_BTN_STYLE}
               >
                 {t("social.decline")}
@@ -147,7 +147,7 @@ export default function PendingNotifications({
                 type="button"
                 onClick={() => run(a.id, () => respondToGoalAssignment(a.id, true))}
                 disabled={busyIds.has(a.id)}
-                className="btn"
+                className="btn standup-metal-btn standup-metal-btn--accent"
                 style={ACTION_BTN_STYLE}
               >
                 {t("social.accept")}
@@ -156,7 +156,7 @@ export default function PendingNotifications({
                 type="button"
                 onClick={() => run(a.id, () => respondToGoalAssignment(a.id, false))}
                 disabled={busyIds.has(a.id)}
-                className="btn"
+                className="btn standup-metal-btn"
                 style={ACTION_BTN_STYLE}
               >
                 {t("social.decline")}
@@ -190,7 +190,7 @@ export default function PendingNotifications({
               type="button"
               onClick={() => run(c.id, () => markConnectionSeen(c.id))}
               disabled={busyIds.has(c.id)}
-              className="btn flex-shrink-0"
+              className="btn standup-metal-btn flex-shrink-0"
               style={ACTION_BTN_STYLE}
             >
               {t("dashboard.acknowledge")}
@@ -224,7 +224,7 @@ export default function PendingNotifications({
               type="button"
               onClick={() => run(a.id, () => markGoalAssignmentSeen(a.id))}
               disabled={busyIds.has(a.id)}
-              className="btn flex-shrink-0"
+              className="btn standup-metal-btn flex-shrink-0"
               style={ACTION_BTN_STYLE}
             >
               {t("dashboard.acknowledge")}
@@ -247,7 +247,7 @@ export default function PendingNotifications({
               type="button"
               onClick={() => run(a.id, () => markGoalAssignmentSeenByRecipient(a.id))}
               disabled={busyIds.has(a.id)}
-              className="btn flex-shrink-0"
+              className="btn standup-metal-btn flex-shrink-0"
               style={ACTION_BTN_STYLE}
             >
               {t("dashboard.acknowledge")}
@@ -264,14 +264,14 @@ export default function PendingNotifications({
               {m.preview && <div className="text-[11px] text-white/50 truncate">{m.preview}</div>}
             </div>
             <div className="flex gap-1.5 flex-shrink-0">
-              <Link href="/standup/social" className="btn" style={ACTION_BTN_STYLE}>
+              <Link href="/standup/social" className="btn standup-metal-btn" style={ACTION_BTN_STYLE}>
                 {t("dashboard.viewLabel")}
               </Link>
               <button
                 type="button"
                 onClick={() => run(m.id, () => markMentionSeen(m.id))}
                 disabled={busyIds.has(m.id)}
-                className="btn"
+                className="btn standup-metal-btn"
                 style={ACTION_BTN_STYLE}
               >
                 {t("dashboard.acknowledge")}
@@ -301,14 +301,14 @@ export default function PendingNotifications({
                 {p.preview && <div className="text-[11px] text-white/50 truncate">{p.preview}</div>}
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
-                <Link href="/standup/social" className="btn" style={ACTION_BTN_STYLE}>
+                <Link href="/standup/social" className="btn standup-metal-btn" style={ACTION_BTN_STYLE}>
                   {t("dashboard.viewLabel")}
                 </Link>
                 <button
                   type="button"
                   onClick={() => run(p.id, () => markPostActivityNotificationSeen(p.id))}
                   disabled={busyIds.has(p.id)}
-                  className="btn"
+                  className="btn standup-metal-btn"
                   style={ACTION_BTN_STYLE}
                 >
                   {t("dashboard.acknowledge")}

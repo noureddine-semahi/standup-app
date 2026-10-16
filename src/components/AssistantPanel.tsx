@@ -235,10 +235,10 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
         </div>
 
         <div className="flex gap-3 mt-3">
-          <button onClick={handleSend} disabled={sending || !input.trim()} className="btn btn-primary flex-1">
+          <button onClick={handleSend} disabled={sending || !input.trim()} className="btn standup-metal-btn standup-metal-btn--accent flex-1">
             {sending ? t("assistant.thinking") : t("assistant.send")}
           </button>
-          <button onClick={onClose} disabled={sending} className="btn btn-ghost">
+          <button onClick={onClose} disabled={sending} className="btn standup-metal-btn">
             {t("assistant.close")}
           </button>
         </div>
@@ -256,12 +256,11 @@ export default function AssistantPanel({ onClose, onActionTaken }: AssistantPane
               <button
                 onClick={handleConfirmDelete}
                 disabled={sending}
-                className="btn flex-1"
-                style={{ borderColor: "var(--status-blocked-border-active)", color: "var(--status-blocked)" }}
+                className="btn standup-metal-btn standup-metal-btn--danger flex-1"
               >
                 {sending ? t("assistant.deleting") : t("assistant.yesDeleteIt")}
               </button>
-              <button onClick={handleCancelDelete} disabled={sending} className="btn btn-ghost">
+              <button onClick={handleCancelDelete} disabled={sending} className="btn standup-metal-btn">
                 {t("assistant.cancel")}
               </button>
             </div>

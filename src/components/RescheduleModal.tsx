@@ -181,7 +181,7 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
                 type="button"
                 onClick={handleMoveToBacklog}
                 disabled={saving || movingToBacklog}
-                className="btn flex-shrink-0"
+                className="btn standup-metal-btn flex-shrink-0"
                 style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
               >
                 {!movingToBacklog && <NotebookText size={14} />}
@@ -233,14 +233,14 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
             <button
               onClick={handleReschedule}
               disabled={saving || !selectedDate}
-              className="btn btn-primary flex-1"
+              className="btn standup-metal-btn standup-metal-btn--accent flex-1"
             >
               {saving ? t("reschedule.rescheduling") : isBulk ? t("reschedule.reattemptDay") : t("reschedule.rescheduleGoal")}
             </button>
             <button
               onClick={onClose}
               disabled={saving}
-              className="btn btn-ghost"
+              className="btn standup-metal-btn"
             >
               {t("reschedule.cancel")}
             </button>

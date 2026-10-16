@@ -83,11 +83,11 @@ export default function PaymentConfirmModal({ accountName, suggestedAmount, savi
           <button
             onClick={() => onConfirm(parsedAmount)}
             disabled={saving || !isValid}
-            className="btn btn-primary flex-1"
+            className="btn standup-metal-btn standup-metal-btn--accent flex-1"
           >
             {saving ? t("paymentConfirm.saving") : t("paymentConfirm.confirmButton")}
           </button>
-          <button onClick={onCancel} disabled={saving} className="btn btn-ghost">
+          <button onClick={onCancel} disabled={saving} className="btn standup-metal-btn">
             {t("paymentConfirm.cancel")}
           </button>
         </div>

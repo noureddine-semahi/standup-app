@@ -95,7 +95,7 @@ export default function TeamGoalCard({ post }: { post: Post }) {
           <button
             type="submit"
             disabled={addingItem || !newItemText.trim()}
-            className="btn flex-shrink-0"
+            className="btn standup-metal-btn flex-shrink-0"
             style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem" }}
           >
             {addingItem ? t("teamGoal.adding") : t("teamGoal.addItemButton")}
@@ -108,7 +108,7 @@ export default function TeamGoalCard({ post }: { post: Post }) {
           type="button"
           onClick={join}
           disabled={joining}
-          className="btn btn-primary inline-flex items-center gap-1.5"
+          className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center gap-1.5"
           style={{ padding: "0.3rem 0.7rem", fontSize: "0.75rem" }}
         >
           <UserPlus size={13} /> {joining ? t("teamGoal.joining") : t("teamGoal.joinButton")}

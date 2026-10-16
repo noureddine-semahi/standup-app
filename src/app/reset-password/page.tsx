@@ -155,7 +155,7 @@ export default function ResetPasswordPage() {
                 </div>
               )}
 
-              <button type="submit" disabled={loading} className="btn btn-primary w-full">
+              <button type="submit" disabled={loading} className="btn standup-metal-btn standup-metal-btn--accent w-full">
                 {loading ? t("settings.updating") : t("settings.updatePassword")}
               </button>
             </form>

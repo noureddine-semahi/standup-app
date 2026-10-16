@@ -8086,14 +8086,19 @@ select:focus {
   opacity: 1;
 }
 
-/* Active/pressed: physically depresses -- .btn:active's own
-   translateY(2px) still applies unchanged (not redeclared here); the
-   rim dims, the face darkens a step, the outer shadow/ring/glow shrink
-   away almost entirely, and the inset shadow deepens, reading as the
-   face sinking into the frame under a fingertip. The ring survives at
-   reduced size/opacity (not removed outright) -- "metallic perimeter
-   remains visible" even while pressed, per the brief. */
+/* Active/pressed: physically depresses -- global correction, this no
+   longer inherits .btn:active's own translateY(2px) (canceled below):
+   the brief is explicit that the outer socket must stay stationary and
+   pressed feedback must come entirely from the face/rim/shadow, not
+   the whole control shifting. The rim dims, the face darkens a step,
+   the outer shadow/ring/glow shrink away almost entirely, and the
+   inset shadow deepens, reading as the face sinking into the frame
+   under a fingertip. The ring survives at reduced size/opacity (not
+   removed outright) -- "metallic perimeter remains visible" even while
+   pressed, per the brief. One rule, applies everywhere this class is
+   used -- not special-cased per page. */
 .standup-metal-btn:active {
+  transform: none;
   border-top-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 45%, white 8%);
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 32%, white 4%);
   border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 12%, black 45%);
@@ -8173,6 +8178,32 @@ select:focus {
   --metal-glow-int-hover: 0 0 12px 0px;
   --metal-glow-int-hover-strength: 52%;
   text-shadow: 0 0 6px rgba(245, 158, 11, 0.16);
+}
+
+/* Destructive variant -- same mechanism as --accent (only --metal-color
+   and the glow tokens change, no duplicated box-shadow/gradient list),
+   keyed off --status-blocked, the token already used for every other
+   destructive surface in the app (Settings' own Delete Account button,
+   goal status chips, etc.) rather than a new red. Goes a step further
+   than --accent in two places specifically because a routine amber
+   emphasis and a destructive warning can't read as the same strength:
+   the glow is stronger (38%/58% vs --accent's 34%/52%) and, unlike
+   --accent (which deliberately keeps text neutral), the text itself
+   tints red too -- rim + glow + text all agreeing is what keeps this
+   reading as a real warning rather than "slightly emphasized metal",
+   while the face/construction stay the identical shared recipe. */
+.standup-metal-btn--danger {
+  --metal-color: var(--status-blocked);
+  --metal-glow-int-rest: 0 0 8px -1px;
+  --metal-glow-int-rest-strength: 38%;
+  --metal-glow-int-hover: 0 0 14px 0px;
+  --metal-glow-int-hover-strength: 58%;
+  color: rgb(254, 202, 202);
+  text-shadow: 0 0 6px rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .standup-metal-btn--danger {
+  color: rgb(153, 27, 27);
 }
 
 /* Light theme: same bug class as .header-metal-control (fixed above) --

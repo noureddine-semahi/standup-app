@@ -366,7 +366,7 @@ export default function SettingsPage() {
           </div>
           {nameErr && <div className={errorClass}>{nameErr}</div>}
           {nameMsg && <div className={successClass}>{nameMsg}</div>}
-          <button type="submit" disabled={savingName} className="btn btn-primary">
+          <button type="submit" disabled={savingName} className="btn standup-metal-btn standup-metal-btn--accent">
             {savingName ? t("settings.saving") : t("settings.saveName")}
           </button>
         </form>
@@ -401,7 +401,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div>
-            <label className="btn" style={{ cursor: uploadingAvatar ? "not-allowed" : "pointer", opacity: uploadingAvatar ? 0.5 : 1 }}>
+            <label className="btn standup-metal-btn" style={{ cursor: uploadingAvatar ? "not-allowed" : "pointer", opacity: uploadingAvatar ? 0.5 : 1 }}>
               {uploadingAvatar ? t("settings.uploading") : t("settings.changePhoto")}
               <input
                 type="file"
@@ -511,7 +511,7 @@ export default function SettingsPage() {
 
           {personalInfoErr && <div className={errorClass}>{personalInfoErr}</div>}
           {personalInfoMsg && <div className={successClass}>{personalInfoMsg}</div>}
-          <button type="submit" disabled={savingPersonalInfo} className="btn btn-primary">
+          <button type="submit" disabled={savingPersonalInfo} className="btn standup-metal-btn standup-metal-btn--accent">
             {savingPersonalInfo ? t("settings.saving") : t("settings.savePersonalInfo")}
           </button>
         </form>
@@ -579,7 +579,7 @@ export default function SettingsPage() {
           </div>
           {emailErr && <div className={errorClass}>{emailErr}</div>}
           {emailMsg && <div className={successClass}>{emailMsg}</div>}
-          <button type="submit" disabled={savingEmail} className="btn btn-primary">
+          <button type="submit" disabled={savingEmail} className="btn standup-metal-btn standup-metal-btn--accent">
             {savingEmail ? t("settings.saving") : t("settings.updateEmail")}
           </button>
         </form>
@@ -636,7 +636,7 @@ export default function SettingsPage() {
           </div>
           {passwordErr && <div className={errorClass}>{passwordErr}</div>}
           {passwordMsg && <div className={successClass}>{passwordMsg}</div>}
-          <button type="submit" disabled={savingPassword} className="btn btn-primary">
+          <button type="submit" disabled={savingPassword} className="btn standup-metal-btn standup-metal-btn--accent">
             {savingPassword ? t("settings.updating") : t("settings.updatePassword")}
           </button>
         </form>
@@ -673,11 +673,8 @@ export default function SettingsPage() {
             type="button"
             onClick={handleDeleteAccount}
             disabled={deleteConfirmText !== "DELETE" || deleting}
-            className="btn"
+            className="btn standup-metal-btn standup-metal-btn--danger"
             style={{
-              background: "var(--status-blocked-bg-active)",
-              borderColor: "var(--status-blocked-border-active)",
-              color: "var(--status-blocked)",
               opacity: deleteConfirmText !== "DELETE" || deleting ? 0.5 : 1,
               cursor: deleteConfirmText !== "DELETE" || deleting ? "not-allowed" : "pointer",
             }}

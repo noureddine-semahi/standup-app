@@ -90,7 +90,7 @@ export default function AchievementUnlockedModal({
             type="button"
             onClick={() => handleShare("connections")}
             disabled={sharing}
-            className="btn flex-1"
+            className="btn standup-metal-btn flex-1"
             style={{ padding: "0.5rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
           >
             <Users size={14} /> {t("today.publishConnectionsBtn")}
@@ -99,13 +99,13 @@ export default function AchievementUnlockedModal({
             type="button"
             onClick={() => handleShare("everyone")}
             disabled={sharing}
-            className="btn flex-1"
+            className="btn standup-metal-btn flex-1"
             style={{ padding: "0.5rem", fontSize: "0.8rem", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
           >
             <Globe size={14} /> {t("today.publishEveryoneBtn")}
           </button>
         </div>
-        <button onClick={onDismiss} disabled={sharing} className="btn btn-primary w-full">
+        <button onClick={onDismiss} disabled={sharing} className="btn standup-metal-btn standup-metal-btn--accent w-full">
           {sharing ? t("achievementModal.sharing") : t("achievementModal.skip")}
         </button>
       </div>

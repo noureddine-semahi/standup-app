@@ -2191,7 +2191,7 @@ export default function TodayPage() {
                     type="button"
                     onClick={() => submitNote(g.id)}
                     disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
-                    className="btn"
+                    className="btn standup-metal-btn"
                     style={{ padding: "0.375rem 1rem" }}
                   >
                     {savingNote[g.id] ? t("today.addingNote") : t("today.add")}
@@ -2489,7 +2489,7 @@ export default function TodayPage() {
                   type="button"
                   onClick={() => submitNote(g.id)}
                   disabled={!!savingNote[g.id] || !(noteDraft[g.id] ?? "").trim()}
-                  className="btn"
+                  className="btn standup-metal-btn"
                   style={{ padding: "0.375rem 1rem" }}
                 >
                   {savingNote[g.id] ? t("today.addingNote") : t("today.add")}
@@ -2780,7 +2780,7 @@ export default function TodayPage() {
                       type="button"
                       onClick={handleUnpublish}
                       disabled={publishing}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
                     >
                       {publishing ? t("today.unpublishing") : t("today.unpublish")}
@@ -2875,7 +2875,7 @@ export default function TodayPage() {
                       type="button"
                       onClick={() => handleRespondReceivedAssignment(a.id, true)}
                       disabled={respondingAssignmentIds.has(a.id)}
-                      className="btn"
+                      className="btn standup-metal-btn standup-metal-btn--accent"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {t("social.accept")}
@@ -2884,7 +2884,7 @@ export default function TodayPage() {
                       type="button"
                       onClick={() => handleRespondReceivedAssignment(a.id, false)}
                       disabled={respondingAssignmentIds.has(a.id)}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >
                       {t("social.decline")}
@@ -3019,7 +3019,7 @@ export default function TodayPage() {
                     <button
                       type="button"
                       onClick={() => setAddFlowStep("task")}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
                     >
                       {t("tomorrow.addChoiceTask")}
@@ -3027,7 +3027,7 @@ export default function TodayPage() {
                     <button
                       type="button"
                       onClick={() => setAddFlowStep("goal")}
-                      className="btn inline-flex items-center gap-1.5"
+                      className="btn standup-metal-btn inline-flex items-center gap-1.5"
                       style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
                     >
                       <Target size={13} /> {t("tomorrow.addChoiceGoal")}
@@ -3080,11 +3080,11 @@ export default function TodayPage() {
                       <button
                         onClick={handleCreateStandaloneTask}
                         disabled={creatingTask || !newTaskTitle.trim()}
-                        className="btn btn-primary"
+                        className="btn standup-metal-btn standup-metal-btn--accent"
                       >
                         {creatingTask ? t("today.adding") : t("tomorrow.createTaskButton")}
                       </button>
-                      <button onClick={resetAddFlow} className="btn btn-ghost">
+                      <button onClick={resetAddFlow} className="btn standup-metal-btn">
                         {t("today.cancel")}
                       </button>
                     </div>
@@ -3257,7 +3257,7 @@ export default function TodayPage() {
                       type="button"
                       disabled={creatingGoal}
                       onClick={() => setNewGoalTasks((prev) => [...prev, { title: "", priority: 3 }])}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={{ padding: "0.3rem 0.6rem", fontSize: "0.75rem" }}
                     >
                       {t("tomorrow.addAnotherGoalTask")}
@@ -3276,11 +3276,11 @@ export default function TodayPage() {
                             ? t("recurringSetup.invalidSetup")
                             : ""
                         }
-                        className="btn btn-primary"
+                        className="btn standup-metal-btn standup-metal-btn--accent"
                       >
                         {creatingGoal ? t("today.adding") : t("tomorrow.createGoalButton")}
                       </button>
-                      <button onClick={resetAddFlow} className="btn btn-ghost">
+                      <button onClick={resetAddFlow} className="btn standup-metal-btn">
                         {t("today.cancel")}
                       </button>
                     </div>

@@ -161,7 +161,7 @@ export default function GoalAssignmentsPanel() {
                       type="button"
                       onClick={() => handleRespondAssignment(a.id, true)}
                       disabled={busyAssignmentIds.has(a.id)}
-                      className="btn"
+                      className="btn standup-metal-btn standup-metal-btn--accent"
                       style={ACTION_BTN_STYLE}
                     >
                       {t("social.accept")}
@@ -170,7 +170,7 @@ export default function GoalAssignmentsPanel() {
                       type="button"
                       onClick={() => handleRespondAssignment(a.id, false)}
                       disabled={busyAssignmentIds.has(a.id)}
-                      className="btn"
+                      className="btn standup-metal-btn"
                       style={ACTION_BTN_STYLE}
                     >
                       {t("social.decline")}
@@ -432,7 +432,7 @@ function CancelOrDismissControl({
 }) {
   if (assignment.status === "declined" || assignment.status === "canceled") {
     return (
-      <button type="button" onClick={onDismiss} disabled={busy} className="btn flex-shrink-0" style={ACTION_BTN_STYLE}>
+      <button type="button" onClick={onDismiss} disabled={busy} className="btn standup-metal-btn flex-shrink-0" style={ACTION_BTN_STYLE}>
         {t("social.dismiss")}
       </button>
     );
@@ -451,10 +451,10 @@ function CancelOrDismissControl({
           style={{ minWidth: "80px" }}
         />
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button type="button" onClick={onConfirmCancel} disabled={busy} className="btn tools-destructive-btn" style={ACTION_BTN_STYLE}>
+          <button type="button" onClick={onConfirmCancel} disabled={busy} className="btn standup-metal-btn standup-metal-btn--danger" style={ACTION_BTN_STYLE}>
             {t("social.confirmCancel")}
           </button>
-          <button type="button" onClick={onCancelCancel} disabled={busy} className="btn" style={ACTION_BTN_STYLE}>
+          <button type="button" onClick={onCancelCancel} disabled={busy} className="btn standup-metal-btn" style={ACTION_BTN_STYLE}>
             {t("social.neverMind")}
           </button>
         </div>
@@ -463,7 +463,7 @@ function CancelOrDismissControl({
   }
 
   return (
-    <button type="button" onClick={onStartCancel} disabled={busy} className="btn tools-warning-btn flex-shrink-0" style={ACTION_BTN_STYLE}>
+    <button type="button" onClick={onStartCancel} disabled={busy} className="btn standup-metal-btn standup-metal-btn--accent flex-shrink-0" style={ACTION_BTN_STYLE}>
       {assignment.status === "pending" ? t("social.retractButton") : t("social.cancelAssignmentButton")}
     </button>
   );

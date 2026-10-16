@@ -176,7 +176,7 @@ export default function GoalAttachments({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="btn"
+                className="btn standup-metal-btn"
                 style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
               >
                 {uploading ? t("attachments.uploading") : t("attachments.addFile")}

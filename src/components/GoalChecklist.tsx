@@ -224,7 +224,7 @@ export default function GoalChecklist({
                 type="button"
                 onClick={handleAdd}
                 disabled={adding || !draft.trim()}
-                className="btn flex-shrink-0"
+                className="btn standup-metal-btn flex-shrink-0"
                 style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}
               >
                 {adding ? t("checklist.adding") : t("checklist.add")}

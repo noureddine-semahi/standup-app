@@ -258,10 +258,10 @@ export default function AdminPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Link href="/standup/admin/moderation" className="btn btn-ghost whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            <Link href="/standup/admin/moderation" className="btn standup-metal-btn whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
               <ShieldAlert size={15} /> Moderation
             </Link>
-            <Link href="/standup/admin/product-log" className="btn btn-ghost whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            <Link href="/standup/admin/product-log" className="btn standup-metal-btn whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
               <ClipboardList size={15} /> Product Log
             </Link>
           </div>
@@ -368,7 +368,7 @@ export default function AdminPage() {
                 <button
                   onClick={() => handleSavePoints(m)}
                   disabled={busy || pointsDrafts[m.id] === String(m.points)}
-                  className="btn text-xs px-3 py-1.5"
+                  className="btn standup-metal-btn text-xs px-3 py-1.5"
                 >
                   Save Points
                 </button>
@@ -379,8 +379,7 @@ export default function AdminPage() {
                 <button
                   onClick={() => handleWipeData(m)}
                   disabled={busy}
-                  className="btn text-xs px-3 py-1.5"
-                  style={{ borderColor: "var(--status-blocked-border-active)", color: "var(--status-blocked)" }}
+                  className="btn standup-metal-btn standup-metal-btn--danger text-xs px-3 py-1.5"
                 >
                   Wipe Data
                 </button>
@@ -457,7 +456,7 @@ export default function AdminPage() {
                       <button
                         onClick={() => handleSavePoints(m)}
                         disabled={busy || pointsDrafts[m.id] === String(m.points)}
-                        className="btn text-xs px-3 py-1.5"
+                        className="btn standup-metal-btn text-xs px-3 py-1.5"
                       >
                         Save
                       </button>
@@ -472,8 +471,7 @@ export default function AdminPage() {
                     <button
                       onClick={() => handleWipeData(m)}
                       disabled={busy}
-                      className="btn text-xs px-3 py-1.5"
-                      style={{ borderColor: "var(--status-blocked-border-active)", color: "var(--status-blocked)" }}
+                      className="btn standup-metal-btn standup-metal-btn--danger text-xs px-3 py-1.5"
                     >
                       Wipe Data
                     </button>

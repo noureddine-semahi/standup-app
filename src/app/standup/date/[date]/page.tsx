@@ -884,18 +884,18 @@ export default function DynamicDatePage() {
           </div>
           <div className="flex flex-row flex-wrap gap-2">
             {isMissed && allUntouched && (
-              <button className="btn" onClick={() => setReschedulingWholeDay(true)}>
+              <button className="btn standup-metal-btn" onClick={() => setReschedulingWholeDay(true)}>
                 {t("datePage.reattemptWholeDay")}
               </button>
             )}
             {isMissed && (
-              <button className="btn" onClick={handleClearDay} disabled={clearingDay}>
+              <button className="btn standup-metal-btn" onClick={handleClearDay} disabled={clearingDay}>
                 {clearingDay ? t("datePage.clearing") : t("datePage.clearThisDay")}
               </button>
             )}
             {canUseStreakPass && (
               <button
-                className="btn inline-flex items-center gap-1.5"
+                className="btn standup-metal-btn inline-flex items-center gap-1.5"
                 onClick={handleUseStreakPass}
                 disabled={usingPass || (passBalance?.available ?? 0) <= 0}
                 title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
@@ -904,7 +904,7 @@ export default function DynamicDatePage() {
                 {usingPass ? t("datePage.usingPass") : t("datePage.useStreakPass", { count: passBalance?.available ?? 0 })}
               </button>
             )}
-            <button className="btn" onClick={() => router.push("/standup/calendar")}>
+            <button className="btn standup-metal-btn" onClick={() => router.push("/standup/calendar")}>
               ← {t("nav.calendar")}
             </button>
           </div>
@@ -1008,7 +1008,7 @@ export default function DynamicDatePage() {
 
                       <button
                         type="button"
-                        className="btn"
+                        className="btn standup-metal-btn"
                         onClick={() => setRescheduleGoal(g as Goal)}
                         style={{ fontSize: "0.75rem", padding: "0.4rem 0.75rem" }}
                       >
@@ -1543,7 +1543,7 @@ export default function DynamicDatePage() {
                 type="button"
                 onClick={() => handleAddSuggestedTemplate(template)}
                 disabled={addingTemplateId === template.id}
-                className="btn"
+                className="btn standup-metal-btn"
                 style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
               >
                 {addingTemplateId === template.id ? t("tomorrow.addingSuggested") : `+ ${template.title}`}
@@ -1599,7 +1599,7 @@ export default function DynamicDatePage() {
 
           <div className="mt-4 flex flex-wrap gap-4 items-center">
             <button
-              className="btn btn-primary hover-scale"
+              className="btn standup-metal-btn standup-metal-btn--accent hover-scale"
               onClick={onSubmitPlan}
               disabled={!canSubmit || submitted}
               title={

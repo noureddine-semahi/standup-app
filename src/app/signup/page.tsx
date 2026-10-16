@@ -205,7 +205,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full"
+              className="btn standup-metal-btn standup-metal-btn--accent w-full"
             >
               {loading ? t("signup.creatingAccount") : t("signup.createAccount")}
             </button>

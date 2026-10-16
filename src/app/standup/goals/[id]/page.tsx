@@ -515,7 +515,7 @@ export default function GoalDetailPage() {
         <div className="card card-highlight text-center py-10">
           <h1 className="text-xl font-bold text-white/90">{t("notFound.title")}</h1>
           <p className="mt-2 text-sm text-white/60">{t("goalDetail.notFoundBody")}</p>
-          <Link href="/standup/dashboard" className="btn mt-4 inline-block" style={{ fontSize: "0.8rem" }}>
+          <Link href="/standup/dashboard" className="btn standup-metal-btn mt-4 inline-block" style={{ fontSize: "0.8rem" }}>
             ← {t("nav.dashboard")}
           </Link>
         </div>
@@ -727,7 +727,7 @@ export default function GoalDetailPage() {
   return (
     <div className="space-y-6">
       <div className="card card-highlight">
-        <Link href="/standup/dashboard" className="btn" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}>
+        <Link href="/standup/dashboard" className="btn standup-metal-btn" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}>
           ← {t("nav.dashboard")}
         </Link>
 
@@ -802,7 +802,7 @@ export default function GoalDetailPage() {
                     setProgressValueDraft(goal.current_value != null ? String(goal.current_value) : "");
                     setShowUpdateProgress(true);
                   }}
-                  className="btn"
+                  className="btn standup-metal-btn"
                   style={{ fontSize: "0.72rem", padding: "0.25rem 0.55rem" }}
                 >
                   {t("goalDetail.updateProgress")}
@@ -823,7 +823,7 @@ export default function GoalDetailPage() {
                     type="button"
                     onClick={handleSaveProgress}
                     disabled={savingProgress || progressValueInvalid}
-                    className="btn btn-primary"
+                    className="btn standup-metal-btn standup-metal-btn--accent"
                     style={{ fontSize: "0.72rem" }}
                   >
                     {savingProgress ? t("goalDetail.saving") : t("goalDetail.save")}
@@ -832,7 +832,7 @@ export default function GoalDetailPage() {
                     type="button"
                     onClick={() => setShowUpdateProgress(false)}
                     disabled={savingProgress}
-                    className="btn btn-ghost"
+                    className="btn standup-metal-btn"
                     style={{ fontSize: "0.72rem" }}
                   >
                     {t("today.cancel")}
@@ -1002,7 +1002,7 @@ export default function GoalDetailPage() {
           <button
             type="button"
             onClick={() => setShowAddTask(true)}
-            className="btn mt-3 inline-flex items-center gap-1.5"
+            className="btn standup-metal-btn mt-3 inline-flex items-center gap-1.5"
             style={{ fontSize: "0.78rem" }}
           >
             {t("tomorrow.addTaskToGoal")}
@@ -1051,7 +1051,7 @@ export default function GoalDetailPage() {
                 type="button"
                 onClick={handleAddTask}
                 disabled={addingTask || !newTaskTitle.trim() || !newTaskDate.trim()}
-                className="btn btn-primary"
+                className="btn standup-metal-btn standup-metal-btn--accent"
                 style={{ fontSize: "0.78rem" }}
               >
                 {addingTask ? t("today.adding") : t("today.add")}
@@ -1064,7 +1064,7 @@ export default function GoalDetailPage() {
                   setNewTaskDate(todayISO);
                 }}
                 disabled={addingTask}
-                className="btn btn-ghost"
+                className="btn standup-metal-btn"
                 style={{ fontSize: "0.78rem" }}
               >
                 {t("today.cancel")}
@@ -1129,7 +1129,7 @@ export default function GoalDetailPage() {
                   type="button"
                   onClick={() => handleSetStatus("abandoned")}
                   disabled={settingStatus}
-                  className="btn inline-flex items-center gap-1.5"
+                  className="btn standup-metal-btn inline-flex items-center gap-1.5"
                   style={{ fontSize: "0.78rem" }}
                 >
                   <Ban size={13} /> {t("goalDetail.abandonGoal")}
@@ -1295,7 +1295,7 @@ export default function GoalDetailPage() {
                               type="button"
                               onClick={() => handleSaveTask(task)}
                               disabled={!isDirty || !trimmedDraftTitle || isSavingThis}
-                              className="btn btn-primary flex-shrink-0"
+                              className="btn standup-metal-btn standup-metal-btn--accent flex-shrink-0"
                               style={{ fontSize: "0.7rem", padding: "0.3rem 0.5rem" }}
                             >
                               {isSavingThis ? t("goalDetail.saving") : t("goalDetail.saveTask")}
@@ -1320,7 +1320,7 @@ export default function GoalDetailPage() {
                 type="button"
                 onClick={handleSaveGoal}
                 disabled={savingGoal || !editTitle.trim() || editTargetValueInvalid || editCurrentValueInvalid}
-                className="btn btn-primary"
+                className="btn standup-metal-btn standup-metal-btn--accent"
                 style={{ fontSize: "0.78rem" }}
               >
                 {savingGoal ? t("goalDetail.saving") : t("goalDetail.save")}
@@ -1329,7 +1329,7 @@ export default function GoalDetailPage() {
                 type="button"
                 onClick={() => setShowEditGoal(false)}
                 disabled={savingGoal}
-                className="btn btn-ghost"
+                className="btn standup-metal-btn"
                 style={{ fontSize: "0.78rem" }}
               >
                 {t("today.cancel")}

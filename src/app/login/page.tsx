@@ -150,7 +150,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full"
+              className="btn standup-metal-btn standup-metal-btn--accent w-full"
             >
               {loading ? t("login.signingIn") : t("login.signIn")}
             </button>
@@ -161,7 +161,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleMagicLink}
               disabled={loading}
-              className="btn btn-ghost w-full"
+              className="btn standup-metal-btn w-full"
             >
               {loading ? t("login.sending") : t("login.sendMagicLink")}
             </button>

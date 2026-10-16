@@ -66,10 +66,10 @@ export default function CommunityGuidelinesModal({ saving, error, onDecline, onA
         )}
 
         <div className="flex gap-3 mt-4">
-          <button onClick={onAgree} disabled={saving} className="btn btn-primary flex-1">
+          <button onClick={onAgree} disabled={saving} className="btn standup-metal-btn standup-metal-btn--accent flex-1">
             {saving ? t("social.guidelinesSaving") : t("social.guidelinesAgree")}
           </button>
-          <button onClick={onDecline} disabled={saving} className="btn btn-ghost">
+          <button onClick={onDecline} disabled={saving} className="btn standup-metal-btn">
             {t("social.guidelinesNotNow")}
           </button>
         </div>

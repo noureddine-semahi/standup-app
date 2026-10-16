@@ -460,7 +460,7 @@ export default function GoalsManagementPanel() {
         <button
           type="button"
           onClick={() => setShowNewGoalForm(true)}
-          className="btn btn-primary inline-flex items-center gap-1.5 mb-3"
+          className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center gap-1.5 mb-3"
         >
           <Plus size={14} /> {t("tools.goalsNewGoal")}
         </button>
@@ -486,7 +486,7 @@ export default function GoalsManagementPanel() {
               type="button"
               onClick={handleCreateGoal}
               disabled={creatingGoal || !newGoalTitle.trim()}
-              className="btn btn-primary"
+              className="btn standup-metal-btn standup-metal-btn--accent"
             >
               {creatingGoal ? t("tomorrow.creatingGoal") : t("tools.goalsCreateGoal")}
             </button>
@@ -498,7 +498,7 @@ export default function GoalsManagementPanel() {
                 setNewGoalType("one_time");
               }}
               disabled={creatingGoal}
-              className="btn"
+              className="btn standup-metal-btn"
             >
               {t("tomorrow.neverMind")}
             </button>

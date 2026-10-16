@@ -103,7 +103,7 @@ export default function ConnectionProfilePage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/standup/social?tab=friends" className="btn btn-ghost bottom-nav-btn">
+      <Link href="/standup/social?tab=friends" className="btn standup-metal-btn bottom-nav-btn">
         {t("social.backToConnections")}
       </Link>
 
@@ -145,17 +145,17 @@ export default function ConnectionProfilePage() {
                 {connection.status === "accepted" && (
                   <div className="mt-2 flex flex-col items-center sm:items-start gap-2 w-full">
                     {!confirmingRemove ? (
-                      <button type="button" onClick={() => setConfirmingRemove(true)} className="btn social-destructive-btn">
+                      <button type="button" onClick={() => setConfirmingRemove(true)} className="btn standup-metal-btn standup-metal-btn--danger">
                         {t("social.removeConnection")}
                       </button>
                     ) : (
                       <>
                         <p className="text-sm text-white/70">{t("social.removeConnectionConfirmQuestion")}</p>
                         <div className="flex gap-2">
-                          <button type="button" onClick={handleRemove} disabled={removing} className="btn social-destructive-btn">
+                          <button type="button" onClick={handleRemove} disabled={removing} className="btn standup-metal-btn standup-metal-btn--danger">
                             {removing ? t("social.removing") : t("social.removeConnectionConfirmYes")}
                           </button>
-                          <button type="button" onClick={() => setConfirmingRemove(false)} disabled={removing} className="btn">
+                          <button type="button" onClick={() => setConfirmingRemove(false)} disabled={removing} className="btn standup-metal-btn">
                             {t("social.neverMind")}
                           </button>
                         </div>

@@ -47,7 +47,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center">
         <div className="card text-center">
           <p className="text-white/80 mb-3">{error}</p>
-          <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
+          <button type="button" className="btn standup-metal-btn" onClick={() => setAttempt((n) => n + 1)}>
             {t("authGate.retry")}
           </button>
         </div>

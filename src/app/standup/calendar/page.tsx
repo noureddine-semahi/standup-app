@@ -345,13 +345,13 @@ export default function CalendarPage() {
               globals.css -- new, Calendar-scoped, nothing shared touched. */}
           <div className="calendar-controls">
             <div className="calendar-nav-cluster">
-              <button onClick={previousMonth} className="btn btn-ghost calendar-nav-btn">
+              <button onClick={previousMonth} className="btn standup-metal-btn calendar-nav-btn">
                 {t("calendar.prev")}
               </button>
-              <button onClick={goToToday} className="btn calendar-nav-btn">
+              <button onClick={goToToday} className="btn standup-metal-btn calendar-nav-btn">
                 {t("calendar.today")}
               </button>
-              <button onClick={nextMonth} className="btn btn-ghost calendar-nav-btn">
+              <button onClick={nextMonth} className="btn standup-metal-btn calendar-nav-btn">
                 {t("calendar.next")}
               </button>
             </div>
@@ -360,8 +360,7 @@ export default function CalendarPage() {
                 {overdueDays.length > 0 && (
                   <button
                     onClick={() => setShowOverdueList((v) => !v)}
-                    className="btn"
-                    style={{ background: "rgba(239, 68, 68, 0.15)", borderColor: "rgba(239, 68, 68, 0.4)" }}
+                    className="btn standup-metal-btn standup-metal-btn--danger"
                     aria-expanded={showOverdueList}
                     aria-controls="calendar-overdue-list"
                   >
@@ -562,13 +561,13 @@ export default function CalendarPage() {
         </div>
 
         <div className="mt-6 flex items-center gap-2 sm:gap-3 flex-wrap">
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/today">
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/today">
             {t("nav.reviewToday")}
           </Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tomorrow">
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tomorrow">
             {t("nav.planTomorrow")}
           </Link>
-          <Link className="btn btn-ghost bottom-nav-btn" href="/standup/tools">
+          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tools">
             {t("calendar.storeInBacklog")}
           </Link>
         </div>

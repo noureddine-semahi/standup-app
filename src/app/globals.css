@@ -6385,13 +6385,13 @@ select:focus {
    design. */
 .calendar-ring-wrap {
   position: relative;
-  /* Mobile ring trimmed ~2px (both clamp bounds) per follow-up
-     feedback -- the fluid 11vw middle term is left as-is, so this
-     just shifts the whole mobile range down slightly rather than
-     changing how it scales. Tablet/desktop (640px/1024px tiers
+  /* Mobile ring trimmed ~2px twice now (both clamp bounds) per
+     follow-up feedback -- the fluid 11vw middle term is left as-is,
+     so this just shifts the whole mobile range down slightly rather
+     than changing how it scales. Tablet/desktop (640px/1024px tiers
      below) are untouched. */
-  width: clamp(30px, 11vw, 44px);
-  height: clamp(30px, 11vw, 44px);
+  width: clamp(28px, 11vw, 42px);
+  height: clamp(28px, 11vw, 42px);
   flex-shrink: 0;
 }
 

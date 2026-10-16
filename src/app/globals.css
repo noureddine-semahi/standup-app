@@ -3735,6 +3735,20 @@ select.btn {
     margin-left: 0.35rem;
     opacity: 1;
   }
+
+  /* Hamburger/dropdown menu (.nav-more-panel / .mobile-menu-panel, via
+     Header.tsx's hamburgerNavLinks() -- the only place .nav-menu-item
+     is used) is the full vertical nav list, not the compact horizontal
+     bar the two rules above are for. Every row here must always show
+     its full label regardless of active state, so this overrides the
+     icon-only collapse immediately above for .nav-menu-item spans
+     specifically -- the compact bar (no .nav-menu-item class) keeps
+     that collapse untouched. */
+  .nav-menu-item span {
+    max-width: none;
+    margin-left: 0.35rem;
+    opacity: 1;
+  }
 }
 
 /* Info-tab collapse widened to a laptop-friendly threshold, independent

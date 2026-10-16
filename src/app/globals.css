@@ -6404,34 +6404,37 @@ select:focus {
   }
 }
 
-/* Mobile-only internal alignment -- the taller mobile card (from the
-   earlier min-height fix) left its badge/ring/fraction stack centered
-   as one group, reading as everything clustered mid-card rather than
-   occupying three distinct top/middle/bottom zones. transform (not
-   margin) nudges the ring and fraction down WITHOUT touching flex
-   flow/sizing -- no effect on the badge above, no effect on card
-   height, no resize of the ring itself, and nothing for a badge-less
-   cell to jump around: the ring/fraction simply sit a couple px lower
-   than the group's own centered position, same amount whether or not
-   a badge is present. Reset to none at 640px+ -- the Calendar's own
-   existing tablet/desktop breakpoint -- leaving that tier untouched.
-   Pushed a little further (2px -> 3px -> 5px -> 7px) per follow-up
-   screenshot reviews against the Today card's own spacing.
-
-   Today itself is excluded from this latest push (see the
-   .calendar-cell-today override right below, higher specificity so it
-   wins regardless of source order): Today's badge already reserves
-   its own row above the ring, so Today's ring/fraction were already
-   reading as well-centered at the previous (5px) amount -- pushing
-   them further along with the badge-less cards would throw Today's
-   own balance off instead of improving it. */
+/* Mobile-only internal alignment -- SUPERSEDES a series of translateY
+   nudges (2px -> 3px -> 5px -> 7px, with a separate frozen amount for
+   Today) that tried to compensate for the fact that the badge/ring/
+   fraction stack is centered as ONE flex group: a cell with a Today
+   badge has a taller group than a cell without one, so centering that
+   group put their rings at genuinely different heights -- no single
+   translateY amount (shared or per-cell-type) could make every ring
+   align, and Today kept drifting as the shared amount changed. This
+   replaces that entirely: the ring is pulled out of the flex flow and
+   absolutely centered on the card itself (top/left 50% + translate
+   -50%/-50%), so it sits at EXACTLY the same point in every card --
+   Today, reschedule-badge cards, plain cards -- regardless of what
+   else does or doesn't render above/below it. The badge and fraction
+   are similarly pinned to fixed top/bottom offsets (right below and
+   further down this file) instead of flowing around the ring. Reset
+   to the original in-flow/centered behavior at 640px+ -- the
+   Calendar's own existing tablet/desktop breakpoint -- which this
+   fix doesn't touch. */
 @media (max-width: 639px) {
   .calendar-ring-wrap {
-    transform: translateY(7px);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 
-  .calendar-cell-today .calendar-ring-wrap {
-    transform: translateY(5px);
+  .calendar-today-badge {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 
@@ -6620,25 +6623,20 @@ select:focus {
   }
 }
 
-/* Mobile-only internal alignment -- pairs with .calendar-ring-wrap's
-   own translateY nudge above: pushes the fraction row a little closer
-   to the card's bottom edge so it reads as its own zone rather than
-   sitting right under the ring. Keeps a safe margin short of the
-   card's bottom border/glow -- the card has headroom for this after
-   the earlier min-height fix. Reset at 640px+, same as above. Pushed
-   a little further (1.5px -> 3px -> 5px -> 7px) per follow-up
-   screenshot reviews against the Today card's own spacing.
-
-   Today excluded from this latest push, same reasoning as the ring's
-   own .calendar-cell-today override above -- its fraction was already
-   reading as well-centered at the previous (5px) amount. */
+/* Mobile-only internal alignment -- SUPERSEDES a series of translateY
+   nudges (see .calendar-ring-wrap's own comment above for why: a
+   flex-centered group's position depends on what else is in it,
+   so no shared or per-cell-type pixel amount ever fully converged).
+   Pinned to a fixed offset from the card's own bottom edge instead,
+   identical in every card regardless of whether a badge/ring sits
+   above it. Reset to the original in-flow/centered behavior at
+   640px+, same as .calendar-ring-wrap above. */
 @media (max-width: 639px) {
   .calendar-ring-fraction {
-    transform: translateY(7px);
-  }
-
-  .calendar-cell-today .calendar-ring-fraction {
-    transform: translateY(5px);
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 

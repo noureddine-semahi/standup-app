@@ -6414,10 +6414,24 @@ select:focus {
    cell to jump around: the ring/fraction simply sit a couple px lower
    than the group's own centered position, same amount whether or not
    a badge is present. Reset to none at 640px+ -- the Calendar's own
-   existing tablet/desktop breakpoint -- leaving that tier untouched. */
+   existing tablet/desktop breakpoint -- leaving that tier untouched.
+   Pushed a little further (2px -> 3px -> 5px -> 7px) per follow-up
+   screenshot reviews against the Today card's own spacing.
+
+   Today itself is excluded from this latest push (see the
+   .calendar-cell-today override right below, higher specificity so it
+   wins regardless of source order): Today's badge already reserves
+   its own row above the ring, so Today's ring/fraction were already
+   reading as well-centered at the previous (5px) amount -- pushing
+   them further along with the badge-less cards would throw Today's
+   own balance off instead of improving it. */
 @media (max-width: 639px) {
   .calendar-ring-wrap {
-    transform: translateY(2px);
+    transform: translateY(7px);
+  }
+
+  .calendar-cell-today .calendar-ring-wrap {
+    transform: translateY(5px);
   }
 }
 
@@ -6609,12 +6623,22 @@ select:focus {
 /* Mobile-only internal alignment -- pairs with .calendar-ring-wrap's
    own translateY nudge above: pushes the fraction row a little closer
    to the card's bottom edge so it reads as its own zone rather than
-   sitting right under the ring. 1.5px keeps a safe margin short of
-   the card's bottom border/glow -- the card has headroom for this
-   after the earlier min-height fix. Reset at 640px+, same as above. */
+   sitting right under the ring. Keeps a safe margin short of the
+   card's bottom border/glow -- the card has headroom for this after
+   the earlier min-height fix. Reset at 640px+, same as above. Pushed
+   a little further (1.5px -> 3px -> 5px -> 7px) per follow-up
+   screenshot reviews against the Today card's own spacing.
+
+   Today excluded from this latest push, same reasoning as the ring's
+   own .calendar-cell-today override above -- its fraction was already
+   reading as well-centered at the previous (5px) amount. */
 @media (max-width: 639px) {
   .calendar-ring-fraction {
-    transform: translateY(1.5px);
+    transform: translateY(7px);
+  }
+
+  .calendar-cell-today .calendar-ring-fraction {
+    transform: translateY(5px);
   }
 }
 

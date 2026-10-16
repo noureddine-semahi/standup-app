@@ -6385,13 +6385,17 @@ select:focus {
    design. */
 .calendar-ring-wrap {
   position: relative;
-  /* Mobile ring trimmed ~2px twice now (both clamp bounds) per
-     follow-up feedback -- the fluid 11vw middle term is left as-is,
-     so this just shifts the whole mobile range down slightly rather
-     than changing how it scales. Tablet/desktop (640px/1024px tiers
-     below) are untouched. */
-  width: clamp(28px, 11vw, 42px);
-  height: clamp(28px, 11vw, 42px);
+  /* The previous two "~2px" trims only moved the clamp's min/max
+     bounds, which turned out to be invisible on real phones: at
+     typical mobile widths (~360-430px), 11vw lands BETWEEN those
+     bounds, so the fluid middle term -- not the edges -- was the
+     actual active value the whole time, and shrinking the edges did
+     nothing. Lowering the vw multiplier itself (11vw -> 9.5vw) is
+     what actually changes the rendered size at those widths; bounds
+     trimmed to match the new range. Tablet/desktop (640px/1024px
+     tiers below) are untouched. */
+  width: clamp(26px, 9.5vw, 40px);
+  height: clamp(26px, 9.5vw, 40px);
   flex-shrink: 0;
 }
 

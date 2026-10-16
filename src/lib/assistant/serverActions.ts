@@ -185,10 +185,27 @@ export async function updateGoalStatusAction(
 
   const { data: goal, error: goalErr } = await supabase
     .from("goals")
-    .select("id, plan_id, reviewed_at, title")
+    .select("id, plan_id, reviewed_at, title, source_payment_account_id")
     .eq("id", goalId)
     .single();
   if (goalErr) throw goalErr;
+
+  // Mirrors selectQuickAction's payment intercept in Today's page: a
+  // payment-linked goal needs the actual amount paid confirmed through
+  // that dedicated flow (which logs it to the ledger and updates the
+  // account balance) before it can complete -- not something the
+  // assistant can collect reliably through a chat reply, so it declines
+  // rather than silently completing the goal with no amount recorded.
+  // The database itself also rejects this as a second line of defense
+  // (guard_payment_goal_completion trigger), but failing here first keeps
+  // this a clear, specific message instead of a raw SQL error, and skips
+  // the reviewed_at/awareness side effects below entirely rather than
+  // applying them right before the status update then fails.
+  if (status === "completed" && goal.source_payment_account_id) {
+    throw new Error(
+      `"${goal.title}" is linked to a saved Payment -- please confirm the amount paid from Review Today instead of asking me to complete it.`
+    );
+  }
 
   // Mirrors selectQuickAction's review side effect in Today's page: the
   // first status-setting action of the day also marks the goal reviewed

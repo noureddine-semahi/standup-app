@@ -216,6 +216,67 @@ describe("updateGoalStatusAction — reschedule reconciliation", () => {
   });
 });
 
+// Bug fix: a payment-linked goal (source_payment_account_id set) could be
+// marked "completed" through the assistant's own update_goal_status tool,
+// which -- unlike Today's page -- never checked for this, silently
+// skipping the amount-paid confirmation, the payment_transactions ledger
+// entry, and the account balance update entirely. updateGoalStatusAction
+// now declines up front instead.
+describe("updateGoalStatusAction — payment-linked goal completion guard", () => {
+  const PAYMENT_GOAL = "payment-goal-1";
+
+  function makePaymentFixture() {
+    return {
+      goals: [
+        {
+          id: PAYMENT_GOAL,
+          plan_id: "plan-1",
+          reviewed_at: "2026-10-16T00:00:00Z",
+          title: "Pay Visa — $35.00 min due Oct 20",
+          status: "not_started",
+          source_payment_account_id: "account-1" as string | null,
+        },
+      ],
+      goal_reschedules: [] as Row[],
+      goal_notes: [] as Row[],
+      daily_plans: [{ id: "plan-1", reviewed_at: null, awareness_awarded: false }],
+    };
+  }
+
+  it("refuses to complete a payment-linked goal instead of silently completing it", async () => {
+    const fixture = makePaymentFixture();
+    const supabase = createFakeSupabase(fixture);
+
+    await expect(updateGoalStatusAction(supabase, USER_ID, PAYMENT_GOAL, "completed" as any)).rejects.toThrow(
+      /linked to a saved Payment/i
+    );
+
+    const goal = fixture.goals.find((g) => g.id === PAYMENT_GOAL);
+    expect(goal?.status).toBe("not_started"); // never applied
+  });
+
+  it("still allows a non-completed status change on a payment-linked goal", async () => {
+    const fixture = makePaymentFixture();
+    const supabase = createFakeSupabase(fixture);
+
+    await updateGoalStatusAction(supabase, USER_ID, PAYMENT_GOAL, "canceled" as any);
+
+    const goal = fixture.goals.find((g) => g.id === PAYMENT_GOAL);
+    expect(goal?.status).toBe("canceled");
+  });
+
+  it("still completes a normal (non-payment-linked) goal with no interception", async () => {
+    const fixture = makePaymentFixture();
+    fixture.goals[0].source_payment_account_id = null;
+    const supabase = createFakeSupabase(fixture);
+
+    await updateGoalStatusAction(supabase, USER_ID, PAYMENT_GOAL, "completed" as any);
+
+    const goal = fixture.goals.find((g) => g.id === PAYMENT_GOAL);
+    expect(goal?.status).toBe("completed");
+  });
+});
+
 // Lifecycle-integrity fix: deleteGoal() (db.ts) and these two mirrors now
 // refuse to hard-delete a goal that participates in a reschedule or
 // assignment relationship -- see findGoalDeleteBlockReason/

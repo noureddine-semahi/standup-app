@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
 import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView } from "@/lib/goalProgress";
+import { usePaymentGoalCompletion } from "@/lib/usePaymentGoalCompletion";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
@@ -55,13 +56,10 @@ import {
   buildAssignmentTaskMaps,
   respondToGoalAssignment,
   ensurePaymentReminderGoals,
-  getPaymentAccounts,
-  confirmPaymentGoalCompletion,
   createOutcomeGoal,
   getOutcomeGoals,
   getConceptualTasksByOutcomeGoalIds,
   getConceptualTaskById,
-  type PaymentAccount,
   type ChecklistItem,
   type DailyPlan,
   type Goal,
@@ -270,17 +268,6 @@ export default function TodayPage() {
   const [blockingGoal, setBlockingGoal] = useState<Goal | null>(null);
   const [blockingSaving, setBlockingSaving] = useState(false);
   const [blockingError, setBlockingError] = useState<string | null>(null);
-  // A payment-reminder goal (source_payment_account_id set) requires
-  // confirming the actual amount paid before it's marked complete — same
-  // intercept-before-anything-else shape as blockingGoal above.
-  // payingAccount holds the linked account's current name/minimum payment
-  // (fetched lazily, only when this specific goal is being completed) so
-  // the modal can prefill an amount without Today's page loading every
-  // payment account up front.
-  const [payingGoal, setPayingGoal] = useState<Goal | null>(null);
-  const [payingAccount, setPayingAccount] = useState<PaymentAccount | null>(null);
-  const [paymentSaving, setPaymentSaving] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [reopening, setReopening] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
@@ -1035,24 +1022,12 @@ export default function TodayPage() {
     }
 
     // A payment-reminder goal needs the actual amount confirmed before it
-    // completes — hand off to confirmPaymentCompletion() instead of
-    // applying anything here, same intercept-before-anything-else shape
-    // as blocked above.
+    // completes — hand off to the shared usePaymentGoalCompletion hook
+    // instead of applying anything here, same intercept-before-anything-
+    // else shape as blocked above.
     if (action === "completed" && goal.source_payment_account_id) {
       setShowActions((prev) => ({ ...prev, [goal.id]: false }));
-      setPaymentError(null);
-      setPayingAccount(null);
-      setPayingGoal(goal);
-      getPaymentAccounts()
-        .then((accounts) => {
-          const account = accounts.find((a) => a.id === goal.source_payment_account_id) ?? null;
-          setPayingAccount(account);
-        })
-        .catch(() => {
-          // Account fetch failing just leaves the modal's amount blank
-          // (suggestedAmount falls back to 0) — the user can still type
-          // one in manually rather than being blocked entirely.
-        });
+      openPaymentConfirm(goal);
       return;
     }
 
@@ -1186,19 +1161,25 @@ export default function TodayPage() {
     setBlockingError(null);
   }
 
-  // Mirrors the non-reschedule branch of selectQuickAction (mark reviewed
-  // + award awareness if needed), but swaps the plain updateGoalStatus for
-  // confirmPaymentGoalCompletion so the confirmed amount is logged to the
-  // ledger and subtracted from the account's balance atomically.
-  async function confirmPaymentCompletion(amount: number) {
-    const goal = payingGoal;
-    if (!goal || paymentSaving) return;
-
-    setPaymentSaving(true);
-    setPaymentError(null);
-    markGoalBusy(goal.id);
-
-    try {
+  // Shared with every other goal-completion entry point in the app (see
+  // usePaymentGoalCompletion's own doc comment) -- this used to be a plain
+  // inline implementation here, which was exactly why only THIS screen
+  // ever asked for the amount paid. beforeConfirm mirrors the non-
+  // reschedule branch of selectQuickAction (mark reviewed + award
+  // awareness if needed); onConfirmed/onError/onSettled reproduce the same
+  // success-message/celebration/refresh/busy-clearing behavior this page
+  // already had.
+  const {
+    payingGoal,
+    payingAccount,
+    paymentSaving,
+    paymentError,
+    openPaymentConfirm,
+    cancelPaymentConfirm: cancelPayment,
+    confirmPayment: confirmPaymentCompletion,
+  } = usePaymentGoalCompletion({
+    beforeConfirm: async (goal) => {
+      markGoalBusy(goal.id);
       const wasReviewed = !!goal.reviewed_at;
 
       setGoals((prev) =>
@@ -1224,9 +1205,8 @@ export default function TodayPage() {
           }
         }
       }
-
-      await confirmPaymentGoalCompletion(goal.id, amount);
-
+    },
+    onConfirmed: async (goal) => {
       const markedMsg = t("today.markedStatus", { status: statusLabel("completed", t) });
       setMsg(markedMsg);
       window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
@@ -1241,24 +1221,15 @@ export default function TodayPage() {
         });
       }, 900);
 
-      setPayingGoal(null);
-      setPayingAccount(null);
       await refresh({ silent: true });
-    } catch (e: any) {
-      setPaymentError(e?.message ?? t("paymentConfirm.failed"));
+    },
+    onError: async () => {
       await refresh({ silent: true });
-    } finally {
-      setPaymentSaving(false);
+    },
+    onSettled: (goal) => {
       clearGoalBusy(goal.id);
-    }
-  }
-
-  function cancelPayment() {
-    if (paymentSaving) return;
-    setPayingGoal(null);
-    setPayingAccount(null);
-    setPaymentError(null);
-  }
+    },
+  });
 
   async function closeOutDay() {
     if (!plan?.id || locked || closing || dayClosed) return;

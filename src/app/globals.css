@@ -6605,6 +6605,16 @@ select:focus {
   background: rgba(var(--tint-rgb), 0.1);
 }
 
+/* Glowing-LED digit -- colored by the SAME per-tile --glow-color that
+   already drives the ring/tile glow (Today's purple, or the day's
+   dominant status color), so the number reads as "the same signal,
+   lit up" rather than a separate color language. Falls back to the
+   original neutral white-ish tone (and zero text-shadow, via
+   color-mix's own transparent fallback) on days with no glow color --
+   future/empty cells look exactly as before. Sits on the new solid
+   hollow-center fill behind it, so the glow has a dark backdrop to
+   actually read as luminous against, the way a real LED segment
+   would. */
 .calendar-ring-number {
   position: absolute;
   inset: 0;
@@ -6613,7 +6623,11 @@ select:focus {
   justify-content: center;
   font-size: 14px;
   font-weight: 700;
-  color: rgba(var(--tint-rgb), 0.92);
+  color: var(--glow-color, rgba(var(--tint-rgb), 0.92));
+  text-shadow:
+    0 0 3px color-mix(in srgb, var(--glow-color, transparent) 90%, transparent),
+    0 0 7px color-mix(in srgb, var(--glow-color, transparent) 60%, transparent),
+    0 0 13px color-mix(in srgb, var(--glow-color, transparent) 40%, transparent);
   pointer-events: none;
 }
 

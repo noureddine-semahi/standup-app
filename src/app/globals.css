@@ -6412,21 +6412,26 @@ select:focus {
    rows that don't happen to contain Today (or another cell with both
    a badge and a fraction) never pick up that extra height, so most of
    the grid reads smaller/more compressed than Today specifically.
-   This min-height reserves Today's own worst-case stack height as a
-   floor for every cell alike -- populated, future (ring+number only),
-   and the leading blank cells -- so every card matches Today's
-   footprint regardless of which row it's in or what it renders inside.
-   aspect-square still wins (cells stay perfectly square) wherever its
-   own width-derived height already clears this floor; the floor only
-   takes over on narrow phones where it wouldn't. Reset to auto at
-   640px+ -- the Calendar's own existing tablet/desktop breakpoint --
-   since this is a mobile-only fix, not a resize of the whole grid. */
+
+   First attempt layered a min-height on TOP of aspect-square (1/1),
+   which backfired: aspect-ratio couples both axes, so once min-height
+   forced height past the width-derived ratio value, the browser
+   recomputed WIDTH from the new height to preserve the 1:1 ratio --
+   stretching every card horizontally into its neighbors instead of
+   just growing taller. Fix: cancel aspect-ratio entirely on mobile
+   (aspect-ratio: auto) so width stays purely grid-column-derived (its
+   original, untouched behavior) while min-height grows height alone,
+   independent of width. Both are reset at 640px+ -- the Calendar's own
+   existing tablet/desktop breakpoint -- restoring the exact original
+   square aspect-square sizing there, since this fix is mobile-only. */
 .calendar-grid-cell {
+  aspect-ratio: auto;
   min-height: calc(clamp(32px, 11vw, 46px) + 26px);
 }
 
 @media (min-width: 640px) {
   .calendar-grid-cell {
+    aspect-ratio: 1 / 1;
     min-height: auto;
   }
 }

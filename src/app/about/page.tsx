@@ -5,7 +5,7 @@ import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
 import {
   Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar,
-  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, type LucideIcon,
+  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, Milestone, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -16,6 +16,7 @@ type DefItem = { key: string; icon: LucideIcon; titleKey: TranslationKey; body: 
 const BIGGER_PICTURE_ITEMS: DefItem[] = [
   { key: "review", icon: ClipboardList, titleKey: "about.dailyReview", body: (t) => t("about.dailyReviewBody") },
   { key: "planning", icon: Target, titleKey: "about.intentionalPlanning", body: (t) => t("about.intentionalPlanningBody") },
+  { key: "majorGoals", icon: Milestone, titleKey: "about.majorGoals", body: (t) => t("about.majorGoalsBody") },
   { key: "points", icon: Flame, titleKey: "about.pointsStreaks", body: (t) => t("about.pointsStreaksBody") },
   { key: "reschedule", icon: CalendarClock, titleKey: "about.smartRescheduling", body: (t) => t("about.smartReschedulingBody") },
   { key: "gating", icon: Ban, titleKey: "about.reviewGating", body: (t) => t("about.reviewGatingBody") },

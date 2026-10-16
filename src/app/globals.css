@@ -6399,6 +6399,30 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* Solid fill behind the ring's own hollow center -- .calendar-ring's
+   mask (radial-gradient, transparent up to calc(100% - 4px)) makes
+   its inner disk fully transparent, which previously let the tile's
+   own colored glass background (.calendar-cell-glow's tinted fill)
+   show through behind the date number, muddying its contrast. This
+   sits BEHIND .calendar-ring/.calendar-ring-number (first in DOM via
+   ::before, so it paints first/under them) and fills exactly that
+   same hollow disk -- inset 4px matches the mask's own "100% - 4px"
+   boundary precisely, so there's no seam/sliver of the tile color
+   peeking through at the ring's inner edge. rgba(var(--panel-rgb), …)
+   rather than a literal black so it's already near-black in dark mode
+   (this theme's actual ask) while staying the correct near-white
+   panel tone in light mode instead of punching an out-of-place black
+   hole into an otherwise light card. Applies at every tier (not
+   mobile-only) -- the number should pop everywhere, not just mobile. */
+.calendar-ring-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(var(--panel-rgb), 0.92);
+  pointer-events: none;
+}
+
 @media (min-width: 640px) {
   .calendar-ring-wrap {
     width: clamp(42px, 7vw, 58px);

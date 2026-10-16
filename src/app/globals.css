@@ -760,7 +760,8 @@ h1, h2, h3, h4, h5, h6 {
   .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
-    top: -4px;
+    /* Pushed up 4px (was -4px) -- explicit user call. */
+    top: -8px;
     height: 68px;
     width: auto;
     z-index: 2;
@@ -793,7 +794,9 @@ h1, h2, h3, h4, h5, h6 {
   .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
-    top: 9px;
+    /* Pushed up 4px (was 9px) -- explicit user call, matching desktop's
+       own shift. */
+    top: 5px;
     height: 50px;
     width: auto;
     z-index: 2;
@@ -2277,7 +2280,47 @@ select.btn {
    reach with room to spare. */
 .folder-tabbar.folder-tabbar-community {
   overflow: visible;
-  padding-top: 28px;
+  padding-top: 6px;
+  /* Housing frame -- same recipe as .folder-tabbar-tools/-hanging, but
+     ATTACHED flush to the card below instead of floating with its own
+     gap: square bottom corners, no bottom border at all (the card's
+     own top border is the only line at the seam, avoiding a doubled-
+     border look), zero added margin-bottom (base .folder-tabbar's
+     existing -1px already overlaps slightly, which is what was asked
+     for -- "no visible gap"). Left-aligned + shrink-wrapped width is
+     below, scoped past this rule's own 849px mobile breakpoint so the
+     active tab's flex:1 1 0% growth mechanism there still has a
+     full-width row to grow into. */
+  border-radius: 7px 7px 0 0;
+  border: 1px solid rgba(90, 94, 102, 0.45);
+  border-top-color: rgba(60, 63, 70, 0.55);
+  border-bottom: none;
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
+  box-shadow:
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
+    inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
+    inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    0 3px 8px -4px rgba(0, 0, 0, 0.55);
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 5px;
+}
+
+@media (min-width: 850px) {
+  .folder-tabbar-community {
+    width: fit-content;
+  }
+}
+
+[data-theme="light"] .folder-tabbar.folder-tabbar-community {
+  border-color: rgba(40, 32, 28, 0.3);
+  border-top-color: rgba(40, 32, 28, 0.38);
+  background: rgba(var(--panel-rgb), 0.55);
+  box-shadow:
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
+    inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    0 3px 8px -4px rgba(40, 32, 28, 0.35);
 }
 
 /* Rounded browser-tab shape -- explicit user call reverting the
@@ -2408,6 +2451,182 @@ select.btn {
   box-shadow: 0 0 10px 1px color-mix(in srgb, var(--tab-color) 70%, transparent);
 }
 
+/* Community-specific "pressed-into-a-socket" tab system -- same
+   finalized physical construction as .folder-tab-tools/
+   .folder-tab-hanging (explicit "source of truth" call), ported via
+   its own modifier class exactly like Tools already does, so the
+   shared .folder-tab/.folder-tab-active rules above (still used for
+   whatever this override doesn't redeclare, e.g. padding/gap/
+   font-size/color) are untouched -- Tools already depends on that same
+   base for those properties, so leaving it alone keeps Tools
+   unaffected too. transform:none cancels the shared rules' own
+   translateY lift (no movement in the finalized system). Active
+   inner-face inset matches the HEADER's own finalized value (3px,
+   after two follow-up refinement rounds), not Tools' original 6px --
+   explicit "same finalized active inner-face inset/depth as the
+   header" call. */
+.folder-tab-community {
+  border-radius: 5px;
+  border-color: transparent;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 2px 3px 1px rgba(9, 9, 9, 0.4);
+}
+
+.folder-tab-community::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.11) 69%,
+    transparent 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.folder-tab-community:hover:not(.folder-tab-active) {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
+    color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
+  );
+  border-color: transparent;
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 3px 0 rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .folder-tab-community {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
+    0 1px 2px 0 rgba(40, 32, 28, 0.18),
+    0 2px 3px 1px rgba(40, 32, 28, 0.12);
+}
+
+[data-theme="light"] .folder-tab-community:hover:not(.folder-tab-active) {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
+    color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.6),
+    0 2px 3px 0 rgba(40, 32, 28, 0.22);
+}
+
+.folder-tab-community.folder-tab-active {
+  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
+  z-index: 2;
+  gap: 0.35rem;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.75));
+  transform: none;
+  box-shadow:
+    inset 0 6px 7px -2px rgba(0, 0, 0, 0.68),
+    inset 0 -5px 7px -2px rgba(0, 0, 0, 0.42),
+    inset 5px 0 7px -2px rgba(0, 0, 0, 0.36),
+    inset -5px 0 7px -2px rgba(0, 0, 0, 0.36);
+}
+
+[data-theme="light"] .folder-tab-community.folder-tab-active {
+  background: color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.16));
+  box-shadow:
+    inset 0 6px 7px -2px rgba(40, 32, 28, 0.46),
+    inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
+    inset 5px 0 7px -2px rgba(40, 32, 28, 0.21),
+    inset -5px 0 7px -2px rgba(40, 32, 28, 0.21);
+}
+
+/* The lit face -- overrides the shared .folder-tab-active::before
+   above (higher specificity). height:auto is required: the shared
+   rule sets a literal height:2px, and inset (below) sets top+bottom
+   together -- without this, the same over-constraint bug hit during
+   Tools' first pass would collapse this back into a thin line. */
+.folder-tab-community.folder-tab-active::before {
+  content: "";
+  position: absolute;
+  height: auto;
+  inset: 3px;
+  border-radius: 4px;
+  z-index: -1;
+  border: 1px solid color-mix(in srgb, var(--tab-color) 55%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 70%, white 30%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 65%, white 20%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
+  border-right-color: color-mix(in srgb, var(--tab-color) 40%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 5%, rgba(0, 0, 0, 0.4)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.3))
+  );
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px -1px 2px 0 rgba(0, 0, 0, 0.35),
+    0 0 3px 0 color-mix(in srgb, var(--tab-color) 40%, transparent);
+  pointer-events: none;
+}
+
+[data-theme="light"] .folder-tab-community.folder-tab-active::before {
+  border-color: color-mix(in srgb, var(--tab-color) 50%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 65%, white 30%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 58%, white 20%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 32%, transparent);
+  border-right-color: color-mix(in srgb, var(--tab-color) 38%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 6%, rgba(255, 253, 250, 0.9)),
+    color-mix(in srgb, var(--tab-color) 3%, rgba(var(--panel-rgb), 0.75))
+  );
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
+    inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),
+    0 0 3px 0 color-mix(in srgb, var(--tab-color) 36%, transparent);
+}
+
+.folder-tab-community.folder-tab-active::after {
+  content: "";
+  position: absolute;
+  bottom: -9px;
+  left: 15%;
+  right: 15%;
+  height: 9px;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tab-color) 45%, transparent) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+[data-theme="light"] .folder-tab-community.folder-tab-active::after {
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tab-color) 38%, transparent) 0%, transparent 72%);
+}
+
+.folder-tab-community.folder-tab-active svg,
+.folder-tab-community.folder-tab-active span {
+  transform: scale(0.92);
+}
+
 /* The content panel directly beneath the tab bar — its flat top-left
    corner (no radius) is what makes the active tab above look physically
    attached to this surface, continuing the zero-gap overlap from
@@ -2429,55 +2648,93 @@ select.btn {
   border-top-left-radius: 10px;
 }
 
-/* Tools-page-only segmented control (explicit follow-up call: match the
-   supplied CodePen's actual rendered silhouette, not an invented
-   capsule/tray shape) -- scoped to "only the six Tools tabs," which
-   share .folder-tab/.folder-tab-active MARKUP (shape constants, icons,
-   labels, per-tab --tab-color hues) with Social's own tab bar, but
-   every VISUAL property here is overridden rather than editing the
-   shared rules, so Social's tab bar is completely unaffected.
+/* Tools-page-only segmented control -- adapted directly from the
+   authoritative reference (codepen.io/jnowland/pen/DMpexm), scoped to
+   "only the six Tools tabs," which share .folder-tab/.folder-tab-active
+   MARKUP (shape constants, icons, labels, per-tab --tab-color hues)
+   with Social's own tab bar, but every VISUAL property here is
+   overridden rather than editing the shared rules, so Social's tab bar
+   is completely unaffected.
 
-   Silhouette correction: the reference is ONE continuous horizontal
-   strip with thin top/bottom hairlines (no thick rounded outline, no
-   heavy outer box-shadow ring) containing six small, individually-
-   rounded, EQUAL-HEIGHT segments with a minimal 2px gap -- confirmed
-   against the reference's own rendered screenshot, not just its glow.
-   All six tabs sit at the SAME resting position; nothing lifts or
-   sinks via transform. The active tab is distinguished ONLY by a
-   modestly darker face, a thin 1px inset ring, and glow (the label/
-   icon glow, a thin top rim, a soft reflection spilling onto the panel
-   below, and -- on its LEFT-of-active/RIGHT-of-active neighbors -- a
-   thin LED-style side line), exactly the reference's own hierarchy:
-   silhouette and connected geometry first, glow as a secondary accent
-   layered on top, never a substitute for correct shape. */
+   Reworked to the reference's ACTUAL technique (explicit follow-up
+   call, removing the previous pass's invented 14px active-tab
+   extension + neighbor notch geometry entirely): a shallow RECESSED
+   outer rail built from layered zero-blur inset box-shadows (the
+   reference's own .MainNav: a dark 1px line just inside the top, a
+   soft wide highlight wash, a darker wash beneath it, plus thin
+   top/bottom hairline borders) containing six individually-rounded,
+   EQUAL-HEIGHT buttons seated inside it (the reference's own
+   .MainNav-Button: border-radius:5px, a restrained vertical gradient,
+   two inset highlight shadows + two outset drop shadows layered
+   together for a true raised-metal read, and a thin specular
+   highlight line across the top edge that fades in from both sides
+   toward a bright peak in the middle -- not a flat uniform inset). The
+   active tab (.MainNav-Button_Active) keeps the same shape/radius as
+   every other tab -- only its fill/ring/glow differ. */
 .folder-tabbar-tools {
-  /* Minimal gap (was 6px) -- tabs read as connected segments of one
-     rail, matching the reference's own ~2px button spacing. */
   gap: 2px;
-  /* Small radius (was 12px), no border at all (was a visible 1.5px
-     rim) -- the reference's outer housing has no drawn border, just
-     thin top/bottom hairlines (below) and a solid fill; a full
-     4-sided outline was exactly the "thick rounded capsule" look
-     explicitly called out as wrong. */
-  padding: 4px;
+  padding: 5px 4px;
   margin-bottom: 8px;
   border-radius: 7px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
-  background: rgba(var(--tint-rgb), 0.14);
-  /* One modest grounded shadow -- enough to lift the strip off the
-     Tools card beneath it, nowhere near the previous multi-layer ring
-     + broad halo. */
-  box-shadow: 0 4px 10px -6px rgba(0, 0, 0, 0.5);
+  /* Full 4-sided outline (was top/bottom hairlines only, which left no
+     visible frame on the left/right ends -- "the outer housing outline
+     is missing"). A medium steel-gray, not pure black: against an
+     already near-black dark-mode page (--tint-rgb: 20,22,30) a true
+     black border has almost no perceivable contrast and effectively
+     disappears, the same lesson already learned fixing this once
+     before. Top/bottom get their own slightly different tint
+     (darker top, lighter bottom) for a touch of directional lighting,
+     matching the reference's own border-top/border-bottom pairing. */
+  border: 1px solid rgba(90, 94, 102, 0.45);
+  border-top-color: rgba(60, 63, 70, 0.55);
+  border-bottom-color: rgba(140, 144, 155, 0.35);
+  /* Was rgba(var(--tint-rgb), 0.3) -- --tint-rgb is WHITE in dark mode
+     (255,255,255), so that was a 30%-white wash reading as a large gray
+     fill, not a surface. --panel-rgb is this theme's actual near-black
+     surface color, same idiom every other "StandUp surface" panel uses. */
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
+  /* Layered zero-blur inset shadows -- the reference's own recipe for
+     a physically recessed housing: a thin dark line just inside the
+     top edge, a soft wide highlight wash below it, then a darker wash
+     beneath that -- read together as "light grazing the top inner
+     edge of a shallow channel," not a flat fill. Plus a genuine
+     (non-inset) outer drop shadow -- the housing's own physical edge
+     casting a shadow onto the Tools card beneath it, separate from the
+     inset "inside the channel" shadows above. */
+  box-shadow:
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
+    inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
+    inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    0 3px 8px -4px rgba(0, 0, 0, 0.55);
+}
+
+/* Shrink-wrap the housing to the six tabs' own content width --
+   .folder-tabbar (the shared base class) is a block-level flex
+   container with no width set, so it defaults to filling the Tools
+   card's full width, leaving a large empty strip (plus the panel fill
+   above) to the right of Payments. Scoped to >=860px deliberately:
+   below that, Phase 11B's icon-collapse applies and the active tab's
+   flex: 1 1 0% relies on the housing spanning the full row to have
+   "available space" to grow into for its label-unwrap animation --
+   shrink-wrapping there would starve that mechanic and is explicitly
+   out of scope ("do not change mobile behavior"). */
+@media (min-width: 860px) {
+  .folder-tabbar-tools {
+    width: fit-content;
+  }
 }
 
 .folder-tab-tools {
-  /* Small individual rounding (was 8px) matching the reference's own
-     modest per-button radius -- six small rounded segments reading as
-     one connected rail via the minimal 2px gap above, not six
-     separate floating pills. */
   border-radius: 5px;
-  border: 1px solid rgba(110, 114, 124, 0.3);
+  /* The shared base .folder-tab class sets a literal 1.5px solid
+     per-category colored border -- never overridden here before, so
+     it was rendering on every Tools tab (inactive AND active) as a
+     bright full-perimeter outline, independent of (and visually
+     fighting) all the box-shadow/::before metal-recess work below.
+     Neutralized via color only (not removing the border entirely) so
+     the box's painted footprint/dimensions don't shift by the
+     border's own width. */
+  border-color: transparent;
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
@@ -2485,10 +2742,43 @@ select.btn {
   );
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease;
-  /* A light top bevel is the only depth cue at rest -- no outward drop
-     shadow and no translateY lift at all: every tab sits at the same
-     height, matching the reference exactly. */
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  /* Layered inset highlight + outset drop shadows -- the reference's
+     own four-layer recipe: a bright top inset line, a fainter 1px-
+     spread secondary inset, then two outward shadows (a close tight
+     one + a softer wider one) for real raised-metal depth against the
+     recessed rail behind it. */
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 2px 3px 1px rgba(9, 9, 9, 0.4);
+}
+
+/* Specular top highlight -- the reference's own .MainNav-Button:after:
+   a 1px line across the FULL top edge that fades in from transparent
+   at both corners toward a bright peak in the middle, reading as a
+   glint of light catching the top of a curved metal edge, not a flat
+   uniform highlight (the inset highlight above already covers that).
+   Every tab gets this (not just active) -- .folder-tab-active's own
+   ::before (color rim, further down) wins on the active tab via higher
+   specificity, so this is effectively the INACTIVE tabs' top light. */
+.folder-tab-tools::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.11) 69%,
+    transparent 80%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .folder-tab-tools:hover:not(.folder-tab-active) {
@@ -2497,51 +2787,94 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
     color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
   );
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 3px 0 rgba(0, 0, 0, 0.55);
 }
 
 .folder-tab-tools.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  /* Only modestly darker than the inactive face (was a dramatic
-     0.78/0.62 near-black well) -- the reference's own active button is
-     barely darker than its neighbors (#2d2d2d vs #343434); the real
-     "this one is active" signal is the glow, not a deep recess. */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 4%, rgba(0, 0, 0, 0.42)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.32))
-  );
-  border: 1px solid color-mix(in srgb, var(--tab-color) 32%, rgba(0, 0, 0, 0.5));
   z-index: 2;
-  /* Just a thin inset ring -- was a multi-layer "pressed well" shadow
-     stack; the reference's own active state is literally
-     `box-shadow: rgba(0,0,0,0.4) 0 0 0 1px inset` plus glow, nothing
-     more elaborate. The LED side-glow lives on the LEFT-of-active/
-     RIGHT-of-active neighbors' own pseudo-elements below, matching the
-     reference's actual construction (its glow sits on the ADJACENT
-     buttons via their own :before, not on the active button itself). */
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
-  /* Layered glow on the icon+label themselves -- a soft white core plus
-     a wider colored halo, the same two-layer construction the
-     reference's own glowing-digit text-shadow uses, via drop-shadow
-     instead so it also reaches the SVG icon (text-shadow alone would
-     miss it). This is deliberately the single strongest color cue on
-     the whole control, matching how dominant the glowing numeral reads
-     in the reference image. */
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.55))
-    drop-shadow(0 0 7px color-mix(in srgb, var(--tab-color) 80%, transparent));
+  /* Slightly tighter than the base .folder-tab's 0.45rem so icon+label
+     comfortably clear the now-smaller ::before face's own padding. */
+  gap: 0.35rem;
+  /* The real element stays at its full, UNCHANGED slot size and is
+     ONLY the dark SOCKET -- no lit gradient, no glow, no ring. The
+     actual lit "button face" lives entirely on ::before below. */
+  background: color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.75));
+  /* Cavity-wall depth shadows, deepened -- top strongest (light can't
+     reach the bottom of a sunken cavity), subtler on the other 3
+     sides, but all reach further and darker than before so the
+     exposed socket edges read as genuinely farther from the viewer
+     than the smaller face sitting inside them. No accent color here
+     at all -- any color cue at the socket's own edge is exactly the
+     "bright full-size rim" an earlier round removed. */
+  box-shadow:
+    inset 0 6px 7px -2px rgba(0, 0, 0, 0.68),
+    inset 0 -5px 7px -2px rgba(0, 0, 0, 0.42),
+    inset 5px 0 7px -2px rgba(0, 0, 0, 0.36),
+    inset -5px 0 7px -2px rgba(0, 0, 0, 0.36);
+  /* No filter here anymore. filter composites THIS element's entire
+     rendered box -- socket background/shadow + the ::before face +
+     the icon/label -- into one flattened image before drawing
+     drop-shadow around its outer alpha edge. Since the socket itself
+     is the opaque outer boundary, that's exactly what was producing a
+     bright blue rim/glow around the FULL-SIZE button regardless of
+     how small ::before was drawn inside it. The glow now lives solely
+     on ::before, so it traces the smaller face's own edge. */
 }
 
-/* Top rim reduced to a hairline -- deliberately no longer the dominant
-   color cue (the glowing label + the side/reflection glow below carry
-   that now); kept thin so there's still a continuous illuminated line
-   matching .folder-tab-active's shared mechanism, not the "bright
-   floating bar" an earlier pass produced. Reuses .folder-tab-active's
-   own ::before, scoped to this modifier. */
+/* The actual visible active button face -- NOT the real element above,
+   which is only the socket. Previously this rule set `inset` (which
+   assigns top/right/bottom/left) while the base, shared
+   .folder-tab-tools::before rule it overrides also sets a literal
+   `height: 1px` that this override never redeclared -- with top,
+   bottom, AND height all in play at once, the spec's over-constrained
+   rule for absolutely-positioned boxes drops the computed `bottom` and
+   keeps the literal height, collapsing this into a 1px line near the
+   top instead of a real filled rectangle. That's what was reading as
+   "a bright highlight line floating above a full-size button" across
+   the last two rounds -- `height: auto` below is the actual fix. */
 .folder-tab-tools.folder-tab-active::before {
-  height: 1px;
-  background: color-mix(in srgb, var(--tab-color) 75%, white 15%);
-  box-shadow: none;
+  content: "";
+  position: absolute;
+  height: auto;
+  /* Matches the finalized inset used by Header/Community (3px, after
+     their own follow-up reduction rounds) -- was 6px. */
+  inset: 3px;
+  border-radius: 4px;
+  z-index: -1;
+  /* Metallic bevel: brighter top/left edge, darker bottom/right edge
+     (a single top-left light source), not just a top/bottom split. */
+  border: 1px solid color-mix(in srgb, var(--tab-color) 55%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 70%, white 30%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 65%, white 20%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
+  border-right-color: color-mix(in srgb, var(--tab-color) 40%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 5%, rgba(0, 0, 0, 0.4)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.3))
+  );
+  /* Restrained bevel shadow (top/left highlight, bottom/right shade --
+     matches the border's own light source) plus a SINGLE, further-
+     reduced outward glow (was 5px, now 3px) so illumination stays
+     concentrated on the face itself with only a faint spill into the
+     socket around it. */
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px -1px 2px 0 rgba(0, 0, 0, 0.35),
+    0 0 3px 0 color-mix(in srgb, var(--tab-color) 40%, transparent);
+  pointer-events: none;
+}
+
+/* Icon + label scale down together with the smaller inner face --
+   transform (not font-size) so both shrink uniformly around their own
+   center, with no directional shift. */
+.folder-tab-tools.folder-tab-active svg,
+.folder-tab-tools.folder-tab-active span {
+  transform: scale(0.92);
 }
 
 /* Reflection glow spilling DOWN past the active tab's own bottom edge,
@@ -2562,20 +2895,12 @@ select.btn {
   pointer-events: none;
 }
 
-/* Left-of-active / right-of-active transition shapes -- the reference
-   CodePen's own ".MainNav-Button_LeftOfActive"/"_RightOfActive", derived
-   purely from index (see tools/page.tsx). A thin vertical glow line
-   reaches from each neighbor's edge INTO the gap toward the active tab,
-   colored by --active-glow-color (the ACTIVE tab's own accent, passed
-   down via inline style since that's a different element with its own
-   --tab-color) -- this reads as light leaking out of the active well
-   onto whichever tab sits beside it, not as either neighbor's own
-   color. Only ever one line per gap: the active tab's own box-shadow
-   carries no side glow of its own (see .folder-tab-tools.folder-tab-
-   active above), so there's nothing to double up with. Naturally
-   absent when the active tab is the first/last (no neighbor exists on
-   that side to receive it), matching the reference's own jQuery
-   .prev()/.next() no-op at either end. */
+/* Left-of-active / right-of-active LED glow -- the reference CodePen's
+   own ".MainNav-Button_LeftOfActive"/"_RightOfActive", derived purely
+   from index (see tools/page.tsx). A thin vertical glow line reaches
+   from each neighbor's edge INTO the gap toward the active tab,
+   colored by --active-glow-color (the ACTIVE tab's own accent).
+   Naturally absent when the active tab is the first/last. */
 .folder-tab-tools-left-of-active::after {
   content: "";
   position: absolute;
@@ -2611,27 +2936,37 @@ select.btn {
 }
 
 /* Light theme: a genuinely different construction (silver/light-metal
-   hardware), not an inverted dark-mode wash -- a solid pearl-gray
-   strip with thin hairlines (no drawn border, matching the dark-mode
-   correction above), pearl/light-silver inactive faces, crisp white
-   highlights. The active face is only modestly darker gray-on-gray
-   (not a deep recess), same "glow carries the signal, not shape or
-   shadow" principle as dark mode. */
+   hardware), not an inverted dark-mode wash -- the same layered-shadow
+   recessed-rail + raised-button recipe as dark mode above, recolored
+   with the warm-white highlight / warm-gray shadow convention this
+   app's light theme already uses elsewhere (.metal-surface etc.)
+   instead of flat black. */
 [data-theme="light"] .folder-tabbar-tools {
-  border-top-color: rgba(255, 255, 255, 0.7);
-  border-bottom-color: rgba(40, 32, 28, 0.25);
+  /* Full outline recolored for light mode (was top/bottom-only
+     hairlines, same gap dark mode had) -- medium warm-gray, visible
+     against the light page without being heavy. */
+  border-color: rgba(40, 32, 28, 0.3);
+  border-top-color: rgba(40, 32, 28, 0.38);
+  border-bottom-color: rgba(255, 255, 255, 0.75);
   background: rgba(var(--panel-rgb), 0.55);
-  box-shadow: 0 3px 8px -6px rgba(40, 32, 28, 0.4);
+  box-shadow:
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
+    inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    0 3px 8px -4px rgba(40, 32, 28, 0.35);
 }
 
 [data-theme="light"] .folder-tab-tools {
-  border-color: rgba(40, 32, 28, 0.22);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
     color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
   );
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
+    0 1px 2px 0 rgba(40, 32, 28, 0.18),
+    0 2px 3px 1px rgba(40, 32, 28, 0.12);
 }
 
 [data-theme="light"] .folder-tab-tools:hover:not(.folder-tab-active) {
@@ -2640,22 +2975,40 @@ select.btn {
     color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
     color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
   );
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.6),
+    0 2px 3px 0 rgba(40, 32, 28, 0.22);
 }
 
 [data-theme="light"] .folder-tab-tools.folder-tab-active {
   color: color-mix(in srgb, var(--tab-color) 85%, black 25%);
-  /* Only modestly darker than the inactive face, same correction as
-     dark mode above. */
+  /* Same pressed-face restructure as dark mode above: the real element
+     is ONLY the recessed SOCKET (warm-gray wash, no glow/filter), and
+     ::before carries the smaller lit face + rim + glow entirely. */
+  background: color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.16));
+  box-shadow:
+    inset 0 6px 7px -2px rgba(40, 32, 28, 0.46),
+    inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
+    inset 5px 0 7px -2px rgba(40, 32, 28, 0.21),
+    inset -5px 0 7px -2px rgba(40, 32, 28, 0.21);
+}
+
+[data-theme="light"] .folder-tab-tools.folder-tab-active::before {
+  border-color: color-mix(in srgb, var(--tab-color) 50%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 65%, white 30%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 58%, white 20%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 32%, transparent);
+  border-right-color: color-mix(in srgb, var(--tab-color) 38%, transparent);
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--tab-color) 6%, rgba(40, 32, 28, 0.2)),
-    color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.12))
+    color-mix(in srgb, var(--tab-color) 6%, rgba(255, 253, 250, 0.9)),
+    color-mix(in srgb, var(--tab-color) 3%, rgba(var(--panel-rgb), 0.75))
   );
-  border: 1px solid color-mix(in srgb, var(--tab-color) 30%, rgba(40, 32, 28, 0.4));
-  box-shadow: inset 0 0 0 1px rgba(40, 32, 28, 0.3);
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))
-    drop-shadow(0 0 6px color-mix(in srgb, var(--tab-color) 65%, transparent));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
+    inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),
+    0 0 3px 0 color-mix(in srgb, var(--tab-color) 36%, transparent);
 }
 
 [data-theme="light"] .folder-tab-tools.folder-tab-active::after {
@@ -2699,17 +3052,43 @@ select.btn {
   }
 }
 
-/* Header's hanging tab row (navTabs() in Header.tsx) — same folder-tab
-   theme as the "up" variant above, inverted: rounded at the BOTTOM
-   (hangs down from the header instead of rising from a panel), and the
-   active tab's TOP border/background merges into the header above it
-   (--chrome-alpha, matching .app-header's own background) instead of a
-   content panel below. Lives inside .app-header, which is already
-   position:sticky, so this scrolls with the header as one unit rather
-   than needing its own sticky offset. */
+/* Header's hanging tab row (navTabs() in Header.tsx). Visual
+   construction now matches .folder-tabbar-tools/.folder-tab-tools
+   exactly (explicit follow-up call: "the Tools tabs are now the
+   source of truth, apply the same physical construction here") --
+   individually-rounded seated buttons inside one continuous recessed
+   metal housing, not the previous "hanging folder flap merging up
+   into the header" shape. Only the VISUAL recipe is ported; every
+   layout/responsive-fit property below (scroll, the JS-measured
+   clearance padding, the fluid gap/h-padding vars, the mobile icon-
+   collapse mechanism) is untouched on purpose -- this row's sizing
+   model is genuinely different from Tools' fixed 6-tab shrink-wrap,
+   and preserving it was explicit scope. */
 .folder-tabbar-hanging {
   display: flex;
   align-items: flex-start;
+  /* Housing frame -- same recipe as .folder-tabbar-tools (steel-gray
+     outline, near-black surface fill, layered inset "recessed channel"
+     shadows, genuine outer drop shadow), with two deliberate
+     differences so it reads as physically FIXED to the red divider
+     line above rather than a separate floating bar: square top
+     corners (only the bottom two are rounded) and no top border at
+     all -- the red line itself is the only seam there. margin-top:0
+     below (unchanged) already put this box flush against
+     .app-header-inner's bottom border with zero gap; the square top
+     + missing top border is what makes that flushness actually READ
+     as "fixed to the line" instead of a rounded box merely touching
+     a straight one. */
+  border-radius: 0 0 7px 7px;
+  border: 1px solid rgba(90, 94, 102, 0.45);
+  border-top: none;
+  border-bottom-color: rgba(140, 144, 155, 0.35);
+  background: rgba(var(--panel-rgb), var(--panel-alpha));
+  box-shadow:
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
+    inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
+    inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    0 3px 8px -4px rgba(0, 0, 0, 0.55);
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -2727,11 +3106,16 @@ select.btn {
      tab including the active one sitting fully underneath it rather
      than overlapping/covering it. */
   margin-top: 0;
-  /* Bottom padding widened (was 2px, then 12px) -- the active tab sits
-     4px lower via translateY (pulled down, not raised) and its shadow/
-     glow were strengthened/widened further in a later refinement pass;
-     overflow-y:hidden above would otherwise clip them. */
-  padding: 0 18px 20px;
+  /* Small fixed breathing room between the frame and the tabs -- the
+     outer SPAN (logo-left to profile-right) is now handled by margin
+     in the media queries below instead, so this can stay a tight,
+     Tools-matching inset rather than the old 18px. Bottom reduced to
+     5px (was 20px, reserved for the old translateY-pulled-down active
+     tab, no longer needed now that the active state is the socket/face
+     system with no movement). Top raised from 0 to 7px so the tab row
+     has a touch of clearance under the red divider line instead of
+     sitting flush against it. */
+  padding: 7px 5px 5px;
   /* Very subtle fade at the left/right edges -- explicit user call, a
      visual cue that more tabs sit off-screen on a horizontal scroll
      rather than the row just stopping abruptly. */
@@ -2742,37 +3126,55 @@ select.btn {
   display: none;
 }
 
-/* The oversized header logo (.brand-oversized, see above) dips down past
-   the red divider line at the same left x-position (18px) this tab row
-   starts from by default -- without this, the first tab would render
-   directly underneath where the logo overlaps. Pushed right to clear
-   the logo's reserved width at each breakpoint it's enlarged at. Global
-   Header Nav auto-fit: now reads --nav-tab-left-clearance, a CSS custom
-   property Header.tsx's own ResizeObserver effect sets from the logo's
-   REAL rendered right edge (brandRef), rather than this fixed number
-   alone -- the fixed value (214px/162px, matching .brand-oversized's
-   own breakpoints) survives as the var()'s fallback, for the brief
-   pre-measure window on first paint and for no-JS/SSR rendering, so
-   nothing regresses if the effect hasn't run yet. padding-right is the
-   same idea for the OTHER side: --nav-tab-right-clearance comes from
-   the end-cluster's (hamburger/bell/profile) real left edge
-   (navEndClusterRef) -- important because the signed-in profile pill's
-   width varies with the user's own display name length, so no fixed
-   pixel guess could ever be correct for every account. Declared AFTER
-   the base rule's shorthand `padding` above so these longhand overrides
-   actually win the cascade (equal specificity, source order decides) --
-   do not move this above the base rule again. */
+/* Light mode housing -- same recipe as [data-theme="light"] .folder-tabbar-tools. */
+[data-theme="light"] .folder-tabbar-hanging {
+  border-color: rgba(40, 32, 28, 0.3);
+  border-bottom-color: rgba(255, 255, 255, 0.75);
+  background: rgba(var(--panel-rgb), 0.55);
+  box-shadow:
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
+    inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
+    inset 0 4px 0 0 rgba(40, 32, 28, 0.1),
+    0 3px 8px -4px rgba(40, 32, 28, 0.35);
+}
+
+/* The housing's own box now spans exactly from the logo's left edge to
+   the profile button's right edge -- explicit user call ("span from
+   the beginning of the logo all the way to the end of the profile
+   button"), via MARGIN rather than the previous padding-based
+   approach (which only positioned the first/last TAB inside a box
+   that itself still spanned the header's full outer width -- now the
+   frame's own border follows the same alignment).
+   margin-left reuses --nav-tab-left-clearance (Header.tsx's
+   ResizeObserver-measured real left edge of the oversized logo,
+   brandRef) unchanged from before -- .folder-tabbar-hanging is a
+   direct child of .app-header (position:fixed, left:0/right:0, no
+   padding of its own), so a margin here is measured from the same
+   viewport-relative x-origin brandRect.left already uses.
+   margin-right is a literal 18px, NOT --nav-tab-right-clearance --
+   that var measures to the START of the whole hamburger/bell/profile
+   cluster (navEndClusterRef), which is exactly what the OLD "don't
+   let the last tab collide with the icons" padding wanted, but is
+   short of "the end of the profile button" the frame itself now needs
+   to reach. 18px instead matches .app-header-inner's own right
+   padding exactly -- since that row is `justify-content: space-between`
+   with the end-cluster (profile last inside it) as its final child,
+   the end-cluster's own right edge already sits flush against that
+   same 18px boundary. Declared AFTER the base rule's shorthand
+   `padding` above so these aren't fighting it (margin and padding are
+   separate properties, but kept in this order for readability/history
+   parity with the previous padding-based version). */
 @media (min-width: 1025px) {
   .folder-tabbar-hanging {
-    padding-left: var(--nav-tab-left-clearance, 214px);
-    padding-right: var(--nav-tab-right-clearance, 18px);
+    margin-left: var(--nav-tab-left-clearance, 18px);
+    margin-right: 18px;
   }
 }
 
 @media (min-width: 761px) and (max-width: 1024px) {
   .folder-tabbar-hanging {
-    padding-left: var(--nav-tab-left-clearance, 162px);
-    padding-right: var(--nav-tab-right-clearance, 18px);
+    margin-left: var(--nav-tab-left-clearance, 18px);
+    margin-right: 18px;
   }
 }
 
@@ -2816,158 +3218,191 @@ select.btn {
   font-weight: 600;
   text-decoration: none;
   color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
-  background: color-mix(in srgb, var(--tab-color) 5%, rgba(var(--tint-rgb), 0.02));
-  border: 1.5px solid color-mix(in srgb, var(--tab-color) 42%, transparent);
-  border-top: none;
-  border-radius: 0 0 10px 10px;
+  /* Visual recipe below now matches .folder-tab-tools exactly (explicit
+     "Tools tabs are the source of truth" call) -- uniform rounded seated
+     button, no per-tab colored border, no vertical movement. Only
+     color/background/border/box-shadow/radius/transform changed here;
+     every layout property above (gap, padding, font-size, flex-shrink,
+     position, cursor) is untouched. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
+  );
+  border: 1.5px solid transparent;
+  border-radius: 5px;
   position: relative;
   cursor: pointer;
-  /* Recessed, closer to the red divider line above -- explicit user
-     call, sits opposite the active tab's pulled-down position below. */
-  transform: translateY(-1px);
-  /* Colored outline + minimal bevel (a thin inner top highlight, thin
-     inner bottom shade) + a small grounded shadow, same as before.
-     Header Navigation Refresh: glow strength restored to match
-     .folder-tab's (Community) own inactive-tab glow exactly (was
-     dimmed to 0 0 3px 0px @26% in an earlier pass so the active tab
-     read as the one clearly lit control) -- explicit follow-up call to
-     bring the two tab systems' INACTIVE treatment back in line with
-     each other; .folder-tab-hanging-active's own glow (already shared
-     via --metal-glow-*) is untouched and still reads as meaningfully
-     brighter than this. */
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18),
-    0 3px 5px -3px rgba(0, 0, 0, 0.3),
-    0 0 8px 1px color-mix(in srgb, var(--tab-color) 46%, transparent);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 2px 3px 1px rgba(9, 9, 9, 0.4);
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease, transform 0.2s ease;
+    box-shadow 0.2s ease;
+}
+
+/* Specular top highlight for every INACTIVE tab -- same recipe as
+   .folder-tab-tools::before. The active variant overrides this pseudo
+   entirely (see .folder-tab-hanging-active::before below, repurposed
+   into the pressed-face layer). */
+.folder-tab-hanging::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.11) 69%,
+    transparent 80%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
-  color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
-  background: color-mix(in srgb, var(--tab-color) 12%, transparent);
-  border-color: color-mix(in srgb, var(--tab-color) 68%, transparent);
-  /* Nudges down 1-2px toward the active tab's position, never all the
-     way -- explicit user call. */
-  transform: translateY(1px);
-  /* Matches .folder-tab's own hover glow exactly -- same follow-up call
-     as the rest-state glow above (was 0 0 6px 0px @34%). */
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.22),
-    0 4px 6px -3px rgba(0, 0, 0, 0.35),
-    0 0 13px 2px color-mix(in srgb, var(--tab-color) 58%, transparent);
-}
-
-/* Light mode: same neutral-shadow softening + ~25% glow reduction as
-   .folder-tab:hover:not(.folder-tab-active)'s own light-mode override
-   -- kept the two inactive treatments matching in both themes, not
-   just dark. */
-[data-theme="light"] .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 0 rgba(40, 32, 28, 0.14),
-    0 4px 6px -3px rgba(40, 32, 28, 0.2),
-    0 0 10px 1px color-mix(in srgb, var(--tab-color) 44%, transparent);
-}
-
-.folder-tab-hanging-active {
-  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  /* Subtle top-lighter-to-bottom-darker gradient -- explicit user
-     call, replacing the previous flat tint, part of the "physical
-     tab" read. */
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--tab-color) 15%, rgba(var(--panel-rgb), var(--chrome-alpha))),
-    color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--chrome-alpha)))
+    color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
+    color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
   );
-  /* Outline toned down slightly (was 80%/white10%) -- explicit
-     refinement call to move more of the emphasis into the diffused
-     glow below instead of the border itself. */
-  border-color: color-mix(in srgb, var(--tab-color) 68%, white 5%);
-  border-top-color: color-mix(in srgb, var(--tab-color) 10%, rgba(var(--panel-rgb), var(--chrome-alpha)));
-  /* Brighter left/right edges, darker beveled bottom edge -- explicit
-     user call, the bottom here is the tab's free/hanging edge (the
-     top is what merges into the header). */
-  border-left-color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  border-right-color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  border-bottom-color: color-mix(in srgb, var(--tab-color) 55%, black 30%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 3px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Light mode -- matches .folder-tab-tools' own light-mode recipe. */
+[data-theme="light"] .folder-tab-hanging {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
+    0 1px 2px 0 rgba(40, 32, 28, 0.18),
+    0 2px 3px 1px rgba(40, 32, 28, 0.12);
+}
+
+[data-theme="light"] .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
+    color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.6),
+    0 2px 3px 0 rgba(40, 32, 28, 0.22);
+}
+
+/* Active state fully replaced with the Tools "pressed-into-a-socket"
+   system (explicit "Tools tabs are the source of truth" call),
+   superseding the previous "pulled-out hanging tab" metaphor (no more
+   translateY, no more per-tab colored border, no more top-accent-line
+   + bottom-underline pair). The real element is now ONLY the dark
+   socket at its full, unchanged slot size; the lit face lives on
+   ::before, inset and centered inside it. --metal-glow-1/-2 remain
+   defined in :root for .metal-strong and other consumers -- just no
+   longer read here. */
+.folder-tab-hanging-active {
+  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
   z-index: 2;
-  /* Pulled DOWN 4px, as if sliding out of the nav bar toward the page
-     below it -- explicit user call, direction reversed from the
-     previous "raised up" treatment. The mobile 640px rule below sets
-     its own (smaller) downward transform and wins there since it's
-     declared later. */
-  transform: translateY(4px);
-  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s ease, border-color 0.25s ease,
-    box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Physical "pulled-out tab" depth, layered with the accent-colored
-     halo: an inner top highlight, brighter inner left/right edges, a
-     darker inner bottom bevel, a stronger neutral grounded shadow
-     directly underneath (explicit "clearly appears pulled down/out"
-     call), then the halo itself -- its outline-ring layer toned down
-     to match the border above, and its two diffuse layers brightened/
-     widened so more of the active tab's emphasis reads as soft light
-     behind it rather than a bright edge. */
-  /* The two diffuse glow layers read from the shared --metal-glow-*
-     tokens now (see .folder-tab-active above and .metal-strong further
-     down -- all three consume the same source). */
+  border-color: transparent;
+  background: color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.75));
   box-shadow:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
-    inset 1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
-    inset -1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
-    inset 0 -2px 0 0 rgba(0, 0, 0, 0.45),
-    0 10px 18px -4px rgba(0, 0, 0, 0.62),
-    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
-    var(--metal-glow-1) color-mix(in srgb, var(--tab-color) var(--metal-glow-1-strength), transparent),
-    var(--metal-glow-2) color-mix(in srgb, var(--tab-color) var(--metal-glow-2-strength), transparent);
+    inset 0 6px 7px -2px rgba(0, 0, 0, 0.68),
+    inset 0 -5px 7px -2px rgba(0, 0, 0, 0.42),
+    inset 5px 0 7px -2px rgba(0, 0, 0, 0.36),
+    inset -5px 0 7px -2px rgba(0, 0, 0, 0.36);
 }
 
-/* Light mode: just the two neutral black shadows (the bevel + the
-   "pulled out" grounded shadow underneath) still need an explicit
-   override -- recolored/softened the same way as the shared --shadow-*
-   tokens elsewhere. The colored glow layers above already adapt
-   automatically via --metal-glow-*, no longer duplicated here. */
 [data-theme="light"] .folder-tab-hanging-active {
+  background: color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.16));
   box-shadow:
-    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.26),
-    inset 1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
-    inset -1px 0 0 0 color-mix(in srgb, var(--tab-color) 35%, white 25%),
-    inset 0 -2px 0 0 rgba(40, 32, 28, 0.22),
-    0 8px 16px -4px rgba(40, 32, 28, 0.28),
-    0 0 0 1.5px color-mix(in srgb, var(--tab-color) 35%, transparent),
-    var(--metal-glow-1) color-mix(in srgb, var(--tab-color) var(--metal-glow-1-strength), transparent),
-    var(--metal-glow-2) color-mix(in srgb, var(--tab-color) var(--metal-glow-2-strength), transparent);
+    inset 0 6px 7px -2px rgba(40, 32, 28, 0.46),
+    inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
+    inset 5px 0 7px -2px rgba(40, 32, 28, 0.21),
+    inset -5px 0 7px -2px rgba(40, 32, 28, 0.21);
 }
 
-/* Thin brighter accent along the active tab's upper edge -- paired with
-   the red divider line directly above it, reads as "the light above is
-   touching this one tab specifically." */
+/* The lit face itself, inset 6px on every side (centered by
+   construction) -- repurposes the same pseudo-element that used to be
+   the top accent line. height:auto is required: the base
+   .folder-tab-hanging rule doesn't set height, so there's no
+   over-constraint risk here the way Tools' first pass hit, but it's
+   kept explicit for parity/safety since `inset` sets top+bottom
+   together. */
 .folder-tab-hanging-active::before {
   content: "";
   position: absolute;
-  top: -1px;
-  left: 2px;
-  right: 2px;
-  height: 2px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--tab-color) 85%, white 45%);
-  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--tab-color) 70%, transparent);
+  height: auto;
+  inset: 3px;
+  border-radius: 4px;
+  z-index: -1;
+  border: 1px solid color-mix(in srgb, var(--tab-color) 55%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 70%, white 30%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 65%, white 20%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
+  border-right-color: color-mix(in srgb, var(--tab-color) 40%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 5%, rgba(0, 0, 0, 0.4)),
+    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.3))
+  );
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px -1px 2px 0 rgba(0, 0, 0, 0.35),
+    0 0 3px 0 color-mix(in srgb, var(--tab-color) 40%, transparent);
+  pointer-events: none;
 }
 
+[data-theme="light"] .folder-tab-hanging-active::before {
+  border-color: color-mix(in srgb, var(--tab-color) 50%, transparent);
+  border-top-color: color-mix(in srgb, var(--tab-color) 65%, white 30%);
+  border-left-color: color-mix(in srgb, var(--tab-color) 58%, white 20%);
+  border-bottom-color: color-mix(in srgb, var(--tab-color) 32%, transparent);
+  border-right-color: color-mix(in srgb, var(--tab-color) 38%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--tab-color) 6%, rgba(255, 253, 250, 0.9)),
+    color-mix(in srgb, var(--tab-color) 3%, rgba(var(--panel-rgb), 0.75))
+  );
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
+    inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),
+    0 0 3px 0 color-mix(in srgb, var(--tab-color) 36%, transparent);
+}
+
+/* Reflection glow spilling below the active tab -- same technique as
+   .folder-tab-tools.folder-tab-active::after. Replaces the previous
+   bottom-underline bar. */
 .folder-tab-hanging-active::after {
   content: "";
   position: absolute;
-  bottom: -1px;
-  left: 10px;
-  right: 10px;
-  height: 1.5px;
-  border-radius: 2px;
-  /* Dimmed slightly (was solid var(--tab-color)) -- explicit user call
-     to pull the bottom underline back a touch in favor of the
-     diffused glow carrying the active state instead. */
-  background: color-mix(in srgb, var(--tab-color) 72%, transparent);
+  bottom: -9px;
+  left: 15%;
+  right: 15%;
+  height: 9px;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tab-color) 45%, transparent) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+[data-theme="light"] .folder-tab-hanging-active::after {
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--tab-color) 38%, transparent) 0%, transparent 72%);
+}
+
+/* Icon + label scale down together with the smaller inner face. */
+.folder-tab-hanging-active svg,
+.folder-tab-hanging-active span {
+  transform: scale(0.92);
 }
 
 /* Combined About/FAQ/Contact stand-in tab — hidden by default (desktop
@@ -2993,10 +3428,10 @@ select.btn {
   }
   .folder-tabbar-hanging {
     gap: 2px;
-    /* Widened to match the desktop fix -- same reason (room for the
-       active tab's downward shift + shadow before overflow-y:hidden
-       clips it). */
-    padding: 0 10px 16px;
+    /* Same desktop fix mirrored here -- bottom reduced (no longer
+       reserving room for the old translateY-pulled-down active tab),
+       small top clearance added under the red line. */
+    padding: 7px 10px 5px;
   }
   .folder-tab-hanging {
     gap: 0;
@@ -3006,7 +3441,6 @@ select.btn {
   }
   .folder-tab-hanging-active {
     padding: 0.45rem 0.75rem;
-    transform: translateY(3px);
   }
   .folder-tab-hanging span {
     display: inline-block;
@@ -4796,6 +5230,15 @@ select:focus {
 .goal-toolbar-expandable-open {
   flex-basis: 100%;
   width: 100%;
+  /* A flex item's default min-width is "auto", which floors it at its
+     content's own min-content size -- NOT 0 -- so width:100% above was
+     still letting this item's content (checklist rows, the Add-item
+     input+button) push wider than the Task card and spill past its
+     right edge on narrow phones instead of actually wrapping/shrinking
+     to fit. min-width:0 is what makes width:100% the real constraint. */
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Icon+label controls collapse to icon-only (title attr carries the
@@ -5633,7 +6076,7 @@ select:focus {
    above 859px, so there is nothing left to scroll. */
 .folder-tabbar-tools {
   overflow: visible;
-  padding-top: 28px;
+  padding-top: 5px;
 }
 
 @media (max-width: 859px) {
@@ -6735,6 +7178,80 @@ select:focus {
   text-shadow: 0 0 6px rgba(245, 158, 11, 0.16);
 }
 
+/* Light theme: same bug class as .header-metal-control (fixed above) --
+   .standup-metal-btn's "dark machined-gunmetal face" is a literal
+   hardcoded hex gradient (#34383d/#202327/#111315, plus its own
+   darker hex stops again for :active and :disabled), with zero
+   [data-theme="light"] variant anywhere in the file. That's what put a
+   flat-black button on Dashboard's Assistant/Review Today/Plan
+   Tomorrow, Today's Reopen Day/Plan Tomorrow, and Tomorrow's Use-a-
+   Pass/Reorder -- every one of them composes this one shared class,
+   so the fix belongs here once, not on six separate buttons. Border-
+   color longhands, the ring, and the --metal-glow-* layer all already
+   read var(--metal-color)/the theme-adaptive glow tokens -- untouched,
+   they already recolor correctly per variant (neutral steel or
+   --accent's amber) in both themes. Only the face (background), text
+   color, and the highlight/shadow balance that assumed a dark base
+   need restating. */
+[data-theme="light"] .standup-metal-btn {
+  background: linear-gradient(to bottom, #fdfbf7 0%, #f0ece2 45%, #e1dbcd 100%);
+  color: rgba(var(--tint-rgb), 0.92);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.4),
+    inset -1px 0 0 0 rgba(40, 32, 28, 0.14),
+    inset 0 -2px 3px 0 rgba(40, 32, 28, 0.22),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 28%, transparent),
+    0 3px 7px -3px rgba(40, 32, 28, 0.28),
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent);
+}
+
+/* The diagonal sheen reads as near-invisible white-on-white at its
+   original opacity against the new light face -- recolored to a
+   faint warm-gray reflection instead so "brushed metal catching the
+   light" still reads, same technique/geometry, just inverted tone. */
+[data-theme="light"] .standup-metal-btn::before {
+  background: linear-gradient(
+    115deg,
+    transparent 32%,
+    rgba(40, 32, 28, 0.06) 44%,
+    rgba(40, 32, 28, 0.1) 48%,
+    rgba(40, 32, 28, 0.06) 52%,
+    transparent 64%
+  );
+}
+
+[data-theme="light"] .standup-metal-btn:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px 0 0 0 rgba(40, 32, 28, 0.12),
+    inset 0 -2px 3px 0 rgba(40, 32, 28, 0.2),
+    0 0 0 1.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 42%, transparent),
+    0 5px 10px -3px rgba(40, 32, 28, 0.25),
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent);
+}
+
+/* Pressed: darkens/recesses the SAME light face (a dimmer warm ivory)
+   rather than reverting to black. */
+[data-theme="light"] .standup-metal-btn:active {
+  background: linear-gradient(to bottom, #e9e4d9 0%, #ddd6c7 45%, #d1c9b7 100%);
+  box-shadow:
+    inset 0 2px 5px 0 rgba(40, 32, 28, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, transparent),
+    0 1px 1px -1px rgba(40, 32, 28, 0.2);
+}
+
+[data-theme="light"] .standup-metal-btn:disabled,
+[data-theme="light"] .standup-metal-btn:disabled:hover,
+[data-theme="light"] .standup-metal-btn:disabled:active {
+  background: linear-gradient(to bottom, #efece5 0%, #e3ded2 45%, #d8d2c3 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 2px 0 rgba(40, 32, 28, 0.15);
+}
+
 /* ---- Header controls: hamburger / notification bell / profile-avatar ----
    Same premium metal LANGUAGE as .standup-metal-btn (the same
    --metal-color/--metal-edge-neutral/--metal-glow-* tokens, the same
@@ -6833,6 +7350,59 @@ select:focus {
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
     inset 0 -1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Light theme: .header-metal-control's base `background` above is a
+   literal hardcoded dark gradient (#363a3f/#1f2226/#121315), not a
+   var()-driven one -- it never had a theme-aware source to begin with,
+   so it rendered the same near-black box in both themes. That's the
+   actual cascade bug (not some light rule losing a specificity fight):
+   there was no light-scoped competitor at all. Fixed at the shared
+   class itself (one rule here, not per-button duplicates) with the
+   attribute selector's specificity bump ([data-theme="light"] + one
+   class = 2 simple selectors) winning over the unscoped 1-class base
+   rule above. This also reaches the mobile avatar trigger
+   (.header-metal-control--round, which has no background of its own
+   and inherits this one) as a side effect -- a correct fix, not a
+   regression, since that control had the exact same black-in-light-
+   mode bug. The DESKTOP profile pill is unaffected: its own
+   [data-theme="light"] .nav-link.nav-profile rule (3 simple selectors)
+   already outranks this one and keeps winning regardless of source
+   order. Border-color longhands and the --metal-glow-* tokens already
+   adapt automatically (--metal-edge-neutral/--metal-color and the glow
+   tokens aren't theme-hardcoded), so only background + the shadow
+   layers that assumed a dark base (highlight/shadow balance, grounded
+   shadow color) need restating here. */
+[data-theme="light"] .header-metal-control {
+  background: linear-gradient(to bottom, #fdfbf7 0%, #f0ece2 55%, #e1dbcd 100%);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 0 0 rgba(40, 32, 28, 0.22),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 55%, white 10%),
+    0 0 0 2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 18%, transparent),
+    var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent),
+    0 2px 5px -2px rgba(40, 32, 28, 0.25);
+}
+
+[data-theme="light"] .header-metal-control:hover {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 1),
+    inset -1px -1px 0 0 rgba(40, 32, 28, 0.2),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 68%, white 14%),
+    0 0 0 2.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 26%, transparent),
+    var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent),
+    0 4px 8px -2px rgba(40, 32, 28, 0.22);
+}
+
+/* Pressed: darkens/recesses the SAME light surface (a warmer, dimmer
+   ivory) rather than reverting to black. */
+[data-theme="light"] .header-metal-control:active {
+  background: linear-gradient(to bottom, #e9e4d9 0%, #ddd6c7 50%, #d1c9b7 100%);
+  box-shadow:
+    inset 2px 2px 3px 0 rgba(40, 32, 28, 0.28),
+    inset -1px -1px 0 0 rgba(255, 255, 255, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 34%, transparent),
+    0 1px 2px -1px rgba(40, 32, 28, 0.18);
 }
 
 /* Mobile avatar link only -- it has no border/box-model of its own to

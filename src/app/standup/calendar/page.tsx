@@ -413,7 +413,7 @@ export default function CalendarPage() {
 
         <div className="text-center text-xl font-semibold mb-6">{monthName}</div>
 
-        <div className="grid grid-cols-7 gap-1 sm:gap-3">
+        <div className="calendar-grid grid grid-cols-7 gap-1 sm:gap-3">
           {/* Day headers */}
           {(["calendar.daySun", "calendar.dayMon", "calendar.dayTue", "calendar.dayWed", "calendar.dayThu", "calendar.dayFri", "calendar.daySat"] as const).map((dayKey) => (
             <div

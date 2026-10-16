@@ -6404,6 +6404,26 @@ select:focus {
   }
 }
 
+/* Mobile-only grid-width reclaim -- a tiny negative margin on the grid
+   itself (not .card, which is a shared class used app-wide and must
+   stay untouched) reaches ~3.5px into .card's own left/right padding
+   on each side. .calendar-grid is an auto-width block (display:grid,
+   no explicit width), so the browser's normal auto-width algorithm
+   adds that negative margin straight back as extra width rather than
+   just shifting position -- 7px total recovered, split evenly across
+   the 7 column tracks by the existing grid-cols-7 (gap-1 untouched),
+   landing at ~1px more width per date card. .card's own overflow:
+   hidden only clips content past its border box, not its padding, so
+   this stays safely inside the card at every mobile width. Reset at
+   640px+ -- the Calendar's own existing tablet/desktop breakpoint --
+   leaving that layout's width completely unchanged. */
+@media (max-width: 639px) {
+  .calendar-grid {
+    margin-left: -3.5px;
+    margin-right: -3.5px;
+  }
+}
+
 /* Mobile-only card-footprint fix -- on mobile, aspect-square alone made
    Today's cell (badge + gap + ring + gap + fraction, the tallest
    possible content stack) grow past the plain aspect-ratio height
@@ -6573,15 +6593,25 @@ select:focus {
    restored per explicit request: the ring's own amber segment already
    shows the PROPORTION rescheduled, this shows the exact COUNT -- both
    intentionally coexist. Position only (no size/breakpoint hiding), so
-   it's present at every viewport, matching the rest of this card. */
+   it's present at every viewport, matching the rest of this card.
+
+   Mobile sizing (base, below the 640px override further down) trimmed
+   slightly -- at 8px font + 1px top/bottom padding + its own 1px
+   border, this badge's rendered footprint (~12px tall) was noticeably
+   chunkier than .calendar-today-badge's (~8px: 6px font, no border,
+   same 1px vertical padding) despite sitting at the same fixed top:4px
+   absolute offset, the thing that made it NOT "fit cleanly" the way
+   Today's in-flow badge does. 7px font + 0 vertical padding brings its
+   footprint down near Today's, and top nudges in 1px to match, without
+   touching the ring/cell height at all. */
 .calendar-cell-reschedule-badge {
   position: absolute;
-  top: 4px;
+  top: 3px;
   right: 4px;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
   line-height: 1;
-  padding: 1px 4px;
+  padding: 0 3px;
   border-radius: 5px;
   background: color-mix(in srgb, var(--calendar-reschedule-cyan) 20%, transparent);
   color: color-mix(in srgb, var(--calendar-reschedule-cyan) 75%, white 25%);

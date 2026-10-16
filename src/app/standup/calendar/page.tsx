@@ -426,7 +426,7 @@ export default function CalendarPage() {
 
           {/* Days */}
           {calendarDays.map((date, idx) => {
-            if (!date) return <div key={`empty-${idx}`} className="aspect-square calendar-cell-empty" />;
+            if (!date) return <div key={`empty-${idx}`} className="aspect-square calendar-cell-empty calendar-grid-cell" />;
 
             const dateISO = toISODate(date);
             const data = dayData[dateISO];
@@ -472,7 +472,7 @@ export default function CalendarPage() {
                 key={dateISO}
                 href={isToday ? "/standup/today" : `/standup/date/${dateISO}`}
                 className={[
-                  "aspect-square rounded-2xl border transition-all duration-200 relative",
+                  "aspect-square calendar-grid-cell rounded-2xl border transition-all duration-200 relative",
                   "flex flex-col items-center justify-center text-center gap-0.5",
                   "hover:scale-[1.04] active:scale-[0.98]",
                   "focus:outline-none focus:ring-2 focus:ring-white/40",

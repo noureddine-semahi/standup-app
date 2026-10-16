@@ -6404,6 +6404,33 @@ select:focus {
   }
 }
 
+/* Mobile-only card-footprint fix -- on mobile, aspect-square alone made
+   Today's cell (badge + gap + ring + gap + fraction, the tallest
+   possible content stack) grow past the plain aspect-ratio height
+   that cells WITHOUT a badge/fraction stay at, since CSS grid only
+   auto-stretches cells to match the tallest cell in their OWN row --
+   rows that don't happen to contain Today (or another cell with both
+   a badge and a fraction) never pick up that extra height, so most of
+   the grid reads smaller/more compressed than Today specifically.
+   This min-height reserves Today's own worst-case stack height as a
+   floor for every cell alike -- populated, future (ring+number only),
+   and the leading blank cells -- so every card matches Today's
+   footprint regardless of which row it's in or what it renders inside.
+   aspect-square still wins (cells stay perfectly square) wherever its
+   own width-derived height already clears this floor; the floor only
+   takes over on narrow phones where it wouldn't. Reset to auto at
+   640px+ -- the Calendar's own existing tablet/desktop breakpoint --
+   since this is a mobile-only fix, not a resize of the whole grid. */
+.calendar-grid-cell {
+  min-height: calc(clamp(32px, 11vw, 46px) + 26px);
+}
+
+@media (min-width: 640px) {
+  .calendar-grid-cell {
+    min-height: auto;
+  }
+}
+
 .calendar-ring {
   position: absolute;
   inset: 0;

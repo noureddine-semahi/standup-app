@@ -546,17 +546,29 @@ h1, h2, h3, h4, h5, h6 {
 .app-shell {
   min-height: 100vh;
   position: relative;
-  overflow-x: hidden;
+  /* clip, not hidden (both axes) -- same visual clipping (still stops
+     the CTA glow bleed / prevents becoming a third nested scroll
+     container, see the original reasoning below), but `overflow:clip`
+     is explicitly defined to NOT establish a scroll container, while
+     `overflow:hidden` DOES (even though nothing here ever actually has
+     anywhere to scroll). That distinction matters because `position:
+     sticky` resolves against the nearest ANCESTOR SCROLL CONTAINER --
+     with `hidden` here, every sticky descendant anywhere on the page
+     (e.g. the Community/Tools mobile sub-tab bars) was silently stuck
+     relative to this div instead of the viewport, which never produces
+     the intended "sticks to the header while the page scrolls" effect.
+     `clip` keeps the exact same look with none of that side effect. */
+  overflow-x: clip;
   /* Same overflow-shorthand axis-homogenization trap as html/body (see
-     that rule's own comment) -- overflow-x:hidden alone forces overflow-y
-     to compute as auto, turning this wrapper into a THIRD nested scroll
+     that rule's own comment) -- overflow-x alone forces overflow-y to
+     compute as auto, turning this wrapper into a THIRD nested scroll
      container whenever its content overflows its own box by even a few
      px (confirmed on the landing page: the CTA glow's negative-inset
      ::before bleeds a little past the last section's bottom edge).
      .app-shell was never meant to scroll on its own -- the page scrolls
      at the document level -- so both axes explicitly non-scrolling
      avoids the trap instead of triggering it. */
-  overflow-y: hidden;
+  overflow-y: clip;
 }
 
 .app-bg {
@@ -6080,6 +6092,22 @@ select:focus {
 }
 
 @media (max-width: 859px) {
+  /* Sticks directly under the fixed primary header while the page
+     scrolls beneath it -- same mechanism/offset/z-index as the
+     Community sub-tabs' own mobile sticky rule (see
+     .folder-tabbar-community above), explicit "same sticky behavior
+     for both" call. Single-class selector here, unlike Community's
+     .folder-tabbar.folder-tabbar-community, so no specificity
+     workaround is needed for the background override. */
+  .folder-tabbar-tools {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 40;
+    background: rgba(var(--panel-rgb), 0.97);
+  }
+  [data-theme="light"] .folder-tabbar-tools {
+    background: rgba(var(--panel-rgb), 0.97);
+  }
   /* .folder-tabbar-tools' own row gap (6px) is untouched here -- it
      applies at every width, not just desktop; only this gap (icon-to-
      label, WITHIN a tab) differs by breakpoint. */
@@ -6356,6 +6384,32 @@ select:focus {
 @media (max-width: 849px) {
   .folder-tabbar-community {
     gap: 2px;
+    /* Sticks directly under the fixed primary header while the page
+       scrolls beneath it -- explicit mobile-only call. --header-height
+       is the SAME existing var() .app-main's own top padding already
+       clears the fixed header with (see .app-main above); reused as-is
+       rather than guessing a new offset. z-index:40 sits below the
+       header itself (50) and the profile/hamburger dropdown panels
+       (60) but above ordinary page content. Needs .app-shell's
+       overflow-y to be `clip` rather than `hidden` to actually work
+       (fixed above) -- `hidden` establishes a scroll container, and
+       sticky resolves against the NEAREST one, which would otherwise
+       silently be .app-shell instead of the real document scroller.
+       The housing's existing background (rgba(var(--panel-rgb),
+       var(--panel-alpha)), ~0.6 alpha) is too translucent once this is
+       floating over scrolling content instead of sitting on the page's
+       own canvas -- bumped near-opaque here only, not in the base
+       rule, so the normal (non-stuck) look elsewhere is untouched. */
+    position: sticky;
+    top: var(--header-height);
+    z-index: 40;
+  }
+  /* Matches the base rule's own .folder-tabbar.folder-tabbar-community
+     (two classes) specificity -- a plain .folder-tabbar-community
+     override here would lose the cascade to that rule's own
+     `background` declaration regardless of media query/source order. */
+  .folder-tabbar.folder-tabbar-community {
+    background: rgba(var(--panel-rgb), 0.97);
   }
   .folder-tabbar-community .folder-tab-community {
     flex: 0 0 auto;
@@ -6386,6 +6440,9 @@ select:focus {
     max-width: none;
     margin-left: 0.4rem;
     opacity: 1;
+  }
+  [data-theme="light"] .folder-tabbar.folder-tabbar-community {
+    background: rgba(var(--panel-rgb), 0.97);
   }
 }
 

@@ -92,6 +92,21 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#f472b6", infoGroup: true },
 ];
 
+// --tab-color-rgb alongside --tab-color below: browsers without native
+// color-mix() support (confirmed on a real Samsung Internet embedded
+// build) fall back to a build-tool-injected plain color for every
+// color-mix() declaration in globals.css, and .folder-tab-hanging's own
+// fallback collapses text and background to the identical raw
+// --tab-color value -- invisible text on a solid tab-colored block.
+// .folder-tab-hanging's base/active color+background were rewritten to
+// use rgba(var(--tab-color-rgb), alpha) instead of color-mix(), which
+// needs the color pre-split into components since CSS alone can't derive
+// rgb() channels from a hex custom property without color-mix() itself.
+function hexToRgbTriple(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
@@ -707,7 +722,7 @@ export default function Header() {
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
               className={`folder-tab-hanging${tab.infoGroup ? " folder-tab-hanging-info-individual" : ""}${isActive ? " folder-tab-hanging-active" : ""}`}
-              style={{ "--tab-color": tab.color } as React.CSSProperties}
+              style={{ "--tab-color": tab.color, "--tab-color-rgb": hexToRgbTriple(tab.color) } as React.CSSProperties}
             >
               <tab.icon size={15} />
               <span>{t(tab.labelKey)}</span>
@@ -724,7 +739,7 @@ export default function Header() {
           href={INFO_ROTATION[pathname]?.href ?? "/about"}
           aria-current={isInfoPage ? "page" : undefined}
           className={`folder-tab-hanging folder-tab-hanging-info-combined${isInfoPage ? " folder-tab-hanging-active" : ""}`}
-          style={{ "--tab-color": "#94a3b8" } as React.CSSProperties}
+          style={{ "--tab-color": "#94a3b8", "--tab-color-rgb": "148, 163, 184" } as React.CSSProperties}
         >
           <Info size={15} />
           <span>{t("nav.about")}</span>
@@ -804,7 +819,7 @@ export default function Header() {
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
               className={`folder-tab-hanging nav-menu-item${isActive ? " folder-tab-hanging-active" : ""}`}
-              style={{ "--tab-color": tab.color } as React.CSSProperties}
+              style={{ "--tab-color": tab.color, "--tab-color-rgb": hexToRgbTriple(tab.color) } as React.CSSProperties}
               onClick={(e) => handleHamburgerNavClick(e, tab.href)}
             >
               <tab.icon size={16} />

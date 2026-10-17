@@ -2184,9 +2184,23 @@ h1, h2, h3, h4, h5, h6 {
    derive from it. Dashboard is the first consumer (its action buttons
    previously used plain unthemed `.btn`), but this is a general-purpose
    token any page's buttons can reach for next. */
+/* background/border-color use rgba(var(--tint-color-rgb), ...) rather
+   than color-mix(in srgb, currentColor ...), NOT a style choice --
+   confirmed via a real Samsung Internet embedded browser that Next.js's
+   build pipeline auto-wraps every color-mix() declaration in an
+   @supports feature-query, and the fallback it generates for a
+   currentColor-based color-mix() is a SOLID, full-opacity currentColor
+   background -- identical to each modifier's own plain `color:` value
+   (.btn-teal/.btn-purple/.btn-blue/.btn-amber-tint below), so the label
+   text becomes invisible against its own background on any engine
+   lacking native color-mix() support. currentColor can't be split into
+   RGB channels in CSS without color-mix() itself (the same function
+   that's unsupported), so each modifier below sets an explicit
+   --tint-color-rgb companion alongside its color instead. Same root
+   cause/fix as .folder-tab-hanging's --tab-color-rgb. */
 .btn-tint {
-  background: linear-gradient(to bottom, color-mix(in srgb, currentColor 20%, transparent), color-mix(in srgb, currentColor 7%, transparent));
-  border-color: color-mix(in srgb, currentColor 45%, transparent);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.2), rgba(var(--tint-color-rgb, 148, 163, 184), 0.07));
+  border-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.45);
   /* Glow trimmed (10px/16px -> 6px/10px) to match the restraint the
      rest of the metal-edge system settled on for small controls --
      these (Checklist/Files/Link/Lock/Assign, inside a goal card) were
@@ -2202,8 +2216,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-tint:hover {
-  background: linear-gradient(to bottom, color-mix(in srgb, currentColor 28%, transparent), color-mix(in srgb, currentColor 10%, transparent));
-  border-color: color-mix(in srgb, currentColor 65%, transparent);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.28), rgba(var(--tint-color-rgb, 148, 163, 184), 0.1));
+  border-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.65);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.35),
@@ -2248,18 +2262,22 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-teal {
   color: #2dd4bf;
+  --tint-color-rgb: 45, 212, 191;
 }
 
 .btn-purple {
   color: #a78bfa;
+  --tint-color-rgb: 167, 139, 250;
 }
 
 .btn-blue {
   color: #60a5fa;
+  --tint-color-rgb: 96, 165, 250;
 }
 
 .btn-amber-tint {
   color: #f59e0b;
+  --tint-color-rgb: 245, 158, 11;
 }
 
 .btn-ghost {
@@ -3495,18 +3513,21 @@ select.btn {
   font-size: 0.78rem;
   font-weight: 600;
   text-decoration: none;
-  color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
-  /* Visual recipe below now matches .folder-tab-tools exactly (explicit
-     "Tools tabs are the source of truth" call) -- uniform rounded seated
-     button, no per-tab colored border, no vertical movement. Only
-     color/background/border/box-shadow/radius/transform changed here;
-     every layout property above (gap, padding, font-size, flex-shrink,
-     position, cursor) is untouched. */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
-  );
+  /* color/background intentionally plain rgba(var(--tab-color-rgb), ...)
+     here, NOT color-mix() -- confirmed via a real Samsung Internet
+     embedded browser that Next.js's build pipeline auto-wraps every
+     color-mix() declaration in an @supports feature-query, with a
+     fallback (for non-supporting engines) that collapses to the raw,
+     unmixed --tab-color for BOTH color and background -- text and its
+     own background becoming the identical color, i.e. invisible. That
+     fallback can't be overridden by declaring a plain value first (the
+     build tool's own injected fallback always wins); the only fix is
+     not using color-mix() at all for the properties that determine
+     text/background contrast. --tab-color-rgb is set alongside
+     --tab-color at each call site (Header.tsx) specifically to make
+     this possible. */
+  color: rgba(var(--tab-color-rgb), 0.8);
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.08), rgba(var(--tab-color-rgb), 0.05));
   border: 1.5px solid transparent;
   border-radius: 5px;
   position: relative;
@@ -3544,11 +3565,7 @@ select.btn {
 }
 
 .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
-    color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.14), rgba(var(--tab-color-rgb), 0.09));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.07),
@@ -3557,11 +3574,7 @@ select.btn {
 
 /* Light mode -- matches .folder-tab-tools' own light-mode recipe. */
 [data-theme="light"] .folder-tab-hanging {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.07), rgba(var(--tab-color-rgb), 0.04));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
@@ -3570,11 +3583,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
-    color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.15), rgba(var(--tab-color-rgb), 0.09));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.6),
@@ -3591,10 +3600,10 @@ select.btn {
    defined in :root for .metal-strong and other consumers -- just no
    longer read here. */
 .folder-tab-hanging-active {
-  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
+  color: rgb(var(--tab-color-rgb));
   z-index: 2;
   border-color: transparent;
-  background: color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.75));
+  background: rgba(var(--panel-rgb), 0.85);
   box-shadow:
     inset 0 6px 7px -2px rgba(0, 0, 0, 0.68),
     inset 0 -5px 7px -2px rgba(0, 0, 0, 0.42),
@@ -3603,7 +3612,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-hanging-active {
-  background: color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.16));
+  background: rgba(40, 32, 28, 0.14);
   box-shadow:
     inset 0 6px 7px -2px rgba(40, 32, 28, 0.46),
     inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
@@ -3630,11 +3639,7 @@ select.btn {
   border-left-color: color-mix(in srgb, var(--tab-color) 65%, white 20%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
   border-right-color: color-mix(in srgb, var(--tab-color) 40%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 5%, rgba(0, 0, 0, 0.4)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.3))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.12), rgba(0, 0, 0, 0.3));
   box-shadow:
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.16),
     inset -1px -1px 2px 0 rgba(0, 0, 0, 0.35),
@@ -3648,11 +3653,7 @@ select.btn {
   border-left-color: color-mix(in srgb, var(--tab-color) 58%, white 20%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 32%, transparent);
   border-right-color: color-mix(in srgb, var(--tab-color) 38%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 6%, rgba(255, 253, 250, 0.9)),
-    color-mix(in srgb, var(--tab-color) 3%, rgba(var(--panel-rgb), 0.75))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.1), rgba(255, 253, 250, 0.75));
   box-shadow:
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
     inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),

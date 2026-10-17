@@ -3710,31 +3710,32 @@ select.btn {
 
 /* Medium band -- real device confirmed (Samsung Internet, 721px CSS
    viewport): unlike Tools/Community's own medium-band fix just above,
-   padding alone can't close this gap -- all 8 tabs' full labels need
-   854px even at the icon-only band's already-minimal padding, against
-   roughly 700px available, an ~167px shortfall ("Progress & Insights"
-   and "Plan Tomorrow" are the two biggest single contributors) versus
-   Tools/Community's much smaller ~80px gap (6 shorter labels). Closing
-   it needs font-size and icon-size reduced too, not just padding/gap --
-   verified via Playwright across the whole 661-760px band (not just
-   721px) that every tab's full label still fits with real margin
-   (43-142px) at every width in this range, and that the result stays
-   legible at a screenshot level. Overrides the icon-collapse block
-   above within this narrower sub-range only (same source-order
-   technique as Tools/Community's own override) -- icon-only mode
-   below 661px, and the full desktop size above 760px, are untouched. */
+   padding alone can't close this gap -- even with About removed from
+   the header (7 tabs now, was 8), full labels still need font-size and
+   icon-size reduced too, not just padding/gap, to fit against roughly
+   700px available. Sizes bumped up from this band's original values
+   once About's removal freed some room (was font 9px/icon 10px for 8
+   tabs; full desktop size and every tier down to ~10px font still ran
+   negative margin even at 7 tabs -- 9.6px/10.5px icon was the largest
+   verified, via Playwright across the whole 661-760px band, to keep
+   real positive margin, ~20px at the tightest point (661px) up to
+   ~140px+ at 760px) rather than a razor-thin fit. Overrides the icon-
+   collapse block above within this narrower sub-range only (same
+   source-order technique as Tools/Community's own override) -- icon-
+   only mode below 661px, and the full desktop size above 760px, are
+   untouched. */
 @media (min-width: 661px) and (max-width: 760px) {
   .folder-tab-hanging {
-    font-size: 9px;
-    padding: 0.28rem 0.28rem;
-    gap: 0.1rem;
+    font-size: 9.6px;
+    padding: 0.29rem 0.29rem;
+    gap: 0.12rem;
   }
   .folder-tab-hanging-active {
-    padding: 0.28rem 0.28rem;
+    padding: 0.29rem 0.29rem;
   }
   .folder-tab-hanging svg {
-    width: 10px;
-    height: 10px;
+    width: 10.5px;
+    height: 10.5px;
   }
   .folder-tab-hanging span {
     display: inline-block;
@@ -3746,12 +3747,14 @@ select.btn {
 
 /* Info-tab collapse widened to a laptop-friendly threshold, independent
    of the icon-only 640px rule above. At typical laptop widths (roughly
-   1025-1450px) all 9 tabs' full labels don't fit once the oversized-
+   1025-1450px) all 8 tabs' full labels don't fit once the oversized-
    logo's clearance (.folder-tabbar-hanging's padding-left) is accounted
-   for -- collapsing About/FAQ/Contact into the one combined tab (already
-   built for mobile, just reused at a wider breakpoint here) frees enough
-   width that the last tab (Contact) stops getting clipped at the window
-   edge, without forcing icon-only mode on every tab the way 640px does. */
+   for -- collapsing FAQ/Contact into the one combined tab (already
+   built for mobile, just reused at a wider breakpoint here; About was
+   the third infoGroup member here but was removed from the header
+   entirely) frees enough width that the last tab (Contact) stops
+   getting clipped at the window edge, without forcing icon-only mode
+   on every tab the way 640px does. */
 @media (max-width: 1450px) {
   .folder-tab-hanging-info-individual {
     display: none;

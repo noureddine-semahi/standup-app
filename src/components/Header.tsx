@@ -32,7 +32,7 @@ import { hexToRgbTriple } from "@/lib/color";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, Info, HelpCircle, Mail, TrendingUp } from "lucide-react";
+import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, HelpCircle, Mail, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -88,7 +88,11 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   // Goal Assignments removed from here per explicit follow-up — still
   // reachable via Social's Goals tab and Tools' Assignments tab, same as
   // before this whole nav restructure ever started.
-  { href: "/about", labelKey: "nav.about", icon: Info, color: "#94a3b8", infoGroup: true },
+  // About removed from the header per explicit follow-up (quick fix) --
+  // still reachable via its own URL/footer, just no longer surfaced in
+  // the signed-in nav at any width. The mobile-combined stand-in tab
+  // below (navTabs()) was updated to match -- it now rotates between
+  // just FAQ/Contact instead of defaulting to About.
   { href: "/faq", labelKey: "nav.faq", icon: HelpCircle, color: "#38bdf8", infoGroup: true },
   { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#f472b6", infoGroup: true },
 ];
@@ -715,20 +719,23 @@ export default function Header() {
             </Link>
           );
         })}
-        {/* Mobile-only combined stand-in for the three infoGroup tabs
-            above (hidden there via CSS, see .folder-tab-hanging-info-*).
-            Reuses INFO_ROTATION so tapping it always goes to whichever
-            of About/FAQ/Contact isn't the current page, same link-to-
-            the-next-one behavior infoLinks() already has for logged-out
-            visitors. */}
+        {/* Mobile-only combined stand-in for the two infoGroup tabs above
+            (hidden there via CSS, see .folder-tab-hanging-info-*). About
+            removed from the header (quick fix) -- this no longer reuses
+            INFO_ROTATION's 3-way cycle (that still includes About, for
+            infoLinks()'s logged-out-visitor use below), just a plain
+            2-way toggle between FAQ/Contact. isInfoPage/INFO_PAGES are
+            untouched -- About is still treated as part of the info
+            family for highlighting purposes if directly visited, just
+            not linked from here. */}
         <Link
-          href={INFO_ROTATION[pathname]?.href ?? "/about"}
+          href={pathname === "/faq" ? "/contact" : "/faq"}
           aria-current={isInfoPage ? "page" : undefined}
           className={`folder-tab-hanging folder-tab-hanging-info-combined${isInfoPage ? " folder-tab-hanging-active" : ""}`}
-          style={{ "--tab-color": "#94a3b8", "--tab-color-rgb": "148, 163, 184" } as React.CSSProperties}
+          style={{ "--tab-color": "#38bdf8", "--tab-color-rgb": "56, 189, 248" } as React.CSSProperties}
         >
-          <Info size={15} />
-          <span>{t("nav.about")}</span>
+          <HelpCircle size={15} />
+          <span>{t("nav.faq")}</span>
         </Link>
       </nav>
     );

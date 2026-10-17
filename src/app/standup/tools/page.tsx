@@ -41,6 +41,7 @@ import {
   type PaymentTransaction,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
+import { hexToRgbTriple } from "@/lib/color";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -641,6 +642,7 @@ export default function ToolsPage() {
                 style={
                   {
                     "--tab-color": tab.color,
+                    "--tab-color-rgb": hexToRgbTriple(tab.color),
                     "--active-glow-color": activeColor,
                   } as React.CSSProperties
                 }

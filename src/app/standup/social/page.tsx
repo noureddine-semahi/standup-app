@@ -39,6 +39,7 @@ import MentionInput from "@/components/MentionInput";
 import PageLoadingState from "@/components/PageLoadingState";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
+import { hexToRgbTriple } from "@/lib/color";
 import { Users, Globe, LayoutGrid, UserPlus, UserCheck, UserCircle, ImagePlus, Video, X, ClipboardList, ListChecks, Plus, Trash2, MoreVertical, Pencil, ChevronDown, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -612,7 +613,7 @@ export default function SocialPage() {
                 title={t(tab.labelKey)}
                 onClick={() => setActiveTab(tab.key)}
                 className={`folder-tab folder-tab-community${isActive ? " folder-tab-active" : ""}`}
-                style={{ "--tab-color": tab.color } as React.CSSProperties}
+                style={{ "--tab-color": tab.color, "--tab-color-rgb": hexToRgbTriple(tab.color) } as React.CSSProperties}
               >
                 <tab.icon size={15} />
                 <span>{t(tab.labelKey)}</span>

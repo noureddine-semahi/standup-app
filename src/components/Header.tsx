@@ -28,6 +28,7 @@ import { onPointsUpdated } from "@/lib/pointsBus";
 import { onNotificationsUpdated, notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { countNotifications, computeNotificationBuckets } from "@/lib/notificationBuckets";
 import { getStoredTheme, setTheme } from "@/lib/theme";
+import { hexToRgbTriple } from "@/lib/color";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
@@ -91,21 +92,6 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   { href: "/faq", labelKey: "nav.faq", icon: HelpCircle, color: "#38bdf8", infoGroup: true },
   { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#f472b6", infoGroup: true },
 ];
-
-// --tab-color-rgb alongside --tab-color below: browsers without native
-// color-mix() support (confirmed on a real Samsung Internet embedded
-// build) fall back to a build-tool-injected plain color for every
-// color-mix() declaration in globals.css, and .folder-tab-hanging's own
-// fallback collapses text and background to the identical raw
-// --tab-color value -- invisible text on a solid tab-colored block.
-// .folder-tab-hanging's base/active color+background were rewritten to
-// use rgba(var(--tab-color-rgb), alpha) instead of color-mix(), which
-// needs the color pre-split into components since CSS alone can't derive
-// rgb() channels from a hex custom property without color-mix() itself.
-function hexToRgbTriple(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
-}
 
 export default function Header() {
   const pathname = usePathname();

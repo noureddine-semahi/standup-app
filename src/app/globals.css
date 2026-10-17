@@ -2586,8 +2586,16 @@ select.btn {
   padding: 0.6rem 1.1rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: color-mix(in srgb, var(--tab-color) 45%, rgba(var(--tint-rgb), 0.4));
-  background: color-mix(in srgb, var(--tab-color) 5%, rgba(var(--tint-rgb), 0.02));
+  /* color/background plain rgba(var(--tab-color-rgb), ...) rather than
+     color-mix(), same reason/fix as .folder-tab-hanging: browsers
+     without native color-mix() support fall back to the identical raw
+     --tab-color for both, making the label invisible against its own
+     background. See .folder-tab-hanging's own comment for the full
+     mechanism. Shared by both Social (.folder-tab-community) and Tools
+     (.folder-tab-tools), neither of which redeclares color for the
+     inactive state. */
+  color: rgba(var(--tab-color-rgb), 0.8);
+  background: rgba(var(--tab-color-rgb), 0.05);
   border: 1.5px solid color-mix(in srgb, var(--tab-color) 42%, transparent);
   border-radius: 10px 10px 0 0;
   position: relative;
@@ -2608,8 +2616,8 @@ select.btn {
 }
 
 .folder-tab:hover:not(.folder-tab-active) {
-  color: color-mix(in srgb, var(--tab-color) 75%, white 10%);
-  background: color-mix(in srgb, var(--tab-color) 12%, transparent);
+  color: rgb(var(--tab-color-rgb));
+  background: rgba(var(--tab-color-rgb), 0.12);
   border-color: color-mix(in srgb, var(--tab-color) 68%, transparent);
   /* Nudges toward the active tab's own lift direction (up, for this
      rising-from-a-panel variant) -- mirrors .folder-tab-hanging's
@@ -2642,12 +2650,8 @@ select.btn {
      not darkened further) -- unlike the hanging tabs, this is the
      tab's attachment edge, not its free edge, so a bevel there would
      visibly break the merge instead of reading as depth. */
-  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 15%, rgba(var(--panel-rgb), var(--panel-alpha))),
-    color-mix(in srgb, var(--tab-color) 6%, rgba(var(--panel-rgb), var(--panel-alpha)))
-  );
+  color: rgb(var(--tab-color-rgb));
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.18), rgba(var(--panel-rgb), var(--panel-alpha)));
   /* Outline toned down to match the subheader's own later refinement
      pass (was 80%/white10%) -- moves more emphasis into the diffused
      glow below instead of the border itself. */
@@ -2696,7 +2700,7 @@ select.btn {
   right: 10px;
   height: 2px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--tab-color) 85%, white 45%);
+  background: rgb(var(--tab-color-rgb));
   box-shadow: 0 0 10px 1px color-mix(in srgb, var(--tab-color) 70%, transparent);
 }
 
@@ -2717,11 +2721,7 @@ select.btn {
 .folder-tab-community {
   border-radius: 5px;
   border-color: transparent;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.08), rgba(var(--tab-color-rgb), 0.05));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.05),
@@ -2749,11 +2749,7 @@ select.btn {
 }
 
 .folder-tab-community:hover:not(.folder-tab-active) {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
-    color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.14), rgba(var(--tab-color-rgb), 0.09));
   border-color: transparent;
   transform: none;
   box-shadow:
@@ -2763,11 +2759,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-community {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.07), rgba(var(--tab-color-rgb), 0.04));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
@@ -2776,11 +2768,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-community:hover:not(.folder-tab-active) {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
-    color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.15), rgba(var(--tab-color-rgb), 0.09));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.6),
@@ -2788,11 +2776,11 @@ select.btn {
 }
 
 .folder-tab-community.folder-tab-active {
-  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
+  color: rgb(var(--tab-color-rgb));
   z-index: 2;
   gap: 0.35rem;
   border-color: transparent;
-  background: color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.75));
+  background: rgba(var(--panel-rgb), 0.85);
   transform: none;
   box-shadow:
     inset 0 6px 7px -2px rgba(0, 0, 0, 0.68),
@@ -2802,7 +2790,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-community.folder-tab-active {
-  background: color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.16));
+  background: rgba(40, 32, 28, 0.14);
   box-shadow:
     inset 0 6px 7px -2px rgba(40, 32, 28, 0.46),
     inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
@@ -2827,11 +2815,7 @@ select.btn {
   border-left-color: color-mix(in srgb, var(--tab-color) 65%, white 20%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
   border-right-color: color-mix(in srgb, var(--tab-color) 40%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 5%, rgba(0, 0, 0, 0.4)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.3))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.12), rgba(0, 0, 0, 0.3));
   box-shadow:
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.16),
     inset -1px -1px 2px 0 rgba(0, 0, 0, 0.35),
@@ -2845,11 +2829,7 @@ select.btn {
   border-left-color: color-mix(in srgb, var(--tab-color) 58%, white 20%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 32%, transparent);
   border-right-color: color-mix(in srgb, var(--tab-color) 38%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 6%, rgba(255, 253, 250, 0.9)),
-    color-mix(in srgb, var(--tab-color) 3%, rgba(var(--panel-rgb), 0.75))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.1), rgba(255, 253, 250, 0.75));
   box-shadow:
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
     inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),
@@ -3014,11 +2994,7 @@ select.btn {
      the box's painted footprint/dimensions don't shift by the
      border's own width. */
   border-color: transparent;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 3%, rgba(255, 255, 255, 0.05)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--tint-rgb), 0.09))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.08), rgba(var(--tab-color-rgb), 0.05));
   transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease;
   /* Layered inset highlight + outset drop shadows -- the reference's
@@ -3061,11 +3037,7 @@ select.btn {
 }
 
 .folder-tab-tools:hover:not(.folder-tab-active) {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 7%, rgba(255, 255, 255, 0.07)),
-    color-mix(in srgb, var(--tab-color) 4%, rgba(var(--tint-rgb), 0.1))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.14), rgba(var(--tab-color-rgb), 0.09));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.07),
@@ -3073,7 +3045,7 @@ select.btn {
 }
 
 .folder-tab-tools.folder-tab-active {
-  color: color-mix(in srgb, var(--tab-color) 92%, white 25%);
+  color: rgb(var(--tab-color-rgb));
   z-index: 2;
   /* Slightly tighter than the base .folder-tab's 0.45rem so icon+label
      comfortably clear the now-smaller ::before face's own padding. */
@@ -3081,7 +3053,7 @@ select.btn {
   /* The real element stays at its full, UNCHANGED slot size and is
      ONLY the dark SOCKET -- no lit gradient, no glow, no ring. The
      actual lit "button face" lives entirely on ::before below. */
-  background: color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.75));
+  background: rgba(var(--panel-rgb), 0.85);
   /* Cavity-wall depth shadows, deepened -- top strongest (light can't
      reach the bottom of a sunken cavity), subtler on the other 3
      sides, but all reach further and darker than before so the
@@ -3131,11 +3103,7 @@ select.btn {
   border-left-color: color-mix(in srgb, var(--tab-color) 65%, white 20%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 35%, transparent);
   border-right-color: color-mix(in srgb, var(--tab-color) 40%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 5%, rgba(0, 0, 0, 0.4)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(0, 0, 0, 0.3))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.12), rgba(0, 0, 0, 0.3));
   /* Restrained bevel shadow (top/left highlight, bottom/right shade --
      matches the border's own light source) plus a SINGLE, further-
      reduced outward glow (was 5px, now 3px) so illumination stays
@@ -3238,11 +3206,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-tools {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 4%, rgba(255, 255, 255, 0.97)),
-    color-mix(in srgb, var(--tab-color) 2%, rgba(var(--panel-rgb), 0.68))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.07), rgba(var(--tab-color-rgb), 0.04));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
@@ -3251,11 +3215,7 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-tools:hover:not(.folder-tab-active) {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 9%, rgba(255, 255, 255, 0.99)),
-    color-mix(in srgb, var(--tab-color) 5%, rgba(var(--panel-rgb), 0.72))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.15), rgba(var(--tab-color-rgb), 0.09));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.95),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.6),
@@ -3263,11 +3223,11 @@ select.btn {
 }
 
 [data-theme="light"] .folder-tab-tools.folder-tab-active {
-  color: color-mix(in srgb, var(--tab-color) 85%, black 25%);
+  color: rgb(var(--tab-color-rgb));
   /* Same pressed-face restructure as dark mode above: the real element
      is ONLY the recessed SOCKET (warm-gray wash, no glow/filter), and
      ::before carries the smaller lit face + rim + glow entirely. */
-  background: color-mix(in srgb, var(--tab-color) 3%, rgba(40, 32, 28, 0.16));
+  background: rgba(40, 32, 28, 0.14);
   box-shadow:
     inset 0 6px 7px -2px rgba(40, 32, 28, 0.46),
     inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
@@ -3281,11 +3241,7 @@ select.btn {
   border-left-color: color-mix(in srgb, var(--tab-color) 58%, white 20%);
   border-bottom-color: color-mix(in srgb, var(--tab-color) 32%, transparent);
   border-right-color: color-mix(in srgb, var(--tab-color) 38%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--tab-color) 6%, rgba(255, 253, 250, 0.9)),
-    color-mix(in srgb, var(--tab-color) 3%, rgba(var(--panel-rgb), 0.75))
-  );
+  background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.1), rgba(255, 253, 250, 0.75));
   box-shadow:
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
     inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),

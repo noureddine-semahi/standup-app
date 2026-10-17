@@ -3640,27 +3640,14 @@ select.btn {
   transform: scale(0.92);
 }
 
-/* Combined About/FAQ/Contact stand-in tab — hidden by default (desktop
-   keeps the three individual tabs, see the mobile override below). */
-.folder-tab-hanging-info-combined {
-  display: none;
-}
-
 /* Mobile: icon-only, active tab unwraps its label — same mechanism as
-   the "up" tab bars' own 640px rule. Also where About/FAQ/Contact
-   collapse into the single combined tab. Widened from 640px to 760px
+   the "up" tab bars' own 640px rule. Widened from 640px to 760px
    (matching .brand-oversized's and .nav-mobile-trigger's own mobile
    breakpoint) so the centered row above (see the 760px justify-content
-   rule further down) never needs the 7 full-label tabs to fit in the
+   rule further down) never needs the full-label tabs to fit in the
    641-760px sub-range -- without this, that range still showed full
    labels and genuinely overflowed even centered. */
 @media (max-width: 760px) {
-  .folder-tab-hanging-info-individual {
-    display: none;
-  }
-  .folder-tab-hanging-info-combined {
-    display: inline-flex;
-  }
   .folder-tabbar-hanging {
     gap: 2px;
     /* Same desktop fix mirrored here -- bottom reduced (no longer
@@ -3710,32 +3697,32 @@ select.btn {
 
 /* Medium band -- real device confirmed (Samsung Internet, 721px CSS
    viewport): unlike Tools/Community's own medium-band fix just above,
-   padding alone can't close this gap -- even with About removed from
-   the header (7 tabs now, was 8), full labels still need font-size and
-   icon-size reduced too, not just padding/gap, to fit against roughly
-   700px available. Sizes bumped up from this band's original values
-   once About's removal freed some room (was font 9px/icon 10px for 8
-   tabs; full desktop size and every tier down to ~10px font still ran
-   negative margin even at 7 tabs -- 9.6px/10.5px icon was the largest
-   verified, via Playwright across the whole 661-760px band, to keep
-   real positive margin, ~20px at the tightest point (661px) up to
-   ~140px+ at 760px) rather than a razor-thin fit. Overrides the icon-
-   collapse block above within this narrower sub-range only (same
-   source-order technique as Tools/Community's own override) -- icon-
-   only mode below 661px, and the full desktop size above 760px, are
-   untouched. */
+   padding alone can't close this gap -- even with About/FAQ/Contact all
+   removed from the header (7 tabs now, down from 10 originally), full
+   labels still need font-size and icon-size reduced too, not just
+   padding/gap, to fit against roughly 700px available. Sizes bumped up
+   again from this band's prior values once FAQ/Contact's removal (on
+   top of About's own earlier removal) freed more room -- full desktop
+   size and every tier down to ~10.6px font still ran negative margin
+   even at 7 tabs; 10.2px font/12px icon was the largest verified, via
+   Playwright across the whole 661-760px band, to keep real positive
+   margin, ~27px at the tightest point (661px) up to ~126px at 760px,
+   rather than a razor-thin fit. Overrides the icon-collapse block
+   above within this narrower sub-range only (same source-order
+   technique as Tools/Community's own override) -- icon-only mode
+   below 661px, and the full desktop size above 760px, are untouched. */
 @media (min-width: 661px) and (max-width: 760px) {
   .folder-tab-hanging {
-    font-size: 9.6px;
-    padding: 0.29rem 0.29rem;
-    gap: 0.12rem;
+    font-size: 10.2px;
+    padding: 0.32rem 0.32rem;
+    gap: 0.14rem;
   }
   .folder-tab-hanging-active {
-    padding: 0.29rem 0.29rem;
+    padding: 0.32rem 0.32rem;
   }
   .folder-tab-hanging svg {
-    width: 10.5px;
-    height: 10.5px;
+    width: 12px;
+    height: 12px;
   }
   .folder-tab-hanging span {
     display: inline-block;
@@ -3745,36 +3732,17 @@ select.btn {
   }
 }
 
-/* Info-tab collapse widened to a laptop-friendly threshold, independent
-   of the icon-only 640px rule above. At typical laptop widths (roughly
-   1025-1450px) all 8 tabs' full labels don't fit once the oversized-
-   logo's clearance (.folder-tabbar-hanging's padding-left) is accounted
-   for -- collapsing FAQ/Contact into the one combined tab (already
-   built for mobile, just reused at a wider breakpoint here; About was
-   the third infoGroup member here but was removed from the header
-   entirely) frees enough width that the last tab (Contact) stops
-   getting clipped at the window edge, without forcing icon-only mode
-   on every tab the way 640px does. */
-@media (max-width: 1450px) {
-  .folder-tab-hanging-info-individual {
-    display: none;
-  }
-  .folder-tab-hanging-info-combined {
-    display: inline-flex;
-  }
-}
-
 /* Mobile (<=760px): explicit user call, reversing the push-right approach
    used on desktop/tablet -- center the tabs in the row instead of
    reserving left space for the logo. No tab should be hidden, scrolled
    off, or shoved aside here; it's fine if the logo's glow visually
-   overlaps the first tab a little, since with the info-tab-combine
-   already active at this width (see the 1450px rule above, 7 tabs not
-   9) the centered row comfortably fits every phone width without
-   needing to scroll. Declared after the 640px block's own padding
-   shorthand above so this `justify-content` isn't fighting a later,
-   more specific rule -- same cascade-order lesson as the desktop/
-   tablet overrides elsewhere in this file. */
+   overlaps the first tab a little, since the centered row comfortably
+   fits every phone width (7 tabs now, since About/FAQ/Contact were
+   removed from the header entirely) without needing to scroll.
+   Declared after the 640px block's own padding shorthand above so this
+   `justify-content` isn't fighting a later, more specific rule -- same
+   cascade-order lesson as the desktop/tablet overrides elsewhere in
+   this file. */
 @media (max-width: 760px) {
   .folder-tabbar-hanging {
     justify-content: center;

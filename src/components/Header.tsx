@@ -32,7 +32,7 @@ import { hexToRgbTriple } from "@/lib/color";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, HelpCircle, Mail, TrendingUp } from "lucide-react";
+import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -65,19 +65,17 @@ const INFO_PAGES = Object.keys(INFO_ROTATION);
 
 // Every destination the header used to split across the primary row, the
 // Assignments icon shortcut, and the About/FAQ/Contact rotation hidden
-// behind "More" — all ten now live as their own tab in the hanging row
-// below the header (navTabs()), each with its own accent color, same
-// folder-tab theme as Social/Tools' own tab bars but inverted (hangs
-// down, rounded-bottom, merges upward into the header instead of
+// behind "More" — these seven now live as their own tab in the hanging
+// row below the header (navTabs()), each with its own accent color,
+// same folder-tab theme as Social/Tools' own tab bars but inverted
+// (hangs down, rounded-bottom, merges upward into the header instead of
 // downward into a content panel) — explicit user call, applies to every
-// breakpoint (icon-only below 640px, same as the other two folder-tab
-// bars, which is what makes ten tabs fit at all on a phone width).
-// infoGroup marks About/FAQ/Contact — on mobile (below 640px) these three
-// collapse into the one combined tab rendered separately in navTabs()
-// below (reusing INFO_ROTATION's existing link-to-the-next-one logic),
-// instead of eating 3 of the available icon slots on a phone-width row.
-// Desktop still shows all three as their own full tab.
-const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string; infoGroup?: boolean }[] = [
+// breakpoint (icon-only below 661px, same as the other two folder-tab
+// bars). About/FAQ/Contact (the former infoGroup trio, plus the
+// `infoGroup` field and the combined-tab mobile stand-in that collapsed
+// them into one slot) were removed from this list entirely per a later
+// follow-up — see the comment at the end of this array.
+const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string }[] = [
   { href: "/standup/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, color: "#60a5fa" },
   { href: "/standup/social", labelKey: "nav.social", icon: Users, color: "#a78bfa" },
   { href: "/standup/today", labelKey: "nav.reviewToday", icon: CheckCircle2, color: "#34d399" },
@@ -88,13 +86,14 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   // Goal Assignments removed from here per explicit follow-up — still
   // reachable via Social's Goals tab and Tools' Assignments tab, same as
   // before this whole nav restructure ever started.
-  // About removed from the header per explicit follow-up (quick fix) --
-  // still reachable via its own URL/footer, just no longer surfaced in
-  // the signed-in nav at any width. The mobile-combined stand-in tab
-  // below (navTabs()) was updated to match -- it now rotates between
-  // just FAQ/Contact instead of defaulting to About.
-  { href: "/faq", labelKey: "nav.faq", icon: HelpCircle, color: "#38bdf8", infoGroup: true },
-  { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#f472b6", infoGroup: true },
+  // About/FAQ/Contact (the former infoGroup) removed from the header
+  // entirely per explicit follow-up (quick fix) -- all three pages are
+  // still reachable via their own URLs/footer, just no longer surfaced
+  // in the signed-in nav at any width. The mobile-combined stand-in tab
+  // that used to represent this trio (navTabs()) was removed too, along
+  // with its own isInfoPage check -- nothing left to combine.
+  // INFO_ROTATION/INFO_PAGES/infoLinks() below are untouched -- still
+  // used by logged-out visitors' own nav.
 ];
 
 export default function Header() {
@@ -701,7 +700,6 @@ export default function Header() {
   // with it automatically rather than needing its own sticky offset.
   function navTabs() {
     if (!user) return null;
-    const isInfoPage = INFO_PAGES.includes(pathname);
     return (
       <nav className="folder-tabbar-hanging" aria-label={t("nav.dashboard")}>
         {NAV_TABS.map((tab) => {
@@ -711,7 +709,7 @@ export default function Header() {
               key={tab.href}
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
-              className={`folder-tab-hanging${tab.infoGroup ? " folder-tab-hanging-info-individual" : ""}${isActive ? " folder-tab-hanging-active" : ""}`}
+              className={`folder-tab-hanging${isActive ? " folder-tab-hanging-active" : ""}`}
               style={{ "--tab-color": tab.color, "--tab-color-rgb": hexToRgbTriple(tab.color) } as React.CSSProperties}
             >
               <tab.icon size={15} />
@@ -719,24 +717,6 @@ export default function Header() {
             </Link>
           );
         })}
-        {/* Mobile-only combined stand-in for the two infoGroup tabs above
-            (hidden there via CSS, see .folder-tab-hanging-info-*). About
-            removed from the header (quick fix) -- this no longer reuses
-            INFO_ROTATION's 3-way cycle (that still includes About, for
-            infoLinks()'s logged-out-visitor use below), just a plain
-            2-way toggle between FAQ/Contact. isInfoPage/INFO_PAGES are
-            untouched -- About is still treated as part of the info
-            family for highlighting purposes if directly visited, just
-            not linked from here. */}
-        <Link
-          href={pathname === "/faq" ? "/contact" : "/faq"}
-          aria-current={isInfoPage ? "page" : undefined}
-          className={`folder-tab-hanging folder-tab-hanging-info-combined${isInfoPage ? " folder-tab-hanging-active" : ""}`}
-          style={{ "--tab-color": "#38bdf8", "--tab-color-rgb": "56, 189, 248" } as React.CSSProperties}
-        >
-          <HelpCircle size={15} />
-          <span>{t("nav.faq")}</span>
-        </Link>
       </nav>
     );
   }
@@ -783,12 +763,11 @@ export default function Header() {
 
   // Header Navigation Refresh: the full NAV_TABS list as plain full-text
   // links (icon + label), shared verbatim by the desktop hamburger
-  // panel, the mobile hamburger panel, AND -- since About/FAQ/Contact
-  // already live in NAV_TABS too (infoGroup entries) -- there's no need
-  // to also call infoLinks()/secondaryLinks() here: NAV_TABS alone is
-  // the complete, single source of truth for all nine destinations, per
-  // the explicit "reuse NAV_TABS, don't duplicate route definitions"
-  // call. gap-2 is the one thing .nav-link's own CSS doesn't already
+  // panel and the mobile hamburger panel -- NAV_TABS alone is the
+  // complete, single source of truth for all seven destinations
+  // (About/FAQ/Contact removed entirely per a later follow-up; no need
+  // to also call infoLinks()/secondaryLinks() here for a signed-in
+  // user). gap-2 is the one thing .nav-link's own CSS doesn't already
   // provide for an icon+text pair (see profileMenu()'s identical need
   // below) -- everything else (flex/center/chip styling) comes from the
   // shared class.

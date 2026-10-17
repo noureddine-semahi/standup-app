@@ -3708,6 +3708,42 @@ select.btn {
   }
 }
 
+/* Medium band -- real device confirmed (Samsung Internet, 721px CSS
+   viewport): unlike Tools/Community's own medium-band fix just above,
+   padding alone can't close this gap -- all 8 tabs' full labels need
+   854px even at the icon-only band's already-minimal padding, against
+   roughly 700px available, an ~167px shortfall ("Progress & Insights"
+   and "Plan Tomorrow" are the two biggest single contributors) versus
+   Tools/Community's much smaller ~80px gap (6 shorter labels). Closing
+   it needs font-size and icon-size reduced too, not just padding/gap --
+   verified via Playwright across the whole 661-760px band (not just
+   721px) that every tab's full label still fits with real margin
+   (43-142px) at every width in this range, and that the result stays
+   legible at a screenshot level. Overrides the icon-collapse block
+   above within this narrower sub-range only (same source-order
+   technique as Tools/Community's own override) -- icon-only mode
+   below 661px, and the full desktop size above 760px, are untouched. */
+@media (min-width: 661px) and (max-width: 760px) {
+  .folder-tab-hanging {
+    font-size: 9px;
+    padding: 0.28rem 0.28rem;
+    gap: 0.1rem;
+  }
+  .folder-tab-hanging-active {
+    padding: 0.28rem 0.28rem;
+  }
+  .folder-tab-hanging svg {
+    width: 10px;
+    height: 10px;
+  }
+  .folder-tab-hanging span {
+    display: inline-block;
+    max-width: none;
+    margin-left: 0.2em;
+    opacity: 1;
+  }
+}
+
 /* Info-tab collapse widened to a laptop-friendly threshold, independent
    of the icon-only 640px rule above. At typical laptop widths (roughly
    1025-1450px) all 9 tabs' full labels don't fit once the oversized-

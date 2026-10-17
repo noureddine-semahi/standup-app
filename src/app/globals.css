@@ -7011,7 +7011,21 @@ select:focus {
   padding-top: 5px;
 }
 
-@media (max-width: 859px) {
+/* Medium band (real device confirmed: a Samsung Internet embedded
+   browser at a 721px CSS viewport) -- full labels genuinely fit here
+   (6 short labels need ~616px against ~685px available at 721px,
+   verified via Playwright with the real compiled CSS), but only with
+   tighter horizontal padding than the roomy desktop default; the
+   stock 1.1rem padding alone falls just short. Sits between the
+   icon-collapse band below (now capped at 660px, was 859px) and the
+   untouched roomy desktop default above 859px. */
+@media (min-width: 661px) and (max-width: 859px) {
+  .folder-tabbar-tools .folder-tab-tools {
+    padding: 0.6rem 0.75rem;
+  }
+}
+
+@media (max-width: 660px) {
   /* position:sticky was abandoned here (real-device testing kept
      failing even after the diagnosed body-overflow fix) in favor of a
      JS-driven position:fixed, applied via inline style from
@@ -7295,7 +7309,17 @@ select:focus {
    mechanism handles both the tablet-range full-label overflow and the
    narrowest-width longest-label spillover at once, with no separate
    fixed-width tier needed for either. */
-@media (max-width: 849px) {
+/* Medium band -- same fix/reasoning as Tools' own identical block
+   above (real device confirmed at a 721px CSS viewport); Community's
+   6 tabs use the same base padding and font-size as Tools', so the
+   same tightened value applies here too. */
+@media (min-width: 661px) and (max-width: 849px) {
+  .folder-tabbar-community .folder-tab-community {
+    padding: 0.6rem 0.75rem;
+  }
+}
+
+@media (max-width: 660px) {
   .folder-tabbar-community {
     gap: 2px;
   }

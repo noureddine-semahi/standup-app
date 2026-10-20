@@ -264,6 +264,11 @@ export type Goal = {
   // later edit/reschedule. null for every Task except one created under
   // a configured "recurring" Outcome Goal.
   outcome_goal_cycle_id?: string | null;
+  // Set when this goal was created as a "follow-up" of another goal from
+  // Today's page (a resolved goal spawning a new goal for tomorrow).
+  // Nullable FK, ON DELETE SET NULL -- deleting the original never
+  // cascades away the follow-up. No reverse-lineage UI reads this yet.
+  follow_up_of_goal_id?: string | null;
 
   // ✅ NEW: Timestamps
   created_at: string;
@@ -2103,6 +2108,48 @@ export async function addGoalFromTemplate(template: RecurringGoalTemplate, planD
       priority: template.priority,
       time_of_day: template.time_of_day,
       source_template_id: template.id,
+    })
+    .select()
+    .single();
+  if (insertErr) throw insertErr;
+  return created as Goal;
+}
+
+/**
+ * Creates a new, independent Goal for targetDateISO, linked back to
+ * originGoal via follow_up_of_goal_id. Title is caller-supplied (the UI
+ * prefills it with the original's title, editable before submit);
+ * priority and outcome_goal_id are carried over so a follow-up stays
+ * grouped under the same Outcome if the original belonged to one.
+ * outcome_goal_cycle_id is deliberately NOT carried over -- tomorrow
+ * likely belongs to a different cycle window, so it's left null like
+ * any other manually-added goal (same as addGoalFromTemplate).
+ */
+export async function createFollowUpGoal(originGoal: Goal, title: string, targetDateISO: string): Promise<Goal> {
+  const plan = await getOrCreatePlan(targetDateISO);
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("goals")
+    .select("sort_order")
+    .eq("plan_id", plan.id)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  if (existingErr) throw existingErr;
+  const nextSortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+  const userId = await getCurrentUserId();
+  const { data: created, error: insertErr } = await supabase
+    .from("goals")
+    .insert({
+      user_id: userId,
+      plan_id: plan.id,
+      title: title.trim(),
+      details: null,
+      status: "not_started",
+      sort_order: nextSortOrder,
+      priority: originGoal.priority,
+      outcome_goal_id: originGoal.outcome_goal_id ?? null,
+      follow_up_of_goal_id: originGoal.id,
     })
     .select()
     .single();

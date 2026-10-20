@@ -8,6 +8,7 @@ import { getTargetProgress, formatTargetProgress, getRecurringCurrentCycleView }
 import { usePaymentGoalCompletion } from "@/lib/usePaymentGoalCompletion";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
+import FollowUpGoalModal from "@/components/FollowUpGoalModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
@@ -52,6 +53,7 @@ import {
   listConnections,
   connectionDisplayName,
   createGoalAssignment,
+  createFollowUpGoal,
   getMyGoalAssignmentsWithLiveTasks,
   buildAssignmentTaskMaps,
   respondToGoalAssignment,
@@ -271,6 +273,19 @@ export default function TodayPage() {
   const [blockingGoal, setBlockingGoal] = useState<Goal | null>(null);
   const [blockingSaving, setBlockingSaving] = useState(false);
   const [blockingError, setBlockingError] = useState<string | null>(null);
+  // "Create follow-up" — offered on any resolved goal (Completed/Blocked/
+  // Canceled/Missed) via a toolbar button, or inline on the "Marked ✓"
+  // toast right after resolving it. Both triggers call openFollowUpPrompt;
+  // the created goal always targets tomorrowISO, independent of today's
+  // plan, so no refresh() is needed afterward.
+  const [followUpGoal, setFollowUpGoal] = useState<Goal | null>(null);
+  const [followUpSaving, setFollowUpSaving] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
+  // Pairs the toast's inline "+ Add follow-up" offer with the exact
+  // message it belongs to, so the offer self-expires along with its own
+  // toast's timeout instead of needing to be cleared at every unrelated
+  // setMsg() call site.
+  const [toastFollowUpOffer, setToastFollowUpOffer] = useState<{ goal: Goal; forMsg: string } | null>(null);
   const [reopening, setReopening] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
@@ -1076,6 +1091,7 @@ export default function TodayPage() {
         await updateGoalStatus(goal.id, action);
         const markedMsg = t("today.markedStatus", { status: statusLabel(action, t) });
         setMsg(markedMsg);
+        setToastFollowUpOffer(isFollowUpEligible(action) ? { goal, forMsg: markedMsg } : null);
         window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
 
         if (action === "completed") {
@@ -1145,6 +1161,7 @@ export default function TodayPage() {
 
       const markedMsg = t("today.markedStatus", { status: statusLabel("blocked", t) });
       setMsg(markedMsg);
+      setToastFollowUpOffer({ goal, forMsg: markedMsg });
       window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
 
       setBlockingGoal(null);
@@ -1162,6 +1179,43 @@ export default function TodayPage() {
     if (blockingSaving) return;
     setBlockingGoal(null);
     setBlockingError(null);
+  }
+
+  const FOLLOW_UP_ELIGIBLE_STATUSES: ReadonlySet<GoalStatus> = new Set(["completed", "blocked", "canceled", "missed"]);
+  function isFollowUpEligible(status: GoalStatus): boolean {
+    return FOLLOW_UP_ELIGIBLE_STATUSES.has(status);
+  }
+
+  function openFollowUpPrompt(goal: Goal) {
+    setFollowUpError(null);
+    setFollowUpGoal(goal);
+  }
+
+  function cancelFollowUp() {
+    if (followUpSaving) return;
+    setFollowUpGoal(null);
+    setFollowUpError(null);
+  }
+
+  async function confirmFollowUp(title: string) {
+    if (!followUpGoal || followUpSaving) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    setFollowUpSaving(true);
+    setFollowUpError(null);
+    try {
+      await createFollowUpGoal(followUpGoal, trimmed, tomorrowISO);
+      setFollowUpGoal(null);
+      setToastFollowUpOffer(null);
+      const createdMsg = t("today.followUpCreated");
+      setMsg(createdMsg);
+      window.setTimeout(() => setMsg((cur) => (cur === createdMsg ? null : cur)), 1500);
+    } catch (e: any) {
+      setFollowUpError(e?.message ?? t("today.followUpFailed"));
+    } finally {
+      setFollowUpSaving(false);
+    }
   }
 
   // Shared with every other goal-completion entry point in the app (see
@@ -1212,6 +1266,7 @@ export default function TodayPage() {
     onConfirmed: async (goal) => {
       const markedMsg = t("today.markedStatus", { status: statusLabel("completed", t) });
       setMsg(markedMsg);
+      setToastFollowUpOffer({ goal, forMsg: markedMsg });
       window.setTimeout(() => setMsg((cur) => (cur === markedMsg ? null : cur)), 1500);
 
       setCelebratingGoalIds((prev) => new Set(prev).add(goal.id));
@@ -2057,6 +2112,17 @@ export default function TodayPage() {
                   <span className="goal-toolbar-label">{t("today.link")}</span>
                 </button>
               )}
+              {isFollowUpEligible(effectiveStatus) && (
+                <button
+                  type="button"
+                  onClick={() => openFollowUpPrompt(g)}
+                  className="btn btn-tint btn-teal goal-toolbar-btn"
+                  title={t("today.followUpButton")}
+                >
+                  <Plus size={13} />
+                  <span className="goal-toolbar-label">{t("today.followUpButton")}</span>
+                </button>
+              )}
 
               {!assignment && !received && acceptedConnections.length > 0 && (
                 <>
@@ -2344,6 +2410,17 @@ export default function TodayPage() {
                 >
                   {g.link_url ? <Link2 size={13} /> : <Plus size={13} />}
                   <span className="goal-toolbar-label">{t("today.link")}</span>
+                </button>
+              )}
+              {isFollowUpEligible(effectiveStatus) && (
+                <button
+                  type="button"
+                  onClick={() => openFollowUpPrompt(g)}
+                  className="btn btn-tint btn-teal goal-toolbar-btn"
+                  title={t("today.followUpButton")}
+                >
+                  <Plus size={13} />
+                  <span className="goal-toolbar-label">{t("today.followUpButton")}</span>
                 </button>
               )}
 
@@ -3751,7 +3828,21 @@ export default function TodayPage() {
           <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
         </div>
 
-        {msg && <div className="mt-4 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white animate-fadeIn">{msg}</div>}
+        {msg && (
+          <div className="mt-4 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white animate-fadeIn flex items-center gap-3 flex-wrap">
+            <span>{msg}</span>
+            {toastFollowUpOffer && msg === toastFollowUpOffer.forMsg && (
+              <button
+                type="button"
+                onClick={() => openFollowUpPrompt(toastFollowUpOffer.goal)}
+                className="btn btn-tint btn-teal goal-toolbar-btn"
+              >
+                <Plus size={13} />
+                <span>{t("today.followUpToastAction")}</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {rescheduleGoal && (
@@ -3772,6 +3863,16 @@ export default function TodayPage() {
           error={blockingError}
           onCancel={cancelBlocked}
           onConfirm={confirmBlocked}
+        />
+      )}
+
+      {followUpGoal && (
+        <FollowUpGoalModal
+          originTitle={followUpGoal.title}
+          saving={followUpSaving}
+          error={followUpError}
+          onCancel={cancelFollowUp}
+          onConfirm={confirmFollowUp}
         />
       )}
 

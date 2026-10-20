@@ -134,6 +134,11 @@ a {
   --calendar-status-canceled: #ff5a5f;
   --calendar-status-pending: #9fb0c4;
   --calendar-status-today: #a93ffa;
+  /* True yellow, deliberately distinct from rescheduled's orange-gold
+     above -- the two sit right next to each other in the ring/legend,
+     so "missed" needs its own clearly separate hue, not a tint of an
+     already-used color. */
+  --calendar-status-missed: #f4d03f;
   --calendar-reschedule-cyan: #2fe0f5;
 
   /* Background/border washes for status pills (Today's quick-action
@@ -286,6 +291,7 @@ a {
   --calendar-status-canceled: #d9302f;
   --calendar-status-pending: #3f4c5e;
   --calendar-status-today: #7c3aed;
+  --calendar-status-missed: #ca8a04;
   --calendar-reschedule-cyan: #0c6e8a;
 
   /* Same darker/more-saturated base color as the text tokens above, at
@@ -6882,6 +6888,7 @@ select:focus {
 .calendar-legend-swatch-completed,
 .calendar-legend-swatch-rescheduled,
 .calendar-legend-swatch-canceled,
+.calendar-legend-swatch-missed,
 .calendar-legend-swatch-pending {
   position: relative;
 }
@@ -6890,6 +6897,7 @@ select:focus {
 .calendar-legend-swatch-completed::before,
 .calendar-legend-swatch-rescheduled::before,
 .calendar-legend-swatch-canceled::before,
+.calendar-legend-swatch-missed::before,
 .calendar-legend-swatch-pending::before {
   content: "";
   position: absolute;
@@ -6903,6 +6911,7 @@ select:focus {
 [data-theme="light"] .calendar-legend-swatch-completed::before,
 [data-theme="light"] .calendar-legend-swatch-rescheduled::before,
 [data-theme="light"] .calendar-legend-swatch-canceled::before,
+[data-theme="light"] .calendar-legend-swatch-missed::before,
 [data-theme="light"] .calendar-legend-swatch-pending::before {
   background: radial-gradient(ellipse 60% 55% at 28% 22%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.35) 38%, transparent 68%);
 }
@@ -6926,6 +6935,11 @@ select:focus {
   background: color-mix(in srgb, var(--calendar-status-canceled) 42%, transparent);
   border-color: color-mix(in srgb, var(--calendar-status-canceled) 85%, white 15%);
   box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-canceled) 55%, transparent);
+}
+.calendar-legend-swatch-missed {
+  background: color-mix(in srgb, var(--calendar-status-missed) 42%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-missed) 85%, white 15%);
+  box-shadow: 0 0 6px -1px color-mix(in srgb, var(--calendar-status-missed) 55%, transparent);
 }
 .calendar-legend-swatch-pending {
   background: color-mix(in srgb, var(--calendar-status-pending) 42%, transparent);
@@ -6956,6 +6970,11 @@ select:focus {
   background: color-mix(in srgb, var(--calendar-status-canceled) 48%, transparent);
   border-color: color-mix(in srgb, var(--calendar-status-canceled) 92%, black 6%);
   box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-canceled) 45%, transparent);
+}
+[data-theme="light"] .calendar-legend-swatch-missed {
+  background: color-mix(in srgb, var(--calendar-status-missed) 48%, transparent);
+  border-color: color-mix(in srgb, var(--calendar-status-missed) 92%, black 6%);
+  box-shadow: 0 0 5px -1px color-mix(in srgb, var(--calendar-status-missed) 45%, transparent);
 }
 [data-theme="light"] .calendar-legend-swatch-pending {
   background: color-mix(in srgb, var(--calendar-status-pending) 48%, transparent);

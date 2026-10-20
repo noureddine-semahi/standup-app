@@ -36,6 +36,14 @@ type DayData = {
   // ringSegments()); never read elsewhere, so this adds no new meaning
   // to any existing calculation.
   canceledCount: number;
+  // Same already-fetched `status` field, same pattern as canceledCount
+  // above -- but unlike blocked/attempted/in_progress (which stay
+  // lumped into the ring's generic "pending" bucket), missed is a
+  // reviewed, terminal outcome same as completed/rescheduled/canceled,
+  // so it gets its own tracked count and its own ring/legend color
+  // rather than being folded into "pending" (which would misleadingly
+  // read as "not yet reviewed").
+  missedCount: number;
   // A past, never-closed day still counts as handled once every one of its
   // Commitments has either been reviewed or re-attempted (rescheduled
   // forward) — rescheduling sets a goal's status to "postponed" but never
@@ -91,21 +99,25 @@ function toneStyles(tone: "neutral" | "today" | "active" | "attention") {
 // status, no DB change, no lifecycle change. "postponed" is this
 // schema's one and only rescheduled-away status (same mapping
 // DayData.rescheduledCount above already uses); "pending" is simply
-// everything left over once completed/rescheduled/canceled are
-// subtracted from the total (e.g. in_progress, blocked, or a plan with
-// no status recorded yet) -- not a new status, just "whatever isn't
-// one of the other three."
+// everything left over once completed/rescheduled/canceled/missed are
+// subtracted from the total (e.g. in_progress, blocked, attempted, or a
+// plan with no status recorded yet) -- not a new status, just
+// "whatever isn't one of the other four."
 type RingSegment = { color: string; pct: number };
 
 function ringSegments(data: DayData | undefined): RingSegment[] {
   const total = data?.commitmentCount ?? 0;
   if (!data || total === 0) return [];
 
-  const pending = Math.max(0, total - data.completedCount - data.rescheduledCount - data.canceledCount);
+  const pending = Math.max(
+    0,
+    total - data.completedCount - data.rescheduledCount - data.canceledCount - data.missedCount
+  );
   const raw: { count: number; color: string }[] = [
     { count: data.completedCount, color: "var(--calendar-status-completed)" },
     { count: data.rescheduledCount, color: "var(--calendar-status-rescheduled)" },
     { count: data.canceledCount, color: "var(--calendar-status-canceled)" },
+    { count: data.missedCount, color: "var(--calendar-status-missed)" },
     { count: pending, color: "var(--calendar-status-pending)" },
   ];
 
@@ -126,23 +138,29 @@ function conicGradientFromSegments(segments: RingSegment[]): string | undefined 
   return `conic-gradient(${stops.join(", ")})`;
 }
 
-type DominantStatus = "completed" | "rescheduled" | "canceled" | "pending";
+type DominantStatus = "completed" | "rescheduled" | "canceled" | "missed" | "pending";
 
 // Tile glass-glow accent ONLY -- picks the single largest of the same
-// four counts ringSegments() already breaks the ring into. Never
+// five counts ringSegments() already breaks the ring into. Never
 // changes the ring itself (still fully multi-segment/proportional, see
 // ringSegments above) or any stored status -- purely which existing
 // count is biggest. Ties are broken by this fixed visual precedence
-// (canceled > rescheduled > completed > pending), listed in that exact
-// order below so the first `count > best.count` comparison that can
-// win is always the higher-precedence one.
+// (canceled > missed > rescheduled > completed > pending), listed in
+// that exact order below so the first `count > best.count` comparison
+// that can win is always the higher-precedence one. missed sits right
+// below canceled -- both are terminal non-completions worth standing
+// out over a neutral reschedule or a win.
 function dominantRingStatus(data: DayData | undefined): DominantStatus | null {
   const total = data?.commitmentCount ?? 0;
   if (!data || total === 0) return null;
 
-  const pending = Math.max(0, total - data.completedCount - data.rescheduledCount - data.canceledCount);
+  const pending = Math.max(
+    0,
+    total - data.completedCount - data.rescheduledCount - data.canceledCount - data.missedCount
+  );
   const candidates: { key: DominantStatus; count: number }[] = [
     { key: "canceled", count: data.canceledCount },
+    { key: "missed", count: data.missedCount },
     { key: "rescheduled", count: data.rescheduledCount },
     { key: "completed", count: data.completedCount },
     { key: "pending", count: pending },
@@ -159,6 +177,7 @@ const DOMINANT_GLOW_COLOR: Record<DominantStatus, string> = {
   completed: "var(--calendar-status-completed)",
   rescheduled: "var(--calendar-status-rescheduled)",
   canceled: "var(--calendar-status-canceled)",
+  missed: "var(--calendar-status-missed)",
   pending: "var(--calendar-status-pending)",
 };
 
@@ -273,6 +292,8 @@ export default function CalendarPage() {
           // loop, so a goal counted here is genuinely user/system
           // canceled, not a stale auto-canceled continuation.
           const canceledGoals = planGoals.filter((g) => g.status === "canceled");
+          // Same already-fetched status field as the others above.
+          const missedGoals = planGoals.filter((g) => g.status === "missed");
 
           dataMap[plan.plan_date] = {
             date: plan.plan_date,
@@ -282,6 +303,7 @@ export default function CalendarPage() {
             completedCount: completedGoals.length,
             rescheduledCount: rescheduledGoals.length,
             canceledCount: canceledGoals.length,
+            missedCount: missedGoals.length,
             allCommitmentsHandled:
               !!plan.cleared_at ||
               (planGoals.length > 0 &&
@@ -552,6 +574,10 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-canceled" />
               <span>{t("status.canceled")}</span>
+            </div>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-missed" />
+              <span>{t("status.missed")}</span>
             </div>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-4 h-4 rounded-full border flex-shrink-0 calendar-legend-swatch-pending" />

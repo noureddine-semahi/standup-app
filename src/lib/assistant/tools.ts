@@ -22,14 +22,14 @@ export const ASSISTANT_TOOLS = [
   {
     name: "update_goal_status",
     description:
-      "Change an existing goal's status. Use the goal_id from the goal list provided in context — match it by title from the user's request. If the new status is 'blocked', you must also ask the user for a reason before calling this (blocked_reason is required for that status).",
+      "Change an existing goal's status. Use the goal_id from the goal list provided in context — match it by title from the user's request. If the new status is 'blocked', you must also ask the user for a reason before calling this (blocked_reason is required for that status). 'missed' is for a goal that simply didn't happen, with no external blocker and no deliberate decision to cancel it — never ask the user for a reason before setting it.",
     input_schema: {
       type: "object",
       properties: {
         goal_id: { type: "string", description: "The id of the goal to update, from the provided goal list." },
         status: {
           type: "string",
-          enum: ["completed", "in_progress", "blocked", "canceled"],
+          enum: ["completed", "in_progress", "blocked", "canceled", "missed"],
           description: "The new status.",
         },
         blocked_reason: { type: "string", description: "Required when status is 'blocked' — why it's blocked." },

@@ -82,7 +82,7 @@ import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import {
-  ClipboardList, CheckCircle2, Settings2, Ban, XCircle, CalendarClock, Check,
+  ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
   Target, Trash2, ChevronRight, TriangleAlert,
@@ -154,9 +154,12 @@ const PRIORITY_OPTIONS = [
 // translation, whichever is wider -- "Reprogramado" is 12% wider than
 // "Rescheduled") plus its right-edge offset (0.65rem) and a small
 // safety gap, measured via Playwright against the actual compiled
-// .goal-done-banner CSS, not estimated. Only the 5 statuses reachable
-// via the collapsed row (see isCollapsible below) are listed; anything
-// else falls back to the worst case (postponed/Reprogramado).
+// .goal-done-banner CSS, not estimated. Only the statuses reachable via
+// the collapsed row (see isCollapsible below) matter here; anything
+// else falls back to the worst case (postponed/Reprogramado). "missed"
+// was added to isCollapsible without its own measured entry here --
+// deliberately, not an oversight -- so it safely uses that same
+// worst-case fallback rather than an unmeasured guess.
 const COLLAPSED_STAMP_RESERVE_PX: Partial<Record<GoalStatus, number>> = {
   completed: 137,
   blocked: 129,
@@ -1521,6 +1524,7 @@ export default function TodayPage() {
       effectiveStatus === "completed" ||
       effectiveStatus === "canceled" ||
       effectiveStatus === "blocked" ||
+      effectiveStatus === "missed" ||
       effectiveStatus === "in_progress" ||
       effectiveStatus === "postponed";
     // Nested (compact) Tasks track their own reopen/collapse via
@@ -1765,6 +1769,21 @@ export default function TodayPage() {
               </button>
               <button
                 type="button"
+                onClick={() => selectQuickAction(g, "missed")}
+                disabled={locked || isBusy}
+                className="action-btn"
+                data-current={g.status === "missed"}
+                style={{
+                  "--btn-bg": g.status === "missed" ? "var(--status-missed-bg-active)" : "var(--status-missed-bg)",
+                  "--btn-border": g.status === "missed" ? "var(--status-missed-border-active)" : "var(--status-missed-border)",
+                  "--btn-color": "var(--status-missed)",
+                } as React.CSSProperties}
+              >
+                <MinusCircle size={14} />
+                <span>{t("status.missed")}</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => selectQuickAction(g, "reschedule")}
                 disabled={locked || isBusy}
                 className="action-btn"
@@ -1970,6 +1989,21 @@ export default function TodayPage() {
                 >
                   <XCircle size={14} />
                   <span>{t("status.canceled")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "missed")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "missed"}
+                  style={{
+                    "--btn-bg": g.status === "missed" ? "var(--status-missed-bg-active)" : "var(--status-missed-bg)",
+                    "--btn-border": g.status === "missed" ? "var(--status-missed-border-active)" : "var(--status-missed-border)",
+                    "--btn-color": "var(--status-missed)",
+                  } as React.CSSProperties}
+                >
+                  <MinusCircle size={14} />
+                  <span>{t("status.missed")}</span>
                 </button>
                 <button
                   type="button"
@@ -2655,6 +2689,22 @@ export default function TodayPage() {
                 >
                   <XCircle size={15} />
                   <span>{t("status.canceled")}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "missed")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "missed"}
+                  style={{
+                    "--btn-bg": g.status === "missed" ? "var(--status-missed-bg-active)" : "var(--status-missed-bg)",
+                    "--btn-border": g.status === "missed" ? "var(--status-missed-border-active)" : "var(--status-missed-border)",
+                    "--btn-color": "var(--status-missed)",
+                  } as React.CSSProperties}
+                >
+                  <MinusCircle size={15} />
+                  <span>{t("status.missed")}</span>
                 </button>
 
                 <button

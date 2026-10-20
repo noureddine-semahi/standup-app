@@ -1,4 +1,4 @@
-import { CheckCircle2, Settings2, Ban, CalendarClock, Diamond, XCircle, Circle, type LucideIcon } from "lucide-react";
+import { CheckCircle2, Settings2, Ban, CalendarClock, Diamond, XCircle, MinusCircle, Circle, type LucideIcon } from "lucide-react";
 import type { GoalStatus } from "@/lib/supabase/db";
 
 const STATUS_ICONS: Record<GoalStatus, LucideIcon> = {
@@ -8,6 +8,7 @@ const STATUS_ICONS: Record<GoalStatus, LucideIcon> = {
   postponed: CalendarClock,
   attempted: Diamond,
   canceled: XCircle,
+  missed: MinusCircle,
   not_started: Circle,
 };
 

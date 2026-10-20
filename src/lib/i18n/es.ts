@@ -37,6 +37,7 @@ export const es: Record<keyof typeof en, string> = {
   "status.rescheduled": "Reprogramado",
   "status.blocked": "Bloqueado",
   "status.canceled": "Cancelado",
+  "status.missed": "No realizado",
 
   // Priority labels (priorityStyles.ts)
   "priority.highest": "Máxima",
@@ -221,6 +222,7 @@ export const es: Record<keyof typeof en, string> = {
   "dashboard.outcomeBlocked": "{count} bloqueados",
   "dashboard.outcomeAttempted": "{count} intentados",
   "dashboard.outcomeInProgress": "{count} en progreso",
+  "dashboard.outcomeMissed": "{count} no realizados",
   "dashboard.keepGoing": "Sigue así",
   "dashboard.startStreak": "Cierra hoy para comenzar una racha",
   "dashboard.tapToday": "Toca para ver los puntos de hoy",

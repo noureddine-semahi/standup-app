@@ -598,6 +598,7 @@ export default function DashboardPage() {
   const todayBlocked = todayGoals.filter((g) => g.status === "blocked").length;
   const todayAttemptedStatus = todayGoals.filter((g) => g.status === "attempted").length;
   const todayInProgress = todayGoals.filter((g) => g.status === "in_progress").length;
+  const todayMissed = todayGoals.filter((g) => g.status === "missed").length;
   const todayAttemptedPct = todayTotal > 0 ? Math.round((todayReviewed / todayTotal) * 100) : 0;
   const todayCompletedPct = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
   const todayOtherOutcomes = [
@@ -605,6 +606,7 @@ export default function DashboardPage() {
     todayBlocked > 0 ? t("dashboard.outcomeBlocked", { count: todayBlocked }) : null,
     todayAttemptedStatus > 0 ? t("dashboard.outcomeAttempted", { count: todayAttemptedStatus }) : null,
     todayInProgress > 0 ? t("dashboard.outcomeInProgress", { count: todayInProgress }) : null,
+    todayMissed > 0 ? t("dashboard.outcomeMissed", { count: todayMissed }) : null,
   ].filter(Boolean) as string[];
   const todayClosed = !!todayPlan?.reviewed_at || coveredByPassToday;
   const todayPointsEarned = (todayPlan?.awareness_points ?? 0) + (todayPlan?.closure_points ?? 0);

@@ -28,7 +28,15 @@ import {
 // done against this file's own per-request client, same as everything else
 // here.
 
-type GoalStatus = "not_started" | "in_progress" | "completed" | "attempted" | "postponed" | "blocked" | "canceled";
+type GoalStatus =
+  | "not_started"
+  | "in_progress"
+  | "completed"
+  | "attempted"
+  | "postponed"
+  | "blocked"
+  | "canceled"
+  | "missed";
 
 const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   not_started: "Not started",
@@ -38,6 +46,7 @@ const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   postponed: "Rescheduled",
   blocked: "Blocked",
   canceled: "Canceled",
+  missed: "Missed",
 };
 
 async function logGoalEvent(

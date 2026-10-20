@@ -11,7 +11,8 @@ export type GoalStatus =
   | "attempted"
   | "postponed"
   | "blocked"
-  | "canceled";
+  | "canceled"
+  | "missed";
 
 export type DailyPlan = {
   id: string;
@@ -2850,6 +2851,7 @@ const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   postponed: "Rescheduled",
   blocked: "Blocked",
   canceled: "Canceled",
+  missed: "Missed",
 };
 
 /**

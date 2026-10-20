@@ -37,6 +37,7 @@ export const en = {
   "status.rescheduled": "Rescheduled",
   "status.blocked": "Blocked",
   "status.canceled": "Canceled",
+  "status.missed": "Missed",
 
   // Priority labels (priorityStyles.ts)
   "priority.highest": "Highest",
@@ -221,6 +222,7 @@ export const en = {
   "dashboard.outcomeBlocked": "{count} blocked",
   "dashboard.outcomeAttempted": "{count} attempted",
   "dashboard.outcomeInProgress": "{count} in progress",
+  "dashboard.outcomeMissed": "{count} missed",
   "dashboard.keepGoing": "Keep it going",
   "dashboard.startStreak": "Close today to start a streak",
   "dashboard.tapToday": "Tap to see today's points",

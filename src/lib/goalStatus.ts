@@ -18,6 +18,7 @@ export function statusLabel(status: GoalStatus, t: (key: TranslationKey) => stri
     case "postponed": return t("status.rescheduled");
     case "blocked": return t("status.blocked");
     case "canceled": return t("status.canceled");
+    case "missed": return t("status.missed");
     default: return status;
   }
 }
@@ -30,6 +31,7 @@ export function statusPillClass(status: GoalStatus) {
     case "postponed": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
     case "attempted": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
     case "canceled": return "bg-slate-500/15 text-slate-300 border-slate-500/30";
+    case "missed": return "bg-amber-500/15 text-amber-300 border-amber-500/30";
     case "not_started":
     default: return "bg-white/10 text-white/70 border-white/20";
   }
@@ -55,6 +57,8 @@ export function statusChipColors(status: GoalStatus): StatusChipColors {
       return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "var(--status-postponed)" };
     case "canceled":
       return { bg: "rgba(100, 116, 139, 0.15)", border: "rgba(100, 116, 139, 0.5)", color: "var(--status-canceled)" };
+    case "missed":
+      return { bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.45)", color: "var(--status-missed)" };
     case "not_started":
     default:
       return { bg: "rgba(var(--tint-rgb), 0.06)", border: "rgba(var(--tint-rgb), 0.18)", color: "rgba(var(--tint-rgb), 0.7)" };

@@ -27,9 +27,11 @@ import {
   getConceptualTasksByOutcomeGoalIds,
   getCycleHistoryForOutcomeGoal,
   resolveBrokenGoal,
+  getBacklogGoals,
   type BrokenGoalResolution,
   type ConceptualTaskLifecycle,
   type Goal,
+  type BacklogGoal,
   type Profile,
   type DailyPlan,
   type OverdueSummary,
@@ -266,6 +268,17 @@ export default function DashboardPage() {
   const [overdue, setOverdue] = useState<OverdueSummary>({ count: 0, oldestDate: null });
   const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
 
+  // Goals section filter: lets the section answer "what needs my
+  // attention today" before the broader collection. "Goals" preserves
+  // the original Today+Tomorrow two-card layout unchanged; the other
+  // three swap in a single filtered list built from data already loaded
+  // for this page (todayGoals/tomorrowGoals), plus one additional
+  // best-effort backlog fetch below (same non-blocking pattern as
+  // activeOutcomeGoals/overdue -- a failure here just leaves the
+  // Backlog tab empty, it never sinks the rest of the dashboard).
+  const [goalsFilter, setGoalsFilter] = useState<"goals" | "activeToday" | "upcoming" | "backlog">("activeToday");
+  const [backlogGoals, setBacklogGoals] = useState<BacklogGoal[]>([]);
+
   // Active Goals summary — the real outcome_goals layer, distinct from
   // the daily Commitment cards below. Best-effort/non-blocking (like
   // overdue/notes above): a failure here shouldn't sink the rest of the
@@ -400,6 +413,10 @@ export default function DashboardPage() {
               return allIds.length > 0 ? getConceptualTasksByOutcomeGoalIds(allIds) : Promise.resolve([]);
             })
             .then(setOutcomeGoalTasks)
+            .catch(() => {});
+
+          getBacklogGoals()
+            .then(setBacklogGoals)
             .catch(() => {});
         }
 
@@ -627,6 +644,170 @@ export default function DashboardPage() {
 
   const sortedTodayGoals = sortGoals(todayGoals);
   const sortedTomorrowGoals = sortGoals(tomorrowGoals);
+
+  // "Active Today" = today's goals that still genuinely need attention --
+  // not_started/in_progress/blocked/attempted. Explicitly excludes
+  // completed/canceled/missed (resolved) and postponed (rescheduled away
+  // from today -- see today/page.tsx's own comment: postponed always
+  // means the goal is moving to a different date, so it's no longer
+  // "today's" by the time it shows that status). No new status invented;
+  // this is just a status allowlist over the same todayGoals already
+  // loaded above. Assigned/shared goals need no special handling here --
+  // a materialized assignment is just a normal Goal row already present
+  // in todayGoals, same as any other goal.
+  const ACTIVE_TODAY_STATUSES = new Set(["not_started", "in_progress", "blocked", "attempted"]);
+  const activeTodayGoals = sortedTodayGoals.filter((g) => ACTIVE_TODAY_STATUSES.has(g.status));
+
+  // Shared compact-goal-row renderer -- used by the "Goals" tab's two
+  // original cards (today/tomorrow, unchanged visually) AND the new
+  // Active Today / Upcoming single-list views below, so none of this
+  // markup is duplicated a third or fourth time. showStatus toggles the
+  // status chip, which only ever made sense for today's goals (tomorrow's
+  // goals have no status worth showing yet).
+  function renderGoalRow(g: Goal, idx: number, opts: { href: string; showStatus: boolean }) {
+    const priority = g.priority;
+    const assignment = assignedOutByGoalId.get(g.id);
+    const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+    const liveRecipientStatus = assignment?.recipientCurrentTask?.terminal.status ?? assignment?.recipientGoalStatus;
+    const effectiveStatus = isExclusive && liveRecipientStatus ? liveRecipientStatus : g.status;
+    const reviewed = isExclusive ? true : !!g.reviewed_at;
+
+    return (
+      <Link
+        key={g.id}
+        href={opts.href}
+        data-goal-id={g.id}
+        className="goal-row-compact goal-row-compact-link text-sm transition-all duration-300"
+        data-pending={opts.showStatus ? !reviewed : undefined}
+        style={{
+          "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
+        } as React.CSSProperties}
+      >
+        <div className="goal-number-sm">{idx + 1}</div>
+        <div className="goal-row-compact-body" style={{ paddingRight: "1.75rem" }}>
+          <div className="goal-title-clamp-2 text-base font-medium text-white/90">{g.title}</div>
+
+          <div className="mt-1.5 flex items-center gap-2">
+            {typeof priority === "number" && (
+              <div
+                className="priority-chip-sm"
+                style={{
+                  "--p-bg": getPriorityMeta(priority).bg,
+                  "--p-border": getPriorityMeta(priority).border,
+                  "--p-color": getPriorityMeta(priority).color,
+                } as React.CSSProperties}
+              >
+                P{priority}
+              </div>
+            )}
+
+            {opts.showStatus && (
+              <div
+                className="status-chip-sm"
+                style={{
+                  "--chip-bg": reviewed ? statusChipColors(effectiveStatus).bg : "rgba(245, 158, 11, 0.08)",
+                  "--chip-border": reviewed ? statusChipColors(effectiveStatus).border : "rgba(245, 158, 11, 0.3)",
+                  "--chip-color": reviewed ? statusChipColors(effectiveStatus).color : "#fcd34d",
+                } as React.CSSProperties}
+                title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(effectiveStatus, t) }) : t("dashboard.pendingReviewShort")}
+              >
+                {reviewed ? (
+                  <>
+                    <span>{statusLabel(effectiveStatus, t)}</span>
+                    <StatusIcon status={effectiveStatus} size={12} />
+                  </>
+                ) : (
+                  <>
+                    <span>{t("dashboard.pending")}</span>
+                    <Hourglass size={12} />
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {assignment && (
+            <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
+              {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
+              {t("goalAssign.assignedToLabel", {
+                name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
+              })}
+              {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
+              {assignment.status === "accepted" && liveRecipientStatus && (
+                <span className="inline-flex items-center gap-1">
+                  · <StatusIcon status={liveRecipientStatus} size={11} />{" "}
+                  {statusLabel(liveRecipientStatus, t)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {noteCounts[g.id] > 0 && (
+            <div
+              className="mt-1.5 truncate text-xs text-cyan-300/80"
+              title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
+            >
+              <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
+            </div>
+          )}
+        </div>
+        <ChevronRight size={16} className="flex-shrink-0 text-white/30" style={{ position: "absolute", right: "0.85rem", top: "50%", transform: "translateY(-50%)" }} />
+      </Link>
+    );
+  }
+
+  // Backlog rows have a different shape (BacklogGoal, not Goal -- no
+  // status/reviewed_at) so they get their own small renderer rather than
+  // forcing them through renderGoalRow. Links to /standup/tools, where
+  // the backlog actually lives (there's no backlog view on Dashboard
+  // itself) -- getBacklogGoals() is the same helper/semantics Tools'
+  // own backlog list already uses, not a second definition of backlog.
+  function renderBacklogRow(b: BacklogGoal, idx: number) {
+    return (
+      <Link
+        key={b.id}
+        href="/standup/tools"
+        className="goal-row-compact goal-row-compact-link text-sm transition-all duration-300"
+        style={{
+          "--p-color": typeof b.priority === "number" ? getPriorityMeta(b.priority).color : "rgba(var(--tint-rgb),0.2)",
+        } as React.CSSProperties}
+      >
+        <div className="goal-number-sm">{idx + 1}</div>
+        <div className="goal-row-compact-body" style={{ paddingRight: "1.75rem" }}>
+          <div className="goal-title-clamp-2 text-base font-medium text-white/90">{b.title}</div>
+          <div className="mt-1.5 flex items-center gap-2">
+            {typeof b.priority === "number" && (
+              <div
+                className="priority-chip-sm"
+                style={{
+                  "--p-bg": getPriorityMeta(b.priority).bg,
+                  "--p-border": getPriorityMeta(b.priority).border,
+                  "--p-color": getPriorityMeta(b.priority).color,
+                } as React.CSSProperties}
+              >
+                P{b.priority}
+              </div>
+            )}
+            {b.target_date && (
+              <span className="text-xs text-white/50">{formatDateDisplay(b.target_date)}</span>
+            )}
+          </div>
+        </div>
+        <ChevronRight size={16} className="flex-shrink-0 text-white/30" style={{ position: "absolute", right: "0.85rem", top: "50%", transform: "translateY(-50%)" }} />
+      </Link>
+    );
+  }
+
+  const goalsFilterOptions: Array<{
+    key: "goals" | "activeToday" | "upcoming" | "backlog";
+    label: string;
+    count: number;
+  }> = [
+    { key: "goals", label: t("dashboard.goalsFilterGoals"), count: todayGoals.length + tomorrowGoals.length },
+    { key: "activeToday", label: t("dashboard.goalsFilterActiveToday"), count: activeTodayGoals.length },
+    { key: "upcoming", label: t("dashboard.goalsFilterUpcoming"), count: sortedTomorrowGoals.length },
+    { key: "backlog", label: t("dashboard.goalsFilterBacklog"), count: backlogGoals.length },
+  ];
 
   // Re-fetches just the Active Goals data load() originally populated --
   // reused after an owner Resolve action so the card reflects the new
@@ -1691,7 +1872,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Today & Tomorrow Overview Grid (keep logic; enhance row styles) */}
+        {/* Goals section filter -- "What needs my attention today?"
+            answered before the broader collection. Deliberately much
+            smaller/subtler than the main nav tabs (own CSS namespace,
+            dashboard-goals-filter-*): a content filter, not navigation. */}
+        <div className="dashboard-goals-filter" role="tablist" aria-label={t("dashboard.goalsFilterLabel")}>
+          {goalsFilterOptions.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              role="tab"
+              aria-selected={goalsFilter === opt.key}
+              data-active={goalsFilter === opt.key}
+              onClick={() => setGoalsFilter(opt.key)}
+              className="dashboard-goals-filter-btn"
+            >
+              <span>{opt.label}</span>
+              <span className="dashboard-goals-filter-count">{opt.count}</span>
+            </button>
+          ))}
+        </div>
+
+        {goalsFilter === "goals" ? (
+        /* Today & Tomorrow Overview Grid (keep logic; enhance row styles) --
+           unchanged from before this filter existed. */
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Today Overview */}
           {/* min-w-0 is required — CSS Grid items default to min-width:auto,
@@ -1716,110 +1920,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {sortedTodayGoals.map((g, idx) => {
-                  const priority = g.priority;
-                  const assignment = assignedOutByGoalId.get(g.id);
-                  // Mirror Today's own effectiveStatus/reviewed fix: once
-                  // handed off exclusively (and accepted), this user's own
-                  // copy never changes again -- show the recipient's live
-                  // status instead of the frozen placeholder.
-                  const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
-                  // Assigned -> Goals lineage safety fix: same
-                  // recipientCurrentTask preference as the P1 card above.
-                  const liveRecipientStatus = assignment?.recipientCurrentTask?.terminal.status ?? assignment?.recipientGoalStatus;
-                  const effectiveStatus = isExclusive && liveRecipientStatus ? liveRecipientStatus : g.status;
-                  const reviewed = isExclusive ? true : !!g.reviewed_at;
-
-                  return (
-                    <Link
-                      key={g.id}
-                      href={`/standup/today?goal=${g.id}`}
-                      data-goal-id={g.id}
-                      className="goal-row-compact goal-row-compact-link text-sm transition-all duration-300"
-                      data-pending={!reviewed}
-                      style={{
-                        "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
-                      } as React.CSSProperties}
-                    >
-                      {/* Corner number tag — nothing else competing for
-                          space next to it, so the title can never overflow
-                          no matter how narrow the screen or long the title. */}
-                      <div className="goal-number-sm">{idx + 1}</div>
-                      <div className="goal-row-compact-body" style={{ paddingRight: "1.75rem" }}>
-                      <div className="goal-title-clamp-2 text-base font-medium text-white/90">{g.title}</div>
-
-                      {/* Chips and note preview live on their own rows
-                          below the title, instead of all fighting for
-                          space in one row — that's what was forcing
-                          horizontal overflow. */}
-                      <div className="mt-1.5 flex items-center gap-2">
-                        {typeof priority === "number" && (
-                          <div
-                            className="priority-chip-sm"
-                            style={{
-                              "--p-bg": getPriorityMeta(priority).bg,
-                              "--p-border": getPriorityMeta(priority).border,
-                              "--p-color": getPriorityMeta(priority).color,
-                            } as React.CSSProperties}
-                          >
-                            P{priority}
-                          </div>
-                        )}
-
-                        <div
-                          className="status-chip-sm"
-                          style={{
-                            "--chip-bg": reviewed ? statusChipColors(effectiveStatus).bg : "rgba(245, 158, 11, 0.08)",
-                            "--chip-border": reviewed ? statusChipColors(effectiveStatus).border : "rgba(245, 158, 11, 0.3)",
-                            "--chip-color": reviewed ? statusChipColors(effectiveStatus).color : "#fcd34d",
-                          } as React.CSSProperties}
-                          title={reviewed ? t("dashboard.reviewedDash", { status: statusLabel(effectiveStatus, t) }) : t("dashboard.pendingReviewShort")}
-                        >
-                          {reviewed ? (
-                            <>
-                              <span>{statusLabel(effectiveStatus, t)}</span>
-                              <StatusIcon status={effectiveStatus} size={12} />
-                            </>
-                          ) : (
-                            <>
-                              <span>{t("dashboard.pending")}</span>
-                              <Hourglass size={12} />
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {assignment && (
-                        <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
-                          {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                          {t("goalAssign.assignedToLabel", {
-                            name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                          })}
-                          {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                          {assignment.status === "accepted" && liveRecipientStatus && (
-                            <span className="inline-flex items-center gap-1">
-                              · <StatusIcon status={liveRecipientStatus} size={11} />{" "}
-                              {statusLabel(liveRecipientStatus, t)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {noteCounts[g.id] > 0 && (
-                        <div
-                          className="mt-1.5 truncate text-xs text-cyan-300/80"
-                          title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
-                        >
-                          <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
-                        </div>
-                      )}
-                      </div>
-                      {/* Decorative nav cue only — the whole row above is
-                          already the real tap target. */}
-                      <ChevronRight size={16} className="flex-shrink-0 text-white/30" style={{ position: "absolute", right: "0.85rem", top: "50%", transform: "translateY(-50%)" }} />
-                    </Link>
-                  );
-                })}
+                {sortedTodayGoals.map((g, idx) => renderGoalRow(g, idx, { href: `/standup/today?goal=${g.id}`, showStatus: true }))}
               </div>
             )}
 
@@ -1848,69 +1949,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {sortedTomorrowGoals.slice(0, 5).map((g, idx) => {
-                  const priority = g.priority;
-                  const assignment = assignedOutByGoalId.get(g.id);
-                  const liveRecipientStatus = assignment?.recipientCurrentTask?.terminal.status ?? assignment?.recipientGoalStatus;
-
-                  return (
-                    <Link
-                      key={g.id}
-                      href={`/standup/tomorrow?goal=${g.id}`}
-                      data-goal-id={g.id}
-                      className="goal-row-compact goal-row-compact-link text-sm transition-all duration-300"
-                      style={{
-                        "--p-color": typeof priority === "number" ? getPriorityMeta(priority).color : "rgba(var(--tint-rgb),0.2)",
-                      } as React.CSSProperties}
-                    >
-                      <div className="goal-number-sm">{idx + 1}</div>
-                      <div className="goal-row-compact-body" style={{ paddingRight: "1.75rem" }}>
-                      <div className="goal-title-clamp-2 text-base font-medium text-white/90">{g.title}</div>
-
-                      {typeof priority === "number" && (
-                        <div className="mt-1.5">
-                          <div
-                            className="priority-chip-sm"
-                            style={{
-                              "--p-bg": getPriorityMeta(priority).bg,
-                              "--p-border": getPriorityMeta(priority).border,
-                              "--p-color": getPriorityMeta(priority).color,
-                            } as React.CSSProperties}
-                          >
-                            P{priority}
-                          </div>
-                        </div>
-                      )}
-
-                      {assignment && (
-                        <div className="mt-1.5 truncate text-xs text-white/50 inline-flex items-center gap-1">
-                          {assignment.assignmentType === "exclusive" ? <Lock size={11} /> : <Unlock size={11} />}
-                          {t("goalAssign.assignedToLabel", {
-                            name: assignment.recipientDisplayName ?? t("social.anonymousUser"),
-                          })}
-                          {assignment.status === "pending" && <span>· {t("social.assignmentPending")}</span>}
-                          {assignment.status === "accepted" && liveRecipientStatus && (
-                            <span className="inline-flex items-center gap-1">
-                              · <StatusIcon status={liveRecipientStatus} size={11} />{" "}
-                              {statusLabel(liveRecipientStatus, t)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {noteCounts[g.id] > 0 && (
-                        <div
-                          className="mt-1.5 truncate text-xs text-cyan-300/80"
-                          title={`${t(noteCounts[g.id] === 1 ? "dashboard.noteCount.one" : "dashboard.noteCount.other", { count: noteCounts[g.id] })}: ${latestNotes[g.id] ?? ""}`}
-                        >
-                          <MessageCircle className="inline-block align-text-bottom mr-1" size={12} />{latestNotes[g.id]}
-                        </div>
-                      )}
-                      </div>
-                      <ChevronRight size={16} className="flex-shrink-0 text-white/30" style={{ position: "absolute", right: "0.85rem", top: "50%", transform: "translateY(-50%)" }} />
-                    </Link>
-                  );
-                })}
+                {sortedTomorrowGoals.slice(0, 5).map((g, idx) => renderGoalRow(g, idx, { href: `/standup/tomorrow?goal=${g.id}`, showStatus: false }))}
 
                 {sortedTomorrowGoals.length > 5 && (
                   <div className="text-xs text-white/50 text-center py-1">
@@ -1928,6 +1967,52 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
+        ) : (
+          <div className="card card-highlight min-w-0">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-white">
+                {goalsFilter === "activeToday" && t("dashboard.goalsFilterActiveToday")}
+                {goalsFilter === "upcoming" && t("dashboard.goalsFilterUpcoming")}
+                {goalsFilter === "backlog" && t("dashboard.goalsFilterBacklog")}
+              </h2>
+              {goalsFilter === "activeToday" && <span className="text-xs text-white/50">{formatDateDisplay(todayISO)}</span>}
+              {goalsFilter === "upcoming" && <span className="text-xs text-white/50">{formatDateDisplay(tomorrowISO)}</span>}
+            </div>
+
+            {goalsFilter === "activeToday" && (
+              activeTodayGoals.length === 0 ? (
+                <div className="text-white/60 text-sm py-8 text-center">{t("dashboard.goalsFilterActiveTodayEmpty")}</div>
+              ) : (
+                <div className="space-y-3">
+                  {activeTodayGoals.map((g, idx) => renderGoalRow(g, idx, { href: `/standup/today?goal=${g.id}`, showStatus: true }))}
+                </div>
+              )
+            )}
+
+            {goalsFilter === "upcoming" && (
+              sortedTomorrowGoals.length === 0 ? (
+                <div className="text-white/60 text-sm py-8 text-center">
+                  {t("dashboard.noPlanYet")}
+                  <div className="mt-2 text-xs text-white/50">{t("dashboard.setAtLeast3")}</div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sortedTomorrowGoals.map((g, idx) => renderGoalRow(g, idx, { href: `/standup/tomorrow?goal=${g.id}`, showStatus: false }))}
+                </div>
+              )
+            )}
+
+            {goalsFilter === "backlog" && (
+              backlogGoals.length === 0 ? (
+                <div className="text-white/60 text-sm py-8 text-center">{t("dashboard.goalsFilterBacklogEmpty")}</div>
+              ) : (
+                <div className="space-y-3">
+                  {backlogGoals.map((b, idx) => renderBacklogRow(b, idx))}
+                </div>
+              )
+            )}
+          </div>
+        )}
 
         {/* Quick Actions — primary CTA(s) full-width on mobile, the two
             secondary actions side-by-side underneath (see .quick-actions-*

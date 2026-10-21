@@ -1662,7 +1662,14 @@ h1, h2, h3, h4, h5, h6 {
        panel only has the one visible edge to work with, unlike
        .nav-more-panel's full 4-sided double ring. */
     border-top: 1px solid color-mix(in srgb, var(--metal-edge-neutral) 55%, white 15%);
-    background: rgba(var(--panel-rgb), var(--panel-alpha));
+    /* Deliberately a literal alpha, not var(--panel-alpha) -- this panel
+       sits directly over whatever page content is scrolled underneath
+       (Calendar's rings/colors especially), which reads as too much
+       bleed-through at the shared card/header alpha. Scoped to this
+       panel only; --panel-alpha itself (and every other consumer of it)
+       is untouched. Backdrop blur still comes from .app-header's own
+       backdrop-filter, which this panel sits inside of. */
+    background: rgba(var(--panel-rgb), 0.94);
     box-shadow:
       inset 0 4px 6px -4px rgba(0, 0, 0, 0.5),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
@@ -1709,9 +1716,33 @@ h1, h2, h3, h4, h5, h6 {
 
   [data-theme="light"] .mobile-menu-panel {
     border-top-color: color-mix(in srgb, var(--metal-edge-neutral) 45%, white 25%);
+    background: rgba(var(--panel-rgb), 0.97);
     box-shadow:
       inset 0 4px 6px -4px rgba(40, 32, 28, 0.18),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  }
+
+  /* Row backgrounds: the shared .folder-tab-hanging tint (designed for a
+     horizontal bar sitting over solid page background) is too faint once
+     the row is stacked over scrolled page content through the now-more-
+     opaque panel above. Scoped to .mobile-menu-panel's own rows only --
+     the header's primary horizontal tab row (plain .folder-tab-hanging,
+     outside this panel) is untouched. Active-row treatment
+     (.folder-tab-hanging-active) is deliberately not touched here. */
+  .mobile-menu-panel .folder-tab-hanging {
+    background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.22), rgba(var(--tab-color-rgb), 0.16));
+  }
+
+  .mobile-menu-panel .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
+    background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.28), rgba(var(--tab-color-rgb), 0.2));
+  }
+
+  [data-theme="light"] .mobile-menu-panel .folder-tab-hanging {
+    background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.2), rgba(var(--tab-color-rgb), 0.14));
+  }
+
+  [data-theme="light"] .mobile-menu-panel .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
+    background: linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.26), rgba(var(--tab-color-rgb), 0.18));
   }
 }
 
@@ -4999,6 +5030,92 @@ select:focus {
 [data-theme="light"] .goal-row-compact {
   border: 1px solid color-mix(in srgb, var(--metal-color) 6%, rgba(var(--tint-rgb), 0.12));
   border-top-color: color-mix(in srgb, var(--metal-color) 14%, rgba(var(--tint-rgb), 0.24));
+}
+
+/* ✨ Dashboard Goals section filter — a small in-content segmented
+   control ("Goals" / "Active Today" / "Upcoming" / "Backlog"), explicitly
+   NOT the big page-level .folder-tab-hanging/.folder-tabbar-tools tab
+   systems: much smaller, subtler, scoped to this one card only. Visual
+   vocabulary borrowed from .status-chip-sm/.priority-chip-sm (small
+   metallic-tinted pills) rather than the hanging-tab metaphor. */
+.dashboard-goals-filter {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(var(--tint-rgb), 0.04);
+  border: 1px solid rgba(var(--tint-rgb), 0.08);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-goals-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(var(--tint-rgb), 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.dashboard-goals-filter-btn:hover {
+  background: rgba(var(--tint-rgb), 0.07);
+  color: rgba(var(--tint-rgb), 0.85);
+}
+
+/* Active = recessed/selected, same small inset-shadow language as other
+   compact selected states in this file (e.g. .action-btn[data-current]),
+   just scaled down and amber-accented to match the rest of the app's
+   "active" tint. */
+.dashboard-goals-filter-btn[data-active="true"] {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: var(--accent-amber);
+  box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.dashboard-goals-filter-count {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(var(--tint-rgb), 0.1);
+  color: rgba(var(--tint-rgb), 0.6);
+}
+
+.dashboard-goals-filter-btn[data-active="true"] .dashboard-goals-filter-count {
+  background: rgba(245, 158, 11, 0.25);
+  color: var(--accent-amber);
+}
+
+[data-theme="light"] .dashboard-goals-filter {
+  background: rgba(var(--tint-rgb), 0.04);
+  border-color: rgba(var(--tint-rgb), 0.1);
+}
+
+[data-theme="light"] .dashboard-goals-filter-btn:hover {
+  background: rgba(var(--tint-rgb), 0.08);
+}
+
+[data-theme="light"] .dashboard-goals-filter-btn[data-active="true"] {
+  background: rgba(202, 138, 4, 0.14);
+  border-color: rgba(202, 138, 4, 0.4);
+  color: #92650a;
+  box-shadow: inset 0 1px 3px 0 rgba(40, 32, 28, 0.2);
+}
+
+[data-theme="light"] .dashboard-goals-filter-btn[data-active="true"] .dashboard-goals-filter-count {
+  background: rgba(202, 138, 4, 0.2);
+  color: #92650a;
 }
 
 [data-theme="light"] .goal-row-compact:hover {

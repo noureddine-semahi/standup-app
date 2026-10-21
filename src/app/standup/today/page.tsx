@@ -2442,9 +2442,9 @@ export default function TodayPage() {
                       onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : g.id))}
                       className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
                     >
-                      <UserPlus size={13} className="flex-shrink-0" />
+                      <UserPlus size={12} className="flex-shrink-0" />
                       <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
-                      <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                      <ChevronDown size={10} className="text-white/40 flex-shrink-0" />
                     </button>
                     {openAssignMenuId === g.id && (
                       <div className="conn-card-menu" style={{ minWidth: "130px", maxWidth: "min(150px, calc(100vw - 4rem))" }}>
@@ -2746,9 +2746,9 @@ export default function TodayPage() {
                       onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : g.id))}
                       className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
                     >
-                      <UserPlus size={13} className="flex-shrink-0" />
+                      <UserPlus size={12} className="flex-shrink-0" />
                       <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
-                      <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                      <ChevronDown size={10} className="text-white/40 flex-shrink-0" />
                     </button>
                     {openAssignMenuId === g.id && (
                       <div className="conn-card-menu" style={{ minWidth: "130px", maxWidth: "min(150px, calc(100vw - 4rem))" }}>

@@ -2327,7 +2327,15 @@ export default function TomorrowGoalsPage() {
                     }`}
                     onClick={handleUseStreakPass}
                     disabled={usingPass || (passBalance?.available ?? 0) <= 0}
-                    title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+                    title={
+                      (passBalance?.available ?? 0) <= 0
+                        ? t("datePage.noStreakPasses")
+                        : `${passBalance?.available ?? 0} ${t(
+                            (passBalance?.available ?? 0) === 1
+                              ? "datePage.passesLeftAdvanceSuffix.one"
+                              : "datePage.passesLeftAdvanceSuffix.other"
+                          )}`
+                    }
                   >
                     {usingPass ? (
                       <>
@@ -2336,18 +2344,13 @@ export default function TomorrowGoalsPage() {
                       </>
                     ) : (
                       <>
-                        <Ticket size={13} className="tomorrow-pass-btn-icon flex-shrink-0" />
+                        <Ticket size={13} className="flex-shrink-0" />
                         <span className="tomorrow-pass-btn-text">
-                          {t("datePage.useAPassLine1")} {t("datePage.useAPassLine2")}{" "}
-                          <span className="tomorrow-pass-btn-count-inline">
-                            <span aria-hidden="true">{"·"}</span>{" "}
-                            <span className="tomorrow-pass-btn-count-num">{passBalance?.available ?? 0}</span>{" "}
-                            {t(
-                              (passBalance?.available ?? 0) === 1
-                                ? "datePage.passesLeftAdvanceSuffix.one"
-                                : "datePage.passesLeftAdvanceSuffix.other"
-                            )}
-                          </span>
+                          {t("datePage.useAPassLine1")} {t("datePage.useAPassLine2")}
+                        </span>
+                        <span className="tomorrow-pass-btn-badge" aria-hidden="true">
+                          <Ticket size={9} />
+                          {passBalance?.available ?? 0}
                         </span>
                       </>
                     )}

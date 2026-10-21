@@ -5583,17 +5583,100 @@ select:focus {
   color: rgba(4, 120, 87, 0.8);
 }
 
-/* ✨ Goal card toolbar — Checklist/Files/Link/Assign/Privacy, redesigned
-   from plain gray form-style buttons into one integrated row using the
-   same .btn-tint color system as Dashboard's action buttons. Explicit
-   user call, visual/layout only -- every control below still calls the
-   exact same handlers it always did. */
+/* ✨ Goal card toolbar — Checklist/Files/Link/Assign/Privacy. Two parts:
+   .goal-toolbar is now a miniature version of the same metallic-housing
+   construction .standup-metal-btn-group/.folder-tabbar-tools use (outer
+   rim, recessed channel, double ring, specular glint) -- scaled down and
+   lightened so it never reads heavier than the goal card around it, per
+   the brief's own "compact radius appropriate for card controls" call.
+   .goal-toolbar-btn gets the matching socket/cavity/inset-face
+   hierarchy, scaled to this control's own small size (2px inset instead
+   of .standup-metal-btn's 3px). Deliberately does NOT reuse .standup-
+   metal-btn itself or key off --metal-color -- these controls already
+   had their own working colored-accent mechanism (.btn-tint's
+   --tint-color-rgb, composed via .btn-teal/-purple/-blue/-amber-tint),
+   confirmed safe against the Samsung color-mix()-fallback bug (see
+   .btn-tint's own comment above) specifically BECAUSE it never runs
+   color-mix() on currentColor for background/border. Every background/
+   border-color value below follows that same rgba(var(--tint-color-rgb,
+   148,163,184), x) idiom instead -- color-mix() only appears here
+   against static tokens (--metal-edge-neutral) or in box-shadow (plain
+   currentColor), never reproducing the bug. A plain (non-.btn-tint)
+   toolbar control (Link when unset, Privacy/Assign triggers) falls back
+   to the same neutral steel-gray 148,163,184 triple .btn-tint itself
+   already defaults to when --tint-color-rgb isn't set. */
 .goal-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.6rem;
+  position: relative;
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid rgba(90, 94, 102, 0.35);
+  border-top-color: rgba(60, 63, 70, 0.45);
+  border-bottom-color: rgba(140, 144, 155, 0.25);
+  background: rgba(var(--panel-rgb), 0.3);
+  box-shadow:
+    inset 0 2px 3px -1px rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 32%, transparent),
+    0 2px 5px -3px rgba(0, 0, 0, 0.4);
+  transition: padding 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Specular top glint across the housing's own edge -- same technique
+   .folder-tabbar-tools::before/.standup-metal-btn-group::before use. */
+.goal-toolbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent 15%,
+    rgba(255, 255, 255, 0.38) 50%,
+    rgba(255, 255, 255, 0.1) 72%,
+    transparent 85%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Checklist/Attachments' expanded panel is rendered as a .goal-toolbar
+   CHILD (see .goal-toolbar-expandable-open below) -- a fixed-chrome
+   housing box would otherwise visually wrap a tall, variable-height
+   checklist/attachment panel too, not just the button row it's meant
+   for. Strips the housing chrome back to plain/transparent (:has(), not
+   a JS-driven class -- no page-level wiring needed) whenever an
+   expanded panel is present among its children; the toggle button
+   itself still renders correctly, just without the tight housing inset
+   around it for that one state. */
+.goal-toolbar:has(.goal-toolbar-expandable-open) {
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+.goal-toolbar:has(.goal-toolbar-expandable-open)::before {
+  content: none;
+}
+
+[data-theme="light"] .goal-toolbar {
+  border-color: rgba(40, 32, 28, 0.22);
+  border-top-color: rgba(40, 32, 28, 0.3);
+  border-bottom-color: rgba(255, 255, 255, 0.65);
+  background: rgba(var(--panel-rgb), 0.45);
+  box-shadow:
+    inset 0 2px 3px -1px rgba(40, 32, 28, 0.12),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 30%, white 20%),
+    0 2px 5px -3px rgba(40, 32, 28, 0.2);
 }
 
 .goal-toolbar-btn {
@@ -5606,6 +5689,213 @@ select:focus {
   gap: 0.35rem;
   white-space: nowrap;
   flex-shrink: 0;
+  /* Socket: outer rim + recessed cavity. overflow:visible (was hidden,
+     inherited from .btn) -- the inset face's own glow would otherwise
+     clip against this element's edge now that nothing else needs
+     clipping to the rounded corner. transform:none cancels .btn's own
+     hover-lift/press-drop (translateY) -- stationary outer body, no
+     positional movement, per the brief. */
+  position: relative;
+  overflow: visible;
+  transform: none;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  border-width: 1px;
+  border-style: solid;
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.5);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.38);
+  border-right-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.14);
+  border-bottom-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.1);
+  background: rgba(var(--panel-rgb), 0.85);
+  box-shadow:
+    inset 0 3px 4px -1px rgba(0, 0, 0, 0.5),
+    inset 0 -2px 3px -1px rgba(0, 0, 0, 0.3),
+    inset 2px 0 3px -1px rgba(0, 0, 0, 0.25),
+    inset -2px 0 3px -1px rgba(0, 0, 0, 0.25);
+}
+
+.goal-toolbar-btn:hover {
+  transform: none;
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.72);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.55);
+  box-shadow:
+    inset 0 2px 3px -1px rgba(0, 0, 0, 0.42),
+    inset 0 -2px 3px -1px rgba(0, 0, 0, 0.24),
+    inset 2px 0 3px -1px rgba(0, 0, 0, 0.18),
+    inset -2px 0 3px -1px rgba(0, 0, 0, 0.18);
+}
+
+.goal-toolbar-btn:active {
+  transform: none;
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.3);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.22);
+  box-shadow:
+    inset 0 4px 5px -1px rgba(0, 0, 0, 0.62),
+    inset 0 -2px 3px -1px rgba(0, 0, 0, 0.4);
+}
+
+.goal-toolbar-btn:disabled,
+.goal-toolbar-btn:disabled:hover,
+.goal-toolbar-btn:disabled:active {
+  transform: none;
+}
+
+/* The inset FACE -- overrides the shared .btn::before glass-sheen
+   reflection (same specificity, declared later in the file so this
+   wins) with the small illuminated plate every other socket/face
+   control in the app now uses. 2px inset (not .standup-metal-btn's 3px)
+   -- this control is much smaller, so the face stays legibly sized.
+   z-index:-1 keeps it behind the icon/label, same technique as every
+   other inset face in the app. */
+.goal-toolbar-btn::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 4px;
+  pointer-events: none;
+  border: 1px solid rgba(var(--tint-color-rgb, 148, 163, 184), 0.28);
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.55);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.4);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.16), rgba(var(--tint-color-rgb, 148, 163, 184), 0.05));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 4px -1px currentColor;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* .btn's own ripple (::after) reads as a material-design water-ripple,
+   not a machined control -- suppressed here, same call already made for
+   .standup-metal-btn. */
+.goal-toolbar-btn::after {
+  content: none;
+}
+
+.goal-toolbar-btn:hover::before {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.78);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.6);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.24), rgba(var(--tint-color-rgb, 148, 163, 184), 0.08));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.32),
+    0 0 7px -1px currentColor;
+}
+
+.goal-toolbar-btn:active::before {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.32);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.24);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.08), rgba(var(--tint-color-rgb, 148, 163, 184), 0.02));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.4),
+    0 0 2px -1px currentColor;
+}
+
+.goal-toolbar-btn:disabled::before,
+.goal-toolbar-btn:disabled:hover::before,
+.goal-toolbar-btn:disabled:active::before {
+  border-color: rgba(var(--tint-rgb), 0.08);
+  background: rgba(var(--tint-rgb), 0.02);
+  box-shadow: none;
+}
+
+/* Infrastructure for a future open/expanded visual state -- none of
+   Checklist/Attachments/Assign/Privacy currently expose an aria-
+   expanded/data-active attribute on their trigger button (confirmed via
+   source read), so there's nothing for this selector to match yet.
+   Wiring that up is a component-level change across ~5 files, outside
+   this pass's "central CSS only" scope -- ready to activate the moment
+   a future pass adds the attribute, with zero further CSS work. */
+.goal-toolbar-btn[aria-expanded="true"] {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.85);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.65);
+}
+
+.goal-toolbar-btn[aria-expanded="true"]::before {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.9);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.7);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.3), rgba(var(--tint-color-rgb, 148, 163, 184), 0.1));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.26),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 8px -1px currentColor;
+}
+
+/* Assign is wider and more consequential than the other toolbar
+   controls (handing a goal to someone else, not just toggling a
+   checklist) -- a modest glow bump on the face's own glow layer,
+   declared after the shared rules above so it wins at equal
+   specificity. */
+.goal-toolbar-btn-assign::before {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 6px -1px currentColor;
+}
+
+.goal-toolbar-btn-assign:hover::before {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.32),
+    0 0 10px -1px currentColor;
+}
+
+[data-theme="light"] .goal-toolbar-btn {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.45);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.32);
+  border-right-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.12);
+  border-bottom-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.08);
+  background: rgba(var(--panel-rgb), 0.7);
+  box-shadow:
+    inset 0 3px 4px -1px rgba(40, 32, 28, 0.2),
+    inset 0 -2px 3px -1px rgba(40, 32, 28, 0.1),
+    inset 2px 0 3px -1px rgba(40, 32, 28, 0.08),
+    inset -2px 0 3px -1px rgba(40, 32, 28, 0.08);
+}
+
+[data-theme="light"] .goal-toolbar-btn:hover {
+  box-shadow:
+    inset 0 2px 3px -1px rgba(40, 32, 28, 0.18),
+    inset 0 -2px 3px -1px rgba(40, 32, 28, 0.08),
+    inset 2px 0 3px -1px rgba(40, 32, 28, 0.06),
+    inset -2px 0 3px -1px rgba(40, 32, 28, 0.06);
+}
+
+[data-theme="light"] .goal-toolbar-btn:active {
+  box-shadow:
+    inset 0 4px 5px -1px rgba(40, 32, 28, 0.26),
+    inset 0 -2px 3px -1px rgba(40, 32, 28, 0.14);
+}
+
+[data-theme="light"] .goal-toolbar-btn::before {
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.14), rgba(255, 253, 250, 0.7));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.75),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.14),
+    0 0 4px -1px currentColor;
+}
+
+[data-theme="light"] .goal-toolbar-btn:hover::before {
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.16),
+    0 0 7px -1px currentColor;
+}
+
+[data-theme="light"] .goal-toolbar-btn:active::before {
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.06), rgba(230, 224, 212, 0.6));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.18),
+    0 0 2px -1px currentColor;
+}
+
+[data-theme="light"] .goal-toolbar-btn:disabled::before,
+[data-theme="light"] .goal-toolbar-btn:disabled:hover::before,
+[data-theme="light"] .goal-toolbar-btn:disabled:active::before {
+  border-color: rgba(40, 32, 28, 0.06);
+  background: rgba(40, 32, 28, 0.02);
+  box-shadow: none;
 }
 
 /* Checklist/Attachments in compact mode render their toggle button AND

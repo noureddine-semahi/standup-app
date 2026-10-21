@@ -2303,7 +2303,21 @@ export default function TomorrowGoalsPage() {
                   rules, same .tomorrow-toolbar/.tomorrow-pass-group/
                   .date-metal-caption classes) -- presentation/location
                   only, nothing about the underlying actions changed. */}
-              <div className="tomorrow-toolbar" style={{ maxWidth: "340px" }}>
+              {/* Unified 2x2 command grid -- Use a Pass / Reorder / Add /
+                  Save draft all share the exact same .tomorrow-toolbar-btn
+                  sizing (font-size/min-height) now, so the four controls
+                  read as one consistent physical set instead of two
+                  differently-sized rows. CSS Grid (not flex) is what
+                  equalizes each row's height to its tallest cell without
+                  extra markup -- the Pass button's own caption sits
+                  inside its own cell (.tomorrow-pass-group, unchanged)
+                  and only makes THAT cell taller; align-items:start on
+                  the grid keeps Reorder from being stretched to match,
+                  same fix .tomorrow-toolbar's own align-items:flex-start
+                  already used before this grid replaced the flex row.
+                  Submit stays its own full-width row underneath,
+                  untouched (.tomorrow-action-primary below). */}
+              <div className="tomorrow-command-grid" style={{ maxWidth: "340px" }}>
                 {!coveredByPass && (
                   <div className="tomorrow-pass-group">
                     <button
@@ -2341,20 +2355,10 @@ export default function TomorrowGoalsPage() {
                     {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
                   </button>
                 )}
-              </div>
 
-              {/* Secondary tier — Add Goal is a real action; Save only
-                  renders as a button while there's something TO save
-                  (isDirty). Once saved, it becomes passive status text
-                  instead of a disabled-but-still-button-shaped control,
-                  so it stops visually competing with Submit Plan. This
-                  doesn't change when a save actually happens (autosave/
-                  saveDraftOrChanges are untouched) -- only whether an
-                  already-inert control renders as a button at all. */}
-              <div className="tomorrow-action-secondary">
                 {addFlowStep === "closed" && (
                   <button
-                    className="btn standup-metal-btn hover-scale"
+                    className="btn standup-metal-btn hover-scale tomorrow-toolbar-btn"
                     onClick={() => setAddFlowStep("choice")}
                     disabled={!canAddMore}
                     title={
@@ -2366,7 +2370,7 @@ export default function TomorrowGoalsPage() {
                 )}
 
                 {addFlowStep === "choice" && (
-                  <div className="inline-flex items-center gap-1.5">
+                  <div className="inline-flex items-center gap-1.5" style={{ gridColumn: "1 / -1" }}>
                     <button
                       type="button"
                       className="btn standup-metal-btn hover-scale"
@@ -2399,7 +2403,7 @@ export default function TomorrowGoalsPage() {
 
                 {isDirty ? (
                   <button
-                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale"
+                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
                     onClick={saveDraftOrChanges}
                     disabled={submitting}
                     title={t("tomorrow.manualSaveTitle")}

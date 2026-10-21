@@ -5339,33 +5339,24 @@ select:focus {
   opacity: 0;
 }
 
-/* ✨ Plan Tomorrow — mobile scanability pass. The "Cover this day in
-   advance (N left)" / "Reorder" pair was previously two bare .btn
-   elements left to size themselves naturally, so the long streak-pass
-   label wrapped to 2-3 lines while Reorder sat next to it as a tall,
-   narrow mismatch. This forces both into one equal-height, equal-width
-   row regardless of label length, still using .btn's own 3D/glass
-   surface underneath (only sizing/layout changes here). */
-.tomorrow-toolbar {
-  display: flex;
-  /* flex-start, not the default stretch -- without this, Reorder (a
-     bare flex item) would stretch to match .tomorrow-pass-group's
-     taller height (button + caption) on this same row, visually
-     growing Reorder's own box even though its content is unchanged. */
-  align-items: flex-start;
-  gap: 0.6rem;
-  width: 100%;
-}
+/* ✨ Plan Tomorrow — mobile scanability pass, since superseded by the
+   .tomorrow-command-grid 2x2 unification further down this file
+   (Use a Pass / Reorder / Add / Save draft now share one grid instead
+   of this wrapper + .tomorrow-action-secondary as two separate flex
+   rows). .tomorrow-pass-group below is still live -- it's reused as a
+   grid cell -- but the row-level .tomorrow-toolbar wrapper itself is
+   no longer referenced in JSX. */
 
 /* Lets the pass-count caption visually belong to the "Use a Pass"
-   button specifically -- same equal flex-basis .tomorrow-toolbar-btn
-   itself uses, so this one wrapper still takes the same width share
-   Reorder does, with the button on top (keeping .tomorrow-toolbar-btn's
-   own height/padding untouched) and the caption stacked directly under
-   it via plain block flow + default align-items:stretch (so the button
-   still fills this column's full width, same as before). */
+   button specifically: the button sits on top (keeping
+   .tomorrow-toolbar-btn's own height/padding untouched) with the
+   caption stacked directly under it via plain block flow + default
+   align-items:stretch (so the button still fills this column's full
+   width). As a .tomorrow-command-grid cell, this whole group's own
+   height is independent of its grid row's other cell (Reorder/Add),
+   which is what lets the caption add height here without stretching
+   them to match. */
 .tomorrow-pass-group {
-  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -5384,7 +5375,6 @@ select:focus {
 }
 
 .tomorrow-toolbar-btn {
-  flex: 1 1 0;
   min-height: 40px;
   padding: 0.4rem 0.65rem !important;
   font-size: 0.74rem !important;
@@ -5394,6 +5384,34 @@ select:focus {
   justify-content: center;
   text-align: center;
   white-space: normal;
+  width: 100%;
+}
+
+/* Fixed bottom command bar's 2x2 grid -- Use a Pass / Reorder / Add /
+   Save draft, all .tomorrow-toolbar-btn now so they share one
+   font-size/min-height, arranged by CSS Grid instead of the two
+   separate flex rows (.tomorrow-toolbar + .tomorrow-action-secondary)
+   this replaced. Grid (not flex) is what equalizes each ROW's height
+   to its own tallest cell without any extra markup: row 1 (Pass +
+   Reorder) and row 2 (Add + Save) size independently of each other.
+   align-items:start keeps Reorder/Add from being stretched to match
+   the Pass button's taller cell (button + caption underneath, inside
+   .tomorrow-pass-group) -- same reason .tomorrow-toolbar used
+   align-items:flex-start before this replaced it. The addFlowStep
+   "choice" sub-row spans both columns (grid-column: 1 / -1 on that
+   child, set inline in the JSX) and Save naturally drops to the row
+   after it via plain grid auto-flow -- no grid-row pinned on any
+   child, so the layout never has to be told the choice-row exists. */
+.tomorrow-command-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.tomorrow-command-grid .tomorrow-pass-group {
+  width: 100%;
 }
 
 /* Planning progress — "N of MAX goals planned", moved up next to the
@@ -6038,29 +6056,26 @@ select:focus {
   display: none;
 }
 
-.tomorrow-action-secondary {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .tomorrow-action-primary {
   display: flex;
 }
 
-/* Passive save-state feedback -- same vertical rhythm as a .btn (so the
-   secondary row doesn't change height when this swaps with the real
+/* Passive save-state feedback -- same min-height as .tomorrow-toolbar-btn
+   (so the grid row doesn't change height when this swaps with the real
    Save button) but no border/background/cursor, so it reads as status
    text instead of a second button competing with Submit Plan. */
 .tomorrow-save-status {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  padding: 9px 2px;
+  min-height: 40px;
+  padding: 0 2px;
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--status-completed);
   white-space: nowrap;
+  width: 100%;
 }
 
 /* Fixed min-width sized to the longest EN/ES label this button ever
@@ -6161,20 +6176,25 @@ select:focus {
    getBoundingClientRect().top stays constant across scroll positions,
    which it never did before this change. */
 @media (max-width: 640px) {
-  /* 236px clears the bar's tallest real measured footprint. Base was
+  /* 240px clears the bar's tallest real measured footprint. Base was
      164px (the Submitted state's two-line card wrapping to a 3rd line
      in Spanish at 320px, measured 146px + an ~18px safety margin).
-     Adding the relocated Use-a-Pass/Reorder row contributes its own
+     Adding the relocated Use-a-Pass/Reorder row contributed its own
      measured ~70px on top of that (188px with the row vs 118.6px
-     without it, same English baseline, via an isolated harness against
-     the real compiled CSS) -- 164 + 70 = 234, rounded up to 236 for a
-     small extra margin. Not re-verified against the Spanish 3-line
-     Submitted state WITH the new row simultaneously (that specific
+     without it, same English baseline) -- 164 + 70 = 234, rounded up
+     to 236. The .tomorrow-command-grid unification (Use a Pass /
+     Reorder / Add / Save draft sharing one font-size/min-height in a
+     2x2 grid) re-measured the row at 192px at 320px width (was 188px
+     -- the Pass button's two-line label now needs 2px more than its
+     40px min-height floor, same intrinsic content height it always
+     had, just measured against the new grid row instead of the old
+     flex row) -- 236 + 4 = 240. Not re-verified against the Spanish
+     3-line Submitted state WITH this bar simultaneously (that specific
      combination needs a real-device/real-locale check), but this is a
      measured delta added to the previous measured baseline, not a
      blind guess. */
   .tomorrow-page-card {
-    padding-bottom: 236px;
+    padding-bottom: 240px;
   }
 
   .tomorrow-action-row-desktop {
@@ -6211,10 +6231,6 @@ select:focus {
      untouched. */
   .tomorrow-task-composer {
     margin-top: 0;
-  }
-
-  .tomorrow-action-secondary {
-    justify-content: space-between;
   }
 
   .tomorrow-action-primary {

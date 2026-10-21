@@ -8966,8 +8966,18 @@ select:focus {
   height: 46px;
   padding: 3px;
   border-radius: 13px;
-  cursor: pointer;
+  cursor: grab;
   overflow: hidden;
+  /* Lets the browser handle vertical touch scrolling natively (the page
+     must keep scrolling normally) while horizontal movement stays
+     available to the pointermove handler -- the primary mechanism for
+     "vertical swipe -> page scroll, horizontal swipe -> glass follows,"
+     with the JS dx/dy check as a secondary safety net (mouse/pen have
+     no touch-action, and the first few px of a touch gesture before the
+     browser has committed to an axis). */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
   border: 1px solid rgba(90, 94, 102, 0.45);
   border-top-color: rgba(60, 63, 70, 0.55);
   border-bottom-color: rgba(140, 144, 155, 0.3);
@@ -9054,11 +9064,16 @@ select:focus {
 }
 
 /* The glass plate -- exactly half the track's inner width, sliding
-   between the two halves. backdrop-filter is the real "frosted glass"
-   read; the @supports block right below provides a still-clearly-
-   glass-like fallback (heavier translucency + highlight, no blur) for
-   engines without backdrop-filter support, per the brief's explicit
-   requirement. */
+   between the two halves. Real-device polish pass: the previous
+   version read as an opaque amber/brown button (the amber fill was the
+   dominant cue). Rebalanced so transparency + reflection + edge now
+   carry the "glass" read and amber is restrained to a thin base-edge
+   glow and a faint tint -- the recessed track must stay visibly
+   perceptible through it. backdrop-filter is the real "frosted glass"
+   read (blur/saturate both eased back from the first pass so the track
+   pattern isn't lost under them); the @supports block right below
+   provides a still-clearly-glass-like (not opaque-brown) fallback for
+   engines without backdrop-filter support. */
 .today-day-slider-glass {
   position: absolute;
   top: 0;
@@ -9067,14 +9082,25 @@ select:focus {
   width: 50%;
   z-index: 1;
   border-radius: 10px;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)), rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  /* Diagonal sheen (135deg) for the "subtle internal reflection" cue,
+     over a MUCH fainter amber base (0.12 -> 0.055) than the first pass. */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.09) 62%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(245, 158, 11, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-top-color: rgba(255, 255, 255, 0.58);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
-    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.18),
-    0 0 10px -2px rgba(245, 158, 11, 0.45);
-  backdrop-filter: blur(6px) saturate(140%);
-  -webkit-backdrop-filter: blur(6px) saturate(140%);
+    /* bright top edge + a touch of side brightness -- "thin polished
+       glass perimeter" */
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.14),
+    /* restrained warm light at the base, not a fill -- "amber edge/
+       bottom illumination" */
+    inset 0 -3px 4px -2px rgba(245, 158, 11, 0.2),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.1),
+    0 0 12px -3px rgba(245, 158, 11, 0.35);
+  backdrop-filter: blur(5px) saturate(115%);
+  -webkit-backdrop-filter: blur(5px) saturate(115%);
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
@@ -9085,7 +9111,12 @@ select:focus {
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .today-day-slider-glass {
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.12)), rgba(245, 158, 11, 0.2);
+    /* No blur to lean on here, so translucency carries the "glass, not
+       a solid button" read instead -- still visibly lighter/less
+       filled than the old single-layer amber version. */
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.08) 38%, rgba(255, 255, 255, 0.15) 62%, rgba(255, 255, 255, 0.06) 100%),
+      rgba(245, 158, 11, 0.1);
   }
 }
 
@@ -9127,17 +9158,29 @@ select:focus {
 }
 
 [data-theme="light"] .today-day-slider-glass {
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.25)), rgba(202, 138, 4, 0.14);
-  border-color: rgba(255, 255, 255, 0.75);
+  /* Same rebalance as dark mode -- diagonal sheen + restrained warm
+     base-glow instead of an amber fill; the warm-ivory housing still
+     shows through clearly. */
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.15) 38%, rgba(255, 255, 255, 0.3) 62%, rgba(255, 255, 255, 0.12) 100%),
+    rgba(202, 138, 4, 0.06);
+  border-color: rgba(255, 255, 255, 0.8);
+  border-top-color: rgba(255, 255, 255, 0.92);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.75),
-    inset 0 -2px 3px 0 rgba(40, 32, 28, 0.1),
-    0 0 10px -2px rgba(202, 138, 4, 0.4);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 1px 0 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 -3px 4px -2px rgba(202, 138, 4, 0.22),
+    inset 0 -1px 1px 0 rgba(40, 32, 28, 0.06),
+    0 0 10px -2px rgba(202, 138, 4, 0.3);
+  backdrop-filter: blur(5px) saturate(115%);
+  -webkit-backdrop-filter: blur(5px) saturate(115%);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   [data-theme="light"] .today-day-slider-glass {
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.45)), rgba(202, 138, 4, 0.22);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.3) 38%, rgba(255, 255, 255, 0.45) 62%, rgba(255, 255, 255, 0.22) 100%),
+      rgba(202, 138, 4, 0.12);
   }
 }
 
@@ -9148,6 +9191,109 @@ select:focus {
   .today-day-slider-half {
     font-size: 0.68rem;
     gap: 0.22rem;
+  }
+}
+
+/* ---- Today's fixed command area ----
+   Supersedes the earlier .today-next-action-group standalone container
+   (removed). Mirrors Tomorrow's own fixed action-bar architecture
+   exactly (see tomorrow/page.tsx's extensive comment and this file's
+   own .tomorrow-action-row / .tomorrow-page-card rules below) rather
+   than inventing a second one: .today-page-card (like .tomorrow-page-card)
+   carries backdrop-filter via the shared .card class, which makes it a
+   containing block and breaks position:fixed for any descendant --
+   .today-command-bar-desktop renders inline in normal flow (used above
+   640px), .today-command-bar-mobile is the SAME content rendered a
+   second time through a portal straight to document.body (used at/below
+   640px), escaping that containing block so position:fixed can actually
+   anchor to the real viewport. Only one of the two is ever visible at a
+   given width; .today-page-card's own bottom padding (below) reserves
+   exactly the fixed bar's real footprint so the last Today goal can
+   still scroll completely clear of it. */
+.today-command-bar-mobile {
+  display: none;
+}
+
+.today-command-bar-desktop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
+.today-command-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  padding: 0.5rem 0.85rem;
+}
+
+.today-command-btn-wide {
+  padding: 0.55rem 1.1rem;
+}
+
+@media (max-width: 640px) {
+  /* 158px clears this bar's tallest real footprint (two stacked rows --
+     a 3-up secondary row plus a 2-up primary row -- at the compact
+     mobile sizing below) plus a safety margin, same measured-not-guessed
+     approach as .tomorrow-page-card's own 164px. */
+  .today-page-card {
+    padding-bottom: 158px;
+  }
+
+  .today-command-bar-desktop {
+    display: none;
+  }
+
+  .today-command-bar-mobile {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: rgba(var(--panel-rgb), var(--chrome-alpha));
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border-top: 1px solid rgba(245, 158, 11, 0.2);
+    box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
+  }
+
+  .today-command-row {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .today-command-row-secondary .today-command-btn {
+    flex: 1 1 0%;
+    min-width: 0;
+    padding: 0.4rem 0.4rem;
+    font-size: 0.7rem;
+    justify-content: center;
+  }
+
+  .today-command-row-primary .today-command-btn-wide {
+    flex: 1 1 0%;
+    min-width: 0;
+    justify-content: center;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .today-command-row-secondary .today-command-btn {
+    font-size: 0.66rem;
+    padding: 0.36rem 0.3rem;
+  }
+  .today-command-row-primary .today-command-btn-wide {
+    font-size: 0.7rem;
   }
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getTaskExecutionDestination } from "@/lib/taskNavigation";
@@ -9,6 +10,7 @@ import { usePaymentGoalCompletion } from "@/lib/usePaymentGoalCompletion";
 import RescheduleModal from "@/components/RescheduleModal";
 import BlockedReasonModal from "@/components/BlockedReasonModal";
 import FollowUpGoalModal from "@/components/FollowUpGoalModal";
+import ShareYourDayModal from "@/components/ShareYourDayModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
@@ -87,7 +89,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
-  Target, Trash2, ChevronRight, TriangleAlert, Undo2,
+  Target, Trash2, ChevronRight, TriangleAlert, Undo2, Share2, CalendarDays, LayoutDashboard,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -266,6 +268,22 @@ export default function TodayPage() {
   // manually expanded back open (e.g. to re-read notes or change status).
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
+  // Day-state glass slider drag geometry -- deliberately refs, not React
+  // state: none of this needs to trigger a re-render, it's read/written
+  // on every pointermove and applied directly to the DOM via glassRef.
+  // dragStateRef persists across the whole gesture; glassRef is the
+  // sliding plate itself (style.transform/transition set imperatively
+  // during the drag, cleared afterward so the normal CSS rule --keyed
+  // off data-state, i.e. the real dayClosed-- takes back over).
+  const glassRef = useRef<HTMLSpanElement | null>(null);
+  const dragStateRef = useRef<{
+    pointerId: number | null;
+    startX: number;
+    startY: number;
+    glassWidth: number;
+    intent: "none" | "horizontal" | "vertical";
+    suppressClick: boolean;
+  }>({ pointerId: null, startX: 0, startY: 0, glassWidth: 0, intent: "none", suppressClick: false });
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   // Blocked requires a reason before it's applied — see confirmBlocked().
   // The prompt intercepts selectQuickAction before anything else happens,
@@ -299,6 +317,19 @@ export default function TodayPage() {
   // an existing publish already has a valid audience, so Publish starts
   // enabled for it rather than forcing a reselect.
   const [selectedAudienceValue, setSelectedAudienceValue] = useState("");
+  // Share Your Day modal -- publishing itself is still entirely
+  // handlePublish()/handleUnpublish() (unchanged); this just controls
+  // whether the modal is open, and publishAttemptedFromModalRef lets the
+  // effect below close the modal automatically after a publish
+  // ATTEMPTED FROM THIS MODAL actually succeeds (published flips true),
+  // without closing it for any other unrelated reason published might
+  // already be true (e.g. reopening the modal on an already-published
+  // day must not auto-close it).
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const publishAttemptedFromModalRef = useRef(false);
+  // SSR/hydration guard for the fixed command bar's mobile portal --
+  // same convention Tomorrow's own fixed action bar already uses.
+  const [mounted, setMounted] = useState(false);
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignmentWithLiveTasks[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
@@ -493,6 +524,38 @@ export default function TodayPage() {
         : myGlimpsePost.visibility
     );
   }, [myGlimpsePost]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Closes the Share Your Day modal automatically once a publish attempt
+  // it initiated actually succeeds (published flips true while
+  // publishing finishes) -- the ref guard means this only ever fires for
+  // an attempt that started FROM the modal, never for an unrelated
+  // render where published already happens to be true (e.g. reopening
+  // the modal on an already-published day must not instantly close it
+  // again). A failed/blocked attempt leaves published false, so this
+  // never fires and the modal stays open with the error + selected
+  // audience intact for retry, per the existing handlePublish() failure
+  // behavior (unchanged).
+  useEffect(() => {
+    if (publishAttemptedFromModalRef.current && !publishing && published) {
+      publishAttemptedFromModalRef.current = false;
+      setShareModalOpen(false);
+    }
+  }, [publishing, published]);
+
+  function handleShareModalPublish() {
+    publishAttemptedFromModalRef.current = true;
+    handlePublishClick();
+  }
+
+  function closeShareModal() {
+    if (publishing) return;
+    publishAttemptedFromModalRef.current = false;
+    setShareModalOpen(false);
+  }
 
   useEffect(() => {
     listConnections()
@@ -1402,6 +1465,148 @@ export default function TodayPage() {
       setMsg(t("today.errorPrefix", { message: e?.message ?? t("today.couldNotReopen") }));
     } finally {
       setReopening(false);
+    }
+  }
+
+  // Day-state glass slider -- drag/swipe is ONLY another way to trigger
+  // the exact same closeOutDay()/reopenDay() above; neither is touched,
+  // duplicated, or bypassed. The gesture only ever decides WHEN to call
+  // one of them, exactly once. touch-action:pan-y (set in CSS on
+  // .today-day-slider) already hands a vertical touch gesture to the
+  // browser's native scroll before any JS here runs; the dx/dy check
+  // below is the equivalent safety net for mouse/pen input, and for the
+  // first few px of a touch gesture before the browser has committed to
+  // an axis -- the glass never starts moving until horizontal intent is
+  // clear, so page scroll is never hijacked by jitter.
+  const SLIDER_INTENT_PX = 6;
+  const SLIDER_THRESHOLD = 0.45;
+
+  function sliderPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.currentTarget.disabled) return;
+    const glass = glassRef.current;
+    if (!glass) return;
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      glassWidth: glass.offsetWidth,
+      intent: "none",
+      suppressClick: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function sliderPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragStateRef.current;
+    if (drag.pointerId !== e.pointerId) return;
+    const glass = glassRef.current;
+    if (!glass) return;
+
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+
+    if (drag.intent === "none") {
+      if (Math.abs(dx) < SLIDER_INTENT_PX && Math.abs(dy) < SLIDER_INTENT_PX) return;
+      // Whichever axis clearly dominates once movement is big enough to
+      // judge -- a vertical gesture hands off to the page's own scroll
+      // (this function simply stops acting for the rest of the
+      // gesture); only a clearly horizontal one claims the drag.
+      drag.intent = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+      if (drag.intent === "horizontal") {
+        glass.style.transition = "none";
+      }
+    }
+
+    if (drag.intent !== "horizontal") return;
+
+    e.preventDefault();
+    const basePx = dayClosed ? drag.glassWidth : 0;
+    const targetPx = Math.min(Math.max(basePx + dx, 0), drag.glassWidth);
+    glass.style.transform = `translateX(${targetPx}px)`;
+  }
+
+  // Hands control back to the CSS rule (keyed off data-state, i.e. the
+  // real dayClosed) -- whichever way dayClosed actually landed after a
+  // completed gesture, clearing the inline override here never fights
+  // it: the class rule's own transition animates smoothly from wherever
+  // the inline style last left the glass to the now-correct resting
+  // spot, covering both "snap back, nothing happened" and "reconcile
+  // after a real close/reopen" with the same one code path.
+  function sliderSettle(glass: HTMLSpanElement) {
+    glass.style.transition = "";
+    glass.style.transform = "";
+  }
+
+  async function sliderPointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragStateRef.current;
+    if (drag.pointerId !== e.pointerId) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const glass = glassRef.current;
+    const intent = drag.intent;
+    dragStateRef.current.pointerId = null;
+
+    if (intent === "none") return; // genuine stationary tap -- native click fallback handles it
+
+    // Any recognized movement -- horizontal OR vertical -- suppresses
+    // the synthetic click the browser fires right after pointerup. A
+    // vertical gesture is the page being scrolled, not a tap, and must
+    // never fall through to the click fallback and accidentally
+    // Close/Reopen; a horizontal drag (crossed or not) already decided
+    // its own outcome above and must not ALSO fire via a trailing click.
+    drag.suppressClick = true;
+
+    if (intent !== "horizontal" || !glass) return; // vertical -- page scrolls, nothing else to do here
+
+    const dx = e.clientX - drag.startX;
+    const basePx = dayClosed ? drag.glassWidth : 0;
+    const targetPx = Math.min(Math.max(basePx + dx, 0), drag.glassWidth);
+    const crossed = Math.abs(targetPx - basePx) >= drag.glassWidth * SLIDER_THRESHOLD;
+
+    if (!crossed) {
+      sliderSettle(glass);
+      return;
+    }
+
+    // Threshold crossed -- finish the slide toward the opposite resting
+    // spot as visual acceptance of the gesture, then invoke the one
+    // real handler for whichever direction this was, exactly once. If
+    // the action is blocked/fails, dayClosed never actually changes, so
+    // sliderSettle() naturally animates the glass back to where it
+    // started -- no separate failure/undo path needed.
+    glass.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)";
+    glass.style.transform = `translateX(${dayClosed ? 0 : drag.glassWidth}px)`;
+    if (dayClosed) {
+      await reopenDay();
+    } else {
+      await closeOutDay();
+    }
+    sliderSettle(glass);
+  }
+
+  function sliderPointerCancel(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragStateRef.current;
+    if (drag.pointerId !== e.pointerId) return;
+    const glass = glassRef.current;
+    dragStateRef.current.pointerId = null;
+    if (glass && drag.intent === "horizontal") {
+      sliderSettle(glass);
+    }
+  }
+
+  // Tap/click/keyboard fallback -- native <button> semantics mean Enter/
+  // Space already synthesize a click, so this one handler covers both.
+  // Guarded against the synthetic click a completed drag's pointerup
+  // also triggers, so a drag can never ALSO fire this (one drag = one
+  // action, never two).
+  function sliderClick() {
+    if (dragStateRef.current.suppressClick) {
+      dragStateRef.current.suppressClick = false;
+      return;
+    }
+    if (dayClosed) {
+      reopenDay();
+    } else {
+      closeOutDay();
     }
   }
 
@@ -2853,7 +3058,7 @@ export default function TodayPage() {
   return (
     <div>
       <div
-        className="card card-highlight"
+        className="card card-highlight today-page-card"
       >
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div>
@@ -2905,59 +3110,11 @@ export default function TodayPage() {
               {t("today.reviewedCount")}<b>{reviewedCount}/{reviewableTotalCount}</b>
             </div>
 
-            {/* A. PUBLISHING -- selection only updates selectedAudienceValue;
-                publication happens exclusively via the explicit Publish
-                button below (handlePublishClick), which hands off to the
-                unchanged canonical handlePublish(). */}
-            {totalCount > 0 && (
-              <div className="flex flex-col items-start sm:items-end gap-1.5">
-                <span className="text-xs text-white/50">{t("today.publishLabel")}</span>
-                <div className="flex gap-2 flex-wrap items-center justify-end">
-                  <select
-                    value={selectedAudienceValue}
-                    onChange={(e) => setSelectedAudienceValue(e.target.value)}
-                    disabled={publishing}
-                    className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
-                    style={{ maxWidth: "220px" }}
-                  >
-                    <option value="" disabled>
-                      {t("today.publishSelectPlaceholder")}
-                    </option>
-                    <option value="everyone">{t("today.publishEveryoneBtn")}</option>
-                    <option value="connections">{t("today.publishConnectionsBtn")}</option>
-                    {acceptedConnections.length > 0 && (
-                      <optgroup label={t("today.publishIndividualGroupLabel")}>
-                        {acceptedConnections.map((c) => (
-                          <option key={c.otherUserId} value={`individual:${c.otherUserId}`}>
-                            {connectionDisplayName(c, t)}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handlePublishClick}
-                    disabled={!selectedAudienceValue || publishing}
-                    className="btn standup-metal-btn standup-metal-btn--accent"
-                    style={{ padding: "0.4rem 0.9rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
-                  >
-                    {publishing ? t("today.publishing") : t("today.publishBtn")}
-                  </button>
-                  {published && (
-                    <button
-                      type="button"
-                      onClick={handleUnpublish}
-                      disabled={publishing}
-                      className="btn standup-metal-btn"
-                      style={{ padding: "0.4rem 0.7rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
-                    >
-                      {publishing ? t("today.unpublishing") : t("today.unpublish")}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Publishing moved into the Share Your Day modal (fixed
+                command bar below) -- audience selection/Publish/Unpublish
+                still exclusively run through selectedAudienceValue/
+                handlePublishClick/handlePublish/handleUnpublish,
+                unchanged; only the permanently-visible top UI is gone. */}
 
             {/* B. DAY STATE -- the glass slider. Same visibility union the
                 two old buttons had between them: Close showed when
@@ -2969,7 +3126,11 @@ export default function TodayPage() {
               <div className="today-day-slider-wrap">
                 <button
                   type="button"
-                  onClick={() => (dayClosed ? reopenDay() : closeOutDay())}
+                  onClick={sliderClick}
+                  onPointerDown={sliderPointerDown}
+                  onPointerMove={sliderPointerMove}
+                  onPointerUp={sliderPointerUp}
+                  onPointerCancel={sliderPointerCancel}
                   disabled={dayClosed ? reopening : !canCloseDay || closing}
                   data-state={dayClosed ? "closed" : "open"}
                   data-busy={closing || reopening}
@@ -2995,23 +3156,17 @@ export default function TodayPage() {
                       <Undo2 size={14} />
                       {t("today.reopenDaySliderLabel")}
                     </span>
-                    <span className="today-day-slider-glass" aria-hidden="true" />
+                    <span ref={glassRef} className="today-day-slider-glass" aria-hidden="true" />
                   </span>
                 </button>
                 <p className="today-day-slider-hint">{t("today.sliderInstruction")}</p>
               </div>
             )}
 
-            {/* C. NEXT-DAY PLANNING -- fully independent of the slider above,
-                same visibility union as before (see comment on B). */}
-            {((!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at)) && (
-              <Link
-                className="btn standup-metal-btn standup-metal-btn--accent whitespace-nowrap mt-1"
-                href="/standup/tomorrow"
-              >
-                {t("today.planTomorrowArrow")}
-              </Link>
-            )}
+            {/* Plan Tomorrow + Add moved into the fixed Today command bar
+                below (superseding the standalone container this used to
+                be) -- same handlers/labels/icons/visibility, presentation
+                only. */}
           </div>
         </div>
 
@@ -3128,8 +3283,15 @@ export default function TodayPage() {
 
         {/* Quick Add Section — only relevant while the day is still open;
             once closed, the equivalent actions (Reopen Day / Plan Tomorrow)
-            live in the header above instead of repeating themselves here. */}
-        {!dayClosed && (
+            live in the header above instead of repeating themselves here.
+            The totalCount>0 case's own trigger button now lives in the
+            shared Plan-Tomorrow+Add housing up in the header instead of
+            repeating itself here (its "Need to add more today?" heading
+            was the redundant standalone card removed below) -- this
+            wrapper now only ever renders for the totalCount===0 empty
+            state, or while the (shared) add flow it still owns is
+            actually open, so it never shows as an empty shell. */}
+        {!dayClosed && (totalCount === 0 || addFlowStep !== "closed") && (
         <div
           className="mb-6 rounded-2xl p-6 metal-surface"
           style={{ "--metal-color": "var(--metal-edge-orange)" } as React.CSSProperties}
@@ -3158,25 +3320,7 @@ export default function TodayPage() {
                 )}
               </div>
             </>
-          ) : (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-amber-300">{t("today.needMoreGoals")}</h3>
-              </div>
-              {addFlowStep === "closed" && (
-                <button
-                  onClick={() => setAddFlowStep("choice")}
-                  className="btn standup-metal-btn day-action-btn-sm"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("today.addGoalsBtn")}
-                </button>
-              )}
-            </div>
-          )}
+          ) : null}
 
           {/* Goal Engine current-day Add flow -- type-first, same model as
               Plan Tomorrow's Phase 4C: pick Standalone Task or Major Goal
@@ -3869,11 +4013,78 @@ export default function TodayPage() {
           })()}
         </div>
 
-        <div className="mt-6 standup-metal-btn-group">
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
-          <button type="button" className="btn standup-metal-btn bottom-nav-btn" onClick={() => refresh()}>{t("today.refresh")}</button>
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
-        </div>
+        {/* Fixed Today command area -- Add/Plan Tomorrow/Calendar/Share
+            Your Day/Dashboard. Same dual-render-plus-portal pattern
+            Tomorrow's own fixed action bar already established (see
+            tomorrow/page.tsx's own extensive comment on this): .card's
+            backdrop-filter makes it a containing block, which breaks
+            position:fixed for an in-flow descendant on any viewport
+            (not just mobile) -- rendering the SAME content a second
+            time through a portal straight to document.body escapes
+            that, and a >640px media query (matching Tomorrow's own
+            breakpoint) picks exactly one of the two to actually render
+            at a time. Refresh is gone (replaced by Share Your Day);
+            Calendar/Dashboard reuse their exact original hrefs; Plan
+            Tomorrow/Add reuse their exact original handlers/labels/
+            visibility, just relocated here. */}
+        {(() => {
+          const addVisible = !dayClosed && addFlowStep === "closed";
+          const planTomorrowVisible = (!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at);
+          const shareVisible = totalCount > 0;
+          const content = (
+            <>
+              <div className="today-command-row today-command-row-secondary">
+                {addVisible && (
+                  <button
+                    type="button"
+                    onClick={() => setAddFlowStep("choice")}
+                    className="btn standup-metal-btn today-command-btn"
+                    style={{ "--metal-color": "var(--metal-edge-orange)" } as React.CSSProperties}
+                  >
+                    <Plus size={14} />
+                    {t("today.addShortLabel")}
+                  </button>
+                )}
+                <Link href="/standup/calendar" className="btn standup-metal-btn today-command-btn">
+                  <CalendarDays size={14} />
+                  {t("nav.calendar")}
+                </Link>
+                <Link href="/standup/dashboard" className="btn standup-metal-btn today-command-btn">
+                  <LayoutDashboard size={14} />
+                  {t("nav.dashboard")}
+                </Link>
+              </div>
+              {(planTomorrowVisible || shareVisible) && (
+                <div className="today-command-row today-command-row-primary">
+                  {planTomorrowVisible && (
+                    <Link
+                      href="/standup/tomorrow"
+                      className="btn standup-metal-btn standup-metal-btn--accent today-command-btn today-command-btn-wide"
+                    >
+                      {t("today.planTomorrowArrow")}
+                    </Link>
+                  )}
+                  {shareVisible && (
+                    <button
+                      type="button"
+                      onClick={() => setShareModalOpen(true)}
+                      className="btn standup-metal-btn today-command-btn today-command-btn-wide"
+                    >
+                      <Share2 size={14} />
+                      {t("today.shareYourDay")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          );
+          return (
+            <>
+              <div className="today-command-bar today-command-bar-desktop">{content}</div>
+              {mounted && createPortal(<div className="today-command-bar today-command-bar-mobile">{content}</div>, document.body)}
+            </>
+          );
+        })()}
 
         {msg && (
           <div className="mt-4 px-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-white animate-fadeIn flex items-center gap-3 flex-wrap">
@@ -3900,6 +4111,19 @@ export default function TodayPage() {
             setMsg(kind === "backlog" ? t("today.movedToBacklog") : t("today.goalRescheduled"));
             refresh({ silent: true });
           }}
+        />
+      )}
+
+      {shareModalOpen && (
+        <ShareYourDayModal
+          selectedAudienceValue={selectedAudienceValue}
+          onAudienceChange={setSelectedAudienceValue}
+          acceptedConnections={acceptedConnections}
+          published={published}
+          publishing={publishing}
+          onPublish={handleShareModalPublish}
+          onUnpublish={handleUnpublish}
+          onClose={closeShareModal}
         />
       )}
 

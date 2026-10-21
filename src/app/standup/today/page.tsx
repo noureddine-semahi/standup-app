@@ -87,7 +87,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
-  Target, Trash2, ChevronRight, TriangleAlert,
+  Target, Trash2, ChevronRight, TriangleAlert, Undo2,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -289,6 +289,16 @@ export default function TodayPage() {
   const [reopening, setReopening] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [myGlimpsePost, setMyGlimpsePost] = useState<{ id: string; visibility: PostVisibility; targetUserId: string | null } | null>(null);
+  // Pending audience choice, decoupled from myGlimpsePost (the server's
+  // own "what's currently published" state) -- selecting an option here
+  // ONLY updates this local value; publishing happens exclusively via
+  // the explicit Publish button's handlePublishClick below. Synced from
+  // myGlimpsePost (same value-shape the old controlled <select> used)
+  // whenever it loads/changes, so the selector still shows "what's
+  // currently published to" as a sensible starting point -- a goal with
+  // an existing publish already has a valid audience, so Publish starts
+  // enabled for it rather than forcing a reselect.
+  const [selectedAudienceValue, setSelectedAudienceValue] = useState("");
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignmentWithLiveTasks[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
@@ -466,6 +476,23 @@ export default function TodayPage() {
     refreshGlimpsePost();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayISO]);
+
+  // Keeps the audience selector showing "what's currently published to"
+  // -- same value-shape the old controlled <select> computed inline,
+  // just applied to the new decoupled selection state instead. Re-runs
+  // whenever myGlimpsePost changes: on initial load (populates it once
+  // the fetch above resolves), and after a successful publish/unpublish
+  // (refreshGlimpsePost() triggers this too), so the selector reflects
+  // the just-confirmed server state rather than going stale.
+  useEffect(() => {
+    setSelectedAudienceValue(
+      !myGlimpsePost
+        ? ""
+        : myGlimpsePost.visibility === "individual"
+        ? `individual:${myGlimpsePost.targetUserId}`
+        : myGlimpsePost.visibility
+    );
+  }, [myGlimpsePost]);
 
   useEffect(() => {
     listConnections()
@@ -753,6 +780,21 @@ export default function TodayPage() {
       setMsg(e?.message ?? t("today.failedUnpublish"));
     } finally {
       setPublishing(false);
+    }
+  }
+
+  // The explicit Publish button's own handler -- parses selectedAudienceValue
+  // the exact same way the old <select>'s onChange used to, then hands off
+  // to the unchanged canonical handlePublish(). On failure, selectedAudienceValue
+  // is deliberately left untouched (handlePublish's own catch only ever
+  // calls setMsg) so the chosen audience survives a failed attempt and
+  // Publish can just be pressed again -- no reselect required.
+  function handlePublishClick() {
+    if (!selectedAudienceValue || publishing) return;
+    if (selectedAudienceValue.startsWith("individual:")) {
+      handlePublish("individual", selectedAudienceValue.slice("individual:".length));
+    } else {
+      handlePublish(selectedAudienceValue as PostVisibility);
     }
   }
 
@@ -2862,27 +2904,18 @@ export default function TodayPage() {
             <div className="text-sm text-white/70">
               {t("today.reviewedCount")}<b>{reviewedCount}/{reviewableTotalCount}</b>
             </div>
+
+            {/* A. PUBLISHING -- selection only updates selectedAudienceValue;
+                publication happens exclusively via the explicit Publish
+                button below (handlePublishClick), which hands off to the
+                unchanged canonical handlePublish(). */}
             {totalCount > 0 && (
               <div className="flex flex-col items-start sm:items-end gap-1.5">
                 <span className="text-xs text-white/50">{t("today.publishLabel")}</span>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap items-center justify-end">
                   <select
-                    value={
-                      !myGlimpsePost
-                        ? ""
-                        : myGlimpsePost.visibility === "individual"
-                        ? `individual:${myGlimpsePost.targetUserId}`
-                        : myGlimpsePost.visibility
-                    }
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (!value) return;
-                      if (value.startsWith("individual:")) {
-                        handlePublish("individual", value.slice("individual:".length));
-                      } else {
-                        handlePublish(value as PostVisibility);
-                      }
-                    }}
+                    value={selectedAudienceValue}
+                    onChange={(e) => setSelectedAudienceValue(e.target.value)}
                     disabled={publishing}
                     className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
                     style={{ maxWidth: "220px" }}
@@ -2902,6 +2935,15 @@ export default function TodayPage() {
                       </optgroup>
                     )}
                   </select>
+                  <button
+                    type="button"
+                    onClick={handlePublishClick}
+                    disabled={!selectedAudienceValue || publishing}
+                    className="btn standup-metal-btn standup-metal-btn--accent"
+                    style={{ padding: "0.4rem 0.9rem", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+                  >
+                    {publishing ? t("today.publishing") : t("today.publishBtn")}
+                  </button>
                   {published && (
                     <button
                       type="button"
@@ -2916,54 +2958,59 @@ export default function TodayPage() {
                 </div>
               </div>
             )}
-            {dayClosed && plan?.reviewed_at && (
-              <div className="standup-metal-btn-group">
-                <button
-                  onClick={reopenDay}
-                  disabled={reopening}
-                  className="btn standup-metal-btn metal-orange bottom-nav-btn"
-                  style={{
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  {reopening ? t("today.reopening") : t("today.reopenDay")}
-                </button>
-                <Link
-                  className="btn standup-metal-btn standup-metal-btn--accent whitespace-nowrap bottom-nav-btn"
-                  href="/standup/tomorrow"
-                  style={{ textAlign: "center" }}
-                >
-                  {t("today.planTomorrowArrow")}
-                </Link>
-              </div>
-            )}
-            {!dayClosed && totalCount > 0 && (
-              <div className="standup-metal-btn-group">
+
+            {/* B. DAY STATE -- the glass slider. Same visibility union the
+                two old buttons had between them: Close showed when
+                !dayClosed && totalCount>0, Reopen showed when dayClosed &&
+                plan?.reviewed_at (a pass-covered-only closed day, with no
+                explicit review, showed neither before -- preserved exactly
+                via this combined condition). */}
+            {((!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at)) && (
+              <div className="today-day-slider-wrap">
                 <button
                   type="button"
-                  onClick={closeOutDay}
-                  disabled={!canCloseDay || closing}
+                  onClick={() => (dayClosed ? reopenDay() : closeOutDay())}
+                  disabled={dayClosed ? reopening : !canCloseDay || closing}
+                  data-state={dayClosed ? "closed" : "open"}
+                  data-busy={closing || reopening}
+                  aria-label={dayClosed ? t("today.reopenDaySliderLabel") : t("today.closeOutDaySliderLabel")}
+                  aria-busy={closing || reopening}
                   title={
-                    !canCloseDay
+                    dayClosed
+                      ? t("today.reopenDaySliderLabel")
+                      : !canCloseDay
                       ? pendingGoals.length > 0
                         ? t("today.reviewAllGoalsFirstShort")
                         : t("today.finishInProgressShort")
                       : t("today.closeOutDayTitle")
                   }
-                  className="btn standup-metal-btn metal-orange bottom-nav-btn"
-                  style={{ whiteSpace: "nowrap" }}
+                  className="today-day-slider"
                 >
-                  {closing ? t("today.closing") : t("today.closeOutDayBtn")}
+                  <span className="today-day-slider-track">
+                    <span className="today-day-slider-half today-day-slider-half-close">
+                      <CheckCircle2 size={14} />
+                      {t("today.closeOutDaySliderLabel")}
+                    </span>
+                    <span className="today-day-slider-half today-day-slider-half-reopen">
+                      <Undo2 size={14} />
+                      {t("today.reopenDaySliderLabel")}
+                    </span>
+                    <span className="today-day-slider-glass" aria-hidden="true" />
+                  </span>
                 </button>
-                <Link
-                  className="btn standup-metal-btn standup-metal-btn--accent whitespace-nowrap bottom-nav-btn"
-                  href="/standup/tomorrow"
-                  style={{ textAlign: "center" }}
-                >
-                  {t("today.planTomorrowArrow")}
-                </Link>
+                <p className="today-day-slider-hint">{t("today.sliderInstruction")}</p>
               </div>
+            )}
+
+            {/* C. NEXT-DAY PLANNING -- fully independent of the slider above,
+                same visibility union as before (see comment on B). */}
+            {((!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at)) && (
+              <Link
+                className="btn standup-metal-btn standup-metal-btn--accent whitespace-nowrap mt-1"
+                href="/standup/tomorrow"
+              >
+                {t("today.planTomorrowArrow")}
+              </Link>
             )}
           </div>
         </div>

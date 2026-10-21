@@ -2027,59 +2027,11 @@ export default function TomorrowGoalsPage() {
             )}
           </div>
 
-          <div className="tomorrow-toolbar" style={{ maxWidth: "340px" }}>
-            {!coveredByPass && (
-              // Wraps the button + its pass-count caption as ONE flex
-              // item (same equal-share flex-basis .tomorrow-toolbar-btn
-              // itself normally provides) so the caption visually
-              // belongs to this button specifically, without the
-              // caption being inside the button (no height impact on
-              // it) or on .tomorrow-toolbar's own row (no stretch onto
-              // Reorder -- see .tomorrow-toolbar's new align-items:
-              // flex-start, which is what stops Reorder from matching
-              // this now-taller item's full height).
-              <div className="tomorrow-pass-group">
-                <button
-                  className="btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn"
-                  onClick={handleUseStreakPass}
-                  disabled={usingPass || (passBalance?.available ?? 0) <= 0}
-                  title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
-                >
-                  <Ticket size={13} className="flex-shrink-0" />
-                  {usingPass ? (
-                    t("datePage.usingPass")
-                  ) : (
-                    <span className="flex flex-col">
-                      <span>{t("datePage.useAPassLine1")}</span>
-                      <span>{t("datePage.useAPassLine2")}</span>
-                    </span>
-                  )}
-                </button>
-                <div className="date-metal-caption">
-                  <span className="date-metal-caption-count">{passBalance?.available ?? 0}</span>{" "}
-                  {t(
-                    (passBalance?.available ?? 0) === 1
-                      ? "datePage.passesLeftAdvanceSuffix.one"
-                      : "datePage.passesLeftAdvanceSuffix.other"
-                  )}
-                </div>
-              </div>
-            )}
-            {!locked && (
-              <button
-                onClick={() => setEditMode(!editMode)}
-                disabled={submitting}
-                // Phase 8C's .btn-tint/.btn-amber-tint toggle is now the
-                // shared standup-metal-btn--accent instead -- same "no
-                // one-off inline color" reasoning, now sharing the
-                // premium metal recipe with every other page-action
-                // button instead of the older tint system.
-                className={`btn standup-metal-btn tomorrow-toolbar-btn${editMode ? " standup-metal-btn--accent" : ""}`}
-              >
-                {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
-              </button>
-            )}
-          </div>
+          {/* Use a Pass / Reorder moved into the fixed bottom command
+              area below (same handlers/labels/behavior, see the
+              .tomorrow-toolbar block inside the action-row content
+              function) -- this top area no longer carries that block at
+              all, giving the actual planning content more room. */}
         </div>
 
         {suggestedTemplates.length > 0 && (
@@ -2344,6 +2296,53 @@ export default function TomorrowGoalsPage() {
           // RescheduleModal) -- not a new pattern.
           const content = (
             <>
+              {/* Planning-tools tier — Use a Pass / Reorder, relocated
+                  here verbatim from the top of the page (same
+                  handleUseStreakPass/setEditMode handlers, same pass-
+                  count caption, same coveredByPass/locked visibility
+                  rules, same .tomorrow-toolbar/.tomorrow-pass-group/
+                  .date-metal-caption classes) -- presentation/location
+                  only, nothing about the underlying actions changed. */}
+              <div className="tomorrow-toolbar" style={{ maxWidth: "340px" }}>
+                {!coveredByPass && (
+                  <div className="tomorrow-pass-group">
+                    <button
+                      className="btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn"
+                      onClick={handleUseStreakPass}
+                      disabled={usingPass || (passBalance?.available ?? 0) <= 0}
+                      title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+                    >
+                      <Ticket size={13} className="flex-shrink-0" />
+                      {usingPass ? (
+                        t("datePage.usingPass")
+                      ) : (
+                        <span className="flex flex-col">
+                          <span>{t("datePage.useAPassLine1")}</span>
+                          <span>{t("datePage.useAPassLine2")}</span>
+                        </span>
+                      )}
+                    </button>
+                    <div className="date-metal-caption">
+                      <span className="date-metal-caption-count">{passBalance?.available ?? 0}</span>{" "}
+                      {t(
+                        (passBalance?.available ?? 0) === 1
+                          ? "datePage.passesLeftAdvanceSuffix.one"
+                          : "datePage.passesLeftAdvanceSuffix.other"
+                      )}
+                    </div>
+                  </div>
+                )}
+                {!locked && (
+                  <button
+                    onClick={() => setEditMode(!editMode)}
+                    disabled={submitting}
+                    className={`btn standup-metal-btn tomorrow-toolbar-btn${editMode ? " standup-metal-btn--accent" : ""}`}
+                  >
+                    {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
+                  </button>
+                )}
+              </div>
+
               {/* Secondary tier — Add Goal is a real action; Save only
                   renders as a button while there's something TO save
                   (isDirty). Once saved, it becomes passive status text

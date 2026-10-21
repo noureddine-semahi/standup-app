@@ -4359,9 +4359,24 @@ select:focus {
   background: rgba(var(--tint-rgb), 0.05);
 }
 
-.goal-row[data-pending="true"] {
-  opacity: 0.6;
-}
+/* Real-device bug fix: [data-pending="true"] used to carry
+   `opacity: 0.6` here, dimming the ENTIRE card -- title, toolbar,
+   status/priority controls, border -- to near-disabled contrast for
+   every unreviewed goal (the majority of goals at the start of a day;
+   "pending" only means "not yet reviewed today," not blocked/inactive).
+   Removed outright rather than replaced with a background tint: this
+   card already renders its own dedicated "Pending review" chip +
+   Hourglass icon (see the .goal-row render path, t("today.pendingReview"))
+   as the real semantic cue, and .goal-row's own gradient/border/glow
+   (just above) is already fairly quiet at rest -- layering a flat
+   background override on top would have flattened that existing
+   diagonal-gradient surface for the majority of cards on the page, a
+   new regression in its own right. A pending goal now renders
+   IDENTICALLY to any other un-highlighted goal card, fully legible,
+   with the chip doing 100% of the "needs review" signaling -- same
+   philosophy .goal-child-row/.goal-child-expanded's own (much
+   lighter-touch) [data-pending] rules already use elsewhere in this
+   file. */
 
 /* Phase 6: outer wrapper around a collapsed goal row, giving the orb a
    position:relative ancestor to overlap the card's corner from OUTSIDE
@@ -6146,13 +6161,20 @@ select:focus {
    getBoundingClientRect().top stays constant across scroll positions,
    which it never did before this change. */
 @media (max-width: 640px) {
-  /* 164px clears the bar's tallest real measured footprint: the
-     Submitted state's two-line card wraps to a 3rd line in Spanish at
-     320px ("5 objetivos planificados para mañana" wraps its sub-line),
-     measured at 146px there vs ~119px for the Locked/Ready/Submitting
-     button -- plus an ~18px safety margin, not an arbitrary guess. */
+  /* 236px clears the bar's tallest real measured footprint. Base was
+     164px (the Submitted state's two-line card wrapping to a 3rd line
+     in Spanish at 320px, measured 146px + an ~18px safety margin).
+     Adding the relocated Use-a-Pass/Reorder row contributes its own
+     measured ~70px on top of that (188px with the row vs 118.6px
+     without it, same English baseline, via an isolated harness against
+     the real compiled CSS) -- 164 + 70 = 234, rounded up to 236 for a
+     small extra margin. Not re-verified against the Spanish 3-line
+     Submitted state WITH the new row simultaneously (that specific
+     combination needs a real-device/real-locale check), but this is a
+     measured delta added to the previous measured baseline, not a
+     blind guess. */
   .tomorrow-page-card {
-    padding-bottom: 164px;
+    padding-bottom: 236px;
   }
 
   .tomorrow-action-row-desktop {

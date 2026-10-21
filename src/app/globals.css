@@ -5387,19 +5387,24 @@ select:focus {
 
 /* Use a Pass — the pass-count caption used to live below the button
    (.date-metal-caption, a separate block), then inside it sharing the
-   label's own text flow ("Use a Pass to Cover Day · N passes left").
-   That flowing-text version read fine at a comfortable button width,
-   but at this grid's actual narrow mobile width the combined phrase
-   needed 3 wrapped lines, making this button visibly taller than
-   Reorder/Add/Save draft next to it. The count is now a small pill
-   BADGE instead of trailing text -- out of the label's text flow
-   entirely, so the label ("Use a Pass to Cover Day", no suffix) wraps
-   on its own and reliably fits its usual 2 lines again, matching the
-   other three controls' height instead of fighting them for space.
-   justify-content/align-items:center (overriding .tomorrow-toolbar-btn's
-   centered-as-a-column defaults -- same specificity, wins on source
-   order) lays the icon/text/badge out as one centered row instead of
-   centering the text as its own column. */
+   label's own text flow ("Use a Pass to Cover Day · N passes left"),
+   then as a 2-line label ("Use a Pass to Cover Day") plus a separate
+   count badge. Both of those still left the button visibly taller
+   than Reorder/Add/Save draft on an actual phone (2 wrapped label
+   lines vs. their 1), even though an isolated harness measured it as
+   "close enough" (40-42px). The label itself is now just
+   t("datePage.useAPassLine1") ("Use a Pass" / "Usar un pase") -- no
+   trailing "to Cover Day"/"para cubrir el día" -- so it fits a single
+   line like the other three controls instead of wrapping at all, with
+   the ticket+count badge still doing the "which day, how many" job the
+   dropped words used to. The full sentence (both lines) plus the
+   live pass count still exists for accessibility/hover via this
+   button's own title attribute (see the JSX) -- nothing semantic is
+   lost by shortening the visible label. justify-content/align-items:
+   center (overriding .tomorrow-toolbar-btn's centered-as-a-column
+   defaults -- same specificity, wins on source order) lays the
+   icon/text/badge out as one centered row instead of centering the
+   text as its own column. */
 .tomorrow-pass-btn {
   justify-content: flex-start;
   align-items: center;

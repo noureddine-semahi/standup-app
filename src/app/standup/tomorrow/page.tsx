@@ -2330,7 +2330,9 @@ export default function TomorrowGoalsPage() {
                     title={
                       (passBalance?.available ?? 0) <= 0
                         ? t("datePage.noStreakPasses")
-                        : `${passBalance?.available ?? 0} ${t(
+                        : `${t("datePage.useAPassLine1")} ${t("datePage.useAPassLine2")} — ${
+                            passBalance?.available ?? 0
+                          } ${t(
                             (passBalance?.available ?? 0) === 1
                               ? "datePage.passesLeftAdvanceSuffix.one"
                               : "datePage.passesLeftAdvanceSuffix.other"
@@ -2345,9 +2347,7 @@ export default function TomorrowGoalsPage() {
                     ) : (
                       <>
                         <Ticket size={13} className="flex-shrink-0" />
-                        <span className="tomorrow-pass-btn-text">
-                          {t("datePage.useAPassLine1")} {t("datePage.useAPassLine2")}
-                        </span>
+                        <span className="tomorrow-pass-btn-text">{t("datePage.useAPassLine1")}</span>
                         <span className="tomorrow-pass-btn-badge" aria-hidden="true">
                           <Ticket size={9} />
                           {passBalance?.available ?? 0}

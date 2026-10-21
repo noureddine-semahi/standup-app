@@ -85,7 +85,7 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
-  Clock, Link2, Plus, SquareCheck, Square, MessageCircle,
+  Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
   Target, Trash2, ChevronRight, TriangleAlert,
 } from "lucide-react";
@@ -2119,7 +2119,7 @@ export default function TodayPage() {
                   className="btn btn-tint btn-teal goal-toolbar-btn"
                   title={t("today.followUpButton")}
                 >
-                  <Plus size={13} />
+                  <CalendarPlus size={13} />
                   <span className="goal-toolbar-label">{t("today.followUpButton")}</span>
                 </button>
               )}
@@ -2419,7 +2419,7 @@ export default function TodayPage() {
                   className="btn btn-tint btn-teal goal-toolbar-btn"
                   title={t("today.followUpButton")}
                 >
-                  <Plus size={13} />
+                  <CalendarPlus size={13} />
                   <span className="goal-toolbar-label">{t("today.followUpButton")}</span>
                 </button>
               )}
@@ -3837,7 +3837,7 @@ export default function TodayPage() {
                 onClick={() => openFollowUpPrompt(toastFollowUpOffer.goal)}
                 className="btn btn-tint btn-teal goal-toolbar-btn"
               >
-                <Plus size={13} />
+                <CalendarPlus size={13} />
                 <span>{t("today.followUpToastAction")}</span>
               </button>
             )}

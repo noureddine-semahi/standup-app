@@ -2917,7 +2917,7 @@ export default function TodayPage() {
               </div>
             )}
             {dayClosed && plan?.reviewed_at && (
-              <div className="flex flex-row gap-2">
+              <div className="standup-metal-btn-group">
                 <button
                   onClick={reopenDay}
                   disabled={reopening}
@@ -2939,7 +2939,7 @@ export default function TodayPage() {
               </div>
             )}
             {!dayClosed && totalCount > 0 && (
-              <div className="flex flex-row gap-2">
+              <div className="standup-metal-btn-group">
                 <button
                   type="button"
                   onClick={closeOutDay}
@@ -3822,7 +3822,7 @@ export default function TodayPage() {
           })()}
         </div>
 
-        <div className="mt-6 flex items-center gap-2 sm:gap-3">
+        <div className="mt-6 standup-metal-btn-group">
           <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
           <button type="button" className="btn standup-metal-btn bottom-nav-btn" onClick={() => refresh()}>{t("today.refresh")}</button>
           <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>

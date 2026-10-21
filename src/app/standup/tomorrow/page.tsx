@@ -2368,14 +2368,14 @@ export default function TomorrowGoalsPage() {
 
                 {addFlowStep === "closed" && (
                   <button
-                    className="btn standup-metal-btn hover-scale tomorrow-toolbar-btn"
+                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
                     onClick={() => setAddFlowStep("choice")}
                     disabled={!canAddMore}
                     title={
                       goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
                     }
                   >
-                    {t("tomorrow.addGoal")}
+                    {t("tomorrow.addTaskTrigger")}
                   </button>
                 )}
 

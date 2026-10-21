@@ -363,6 +363,7 @@ export const en = {
   "tomorrow.removeTask": "Remove task",
   "tomorrow.addNoteTitle": "Add note",
   "tomorrow.addGoal": "+ Add",
+  "tomorrow.addTaskTrigger": "+ Add Task",
   "tomorrow.addChoiceTask": "Standalone Task",
   "tomorrow.addChoiceGoal": "Major Goal",
   "tomorrow.addTaskToGoal": "+ Add Task",

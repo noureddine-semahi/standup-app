@@ -2298,53 +2298,60 @@ export default function TomorrowGoalsPage() {
             <>
               {/* Planning-tools tier — Use a Pass / Reorder, relocated
                   here verbatim from the top of the page (same
-                  handleUseStreakPass/setEditMode handlers, same pass-
-                  count caption, same coveredByPass/locked visibility
-                  rules, same .tomorrow-toolbar/.tomorrow-pass-group/
-                  .date-metal-caption classes) -- presentation/location
-                  only, nothing about the underlying actions changed. */}
-              {/* Unified 2x2 command grid -- Use a Pass / Reorder / Add /
+                  handleUseStreakPass/setEditMode handlers, same
+                  coveredByPass/locked visibility rules) -- presentation/
+                  location only, nothing about the underlying actions
+                  changed.
+
+                  Unified 2x2 command grid -- Use a Pass / Reorder / Add /
                   Save draft all share the exact same .tomorrow-toolbar-btn
                   sizing (font-size/min-height) now, so the four controls
                   read as one consistent physical set instead of two
                   differently-sized rows. CSS Grid (not flex) is what
                   equalizes each row's height to its tallest cell without
-                  extra markup -- the Pass button's own caption sits
-                  inside its own cell (.tomorrow-pass-group, unchanged)
-                  and only makes THAT cell taller; align-items:start on
-                  the grid keeps Reorder from being stretched to match,
-                  same fix .tomorrow-toolbar's own align-items:flex-start
-                  already used before this grid replaced the flex row.
-                  Submit stays its own full-width row underneath,
-                  untouched (.tomorrow-action-primary below). */}
+                  extra markup; align-items:start keeps Reorder from being
+                  stretched to match a taller neighbor. Submit stays its
+                  own full-width row underneath, untouched
+                  (.tomorrow-action-primary below).
+
+                  Use a Pass's own pass-count caption now lives INSIDE the
+                  button (.tomorrow-pass-btn, 60/40 split against the
+                  label) instead of stacking below it as a separate
+                  .date-metal-caption block -- see .tomorrow-pass-btn's
+                  own comment in globals.css. */}
               <div className="tomorrow-command-grid" style={{ maxWidth: "340px" }}>
                 {!coveredByPass && (
-                  <div className="tomorrow-pass-group">
-                    <button
-                      className="btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn"
-                      onClick={handleUseStreakPass}
-                      disabled={usingPass || (passBalance?.available ?? 0) <= 0}
-                      title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
-                    >
-                      <Ticket size={13} className="flex-shrink-0" />
-                      {usingPass ? (
-                        t("datePage.usingPass")
-                      ) : (
-                        <span className="flex flex-col">
-                          <span>{t("datePage.useAPassLine1")}</span>
-                          <span>{t("datePage.useAPassLine2")}</span>
+                  <button
+                    className={`btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn${
+                      usingPass ? "" : " tomorrow-pass-btn"
+                    }`}
+                    onClick={handleUseStreakPass}
+                    disabled={usingPass || (passBalance?.available ?? 0) <= 0}
+                    title={(passBalance?.available ?? 0) <= 0 ? t("datePage.noStreakPasses") : undefined}
+                  >
+                    {usingPass ? (
+                      <>
+                        <Ticket size={13} className="flex-shrink-0" />
+                        {t("datePage.usingPass")}
+                      </>
+                    ) : (
+                      <>
+                        <Ticket size={13} className="tomorrow-pass-btn-icon flex-shrink-0" />
+                        <span className="tomorrow-pass-btn-text">
+                          {t("datePage.useAPassLine1")} {t("datePage.useAPassLine2")}{" "}
+                          <span className="tomorrow-pass-btn-count-inline">
+                            <span aria-hidden="true">{"·"}</span>{" "}
+                            <span className="tomorrow-pass-btn-count-num">{passBalance?.available ?? 0}</span>{" "}
+                            {t(
+                              (passBalance?.available ?? 0) === 1
+                                ? "datePage.passesLeftAdvanceSuffix.one"
+                                : "datePage.passesLeftAdvanceSuffix.other"
+                            )}
+                          </span>
                         </span>
-                      )}
-                    </button>
-                    <div className="date-metal-caption">
-                      <span className="date-metal-caption-count">{passBalance?.available ?? 0}</span>{" "}
-                      {t(
-                        (passBalance?.available ?? 0) === 1
-                          ? "datePage.passesLeftAdvanceSuffix.one"
-                          : "datePage.passesLeftAdvanceSuffix.other"
-                      )}
-                    </div>
-                  </div>
+                      </>
+                    )}
+                  </button>
                 )}
                 {!locked && (
                   <button

@@ -5343,36 +5343,11 @@ select:focus {
    .tomorrow-command-grid 2x2 unification further down this file
    (Use a Pass / Reorder / Add / Save draft now share one grid instead
    of this wrapper + .tomorrow-action-secondary as two separate flex
-   rows). .tomorrow-pass-group below is still live -- it's reused as a
-   grid cell -- but the row-level .tomorrow-toolbar wrapper itself is
-   no longer referenced in JSX. */
-
-/* Lets the pass-count caption visually belong to the "Use a Pass"
-   button specifically: the button sits on top (keeping
-   .tomorrow-toolbar-btn's own height/padding untouched) with the
-   caption stacked directly under it via plain block flow + default
-   align-items:stretch (so the button still fills this column's full
-   width). As a .tomorrow-command-grid cell, this whole group's own
-   height is independent of its grid row's other cell (Reorder/Add),
-   which is what lets the caption add height here without stretching
-   them to match. */
-.tomorrow-pass-group {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-/* .tomorrow-toolbar-btn's own flex:1 1 0 is meant for sizing it as a
-   direct ROW child of .tomorrow-toolbar -- inside this column wrapper
-   that same declaration would instead apply to the VERTICAL axis
-   (grow/shrink height), which isn't wanted here. Reset to a plain
-   content-sized item and fill the wrapper's width explicitly instead,
-   so the button's own height stays exactly what .tomorrow-toolbar-btn's
-   min-height/padding already give it. */
-.tomorrow-pass-group .tomorrow-toolbar-btn {
-  flex: 0 0 auto;
-  width: 100%;
-}
+   rows). The pass-count caption itself has since moved INSIDE the
+   button (.tomorrow-pass-btn below) instead of stacking below it, so
+   .tomorrow-pass-group (the old button+caption column wrapper) no
+   longer exists -- the button is now a bare .tomorrow-command-grid
+   cell like Reorder/Add already were. */
 
 .tomorrow-toolbar-btn {
   min-height: 40px;
@@ -5410,8 +5385,66 @@ select:focus {
   width: 100%;
 }
 
-.tomorrow-command-grid .tomorrow-pass-group {
-  width: 100%;
+/* Use a Pass — the pass-count caption used to live below the button
+   (.date-metal-caption, a separate block); it now lives INSIDE the
+   button's own face instead. Rather than a fixed two-column split
+   (tried first, reverted), the label and count now share ONE flowing
+   text run -- "Use a Pass to Cover Day · N passes left" -- and let the
+   browser's own line-wrap decide where it breaks, the same way any
+   wrapped sentence does. At this button's width that reliably puts
+   "Use a Pass to Cover" on its own first line and "Day · N passes
+   left" together on the line under it, so the count rides along at
+   the natural end of the label instead of occupying a fixed column
+   that wastes space when the label is short or crowds it when the
+   label is long. justify-content/align-items:flex-start (overriding
+   .tomorrow-toolbar-btn's centered defaults -- same specificity, wins
+   on source order) left-aligns the icon+text block instead of
+   centering it as a column, matching how this run of text actually
+   reads. */
+.tomorrow-pass-btn {
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding-left: 0.55rem !important;
+  padding-right: 0.4rem !important;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.tomorrow-pass-btn-icon {
+  margin-top: 0.15rem;
+}
+
+.tomorrow-pass-btn-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+/* Deliberately smaller and a different color than the label
+   (rgba(var(--tint-rgb), 0.55) vs the button's own 0.92-opacity text)
+   so it reads as secondary metadata trailing the label, not a second
+   label competing with it. nowrap keeps "· N passes left" from
+   breaking apart mid-phrase across two lines -- it either rides the
+   end of the label's last line whole, or (on an even narrower button)
+   wraps down as a whole unit onto its own line, but never splits the
+   count from its own "passes left" suffix. --tint-rgb keeps it
+   theme-aware (flips with the button's own face between dark/light)
+   instead of a fixed hex only tuned for one theme. */
+.tomorrow-pass-btn-count-inline {
+  font-size: 0.6rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: rgba(var(--tint-rgb), 0.55);
+}
+
+/* The number itself still gets the app's established amber "count"
+   treatment (same hue .date-metal-caption-count already uses for
+   every other pass/streak count in the app) so it's the one thing in
+   this trailing phrase that still pops at a glance. */
+.tomorrow-pass-btn-count-num {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: rgba(245, 158, 11, 0.85);
 }
 
 /* Planning progress — "N of MAX goals planned", moved up next to the
@@ -6176,25 +6209,26 @@ select:focus {
    getBoundingClientRect().top stays constant across scroll positions,
    which it never did before this change. */
 @media (max-width: 640px) {
-  /* 240px clears the bar's tallest real measured footprint. Base was
+  /* 236px clears the bar's tallest real measured footprint. Base was
      164px (the Submitted state's two-line card wrapping to a 3rd line
      in Spanish at 320px, measured 146px + an ~18px safety margin).
      Adding the relocated Use-a-Pass/Reorder row contributed its own
      measured ~70px on top of that (188px with the row vs 118.6px
      without it, same English baseline) -- 164 + 70 = 234, rounded up
-     to 236. The .tomorrow-command-grid unification (Use a Pass /
-     Reorder / Add / Save draft sharing one font-size/min-height in a
-     2x2 grid) re-measured the row at 192px at 320px width (was 188px
-     -- the Pass button's two-line label now needs 2px more than its
-     40px min-height floor, same intrinsic content height it always
-     had, just measured against the new grid row instead of the old
-     flex row) -- 236 + 4 = 240. Not re-verified against the Spanish
-     3-line Submitted state WITH this bar simultaneously (that specific
+     to 236. The .tomorrow-command-grid unification briefly pushed this
+     to 240 (192px row), then the Use-a-Pass button's label+count
+     layout changed again -- from a fixed two-column split back down to
+     one flowing text run ("Use a Pass to Cover Day · N passes left")
+     that wraps wherever it naturally fits, with the count riding the
+     end of the label instead of occupying its own column. Re-measured
+     at 188px at 320px width (the row's worst case, where the label
+     wraps to 3 lines) -- back to the original 236px baseline, no delta
+     needed this time. Not re-verified against the Spanish 3-line
+     Submitted state WITH this bar simultaneously (that specific
      combination needs a real-device/real-locale check), but this is a
-     measured delta added to the previous measured baseline, not a
-     blind guess. */
+     measured value, not a blind guess. */
   .tomorrow-page-card {
-    padding-bottom: 240px;
+    padding-bottom: 236px;
   }
 
   .tomorrow-action-row-desktop {

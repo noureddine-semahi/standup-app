@@ -519,6 +519,7 @@ export const es: Record<keyof typeof en, string> = {
   "today.chooseAction": "Elegir acción",
   "today.addNoteTitle": "Agregar nota",
   "today.inProgressAction": "En Progreso",
+  "today.pendingAction": "Pendiente",
   "today.updateStatusLabel": "Actualizar estado",
   "today.rescheduledTo": "Reprogramado para {date}",
   "today.refresh": "Actualizar",

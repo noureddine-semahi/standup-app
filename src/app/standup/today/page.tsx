@@ -89,7 +89,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
-  Target, Trash2, ChevronRight, TriangleAlert, Undo2, Share2, CalendarDays, LayoutDashboard, Wrench,
+  Target, Trash2, ChevronRight, TriangleAlert, Undo2, Share2, CalendarDays, LayoutDashboard, Wrench, Circle,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -2011,6 +2011,21 @@ export default function TodayPage() {
             <div className="goal-child-quick-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
+                onClick={() => selectQuickAction(g, "not_started")}
+                disabled={locked || isBusy}
+                className="action-btn"
+                data-current={g.status === "not_started"}
+                style={{
+                  "--btn-bg": g.status === "not_started" ? "var(--status-not-started-bg-active)" : "var(--status-not-started-bg)",
+                  "--btn-border": g.status === "not_started" ? "var(--status-not-started-border-active)" : "var(--status-not-started-border)",
+                  "--btn-color": "var(--status-not-started)",
+                } as React.CSSProperties}
+              >
+                <Circle size={14} />
+                <span>{t("today.pendingAction")}</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => selectQuickAction(g, "completed")}
                 disabled={locked || isBusy}
                 className="action-btn"
@@ -2232,6 +2247,21 @@ export default function TodayPage() {
                 never viewport/card width, per spec. */}
             {!dayClosed && !isExclusive && showActions[g.id] && (
               <div className="goal-child-quick-actions" style={{ width: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "not_started")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "not_started"}
+                  style={{
+                    "--btn-bg": g.status === "not_started" ? "var(--status-not-started-bg-active)" : "var(--status-not-started-bg)",
+                    "--btn-border": g.status === "not_started" ? "var(--status-not-started-border-active)" : "var(--status-not-started-border)",
+                    "--btn-color": "var(--status-not-started)",
+                  } as React.CSSProperties}
+                >
+                  <Circle size={14} />
+                  <span>{t("today.pendingAction")}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => selectQuickAction(g, "completed")}
@@ -2951,6 +2981,22 @@ export default function TodayPage() {
                 <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
                   {t("today.updateStatusLabel")}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => selectQuickAction(g, "not_started")}
+                  disabled={locked || isBusy}
+                  className="action-btn"
+                  data-current={g.status === "not_started"}
+                  style={{
+                    "--btn-bg": g.status === "not_started" ? "var(--status-not-started-bg-active)" : "var(--status-not-started-bg)",
+                    "--btn-border": g.status === "not_started" ? "var(--status-not-started-border-active)" : "var(--status-not-started-border)",
+                    "--btn-color": "var(--status-not-started)",
+                  } as React.CSSProperties}
+                >
+                  <Circle size={15} />
+                  <span>{t("today.pendingAction")}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => selectQuickAction(g, "completed")}

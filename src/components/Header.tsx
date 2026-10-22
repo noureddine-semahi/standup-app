@@ -32,7 +32,7 @@ import { hexToRgbTriple } from "@/lib/color";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, TrendingUp } from "lucide-react";
+import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, TrendingUp, Info, HelpCircle, Mail } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -86,14 +86,25 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   // Goal Assignments removed from here per explicit follow-up — still
   // reachable via Social's Goals tab and Tools' Assignments tab, same as
   // before this whole nav restructure ever started.
-  // About/FAQ/Contact (the former infoGroup) removed from the header
-  // entirely per explicit follow-up (quick fix) -- all three pages are
-  // still reachable via their own URLs/footer, just no longer surfaced
-  // in the signed-in nav at any width. The mobile-combined stand-in tab
-  // that used to represent this trio (navTabs()) was removed too, along
-  // with its own isInfoPage check -- nothing left to combine.
-  // INFO_ROTATION/INFO_PAGES/infoLinks() below are untouched -- still
-  // used by logged-out visitors' own nav.
+  // About/FAQ/Contact (the former infoGroup) removed from THIS array
+  // (and therefore from the hanging tab row, navTabs()) per an earlier
+  // follow-up -- still true today, the hanging row stays at its existing
+  // 7 destinations. INFO_ROTATION/INFO_PAGES/infoLinks() below are
+  // untouched -- still used by logged-out visitors' own nav.
+];
+
+// Re-added to the signed-in DROPDOWN/menu panel only (hamburgerNavLinks()
+// below, shared by the desktop hamburger's floating panel and the mobile
+// logo-trigger's docked panel) per an explicit later follow-up -- NOT to
+// NAV_TABS/navTabs()'s hanging row, which stays at its existing 7 items.
+// Kept as a separate array (not merged into NAV_TABS) specifically so
+// that distinction is structural, not just a filter someone could drop
+// by accident. Same labelKeys infoLinks()/INFO_ROTATION already use for
+// the logged-out nav, so EN/ES copy stays identical for both audiences.
+const INFO_NAV_ITEMS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string }[] = [
+  { href: "/about", labelKey: "nav.about", icon: Info, color: "#94a3b8" },
+  { href: "/faq", labelKey: "nav.faq", icon: HelpCircle, color: "#fbbf24" },
+  { href: "/contact", labelKey: "nav.contact", icon: Mail, color: "#fb7185" },
 ];
 
 // Header glass date/time widget -- fixed, uppercase, English-abbreviation
@@ -887,14 +898,10 @@ export default function Header() {
 
   // Header Navigation Refresh: the full NAV_TABS list as plain full-text
   // links (icon + label), shared verbatim by the desktop hamburger
-  // panel and the mobile hamburger panel -- NAV_TABS alone is the
-  // complete, single source of truth for all seven destinations
-  // (About/FAQ/Contact removed entirely per a later follow-up; no need
-  // to also call infoLinks()/secondaryLinks() here for a signed-in
-  // user). gap-2 is the one thing .nav-link's own CSS doesn't already
-  // provide for an icon+text pair (see profileMenu()'s identical need
-  // below) -- everything else (flex/center/chip styling) comes from the
-  // shared class.
+  // panel and the mobile hamburger panel. gap-2 is the one thing
+  // .nav-link's own CSS doesn't already provide for an icon+text pair
+  // (see profileMenu()'s identical need below) -- everything else
+  // (flex/center/chip styling) comes from the shared class.
   // Reuses the SAME finalized physical-tab recipe as the header's own
   // hanging nav tabs (.folder-tab-hanging/-active in globals.css)
   // instead of the old flat .nav-link chip -- explicit visual-
@@ -904,6 +911,14 @@ export default function Header() {
   // --tab-color carries each destination's own existing NAV_TABS accent
   // (already defined, previously only consumed by the hanging tab row
   // itself) into this same CSS the same way navTabs() already does.
+  //
+  // INFO_NAV_ITEMS (About/FAQ/Contact) renders as a second group below
+  // a divider -- explicit follow-up re-adding them to this dropdown/
+  // menu panel specifically (NOT to NAV_TABS/navTabs()'s hanging row,
+  // which stays unchanged at its existing 7 destinations). Same
+  // handleHamburgerNavClick/nav-menu-item/--tab-color treatment as the
+  // primary group, just a separate .map() over the separate array, so
+  // the two groups stay visually and structurally distinct.
   function hamburgerNavLinks() {
     return (
       <>
@@ -920,6 +935,23 @@ export default function Header() {
             >
               <tab.icon size={16} />
               <span>{t(tab.labelKey)}</span>
+            </Link>
+          );
+        })}
+        <div className="nav-menu-divider" role="separator" />
+        {INFO_NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className={`folder-tab-hanging nav-menu-item${isActive ? " folder-tab-hanging-active" : ""}`}
+              style={{ "--tab-color": item.color, "--tab-color-rgb": hexToRgbTriple(item.color) } as React.CSSProperties}
+              onClick={(e) => handleHamburgerNavClick(e, item.href)}
+            >
+              <item.icon size={16} />
+              <span>{t(item.labelKey)}</span>
             </Link>
           );
         })}

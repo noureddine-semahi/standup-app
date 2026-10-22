@@ -6093,10 +6093,16 @@ select:focus {
   }
 }
 
+/* Same height/padding/font-size as .tomorrow-nav-btn (the Calendar/
+   Tools/Dashboard row) -- explicit user call: the two rows above that
+   one (Use a Pass/Reorder/Add Task, Save draft/Submit Plan) read as
+   visibly taller/chunkier than it, so this now matches those exact
+   values (was min-height:40px/0.4rem 0.65rem/0.74rem) instead of its
+   own separate, larger sizing. */
 .tomorrow-toolbar-btn {
-  min-height: 40px;
-  padding: 0.4rem 0.65rem !important;
-  font-size: 0.74rem !important;
+  min-height: 34px;
+  padding: 0.3rem 0.4rem !important;
+  font-size: 0.68rem !important;
   line-height: 1.15;
   display: inline-flex;
   align-items: center;
@@ -6149,22 +6155,16 @@ select:focus {
   width: 100%;
 }
 
-@media (max-width: 340px) {
-  /* "Shrink and remove inner padding" per explicit user call: the grid
-     layout already keeps all three Use a Pass/Reorder/Add Task cells
-     (and both Save draft/Submit Plan cells) on one row at every width
-     down to 320px just by wrapping each label's text within its own
-     cell (.tomorrow-toolbar-btn's white-space:normal) -- no horizontal
-     overflow to begin with. But at 320px specifically, "Use a Pass"
-     was wrapping to 3 stacked single-word lines with the base padding/
-     font-size, which read as cramped rather than cleanly compact.
-     Tightened here (measured via an isolated harness with the app's
-     real --font-body, Space Mono, actually loaded -- see the Dashboard
-     quick-actions fix's own comment for why that specifically matters)
-     so it wraps to 2 lines instead. */
+@media (max-width: 360px) {
+  /* Breakpoint and values both now match .tomorrow-nav-btn's own
+     narrow tier exactly (same explicit "match the Calendar/Tools/
+     Dashboard row" call as the base rule above) -- was its own
+     separate 340px/0.3rem 0.4rem/0.66rem tier, tuned only for "Use a
+     Pass" wrapping to 3 lines at 320px (still true and still handled,
+     see .tomorrow-pass-btn below), not for matching nav-btn. */
   .tomorrow-toolbar-btn {
-    padding: 0.3rem 0.4rem !important;
-    font-size: 0.66rem !important;
+    padding: 0.28rem 0.25rem !important;
+    font-size: 0.6rem !important;
   }
 
   /* .tomorrow-pass-btn's own padding-left/right (further down this
@@ -7041,25 +7041,26 @@ select:focus {
    getBoundingClientRect().top stays constant across scroll positions,
    which it never did before this change. */
 @media (max-width: 640px) {
-  /* 240px clears the bar's tallest real measured footprint (was 280px
-     through several earlier revisions of this bar -- see git history
-     for that chain). Dropped specifically because merging Save draft
-     into Submit Plan's row, and widening Use a Pass/Reorder/Add Task
-     into one 3-across row (was a 2x2 grid), each REMOVED an entire
-     stacked sub-row from this bar's own height -- re-measured at
-     173px total (nav row + 3-across row + Save/Submit row) at 320px
-     width, the worst case, down from 216px before this restructure
-     (via the same isolated harness against the real compiled CSS,
-     this time with the app's real --font-body, Space Mono, actually
-     loaded -- see the Dashboard quick-actions fix's own comment for
-     why that specifically matters to a measurement like this one).
-     173px + the same ~67px safety cushion the previous value already
-     carried (for the Spanish 3-line Submitted-state case this harness
-     can't reproduce, plus general real-device margin) -- not
-     re-verified against that exact combination, but a measured
-     baseline with a carried-forward cushion, not a blind guess. */
+  /* 235px clears the bar's tallest real measured footprint (was 280px,
+     then 240px, through several earlier revisions of this bar -- see
+     git history for that chain). Dropped again specifically because
+     .tomorrow-toolbar-btn (Use a Pass/Reorder/Add Task/Save draft/
+     Submit Plan) now matches .tomorrow-nav-btn's own smaller height/
+     padding/font-size (explicit "match the Calendar/Tools/Dashboard
+     row" call) instead of its own larger sizing -- re-measured at
+     167px total at 320px width, the worst case, down from 173px
+     before this change (via the same isolated harness against the
+     real compiled CSS, with the app's real --font-body, Space Mono,
+     actually loaded -- see the Dashboard quick-actions fix's own
+     comment for why that specifically matters to a measurement like
+     this one). 167px + the same ~67px safety cushion the previous
+     value already carried (for the Spanish 3-line Submitted-state
+     case this harness can't reproduce, plus general real-device
+     margin) -- not re-verified against that exact combination, but a
+     measured baseline with a carried-forward cushion, not a blind
+     guess. */
   .tomorrow-page-card {
-    padding-bottom: 240px;
+    padding-bottom: 235px;
   }
 
   .tomorrow-action-row-desktop {

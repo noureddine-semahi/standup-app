@@ -796,15 +796,44 @@ h1, h2, h3, h4, h5, h6 {
    the mobile trigger (same specificity, wins on source order), since a
    logo that also still needs to look pressable shouldn't inherit a
    hover effect tuned for a desktop pointer anyway -- touch has no
-   lasting :hover state to begin with. */
+   lasting :hover state to begin with. 140ms (brief: "approximately
+   120-160ms"), overriding .brand's own shared 0.3s transition just for
+   this element's filter -- the base .brand transition still covers
+   its other properties (background/transform) unchanged. */
+.brand-mobile-trigger {
+  transition: filter 0.14s ease;
+}
+
 .brand-mobile-trigger:hover {
   transform: none;
   filter: brightness(1.12);
 }
 
+/* Pressed-light impression without a rectangular button background:
+   drop-shadow (not box-shadow, which would need a visible box edge to
+   read against) puts a soft dark halo directly around the logo
+   artwork's own silhouette, reading as "pressed into the surface"
+   while brightness(0.92) dims it the same amount as before. Paired
+   with :active::before below, which compresses/intensifies the logo's
+   own existing amber glow -- together these are the "slightly
+   intensify/compress the existing glow" + "subtle inset/pressed-light
+   impression" the brief asks for, with no new visual element and no
+   size/layout change. */
 .brand-mobile-trigger:active {
   transform: none;
-  filter: brightness(0.92);
+  filter: brightness(0.92) drop-shadow(0 0 2px rgba(0, 0, 0, 0.35));
+}
+
+@media (max-width: 760px) {
+  /* Compresses the glow's falloff (72% -> 66%, a tighter/denser
+     ellipse) and raises its peak opacity (0.13 -> 0.24) -- reads as
+     the existing amber glow being pressed inward and intensifying,
+     not a new effect. Scoped to the mobile trigger's own :active
+     state only; resting glow (used by both brand instances) and
+     desktop are untouched. */
+  .brand-mobile-trigger:active::before {
+    background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.24), transparent 66%);
+  }
 }
 
 .brand-mobile-trigger:focus-visible {
@@ -997,6 +1026,12 @@ h1, h2, h3, h4, h5, h6 {
     background: radial-gradient(ellipse at center, rgba(245, 158, 11, 0.13), transparent 72%);
     z-index: 1;
     pointer-events: none;
+    /* Lets .brand-mobile-trigger:active::before's intensified glow
+       (above) ease in/out at the same 140ms as the press itself,
+       instead of snapping instantly. Inert for the desktop brand
+       instance, which shares this base rule but has no :active
+       override to transition toward. */
+    transition: background 0.14s ease;
   }
 }
 
@@ -1468,27 +1503,37 @@ h1, h2, h3, h4, h5, h6 {
   padding: 3px 12px;
   border-radius: 14px;
   color: rgba(255, 255, 255, 0.92);
-  /* Smoked transparent glass base -- deliberately low-opacity (the
-     header behind it must stay "subtly perceptible through it," per
-     the brief) layered with a real blur/saturate so it reads as glass,
-     not a flat tinted rectangle. */
-  background: linear-gradient(135deg, rgba(24, 28, 38, 0.5), rgba(10, 12, 18, 0.32));
-  backdrop-filter: blur(14px) saturate(165%);
-  -webkit-backdrop-filter: blur(14px) saturate(165%);
+  /* Real-device polish pass: pushed closer to transparent smoked glass
+     and away from "gray/metallic" -- base opacity dropped (0.5/0.32 ->
+     0.36/0.2) so the header surface underneath stays genuinely
+     perceptible through it, blur/saturate both pushed up a notch
+     (14px/165% -> 18px/185%) for a stronger glass impression instead
+     of a flat tint. */
+  background: linear-gradient(135deg, rgba(24, 28, 38, 0.36), rgba(10, 12, 18, 0.2));
+  backdrop-filter: blur(18px) saturate(185%);
+  -webkit-backdrop-filter: blur(18px) saturate(185%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
-    /* inset white specular reflection -- top edge catches light */
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.32),
+    /* inset white specular reflection -- top edge catches light.
+       Strengthened (0.32 -> 0.44) per the polish pass -- this is the
+       single biggest lever for "reads as glass, not gray metal." */
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.44),
     /* faint lower-edge shade, opposite the specular highlight */
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.24),
     /* polished silver/glass perimeter ring, one step out from the
        1px border itself -- same "double ring" read
        .header-metal-control uses, translucent instead of metal */
-    0 0 0 1px rgba(148, 163, 184, 0.16),
+    0 0 0 1px rgba(148, 163, 184, 0.18),
     /* soft dimensional shadow, grounds the widget against the header */
     0 4px 14px -5px rgba(0, 0, 0, 0.5),
-    /* faint cyan ambient glow -- "reflected light," not a colored fill */
-    0 0 16px -6px rgba(56, 189, 248, 0.22);
+    /* Reflected-light trio at rest, not a single cyan glow -- cyan
+       (primary), a touch of violet, and an "extremely restrained"
+       amber per the polish brief, all read as light bouncing off the
+       glass rather than a colored fill, since none individually comes
+       close to a solid tint on their own. */
+    0 0 16px -6px rgba(56, 189, 248, 0.26),
+    0 0 14px -7px rgba(167, 139, 250, 0.16),
+    0 0 10px -7px rgba(245, 158, 11, 0.08);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -1525,12 +1570,16 @@ h1, h2, h3, h4, h5, h6 {
   content: "";
   position: absolute;
   inset: -40% -30%;
+  /* Real-device polish: peak stops raised (0.2/0.22/0.12 ->
+     0.28/0.3/0.16) so the moving reflection reads more clearly on an
+     actual phone screen -- duration/easing/direction all untouched
+     (still one 8s one-directional pass, not sped up). */
   background: linear-gradient(
     75deg,
     transparent 0%,
-    rgba(103, 232, 249, 0.2) 32%,
-    rgba(167, 139, 250, 0.22) 48%,
-    rgba(245, 158, 11, 0.12) 62%,
+    rgba(103, 232, 249, 0.28) 32%,
+    rgba(167, 139, 250, 0.3) 48%,
+    rgba(245, 158, 11, 0.16) 62%,
     transparent 78%,
     transparent 100%
   );
@@ -1572,9 +1621,12 @@ h1, h2, h3, h4, h5, h6 {
   content: "";
   position: absolute;
   inset: 0;
+  /* Real-device polish: both stops nudged up a touch (0.1/0.09 ->
+     0.13/0.12) for slightly stronger cyan/violet reflected
+     illumination, still well short of reading as a colored fill. */
   background:
-    radial-gradient(circle at 25% 15%, rgba(56, 189, 248, 0.1), transparent 60%),
-    radial-gradient(circle at 80% 85%, rgba(167, 139, 250, 0.09), transparent 60%);
+    radial-gradient(circle at 25% 15%, rgba(56, 189, 248, 0.13), transparent 60%),
+    radial-gradient(circle at 80% 85%, rgba(167, 139, 250, 0.12), transparent 60%);
   pointer-events: none;
   animation: standup-datetime-drift 15s ease-in-out infinite alternate;
 }
@@ -1635,6 +1687,13 @@ h1, h2, h3, h4, h5, h6 {
    line drawn ON TOP of it. align-self:stretch so it always spans the
    widget's own content height regardless of which responsive tier is
    showing. */
+/* Real-device polish: was a flat rgba() fill + a hard 1px offset
+   shadow, which read as an ordinary solid border rather than something
+   etched into the glass. Now a vertical gradient (fades in/out at top
+   and bottom instead of touching the chamber's full edges) at a softer
+   peak opacity, paired with a blurred (not hard-edged) opposing shadow
+   -- the fade + blur together are what read as a groove cut into glass
+   rather than a line drawn on top of it. */
 .standup-header-datetime-divider {
   position: relative;
   z-index: 1;
@@ -1642,8 +1701,15 @@ h1, h2, h3, h4, h5, h6 {
   width: 1px;
   margin: 1px 10px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: 1px 0 0 0 rgba(0, 0, 0, 0.3);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 20%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.22) 80%,
+    transparent 100%
+  );
+  box-shadow: 1px 0 1.5px 0 rgba(0, 0, 0, 0.2);
 }
 
 .standup-header-datetime-info {
@@ -1863,15 +1929,21 @@ h1, h2, h3, h4, h5, h6 {
    size/spacing rule above are untouched -- light mode is still
    recognizably the same glass object, just lit differently. */
 [data-theme="light"] .standup-header-datetime {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(255, 250, 240, 0.34));
+  /* Same real-device polish as dark mode: slightly more transparent
+     base (0.58/0.34 -> 0.46/0.24), stronger specular top highlight,
+     and the same cyan/violet/amber reflected-light trio instead of
+     cyan alone. */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 250, 240, 0.24));
   border-color: rgba(120, 113, 108, 0.2);
   color: rgba(35, 30, 25, 0.92);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.75),
-    inset 0 -1px 0 0 rgba(120, 113, 108, 0.16),
-    0 0 0 1px rgba(148, 163, 184, 0.22),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 0 rgba(120, 113, 108, 0.14),
+    0 0 0 1px rgba(148, 163, 184, 0.24),
     0 4px 14px -5px rgba(120, 113, 108, 0.25),
-    0 0 16px -6px rgba(56, 189, 248, 0.16);
+    0 0 16px -6px rgba(56, 189, 248, 0.18),
+    0 0 14px -7px rgba(167, 139, 250, 0.12),
+    0 0 10px -7px rgba(245, 158, 11, 0.07);
 }
 
 [data-theme="light"] .standup-header-datetime-day,
@@ -1885,8 +1957,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 [data-theme="light"] .standup-header-datetime-divider {
-  background: rgba(120, 113, 108, 0.24);
-  box-shadow: 1px 0 0 0 rgba(255, 255, 255, 0.55);
+  /* Same etched gradient + blurred shadow treatment as dark mode, warm-
+     toned instead of white/black. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(120, 113, 108, 0.32) 20%,
+    rgba(120, 113, 108, 0.16) 50%,
+    rgba(120, 113, 108, 0.32) 80%,
+    transparent 100%
+  );
+  box-shadow: 1px 0 1.5px 0 rgba(255, 255, 255, 0.6);
 }
 
 /* Secondary nav (About/FAQ/Contact for a logged-out visitor only now --

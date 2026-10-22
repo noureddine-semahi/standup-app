@@ -2303,18 +2303,19 @@ export default function TomorrowGoalsPage() {
                   location only, nothing about the underlying actions
                   changed.
 
-                  Unified 2x2 command grid -- Use a Pass / Reorder / Add /
-                  Save draft all share the exact same .tomorrow-toolbar-btn
-                  sizing (font-size/min-height) now, so the four controls
-                  read as one consistent physical set instead of two
-                  differently-sized rows. CSS Grid (not flex) is what
-                  equalizes each row's height to its tallest cell without
-                  extra markup; align-items:start keeps Reorder from being
-                  stretched to match a taller neighbor. Submit stays its
-                  own full-width row underneath, untouched
-                  (.tomorrow-action-primary below).
+                  Use a Pass / Reorder / Add Task now share ONE three-
+                  across row (was a 2x2 grid with Save draft as the 4th
+                  cell) -- explicit user call to fit all three on one
+                  mobile line instead of Add Task wrapping to its own
+                  row underneath. Save draft moved out of this grid
+                  entirely; it now shares a row with Submit Plan instead
+                  (.tomorrow-command-row-2 below), also an explicit user
+                  call. CSS Grid still equalizes each row's height to its
+                  tallest cell without extra markup; the addFlowStep
+                  "choice" sub-row still spans the full row width
+                  (grid-column: 1 / -1) when it appears.
 
-                  Use a Pass's own pass-count caption now lives INSIDE the
+                  Use a Pass's own pass-count caption lives INSIDE the
                   button (.tomorrow-pass-btn, 60/40 split against the
                   label) instead of stacking below it as a separate
                   .date-metal-caption block -- see .tomorrow-pass-btn's
@@ -2380,7 +2381,7 @@ export default function TomorrowGoalsPage() {
                 )}
 
                 {addFlowStep === "choice" && (
-                  <div className="inline-flex items-center gap-1.5" style={{ gridColumn: "1 / -1" }}>
+                  <div className="inline-flex items-center gap-1.5 flex-wrap" style={{ gridColumn: "1 / -1" }}>
                     <button
                       type="button"
                       className="btn standup-metal-btn hover-scale"
@@ -2409,22 +2410,6 @@ export default function TomorrowGoalsPage() {
                       <X size={13} />
                     </button>
                   </div>
-                )}
-
-                {isDirty ? (
-                  <button
-                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
-                    onClick={saveDraftOrChanges}
-                    disabled={submitting}
-                    title={t("tomorrow.manualSaveTitle")}
-                  >
-                    {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
-                  </button>
-                ) : (
-                  <span className="tomorrow-save-status" role="status">
-                    <Check size={14} />
-                    {t("tomorrow.savedCheck")}
-                  </span>
                 )}
               </div>
 
@@ -2724,12 +2709,37 @@ export default function TomorrowGoalsPage() {
                 </div>
               )}
 
-              {/* Primary tier — Submit Plan (or the submitted card) always
-                  gets its own full-width row on mobile, so it's never the
-                  thing a user has to scroll sideways to find. */}
-              <div className="tomorrow-action-primary">
+              {/* Primary tier — Save draft and Submit Plan now share one
+                  row instead of Save draft living in the 2x2 grid above
+                  and Submit always claiming its own full-width row below
+                  it -- explicit user call to fit both on one mobile
+                  line. A CSS Grid (not flex), same technique the 3-
+                  across row above already uses, so the submitted-card
+                  (richer/wider content than a plain button) can still
+                  span the row's full width via grid-column: 1 / -1 when
+                  it appears, rather than being squeezed into a half-
+                  width column. Every condition (isDirty/submitted/
+                  canSubmit/submitEligible/submitting) and the
+                  saveDraftOrChanges/onSubmitPlan handlers are byte-
+                  identical to before -- only the grouping/layout moved. */}
+              <div className="tomorrow-command-row-2" style={{ maxWidth: "340px" }}>
+                {isDirty ? (
+                  <button
+                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
+                    onClick={saveDraftOrChanges}
+                    disabled={submitting}
+                    title={t("tomorrow.manualSaveTitle")}
+                  >
+                    {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
+                  </button>
+                ) : (
+                  <span className="tomorrow-save-status" role="status">
+                    <Check size={14} />
+                    {t("tomorrow.savedCheck")}
+                  </span>
+                )}
                 {submitted ? (
-                  <div className="plan-submitted-card">
+                  <div className="plan-submitted-card" style={{ gridColumn: "1 / -1" }}>
                     <CheckCircle2 size={16} />
                     <div>
                       <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
@@ -2738,7 +2748,7 @@ export default function TomorrowGoalsPage() {
                   </div>
                 ) : (
                   <button
-                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-submit-btn"
+                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-submit-btn tomorrow-toolbar-btn"
                     onClick={onSubmitPlan}
                     disabled={!canSubmit}
                     aria-busy={submitting}

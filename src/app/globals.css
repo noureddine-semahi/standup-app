@@ -7103,10 +7103,6 @@ select:focus {
     width: 100%;
     min-width: 0;
   }
-
-  .tomorrow-bottom-nav-links {
-    display: none;
-  }
 }
 
 /* ✨ Community feed polish — tighter cards + a small "feels alive" reaction
@@ -10319,61 +10315,77 @@ select:focus {
    anchor to the real viewport. Only one of the two is ever visible at a
    given width; .today-page-card's own bottom padding (below) reserves
    exactly the fixed bar's real footprint so the last Today goal can
-   still scroll completely clear of it. */
+   still scroll completely clear of it.
+
+   Explicit user call to mirror Tomorrow's just-finished bar layout
+   exactly: top row (.today-command-grid) is Plan Tomorrow/Share Your
+   Day/Add, all gold/accent and all on one line; bottom row
+   (.today-nav-row) is Calendar/Tools (new -- Today never linked to
+   Tools before)/Dashboard, all silver/neutral and all on one line.
+   Kept as Today-scoped classes rather than reusing
+   .tomorrow-command-grid/.tomorrow-nav-row -- same established
+   convention as every other pair of visually-identical Today/Tomorrow
+   controls in this file -- but with the exact same values so the two
+   bars genuinely match. */
 .today-command-bar-mobile {
   display: none;
 }
 
 .today-command-bar-desktop {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
+  flex-direction: column;
+  gap: 0.4rem;
   margin-top: 1.5rem;
 }
 
-/* Base row rule (was mobile-only, see the media query below) -- without
-   it, each .today-command-row div had no layout of its own above
-   640px, so the bar's outer flex-wrap just let BOTH rows' buttons
-   spill onto one shared line together wherever there was room (seen
-   on a wide tablet/kiosk-class viewport: all 5 buttons side by side,
-   each sized only to its own label, reading as randomly inconsistent
-   sizes instead of two deliberately-grouped rows). width:100% keeps
-   the secondary (Add/Calendar/Dashboard) and primary (Plan Tomorrow/
-   Share Your Day) groups on their own separate rows at every width,
-   same grouping the mobile layout already always had. */
-.today-command-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+.today-command-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: start;
+  gap: 0.4rem;
   width: 100%;
 }
 
 .today-command-btn {
+  min-height: 34px;
+  padding: 0.3rem 0.4rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1.15;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-  font-size: 0.78rem;
-  padding: 0.5rem 0.85rem;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  width: 100%;
+  gap: 0.3rem;
 }
 
-/* Horizontal padding only -- vertical padding matches the base rule
-   exactly now (was 0.55rem vs 0.5rem, a ~1.6px height mismatch between
-   the primary row's buttons and the secondary row's) so every button
-   in this bar is the same height regardless of which row/tier it's
-   in; only the wider horizontal padding (plus each button's own longer
-   label) is what visibly sets Plan Tomorrow/Share Your Day apart. */
-.today-command-btn-wide {
-  padding: 0.5rem 1.1rem;
+.today-nav-row {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.today-nav-btn {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0.3rem 0.4rem !important;
+  font-size: 0.68rem !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
-  /* 158px clears this bar's tallest real footprint (two stacked rows --
-     a 3-up secondary row plus a 2-up primary row -- at the compact
-     mobile sizing below) plus a safety margin, same measured-not-guessed
-     approach as .tomorrow-page-card's own 164px. */
+  /* Measured against the real compiled bar (two 34px-tall rows plus
+     the bar's own 10px top/bottom padding and gaps) at the 320px
+     worst case, same measured-not-guessed approach as
+     .tomorrow-page-card's own clearance. */
   .today-page-card {
-    padding-bottom: 158px;
+    padding-bottom: 115px;
   }
 
   .today-command-bar-desktop {
@@ -10388,7 +10400,7 @@ select:focus {
     bottom: 0;
     z-index: 30;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
     padding: 10px 14px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     background: rgba(var(--panel-rgb), var(--chrome-alpha));
@@ -10397,35 +10409,14 @@ select:focus {
     border-top: 1px solid rgba(245, 158, 11, 0.2);
     box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
   }
-
-  .today-command-row {
-    gap: 0.4rem;
-  }
-
-  .today-command-row-secondary .today-command-btn {
-    flex: 1 1 0%;
-    min-width: 0;
-    padding: 0.4rem 0.4rem;
-    font-size: 0.7rem;
-    justify-content: center;
-  }
-
-  .today-command-row-primary .today-command-btn-wide {
-    flex: 1 1 0%;
-    min-width: 0;
-    justify-content: center;
-    padding: 0.5rem 0.6rem;
-    font-size: 0.74rem;
-  }
 }
 
 @media (max-width: 360px) {
-  .today-command-row-secondary .today-command-btn {
-    font-size: 0.66rem;
-    padding: 0.36rem 0.3rem;
-  }
-  .today-command-row-primary .today-command-btn-wide {
-    font-size: 0.7rem;
+  .today-command-btn,
+  .today-nav-btn {
+    font-size: 0.6rem !important;
+    padding: 0.28rem 0.25rem !important;
+    gap: 0.2rem;
   }
 }
 

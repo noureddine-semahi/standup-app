@@ -89,7 +89,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
-  Target, Trash2, ChevronRight, TriangleAlert, Undo2, Share2, CalendarDays, LayoutDashboard,
+  Target, Trash2, ChevronRight, TriangleAlert, Undo2, Share2, CalendarDays, LayoutDashboard, Wrench,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -4033,49 +4033,50 @@ export default function TodayPage() {
           const shareVisible = totalCount > 0;
           const content = (
             <>
-              <div className="today-command-row today-command-row-secondary">
+              <div className="today-command-grid">
+                {planTomorrowVisible && (
+                  <Link
+                    href="/standup/tomorrow"
+                    className="btn standup-metal-btn standup-metal-btn--accent today-command-btn"
+                  >
+                    {t("today.planTomorrowArrow")}
+                  </Link>
+                )}
+                {shareVisible && (
+                  <button
+                    type="button"
+                    onClick={() => setShareModalOpen(true)}
+                    className="btn standup-metal-btn standup-metal-btn--accent today-command-btn"
+                  >
+                    <Share2 size={14} />
+                    {t("today.shareYourDay")}
+                  </button>
+                )}
                 {addVisible && (
                   <button
                     type="button"
                     onClick={() => setAddFlowStep("choice")}
-                    className="btn standup-metal-btn today-command-btn"
-                    style={{ "--metal-color": "var(--metal-edge-orange)" } as React.CSSProperties}
+                    className="btn standup-metal-btn standup-metal-btn--accent today-command-btn"
                   >
                     <Plus size={14} />
                     {t("today.addShortLabel")}
                   </button>
                 )}
-                <Link href="/standup/calendar" className="btn standup-metal-btn today-command-btn">
-                  <CalendarDays size={14} />
+              </div>
+              <div className="today-nav-row">
+                <Link href="/standup/calendar" className="btn standup-metal-btn today-nav-btn">
+                  <CalendarDays size={13} />
                   {t("nav.calendar")}
                 </Link>
-                <Link href="/standup/dashboard" className="btn standup-metal-btn today-command-btn">
-                  <LayoutDashboard size={14} />
+                <Link href="/standup/tools" className="btn standup-metal-btn today-nav-btn">
+                  <Wrench size={13} />
+                  {t("nav.tools")}
+                </Link>
+                <Link href="/standup/dashboard" className="btn standup-metal-btn today-nav-btn">
+                  <LayoutDashboard size={13} />
                   {t("nav.dashboard")}
                 </Link>
               </div>
-              {(planTomorrowVisible || shareVisible) && (
-                <div className="today-command-row today-command-row-primary">
-                  {planTomorrowVisible && (
-                    <Link
-                      href="/standup/tomorrow"
-                      className="btn standup-metal-btn standup-metal-btn--accent today-command-btn today-command-btn-wide"
-                    >
-                      {t("today.planTomorrowArrow")}
-                    </Link>
-                  )}
-                  {shareVisible && (
-                    <button
-                      type="button"
-                      onClick={() => setShareModalOpen(true)}
-                      className="btn standup-metal-btn today-command-btn today-command-btn-wide"
-                    >
-                      <Share2 size={14} />
-                      {t("today.shareYourDay")}
-                    </button>
-                  )}
-                </div>
-              )}
             </>
           );
           return (

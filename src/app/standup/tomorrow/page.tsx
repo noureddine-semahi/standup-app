@@ -82,7 +82,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -2839,12 +2839,6 @@ export default function TomorrowGoalsPage() {
             {t("tomorrow.planIsPart1")}<b>{planStatus}</b>{t("tomorrow.planIsPart2")}
           </div>
         )}
-
-        <div className="tomorrow-bottom-nav-links mt-6 flex items-center gap-2 sm:gap-3">
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/calendar">← {t("nav.calendar")}</Link>
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tools" style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><NotebookText size={14} /> {t("nav.tools")}</Link>
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">{t("nav.dashboard")} →</Link>
-        </div>
 
         {msg && (
           <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(var(--tint-rgb),0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(var(--tint-rgb),0.2)" }}>

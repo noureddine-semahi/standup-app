@@ -2321,6 +2321,23 @@ export default function TomorrowGoalsPage() {
                   .date-metal-caption block -- see .tomorrow-pass-btn's
                   own comment in globals.css. */}
               <div className="tomorrow-command-grid" style={{ maxWidth: "340px" }}>
+                {/* Reorder now sits before Use a Pass (was after it) and
+                    is unconditionally standup-metal-btn--accent (was
+                    only accent while editMode was active, plain metal
+                    otherwise, which read as a different color from its
+                    two siblings) -- both explicit user calls. The
+                    editMode toggle's own text ("Reorder" <-> "Done")
+                    still communicates active state without needing a
+                    separate color, same as before. */}
+                {!locked && (
+                  <button
+                    onClick={() => setEditMode(!editMode)}
+                    disabled={submitting}
+                    className="btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn"
+                  >
+                    {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
+                  </button>
+                )}
                 {!coveredByPass && (
                   <button
                     className={`btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn${
@@ -2355,15 +2372,6 @@ export default function TomorrowGoalsPage() {
                         </span>
                       </>
                     )}
-                  </button>
-                )}
-                {!locked && (
-                  <button
-                    onClick={() => setEditMode(!editMode)}
-                    disabled={submitting}
-                    className={`btn standup-metal-btn tomorrow-toolbar-btn${editMode ? " standup-metal-btn--accent" : ""}`}
-                  >
-                    {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
                   </button>
                 )}
 

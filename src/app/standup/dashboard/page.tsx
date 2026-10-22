@@ -1072,17 +1072,30 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:flex-wrap">
-              <div className="flex gap-2 sm:order-2">
-                <Link href="/standup/today" className="btn standup-metal-btn text-sm whitespace-nowrap inline-flex items-center gap-1.5">
-                  <CheckCircle2 size={14} /> {t("nav.reviewToday")}
-                </Link>
-                <Link href="/standup/tomorrow" className="btn standup-metal-btn standup-metal-btn--accent text-sm whitespace-nowrap inline-flex items-center gap-1.5">
-                  <Sunrise size={14} /> {t("nav.planTomorrow")}
-                </Link>
-              </div>
-              <button type="button" onClick={() => setShowAssistant(true)} className="btn standup-metal-btn text-sm whitespace-nowrap sm:order-1 inline-flex items-center gap-1.5">
-                <Bot size={14} /> {t("dashboard.assistant")}
+            {/* Flattened to one always-horizontal row (was flex-col below
+                sm: + a nested sub-group with sm:order-1/2 reordering
+                Assistant above the Review/Plan pair at sm+) -- explicit
+                user call: shrink these three enough to share one line at
+                every width instead of Assistant dropping to its own row
+                on a phone (or, seen on a wide "fridge" viewport, each of
+                the three stacking on its own full row despite the
+                visible width being more than enough -- the old
+                sm:flex-row/flex-wrap combination's wrap point was tuned
+                for full-size .btn sizing, not an actual available-width
+                problem). .dashboard-quick-actions-btn shrinks font-size/
+                padding/icon size a notch from the shared .btn baseline;
+                natural DOM order (Review Today, Plan Tomorrow,
+                Assistant) replaces the old breakpoint-conditional
+                reordering. */}
+            <div className="dashboard-quick-actions">
+              <Link href="/standup/today" className="btn standup-metal-btn dashboard-quick-actions-btn whitespace-nowrap inline-flex items-center gap-1.5">
+                <CheckCircle2 size={13} /> {t("nav.reviewToday")}
+              </Link>
+              <Link href="/standup/tomorrow" className="btn standup-metal-btn standup-metal-btn--accent dashboard-quick-actions-btn whitespace-nowrap inline-flex items-center gap-1.5">
+                <Sunrise size={13} /> {t("nav.planTomorrow")}
+              </Link>
+              <button type="button" onClick={() => setShowAssistant(true)} className="btn standup-metal-btn dashboard-quick-actions-btn whitespace-nowrap inline-flex items-center gap-1.5">
+                <Bot size={13} /> {t("dashboard.assistant")}
               </button>
             </div>
           </div>

@@ -7251,6 +7251,69 @@ select:focus {
    else in the app. Not reused by Today/Tomorrow -- Dashboard-scoped
    by design per the Phase 9A regression-risk note, so a future change
    here can never affect either frozen page. */
+/* Review Today / Plan Tomorrow / Assistant -- always one horizontal
+   row (replaces a flex-col-below-sm + sm:order-1/2 reordered sub-group
+   that stacked Assistant onto its own line on a phone, and -- seen on
+   a wide "fridge" tablet viewport -- stacked all three onto separate
+   full-width rows despite plenty of visible horizontal room, since
+   that breakpoint's wrap point was tuned against full-size .btn
+   padding/font-size, not an actual space shortage). flex-wrap stays
+   as a safety net for a genuinely narrow width, not the default
+   presentation. */
+.dashboard-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-quick-actions-btn {
+  font-size: 0.78rem !important;
+  padding: 0.4rem 0.65rem !important;
+}
+
+@media (max-width: 480px) {
+  /* Tightened against a real measured floor, not guessed: at 390px the
+     real page (.app-main's 12px + .card's 16px padding on each side,
+     both already compact at this breakpoint) leaves ~334px for this
+     row -- the three buttons' real combined width came in at ~367px
+     with only the font-size/padding trimmed above, still 33px over.
+     The icon+label gap also shrinks here (gap-1.5/6px is a Tailwind
+     class on each button in the JSX, overridden the same !important
+     way padding already is). */
+  .dashboard-quick-actions {
+    gap: 0.35rem;
+  }
+  .dashboard-quick-actions-btn {
+    font-size: 0.64rem !important;
+    padding: 0.3rem 0.4rem !important;
+    gap: 0.25rem !important;
+  }
+}
+
+@media (max-width: 340px) {
+  /* This app's real floor (320px) still came up ~28px short even with
+     the 480px tier above -- measured via the same isolated harness
+     (real .app-main/.card padding stubs against the real compiled
+     CSS), not guessed. Icon size is normally a JSX prop (size={13}),
+     but an explicit CSS width/height on the <svg> itself overrides
+     that presentation attribute in every current browser, so it can
+     shrink here too without touching Header.tsx-style JS logic in the
+     page. */
+  .dashboard-quick-actions {
+    gap: 0.25rem;
+  }
+  .dashboard-quick-actions-btn {
+    font-size: 0.58rem !important;
+    padding: 0.26rem 0.32rem !important;
+    gap: 0.2rem !important;
+  }
+  .dashboard-quick-actions-btn svg {
+    width: 11px;
+    height: 11px;
+  }
+}
+
 .dashboard-banner {
   position: relative;
   border-radius: 1rem;

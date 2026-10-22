@@ -482,7 +482,7 @@ export const en = {
   "today.reopenDaySliderLabel": "Reopen day",
   "today.sliderInstruction": "Slide the glass left or right to close out or reopen your day.",
   "today.publishBtn": "Publish",
-  "today.addShortLabel": "Add",
+  "today.addShortLabel": "Add Task",
   "today.shareYourDay": "Share Your Day",
   "today.shareModalTitle": "Share Your Day",
   "today.shareModalBody": "Choose who you'd like to share today's progress with.",

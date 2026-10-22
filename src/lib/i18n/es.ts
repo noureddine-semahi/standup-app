@@ -477,7 +477,7 @@ export const es: Record<keyof typeof en, string> = {
   "today.reopenDaySliderLabel": "Reabrir el día",
   "today.sliderInstruction": "Desliza el cristal a la izquierda o derecha para cerrar o reabrir tu día.",
   "today.publishBtn": "Publicar",
-  "today.addShortLabel": "Agregar",
+  "today.addShortLabel": "Agregar Tarea",
   "today.shareYourDay": "Comparte tu Día",
   "today.shareModalTitle": "Comparte tu Día",
   "today.shareModalBody": "Elige con quién te gustaría compartir tu progreso de hoy.",

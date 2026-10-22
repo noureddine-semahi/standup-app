@@ -2320,7 +2320,7 @@ export default function TomorrowGoalsPage() {
                   label) instead of stacking below it as a separate
                   .date-metal-caption block -- see .tomorrow-pass-btn's
                   own comment in globals.css. */}
-              <div className="tomorrow-command-grid" style={{ maxWidth: "340px" }}>
+              <div className="tomorrow-command-grid">
                 {/* Reorder now sits before Use a Pass (was after it) and
                     is unconditionally standup-metal-btn--accent (was
                     only accent while editMode was active, plain metal
@@ -2730,7 +2730,7 @@ export default function TomorrowGoalsPage() {
                   canSubmit/submitEligible/submitting) and the
                   saveDraftOrChanges/onSubmitPlan handlers are byte-
                   identical to before -- only the grouping/layout moved. */}
-              <div className="tomorrow-command-row-2" style={{ maxWidth: "340px" }}>
+              <div className="tomorrow-command-row-2">
                 {isDirty ? (
                   <button
                     className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"

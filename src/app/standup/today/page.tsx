@@ -4042,16 +4042,6 @@ export default function TodayPage() {
                     {t("today.planTomorrowArrow")}
                   </Link>
                 )}
-                {shareVisible && (
-                  <button
-                    type="button"
-                    onClick={() => setShareModalOpen(true)}
-                    className="btn standup-metal-btn standup-metal-btn--accent today-command-btn"
-                  >
-                    <Share2 size={14} />
-                    {t("today.shareYourDay")}
-                  </button>
-                )}
                 {addVisible && (
                   <button
                     type="button"
@@ -4060,6 +4050,16 @@ export default function TodayPage() {
                   >
                     <Plus size={14} />
                     {t("today.addShortLabel")}
+                  </button>
+                )}
+                {shareVisible && (
+                  <button
+                    type="button"
+                    onClick={() => setShareModalOpen(true)}
+                    className="btn standup-metal-btn standup-metal-btn--accent today-command-btn"
+                  >
+                    <Share2 size={14} />
+                    {t("today.shareYourDay")}
                   </button>
                 )}
               </div>

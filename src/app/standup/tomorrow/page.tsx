@@ -82,7 +82,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, NotebookText, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -2762,6 +2762,32 @@ export default function TomorrowGoalsPage() {
                     )}
                   </button>
                 )}
+              </div>
+
+              {/* Navigation tier — Calendar/Tools/Dashboard, same shortcuts
+                  Today's own fixed command bar already gives (plus Tools,
+                  which Today's own bar doesn't carry either but this one
+                  now does) -- without these, leaving the planning flow to
+                  check the calendar or jump to Tools meant losing this
+                  page's own fixed bar entirely until navigating back. Sits
+                  at the very bottom of the bar, below Submit Plan -- the
+                  lowest-priority tier here, since these are "leave the
+                  page" links, not planning actions. Plain nav Links (not
+                  state-changing actions), so no canonical handler is
+                  involved here at all. */}
+              <div className="tomorrow-nav-row">
+                <Link href="/standup/calendar" className="btn standup-metal-btn tomorrow-nav-btn">
+                  <CalendarDays size={13} />
+                  {t("nav.calendar")}
+                </Link>
+                <Link href="/standup/tools" className="btn standup-metal-btn tomorrow-nav-btn">
+                  <Wrench size={13} />
+                  {t("nav.tools")}
+                </Link>
+                <Link href="/standup/dashboard" className="btn standup-metal-btn tomorrow-nav-btn">
+                  <LayoutDashboard size={13} />
+                  {t("nav.dashboard")}
+                </Link>
               </div>
             </>
           );

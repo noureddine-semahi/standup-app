@@ -760,6 +760,59 @@ h1, h2, h3, h4, h5, h6 {
   filter: brightness(1.2);
 }
 
+/* Mobile header amendment: desktop/tablet keeps the real <Link> (home/
+   dashboard navigation); mobile gets a separate <button> that instead
+   triggers the mobile menu (see Header.tsx's own comment on
+   brand-mobile-trigger). Exactly one is ever visible -- base rules
+   here are the >760px state, the @media (max-width:760px) block below
+   flips which one shows. */
+.brand-desktop-only {
+  display: inline-flex;
+}
+
+.brand-mobile-only {
+  display: none;
+}
+
+/* A plain <button> with no href still needs explicit reset -- it isn't
+   an <a>, so none of .brand's own link-specific defaults apply
+   automatically, and a bare <button> carries its own UA chrome
+   (background/border/font) that would otherwise make this look like a
+   rectangular control wrapping the logo, which the brief explicitly
+   rules out ("Do not wrap it in a visible rectangular button"). */
+.brand-mobile-trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Restrained press feedback -- brightness/drop-shadow only, explicitly
+   NO transform (the brief: "NO positional shift when pressed"); this
+   overrides .brand:hover's own transform:scale(1.05) specifically for
+   the mobile trigger (same specificity, wins on source order), since a
+   logo that also still needs to look pressable shouldn't inherit a
+   hover effect tuned for a desktop pointer anyway -- touch has no
+   lasting :hover state to begin with. */
+.brand-mobile-trigger:hover {
+  transform: none;
+  filter: brightness(1.12);
+}
+
+.brand-mobile-trigger:active {
+  transform: none;
+  filter: brightness(0.92);
+}
+
+.brand-mobile-trigger:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.65);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
 /* The new icon+wordmark lockup image replacing the old icon+styled-text
    pair -- a fixed height (not width) so it scales proportionally and
    stays crisp at any header size; width is intrinsic from the image's
@@ -1355,6 +1408,487 @@ h1, h2, h3, h4, h5, h6 {
   gap: 10px;
 }
 
+/* ---- Header glass date/time widget (.standup-header-datetime) ----
+   Layout #5, now THREE chambers after the mobile header amendment: day
+   number | divider | stacked month·weekday/time | divider | Bell. +
+   Style #4 material (smoked transparent glass, not an opaque card or
+   .standup-metal-btn's dark machined metal) runs continuously through
+   all three -- one manufactured object, not three separate controls
+   glued together. The outer <div> stays non-interactive (a plain
+   "generic" role); the Bell inside it is the one real interactive
+   child, see .standup-header-datetime-bell and
+   .standup-header-datetime-dateinfo below for how that's split
+   structurally rather than making the whole shell a button.
+
+   Deliberately built WITHOUT color-mix() anywhere in this block -- see
+   the Samsung Internet color-mix() fallback comment near
+   .standup-metal-btn further down this file (that bug is CONFIRMED on
+   a real device this app is viewed on); every color here is a plain
+   rgba()/linear-gradient()/radial-gradient(), so this brand-new
+   component simply never has that failure mode to begin with, rather
+   than needing its own @supports fallback bolted on afterward.
+
+   overflow:hidden + isolation:isolate: the specular sweep (::after,
+   below) is sized larger than the widget and travels across it --
+   overflow:hidden clips it to this element's own rounded-rect bounds
+   ("stays inside the widget" per the brief), isolation:isolate keeps
+   its mix-blend-mode from reaching outside this box onto whatever the
+   header renders behind it. flex-shrink + min-width:0 let it compress
+   instead of forcing an overflow if .app-header-inner's available
+   space is ever tighter than its own content -- the real floor is
+   governed by the responsive info-reduction tiers further down
+   (.standup-header-datetime-date-full/-mid, and the narrowest tier's
+   .standup-header-datetime-date display:none), not by this flexing
+   alone. */
+.standup-header-datetime {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  /* flex-shrink:0, matching .brand-oversized's own pattern -- this
+     widget sizes itself via its own three responsive tiers (see the
+     max-width:479px/359px blocks below), not by letting the flexbox
+     shrink algorithm compress it arbitrarily. flex-shrink:1 combined
+     with min-width:0 (tried first) let the parent (.app-header-inner)
+     crush this down to a few px wide -- with overflow:hidden on this
+     element, that silently CLIPPED the day number and time to
+     near-invisible instead of ever actually reading as "too narrow,"
+     caught via an isolated header harness at 320px before it reached
+     a real device. */
+  flex-shrink: 0;
+  /* 3px vertical (was 5px) -- measured against the row's own existing
+     34px-tall controls (hamburger/bell/avatar): the 2-line info tier
+     (date row + time row stacked) made this widget 43px tall at 5px
+     padding, 9px over the row's established height, which pushed
+     .app-header-inner itself taller than its pre-existing size (an
+     unintentional header-height change the brief explicitly rules
+     out). 3px + the tightened line-heights below land this at the
+     same ~34px the rest of the row already uses. */
+  padding: 3px 12px;
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.92);
+  /* Smoked transparent glass base -- deliberately low-opacity (the
+     header behind it must stay "subtly perceptible through it," per
+     the brief) layered with a real blur/saturate so it reads as glass,
+     not a flat tinted rectangle. */
+  background: linear-gradient(135deg, rgba(24, 28, 38, 0.5), rgba(10, 12, 18, 0.32));
+  backdrop-filter: blur(14px) saturate(165%);
+  -webkit-backdrop-filter: blur(14px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    /* inset white specular reflection -- top edge catches light */
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.32),
+    /* faint lower-edge shade, opposite the specular highlight */
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.28),
+    /* polished silver/glass perimeter ring, one step out from the
+       1px border itself -- same "double ring" read
+       .header-metal-control uses, translucent instead of metal */
+    0 0 0 1px rgba(148, 163, 184, 0.16),
+    /* soft dimensional shadow, grounds the widget against the header */
+    0 4px 14px -5px rgba(0, 0, 0, 0.5),
+    /* faint cyan ambient glow -- "reflected light," not a colored fill */
+    0 0 16px -6px rgba(56, 189, 248, 0.22);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Non-time-bearing placeholder -- a plain box standing in for the day/
+   divider/info cluster (no digits), still followed by the real Bell
+   (see headerDateTime()'s own comment for why the Bell isn't gated
+   behind clockNow's mount guard -- "Do NOT hide the Bell" holds even
+   during this brief pre-mount window). Keeps the header's layout
+   geometry stable across the swap to the real widget (no reflow when
+   the clock first appears) without ever rendering a server-guessed
+   time. */
+.standup-header-datetime-placeholder-box {
+  display: inline-block;
+  width: 84px;
+  height: 30px;
+}
+
+@media (max-width: 479px) {
+  .standup-header-datetime-placeholder-box {
+    width: 64px;
+  }
+}
+
+/* Specular sweep -- a diagonal band of light that travels across the
+   glass and fades, cyan -> violet -> faint amber, per the brief's
+   "ambient light moving across polished glass" (explicitly NOT a
+   loading-spinner feel, which is why this is a single one-directional
+   pass per loop, not a back-and-forth bounce). mix-blend-mode:screen
+   makes it read as light landing ON the glass rather than a colored
+   shape sitting on top of it. inset, not a fixed size, so it scales
+   with the widget itself rather than needing separate narrow/wide
+   tuning. */
+.standup-header-datetime-sheen {
+  content: "";
+  position: absolute;
+  inset: -40% -30%;
+  background: linear-gradient(
+    75deg,
+    transparent 0%,
+    rgba(103, 232, 249, 0.2) 32%,
+    rgba(167, 139, 250, 0.22) 48%,
+    rgba(245, 158, 11, 0.12) 62%,
+    transparent 78%,
+    transparent 100%
+  );
+  transform: translateX(-60%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: standup-datetime-sweep 8s linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes standup-datetime-sweep {
+  0% {
+    transform: translateX(-70%);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(30%);
+    opacity: 1;
+  }
+  88% {
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+}
+
+/* Secondary internal light drift -- an extremely subtle, slow hue
+   shift across two low-opacity radial blobs underneath the sweep, per
+   the brief's "optional secondary internal illumination drift." Opacity
+   never climbs high enough to read as a colored fill on its own -- it
+   only ever shows up as a faint presence behind the sweep and the day
+   number/divider. */
+.standup-header-datetime::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 25% 15%, rgba(56, 189, 248, 0.1), transparent 60%),
+    radial-gradient(circle at 80% 85%, rgba(167, 139, 250, 0.09), transparent 60%);
+  pointer-events: none;
+  animation: standup-datetime-drift 15s ease-in-out infinite alternate;
+}
+
+@keyframes standup-datetime-drift {
+  0% {
+    filter: hue-rotate(0deg);
+    opacity: 0.75;
+  }
+  100% {
+    filter: hue-rotate(40deg);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .standup-header-datetime-sheen,
+  .standup-header-datetime::before {
+    animation: none;
+  }
+  /* Static resting frame instead of the animation's 0% frame (which is
+     fully transparent) -- still reads as glass, just motionless, per
+     "keep the static glossy glass appearance." */
+  .standup-header-datetime-sheen {
+    opacity: 0.6;
+    transform: translateX(10%);
+  }
+}
+
+/* Wraps day + divider + info as ONE accessible unit (see
+   headerDateTime()'s own comment for why this wrapper carries the
+   aria-label instead of the outer shell) -- purely a layout/a11y
+   grouping, same inline-flex row the outer shell provided on its own
+   before the Bell became a third sibling chamber. */
+.standup-header-datetime-dateinfo {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Day number -- the strongest element, per the brief's hierarchy. */
+.standup-header-datetime-day {
+  position: relative;
+  z-index: 1;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.97);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
+}
+
+/* Etched glass divider -- NOT a plain CSS border: a 1px highlight line
+   plus an immediately adjacent 1px shadow line (box-shadow, not a
+   second element) reads as a groove cut INTO the glass rather than a
+   line drawn ON TOP of it. align-self:stretch so it always spans the
+   widget's own content height regardless of which responsive tier is
+   showing. */
+.standup-header-datetime-divider {
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  width: 1px;
+  margin: 1px 10px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 1px 0 0 0 rgba(0, 0, 0, 0.3);
+}
+
+.standup-header-datetime-info {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* Deliberately NOT min-width:0 -- this sits inside a flex-shrink:1
+     parent (.standup-header-datetime itself), and giving this column a
+     zero min-width let the flex-shrink algorithm crush it (and the
+     time text inside it) down to a few px wide whenever the widget's
+     own natural width came in only slightly over its available lane,
+     instead of the OUTER widget simply not shrinking past its
+     content's real floor. Caught via an isolated header harness at
+     320px before this was caught on a real device. The real fix is
+     .standup-header-datetime actually fitting its narrowest tier's
+     available space (see the max-width:359px tightening below); this
+     is the safety net that makes a future near-miss fail as a few px
+     of harmless overflow instead of silently invisible text. */
+}
+
+/* Secondary info -- month/weekday, smaller and more muted than both the
+   day number and the time, per the brief's color/size hierarchy. */
+.standup-header-datetime-date {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  color: rgba(226, 232, 240, 0.6);
+  white-space: nowrap;
+}
+
+/* Time -- second-strongest element. */
+.standup-header-datetime-time {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: rgba(255, 255, 255, 0.94);
+  white-space: nowrap;
+}
+
+/* Responsive information reduction (Level 1 -> 2 -> 3, per the brief):
+   both date spans always render in the DOM (see Header.tsx) -- only
+   which one is visible changes, same "render everything, let CSS pick"
+   approach .goal-toolbar-label/.goal-toolbar-label-keep already use
+   elsewhere in this file, rather than branching the JSX itself per
+   breakpoint.
+
+   These breakpoints are measured against REAL overflow, not the
+   document-level check tried first: document.documentElement.
+   scrollWidth never reflected this row overflowing, because
+   .app-header is position:fixed and clips independently of document
+   flow -- .app-header-inner's own scrollWidth vs clientWidth is what
+   actually catches it, via an isolated header harness against the
+   real compiled CSS, re-checked after every sizing change below.
+   Level 1 ("OCT · TUE", full size) fits natively with ZERO overflow
+   at 412px and up. Below that, this widget's own width (not the
+   brand/avatar/gaps, already trimmed as far as reasonably possible --
+   see .app-header-inner's own mobile padding/gap override and
+   .nav-end-cluster's mobile display:none) is what has to give. */
+.standup-header-datetime-date-mid {
+  display: none;
+}
+
+/* Tier B: Level 1 content (full "OCT · TUE") stays, but every
+   dimension shrinks a notch -- this is the "where space permits, keep
+   the full format" tier (section J/P): 390/412px plainly permit it,
+   and measured down to 360px it still does once tightened this far. */
+@media (max-width: 410px) {
+  .standup-header-datetime {
+    padding: 3px 5px;
+  }
+  .standup-header-datetime-day {
+    font-size: 18px;
+  }
+  .standup-header-datetime-divider {
+    margin: 1px 5px;
+  }
+  .standup-header-datetime-time {
+    font-size: 11px;
+  }
+  .standup-header-datetime-date {
+    font-size: 9px;
+  }
+  .standup-header-datetime-bell {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Tier C: Level 2 (weekday only, "TUE") -- the full date string finally
+   costs more than this width can spare. */
+@media (max-width: 365px) {
+  .standup-header-datetime-date-full {
+    display: none;
+  }
+  .standup-header-datetime-date-mid {
+    display: inline;
+  }
+}
+
+/* Tier D: Level 3 (day number + time only, no date row, no divider for
+   it) -- this app's real narrowest supported width (320px) needs this
+   tier; it is NOT a hypothetical safety net the way it was in an
+   earlier, miscalculated draft of this block (which found zero
+   overflow at 320px because its overflow CHECK, not its CSS, was
+   wrong). font sizes/padding tightened one more notch past Tier B/C. */
+@media (max-width: 325px) {
+  .standup-header-datetime {
+    padding: 2px 2px;
+  }
+  .standup-header-datetime-day {
+    font-size: 15px;
+  }
+  .standup-header-datetime-date {
+    display: none;
+  }
+  .standup-header-datetime-divider {
+    margin: 1px 2px;
+  }
+  .standup-header-datetime-time {
+    font-size: 9px;
+  }
+  .standup-header-datetime-bell {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+/* The Bell chamber (divider + Bell) is MOBILE ONLY -- the mobile header
+   amendment is explicitly scoped to mobile (section L: "do not
+   automatically impose the same trigger restructuring on desktop...
+   the original prompt's desktop Date/Time treatment remains valid").
+   Desktop keeps its own pre-existing, completely unchanged
+   hamburger+Bell+profile cluster (.nav-end-cluster) -- without this
+   rule, notificationBell("glass") rendering unconditionally inside
+   headerDateTime() would duplicate the Bell on desktop (one inside the
+   glass, one in the existing cluster), two different triggers for the
+   same notifications. display:none removes it from the accessibility
+   tree and tab order on desktop too, not just visually, so there's
+   never a hidden duplicate tab-stop. Same 760/761px breakpoint every
+   other mobile/desktop split in this file already uses
+   (.nav-mobile-trigger/.nav-end-cluster). */
+.standup-header-datetime-bell-chamber {
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (min-width: 761px) {
+  .standup-header-datetime-bell-chamber {
+    display: none;
+  }
+}
+
+/* Third chamber -- the EXISTING canonical mobile notification Bell
+   (notificationBell("glass") in Header.tsx; same href/aria-label/
+   unread-badge as its original "mobile" variant, see that function's
+   own comment), restyled to sit as part of the glass instead of
+   carrying its own .nav-bell-btn/.header-metal-control dark-metal
+   socket. No background/border of its own at rest -- the shared glass
+   shell (background/backdrop-filter/box-shadow on .standup-header-
+   datetime itself) is what gives this chamber its material; this rule
+   only sizes the touch target and gives it its own independent hover/
+   focus feedback, exactly like any plain icon-button would need,
+   without re-introducing a second visible "button" surface inside the
+   glass. position:relative anchors .nav-bell-badge's own absolute
+   positioning (unchanged, reused as-is from the existing bell). Only
+   ever visible on mobile now -- see .standup-header-datetime-bell-
+   chamber above. */
+.standup-header-datetime-bell {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 26px, not a rounder 28/32 -- this is now the widget's OWN tallest
+     child at every responsive tier (the day number/info column are
+     both shorter), so IT determines the whole widget's height. 26px +
+     the widget's 3px vertical padding + 1px border on each side lands
+     exactly at 34px, matching the row's other existing controls
+     (hamburger/avatar, both 34px) instead of making this widget the
+     one element that's a couple px taller than everything beside it --
+     caught via an isolated header harness measuring actual rendered
+     heights at every tier, not assumed. */
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.standup-header-datetime-bell:hover {
+  color: rgba(255, 255, 255, 1);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.standup-header-datetime-bell:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.65);
+  outline-offset: 1px;
+  color: rgba(255, 255, 255, 1);
+}
+
+[data-theme="light"] .standup-header-datetime-bell {
+  color: rgba(50, 45, 40, 0.75);
+}
+
+[data-theme="light"] .standup-header-datetime-bell:hover {
+  color: rgba(28, 25, 22, 0.95);
+  background-color: rgba(40, 32, 28, 0.08);
+}
+
+/* Light mode -- clear/frosted warm glass, not an opaque white card (per
+   the brief). Background/text/divider restated for the lighter base;
+   the sweep/drift pseudo-elements, box-shadow structure, and every
+   size/spacing rule above are untouched -- light mode is still
+   recognizably the same glass object, just lit differently. */
+[data-theme="light"] .standup-header-datetime {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(255, 250, 240, 0.34));
+  border-color: rgba(120, 113, 108, 0.2);
+  color: rgba(35, 30, 25, 0.92);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.75),
+    inset 0 -1px 0 0 rgba(120, 113, 108, 0.16),
+    0 0 0 1px rgba(148, 163, 184, 0.22),
+    0 4px 14px -5px rgba(120, 113, 108, 0.25),
+    0 0 16px -6px rgba(56, 189, 248, 0.16);
+}
+
+[data-theme="light"] .standup-header-datetime-day,
+[data-theme="light"] .standup-header-datetime-time {
+  color: rgba(28, 25, 22, 0.92);
+  text-shadow: none;
+}
+
+[data-theme="light"] .standup-header-datetime-date {
+  color: rgba(80, 74, 68, 0.68);
+}
+
+[data-theme="light"] .standup-header-datetime-divider {
+  background: rgba(120, 113, 108, 0.24);
+  box-shadow: 1px 0 0 0 rgba(255, 255, 255, 0.55);
+}
+
 /* Secondary nav (About/FAQ/Contact for a logged-out visitor only now --
    see Header.tsx) always lives behind this button rather than inline —
    the six primary destinations live in their own hanging tab row now
@@ -1636,6 +2170,27 @@ h1, h2, h3, h4, h5, h6 {
     display: none;
   }
 
+  /* Mobile header amendment: the whole .nav-end-cluster wrapper now
+     hides on mobile, not just its two children above -- previously it
+     stayed display:flex with nothing visible inside it, but it still
+     counted as a real (if empty) flex item of .app-header-inner,
+     costing an entire extra gap-pair (its own two 18px gaps, one on
+     each side) for literally nothing. That waste is exactly what was
+     already causing a small (~21px) pre-existing overflow at 320px
+     before any of this amendment's changes, and became a much larger
+     one once the glass widget's own width was added alongside it --
+     caught via an isolated header harness checking real overflow
+     (.app-header-inner's scrollWidth vs clientWidth; document-level
+     scrollWidth doesn't reflect it, since .app-header is
+     position:fixed and clips independently of document flow).
+     updateNavLayout()'s own effect in Header.tsx already falls back to
+     measuring .nav-mobile-trigger's rect instead of this element's
+     whenever this is hidden, so the tab row's right clearance stays
+     accurate. */
+  .nav-end-cluster {
+    display: none;
+  }
+
   /* Logged-out visitor nav: About/Sign In/Get Started move into the
      hamburger's .mobile-menu-panel instead of staying inline here --
      explicit user call. Without this, 3 compact-but-not-shrinking links
@@ -1646,6 +2201,48 @@ h1, h2, h3, h4, h5, h6 {
 
   .nav-mobile-trigger {
     display: flex;
+  }
+
+  /* Mobile header amendment: swap which brand instance is visible --
+     the real Link hides, the menu-trigger button takes over. */
+  .brand-desktop-only {
+    display: none;
+  }
+
+  .brand-mobile-only {
+    display: inline-flex;
+  }
+
+  /* Recovers horizontal space for the glass widget now that the
+     separate mobile hamburger is gone -- the logo moves closer to the
+     left viewport edge instead of sitting at the same 18px inset
+     desktop/tablet uses. 8px, not a blind guess: measured against the
+     logo's own glow footprint (.brand-oversized::before's mobile
+     variant extends 6px past the logo image on each side) via an
+     isolated header harness against the real compiled CSS -- 8px
+     clearance leaves the glow's own -6px overflow still a couple of
+     px clear of the literal viewport edge at 320px, confirmed with no
+     clipping.
+
+     padding-right and gap are ALSO tightened here (12px / 8px, down
+     from the base rule's 18px each) -- removing hamburger+bell from
+     .nav-mobile-trigger (leaving only the Avatar) recovers real width
+     there already, but the FULL picture only closed once an isolated
+     header harness measured actual overflow directly (.app-header-
+     inner's scrollWidth vs clientWidth -- document-level scrollWidth
+     doesn't reflect it, since .app-header is position:fixed and clips
+     independently of document flow): even after that, every one of
+     this row's 18px gaps/padding was still costing real budget this
+     3-chamber widget needed back. Avatar is still a real, legitimate
+     flex item on its own -- unlike .nav-end-cluster (removed from the
+     layout entirely above), this isn't about eliminating dead space,
+     just not spending more of it than this row can actually afford at
+     320px. Desktop's own 18px gap/padding (.app-header-inner's base
+     rule) is completely untouched. */
+  .app-header-inner {
+    padding-left: 8px;
+    padding-right: 12px;
+    gap: 4px;
   }
 
   .mobile-menu-panel {
@@ -5349,6 +5946,42 @@ select:focus {
    longer exists -- the button is now a bare .tomorrow-command-grid
    cell like Reorder/Add already were. */
 
+/* Navigation tier -- Calendar/Tools/Dashboard shortcuts, its own row
+   above the Use a Pass/Reorder/Add/Save grid. Deliberately smaller/
+   lower-emphasis than .tomorrow-toolbar-btn (34px vs 40px min-height,
+   smaller font) -- these are lower-priority "leave the page" links,
+   not planning actions, so they shouldn't visually compete with the
+   controls that actually drive Plan Tomorrow's own flow. flex:1 1 0%
+   splits the row evenly across all three regardless of label length,
+   same equal-width technique the command grid's own mobile tightening
+   already uses elsewhere in this file. */
+.tomorrow-nav-row {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.tomorrow-nav-btn {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0.3rem 0.4rem !important;
+  font-size: 0.68rem !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 360px) {
+  .tomorrow-nav-btn {
+    font-size: 0.6rem !important;
+    padding: 0.28rem 0.25rem !important;
+    gap: 0.2rem;
+  }
+}
+
 .tomorrow-toolbar-btn {
   min-height: 40px;
   padding: 0.4rem 0.65rem !important;
@@ -6234,29 +6867,23 @@ select:focus {
    getBoundingClientRect().top stays constant across scroll positions,
    which it never did before this change. */
 @media (max-width: 640px) {
-  /* 236px clears the bar's tallest real measured footprint. Base was
-     164px (the Submitted state's two-line card wrapping to a 3rd line
-     in Spanish at 320px, measured 146px + an ~18px safety margin).
-     Adding the relocated Use-a-Pass/Reorder row contributed its own
-     measured ~70px on top of that (188px with the row vs 118.6px
-     without it, same English baseline) -- 164 + 70 = 234, rounded up
-     to 236. The .tomorrow-command-grid unification briefly pushed this
-     to 240 (192px row), then the Use-a-Pass button's label+count
-     layout changed again -- from a fixed two-column split back down to
-     one flowing text run ("Use a Pass to Cover Day · N passes left")
-     that wraps wherever it naturally fits, with the count riding the
-     end of the label instead of occupying its own column -- 188px at
-     320px width (the row's worst case then, where the label wrapped to
-     3 lines). Still 236px after the count became a small badge outside
-     the label's text flow instead of trailing text inside it (the
-     label now reliably wraps to its usual 2 lines at every width,
-     measured 174px even at 320px) -- comfortably inside the existing
-     236px, no need to tighten it further. Not re-verified against the
-     Spanish 3-line Submitted state WITH this bar simultaneously (that
-     specific combination needs a real-device/real-locale check), but
-     this is a measured value, not a blind guess. */
+  /* 280px clears the bar's tallest real measured footprint. History:
+     164px base (Submitted state's worst-case Spanish 3-line wrap,
+     measured 146px + an ~18px safety margin) -> 236px once Use a
+     Pass/Reorder moved into this bar (+~70px, measured) -> settled
+     back to 236px through several Use-a-Pass label/count layout
+     changes that each re-measured at or under that same figure.
+     Adding the Calendar/Tools/Dashboard nav row (.tomorrow-nav-row)
+     as this bar's new first tier added its own measured +44px on top
+     (216px total at 320px width vs 172px without it, same English
+     baseline, via an isolated harness against the real compiled CSS)
+     -- 236 + 44 = 280. Not re-verified against the Spanish 3-line
+     Submitted state WITH this bar simultaneously (that specific
+     combination needs a real-device/real-locale check), but this is a
+     measured delta added to the previous measured baseline, not a
+     blind guess. */
   .tomorrow-page-card {
-    padding-bottom: 236px;
+    padding-bottom: 280px;
   }
 
   .tomorrow-action-row-desktop {
@@ -8859,6 +9486,144 @@ select:focus {
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
 }
 
+/* ---- Samsung Internet color-mix() fallback ----
+   Confirmed on a Samsung Family Hub fridge display (Samsung Internet/
+   Tizen WebView): every border/ring/glow color above is produced by
+   color-mix(), and on that browser the WHOLE declaration using it is
+   invalid and dropped, not just degraded -- so these buttons render
+   with no visible border, ring, or glow at all, just the flat socket
+   fill and face gradient underneath. .goal-toolbar-btn hit this exact
+   same bug once before (its own comment: "confirmed Samsung Internet
+   color-mix() fallback bug") and was built to avoid color-mix()
+   entirely from the start; .standup-metal-btn was built later and
+   leans on it everywhere, so it needs a real fallback instead.
+   @supports not (...) only ever matches a browser that actually lacks
+   color-mix() support -- every rule in this block is fully inert on
+   Chrome/Safari/Firefox/etc., where the color-mix()-based rules above
+   keep rendering completely unchanged.
+   Trade-off: the directional multi-edge lighting (a different mix
+   percentage per edge, for a "catching light top-left" look) can't be
+   reproduced without color-mix() or a full set of per-token RGB-triplet
+   custom properties -- --metal-color is swapped to any of a dozen-plus
+   different tokens depending on context (--accent-amber, --status-
+   blocked, --metal-edge-orange, inline per-row priority colors, etc.),
+   each of which would need its own -rgb variant threaded through every
+   assignment site app-wide, which is a much larger undertaking than
+   this scope. This fallback instead uses --metal-color directly as a
+   SOLID, uniform-opacity border/ring color on every edge -- flatter
+   than the full recipe, but guaranteed visible instead of guaranteed
+   invisible, which is what's actually broken on this browser right
+   now. Scoped to .standup-metal-btn specifically (the class the
+   Today/Tomorrow command bars use) -- color-mix() is used far more
+   broadly across this file (folder tabs, goal-row edges, Calendar's
+   own grid, etc.); auditing every one of those is a separate, much
+   larger effort than this fix, not attempted here. */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .standup-metal-btn {
+    border-color: var(--metal-color, var(--metal-edge-neutral));
+    box-shadow:
+      inset 0 5px 6px -2px rgba(0, 0, 0, 0.6),
+      inset 0 -4px 6px -2px rgba(0, 0, 0, 0.38),
+      inset 4px 0 6px -2px rgba(0, 0, 0, 0.32),
+      inset -4px 0 6px -2px rgba(0, 0, 0, 0.32),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral)),
+      0 3px 7px -3px rgba(0, 0, 0, 0.55);
+  }
+
+  .standup-metal-btn::before {
+    border-color: var(--metal-color, var(--metal-edge-neutral));
+    background: linear-gradient(to bottom, #34383d 0%, #202327 45%, #111315 100%);
+    box-shadow:
+      inset 1px 1px 0 0 rgba(255, 255, 255, 0.18),
+      inset -1px -1px 2px 0 rgba(0, 0, 0, 0.4),
+      inset 0 -2px 3px 0 rgba(0, 0, 0, 0.5),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral));
+  }
+
+  .standup-metal-btn::after {
+    background: var(--metal-color, var(--metal-edge-neutral));
+    opacity: 0.25;
+  }
+
+  .standup-metal-btn:hover {
+    border-color: var(--metal-color, var(--metal-edge-neutral));
+    box-shadow:
+      inset 0 4px 5px -2px rgba(0, 0, 0, 0.58),
+      inset 0 -3px 5px -2px rgba(0, 0, 0, 0.36),
+      inset 3px 0 5px -2px rgba(0, 0, 0, 0.3),
+      inset -3px 0 5px -2px rgba(0, 0, 0, 0.3),
+      0 0 0 1.5px var(--metal-color, var(--metal-edge-neutral)),
+      0 5px 10px -3px rgba(0, 0, 0, 0.55);
+  }
+
+  .standup-metal-btn:hover::before {
+    box-shadow:
+      inset 1px 1px 0 0 rgba(255, 255, 255, 0.26),
+      inset -1px -1px 2px 0 rgba(0, 0, 0, 0.38),
+      inset 0 -2px 3px 0 rgba(0, 0, 0, 0.45),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral));
+  }
+
+  .standup-metal-btn:active {
+    border-color: var(--metal-color, var(--metal-edge-neutral));
+    box-shadow:
+      inset 0 6px 7px -2px rgba(0, 0, 0, 0.72),
+      inset 0 -5px 7px -2px rgba(0, 0, 0, 0.5),
+      inset 5px 0 7px -2px rgba(0, 0, 0, 0.4),
+      inset -5px 0 7px -2px rgba(0, 0, 0, 0.4),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral));
+  }
+
+  .standup-metal-btn:active::before {
+    background: linear-gradient(to bottom, #2a2d31 0%, #191b1e 45%, #0d0e10 100%);
+    box-shadow:
+      inset 1px 1px 0 0 rgba(255, 255, 255, 0.05),
+      inset -1px -1px 2px 0 rgba(0, 0, 0, 0.55),
+      inset 0 3px 5px 0 rgba(0, 0, 0, 0.65);
+  }
+
+  /* No disabled-specific color override needed -- .btn:disabled's own
+     opacity:0.45 (applied to the whole element) already dims whatever
+     border-color this block gives the resting state, same as the
+     color-mix() recipe's own disabled rule relies on. */
+
+  [data-theme="light"] .standup-metal-btn {
+    box-shadow:
+      inset 0 5px 6px -2px rgba(40, 32, 28, 0.3),
+      inset 0 -4px 6px -2px rgba(40, 32, 28, 0.14),
+      inset 4px 0 6px -2px rgba(40, 32, 28, 0.12),
+      inset -4px 0 6px -2px rgba(40, 32, 28, 0.12),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral)),
+      0 3px 7px -3px rgba(40, 32, 28, 0.28);
+  }
+
+  [data-theme="light"] .standup-metal-btn::before {
+    box-shadow:
+      inset 1px 1px 0 0 rgba(255, 255, 255, 0.9),
+      inset -1px -1px 2px 0 rgba(40, 32, 28, 0.16),
+      inset 0 -2px 3px 0 rgba(40, 32, 28, 0.22),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral));
+  }
+
+  [data-theme="light"] .standup-metal-btn:hover {
+    box-shadow:
+      inset 0 4px 5px -2px rgba(40, 32, 28, 0.28),
+      inset 0 -3px 5px -2px rgba(40, 32, 28, 0.13),
+      inset 3px 0 5px -2px rgba(40, 32, 28, 0.1),
+      inset -3px 0 5px -2px rgba(40, 32, 28, 0.1),
+      0 0 0 1.5px var(--metal-color, var(--metal-edge-neutral)),
+      0 5px 10px -3px rgba(40, 32, 28, 0.25);
+  }
+
+  [data-theme="light"] .standup-metal-btn:hover::before {
+    box-shadow:
+      inset 1px 1px 0 0 rgba(255, 255, 255, 0.98),
+      inset -1px -1px 2px 0 rgba(40, 32, 28, 0.14),
+      inset 0 -2px 3px 0 rgba(40, 32, 28, 0.18),
+      0 0 0 1px var(--metal-color, var(--metal-edge-neutral));
+  }
+}
+
 /* ---- .standup-metal-btn-group -- shared physical housing ----
    When 2+ related .standup-metal-btn controls form one action set
    (a modal's Cancel+Confirm, a footer nav row, Close-out-day+Plan-
@@ -9321,6 +10086,23 @@ select:focus {
   margin-top: 1.5rem;
 }
 
+/* Base row rule (was mobile-only, see the media query below) -- without
+   it, each .today-command-row div had no layout of its own above
+   640px, so the bar's outer flex-wrap just let BOTH rows' buttons
+   spill onto one shared line together wherever there was room (seen
+   on a wide tablet/kiosk-class viewport: all 5 buttons side by side,
+   each sized only to its own label, reading as randomly inconsistent
+   sizes instead of two deliberately-grouped rows). width:100% keeps
+   the secondary (Add/Calendar/Dashboard) and primary (Plan Tomorrow/
+   Share Your Day) groups on their own separate rows at every width,
+   same grouping the mobile layout already always had. */
+.today-command-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
 .today-command-btn {
   display: inline-flex;
   align-items: center;
@@ -9330,8 +10112,14 @@ select:focus {
   padding: 0.5rem 0.85rem;
 }
 
+/* Horizontal padding only -- vertical padding matches the base rule
+   exactly now (was 0.55rem vs 0.5rem, a ~1.6px height mismatch between
+   the primary row's buttons and the secondary row's) so every button
+   in this bar is the same height regardless of which row/tier it's
+   in; only the wider horizontal padding (plus each button's own longer
+   label) is what visibly sets Plan Tomorrow/Share Your Day apart. */
 .today-command-btn-wide {
-  padding: 0.55rem 1.1rem;
+  padding: 0.5rem 1.1rem;
 }
 
 @media (max-width: 640px) {
@@ -9366,7 +10154,6 @@ select:focus {
   }
 
   .today-command-row {
-    display: flex;
     gap: 0.4rem;
   }
 

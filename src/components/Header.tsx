@@ -96,6 +96,20 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   // used by logged-out visitors' own nav.
 ];
 
+// Header glass date/time widget -- fixed, uppercase, English-abbreviation
+// tokens (OCT/TUE), not run through t()/i18n: the design spec calls for
+// this exact chronograph-style format regardless of the app's current
+// language, the same way "AM"/"PM" or a priority chip's "P3" aren't
+// translated either. FULL_* are only ever used to build the accessible
+// aria-label (see headerDateTime() below), never rendered visually.
+const DATETIME_MONTHS_SHORT = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const DATETIME_WEEKDAYS_SHORT = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const DATETIME_MONTHS_FULL = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const DATETIME_WEEKDAYS_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
@@ -172,7 +186,26 @@ export default function Header() {
   // .folder-tabbar-hanging's padding-left/padding-right in globals.css,
   // which consume the CSS custom properties that effect sets.
   const brandRef = useRef<HTMLAnchorElement>(null);
+  // Mobile header amendment: the logo has two real DOM instances now
+  // (brandRef's desktop <Link>, hidden below 761px; this mobile <button>,
+  // hidden above 760px) -- same dual-render-plus-CSS-visibility pattern
+  // this app already uses elsewhere (e.g. .today-command-bar-desktop/
+  // -mobile) for "genuinely different element/semantics per breakpoint,"
+  // not just a visual swap. updateNavLayout()'s effect below picks
+  // whichever one is actually visible when measuring the tab row's left
+  // clearance.
+  const brandMobileRef = useRef<HTMLButtonElement>(null);
   const navEndClusterRef = useRef<HTMLDivElement>(null);
+  // Header glass date/time widget -- `clockNow` starts null (not
+  // `new Date()`) specifically so the FIRST render, server and client
+  // alike, produces identical markup (the placeholder branch in
+  // headerDateTime() below) -- a server has no notion of the visitor's
+  // LOCAL time, so rendering a real time on the server would either be
+  // wrong (server's own timezone) or mismatch whatever the client
+  // hydrates with. The real clock only ever appears after the mount
+  // effect below runs client-side, same guarded pattern this app's
+  // other client-only-safe pieces already use elsewhere.
+  const [clockNow, setClockNow] = useState<Date | null>(null);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -384,6 +417,45 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [profileOpen]);
 
+  // Mobile header amendment, section C: Escape closes whichever of the
+  // four header dropdowns is open, moving focus back to the control
+  // that opened it -- this didn't exist for ANY of them before (the
+  // old hamburger/bell/More/profile triggers only ever had outside-
+  // click-to-close, confirmed by grepping this file for "Escape"/
+  // "keydown" before this effect existed), but keyboard Escape-to-
+  // close is exactly the "canonical...Escape behavior/focus
+  // management" the mobile menu's new logo trigger needs, so this adds
+  // it once for the shared menuOpen/bellOpen/moreOpen/profileOpen
+  // state rather than wiring something bespoke onto only the new
+  // trigger. Moving focus back (not just closing) matters most for the
+  // mobile case specifically: without it, focus would be left on a
+  // mobile-menu link that just disappeared, stranding keyboard/screen-
+  // reader navigation with no clear next focus target.
+  useEffect(() => {
+    if (!menuOpen && !bellOpen && !moreOpen && !profileOpen) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (menuOpen) {
+        setMenuOpen(false);
+        (hamburgerDesktopRef.current?.querySelector("button") ?? hamburgerMobileBtnRef.current)?.focus();
+      }
+      if (bellOpen) {
+        setBellOpen(false);
+        bellRef.current?.querySelector("button")?.focus();
+      }
+      if (moreOpen) {
+        setMoreOpen(false);
+        moreRef.current?.querySelector("button")?.focus();
+      }
+      if (profileOpen) {
+        setProfileOpen(false);
+        (profileDesktopRef.current?.querySelector("button") ?? profileMobileRef.current?.querySelector("button"))?.focus();
+      }
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [menuOpen, bellOpen, moreOpen, profileOpen]);
+
   // Keeps the newly-active hanging tab centered in the scrollable nav
   // strip whenever the route changes -- explicit user call, otherwise
   // navigating to a tab near either end can leave it partially (or
@@ -393,6 +465,33 @@ export default function Header() {
     const active = document.querySelector(".folder-tab-hanging-active");
     active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [pathname]);
+
+  // Header glass date/time widget -- ticks to the START of the NEXT
+  // local minute (setTimeout with a computed delay), not a 1s
+  // setInterval, since seconds are never displayed: re-rendering this
+  // (and therefore the whole Header tree, which lives in the root
+  // layout) 60x more often than the visible text could ever change
+  // would be pure waste. A single scheduled timeout re-arms itself
+  // after each tick rather than using setInterval, so drift can't
+  // accumulate across ticks. new Date() at each tick naturally carries
+  // every rollover this needs (minute/hour/day/month/weekday) --
+  // nothing else has to special-case midnight or month-end. Runs
+  // client-only (mount-only effect): first tick also happens here, not
+  // at declaration time, so the server/first-client-render both stay on
+  // the null placeholder (see clockNow's own comment above) and only
+  // diverge after this effect fires, same timing hydration already
+  // tolerates for any other post-mount state update.
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    function tick() {
+      const n = new Date();
+      setClockNow(n);
+      const msUntilNextMinute = (60 - n.getSeconds()) * 1000 - n.getMilliseconds();
+      timeoutId = setTimeout(tick, Math.max(1000, msUntilNextMinute));
+    }
+    tick();
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   // Global Header Nav auto-fit: measures the logo's and the end-cluster's
   // REAL rendered edges (brandRef/navEndClusterRef above) and exposes them
@@ -442,9 +541,27 @@ export default function Header() {
     // so the row still degrades gracefully before this effect's first
     // run and if JS is ever unavailable.
     function updateNavLayout() {
-      if (!header || !brandRef.current || !navEndClusterRef.current) return;
-      const brandRect = brandRef.current.getBoundingClientRect();
-      const endRect = navEndClusterRef.current.getBoundingClientRect();
+      // Mobile header amendment: brandRef (desktop <Link>) and
+      // brandMobileRef (mobile <button>) are mutually exclusive via CSS
+      // display:none, so exactly one ever has a real, non-zero rect at
+      // a given width -- getComputedStyle, not an innerWidth breakpoint
+      // guess, so this always matches whatever the CSS actually decided.
+      const brandDesktopVisible = brandRef.current && getComputedStyle(brandRef.current).display !== "none";
+      const activeBrand = brandDesktopVisible ? brandRef.current : brandMobileRef.current;
+      // Mobile header amendment: .nav-end-cluster itself is now
+      // display:none on mobile (not just its children, see globals.css)
+      // to stop it consuming an empty flex-item slot/gap pair next to
+      // the real visible cluster -- so its own rect is a zero-rect at
+      // mobile widths now, same reason brandRef's desktop instance is.
+      // document.querySelector here (not a new ref) matches this same
+      // function's existing .folder-tabbar-hanging lookup below, not a
+      // new pattern.
+      const mobileTriggerEl = document.querySelector(".nav-mobile-trigger") as HTMLElement | null;
+      const endClusterVisible = navEndClusterRef.current && getComputedStyle(navEndClusterRef.current).display !== "none";
+      const activeEnd = endClusterVisible ? navEndClusterRef.current : mobileTriggerEl;
+      if (!header || !activeBrand || !activeEnd) return;
+      const brandRect = activeBrand.getBoundingClientRect();
+      const endRect = activeEnd.getBoundingClientRect();
       // Anchored to the logo's own LEFT edge (where it starts), not its
       // right edge (where it ends) -- explicit user call: the first tab
       // (Dashboard) sits directly under the logo's start, not pushed
@@ -478,11 +595,18 @@ export default function Header() {
     // Deliberately does NOT observe the tab row itself -- this effect is
     // what changes its size (via --nav-tab-h-padding), so watching it
     // too would risk a resize-observer feedback loop. brandRef/
-    // navEndClusterRef are never mutated by this effect, so observing
-    // them is safe.
+    // brandMobileRef/navEndClusterRef are never mutated by this effect,
+    // so observing them is safe. Both brand instances are observed
+    // (only one is ever visible at a time, but ResizeObserver on a
+    // display:none element is harmless) so a width change crossing the
+    // 760px breakpoint itself is also picked up, not just same-tier
+    // resizes.
     const ro = new ResizeObserver(updateNavLayout);
     if (brandRef.current) ro.observe(brandRef.current);
+    if (brandMobileRef.current) ro.observe(brandMobileRef.current);
     if (navEndClusterRef.current) ro.observe(navEndClusterRef.current);
+    const mobileTriggerElForObserver = document.querySelector(".nav-mobile-trigger");
+    if (mobileTriggerElForObserver) ro.observe(mobileTriggerElForObserver);
 
     return () => {
       window.removeEventListener("resize", updateNavLayout);
@@ -873,6 +997,98 @@ export default function Header() {
     );
   }
 
+  // ANIMATED GLASS DATE + TIME WIDGET -- sits between the logo and the
+  // hamburger/bell/avatar cluster at every breakpoint (Layout #5 split:
+  // a big day-of-month number, an etched glass divider, a stacked
+  // month·weekday / time info column, a second etched divider, and the
+  // Bell -- see the mobile header amendment's section E/F/H/N for why
+  // the Bell now lives here instead of in .nav-mobile-trigger. Signed-
+  // in only, same as the controls it sits next to (bell/avatar are all
+  // `!user`-gated too) -- a signed-out visitor gets authLinks() in this
+  // same header slot instead.
+  //
+  // The outer shell stays a plain, non-interactive <div> -- NOT an
+  // aria-label'd button/group wrapping everything, since it now
+  // contains one genuinely interactive child (the Bell link). Only the
+  // day/divider/info cluster (the actually-informational part) gets
+  // its own aria-label'd wrapper (.standup-header-datetime-dateinfo);
+  // the Bell keeps its own independent aria-label from notificationBell
+  // ("glass") and is reachable by Tab on its own, same as it always was
+  // as a standalone control -- this is what "glass shell itself remains
+  // non-interactive... Bell needs its own accessible touch target"
+  // means structurally.
+  //
+  // The Bell renders even in the pre-mount placeholder state below --
+  // unlike the day/time text (which needs the client-only mount guard
+  // to avoid a server/client time mismatch), the Bell has no such
+  // constraint, and "Do NOT hide the Bell" is an explicit requirement,
+  // so it's never gated behind clockNow.
+  //
+  // Three progressive date/time content tiers, purely via CSS
+  // (.standup-header-datetime-date-full/-mid, .standup-header-datetime-
+  // date's own display:none at the narrowest tier) -- the JS always
+  // renders all three pieces, media queries pick which ones are
+  // visible, same "render everything, let CSS choose" approach
+  // .goal-toolbar-label's own responsive hiding already uses elsewhere
+  // in this app. Visible text stays abbreviated at every tier; the full
+  // unabbreviated sentence lives only in the dateinfo wrapper's own
+  // aria-label, with every visual child marked aria-hidden so a screen
+  // reader reads the label once instead of the fragmented abbreviations.
+  function headerDateTime() {
+    if (!user) return null;
+    if (!clockNow) {
+      return (
+        <div className="standup-header-datetime standup-header-datetime-placeholder">
+          <span className="standup-header-datetime-placeholder-box" aria-hidden="true" />
+          <span className="standup-header-datetime-bell-chamber">
+            <span className="standup-header-datetime-divider standup-header-datetime-divider-bell" aria-hidden="true" />
+            {notificationBell("glass")}
+          </span>
+        </div>
+      );
+    }
+
+    const dayOfMonth = clockNow.getDate();
+    const dayStr = String(dayOfMonth).padStart(2, "0");
+    const monthShort = DATETIME_MONTHS_SHORT[clockNow.getMonth()];
+    const weekdayShort = DATETIME_WEEKDAYS_SHORT[clockNow.getDay()];
+
+    let hour12 = clockNow.getHours() % 12;
+    if (hour12 === 0) hour12 = 12;
+    const minuteStr = String(clockNow.getMinutes()).padStart(2, "0");
+    const ampm = clockNow.getHours() >= 12 ? "PM" : "AM";
+    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
+
+    const accessibleLabel = `${DATETIME_WEEKDAYS_FULL[clockNow.getDay()]}, ${
+      DATETIME_MONTHS_FULL[clockNow.getMonth()]
+    } ${dayOfMonth}, ${clockNow.getFullYear()}, ${timeStr}`;
+
+    return (
+      <div className="standup-header-datetime">
+        <span className="standup-header-datetime-sheen" aria-hidden="true" />
+        <span className="standup-header-datetime-dateinfo" aria-label={accessibleLabel}>
+          <span className="standup-header-datetime-day" aria-hidden="true">
+            {dayStr}
+          </span>
+          <span className="standup-header-datetime-divider" aria-hidden="true" />
+          <span className="standup-header-datetime-info" aria-hidden="true">
+            <span className="standup-header-datetime-date">
+              <span className="standup-header-datetime-date-full">
+                {monthShort} · {weekdayShort}
+              </span>
+              <span className="standup-header-datetime-date-mid">{weekdayShort}</span>
+            </span>
+            <span className="standup-header-datetime-time">{timeStr}</span>
+          </span>
+        </span>
+        <span className="standup-header-datetime-bell-chamber">
+          <span className="standup-header-datetime-divider standup-header-datetime-divider-bell" aria-hidden="true" />
+          {notificationBell("glass")}
+        </span>
+      </div>
+    );
+  }
+
   // Always visible regardless of breakpoint (unlike the primary/secondary
   // split) — a pending-notification indicator is exactly the kind of thing
   // that shouldn't disappear into a menu. Rendered right next to
@@ -887,12 +1103,25 @@ export default function Header() {
   // the identical list (plus Accept/Decline/Got it, which this read-only
   // dropdown deliberately doesn't have), and a floating panel has much
   // less room to work with on a phone-width header.
-  function notificationBell(variant: "desktop" | "mobile") {
+  //
+  // "glass" variant (mobile header amendment): the EXACT same mobile
+  // Link/href/aria-label/badge as the "mobile" branch below -- this is
+  // the canonical mobile bell, not a second implementation -- just
+  // without .nav-bell-btn/.header-metal-control's own dark-metal socket
+  // styling, since it now lives as the third chamber of the glass
+  // date/time instrument (.standup-header-datetime-bell below) and
+  // must read as part of ONE continuous piece of glass, not a metal
+  // button embedded in one.
+  function notificationBell(variant: "desktop" | "mobile" | "glass") {
     if (!user) return null;
-    if (variant === "mobile") {
+    if (variant === "mobile" || variant === "glass") {
       return (
-        <Link href="/standup/dashboard" className="nav-bell-btn header-metal-control" aria-label={t("nav.notificationsAriaLabel")}>
-          <Bell size={18} />
+        <Link
+          href="/standup/dashboard"
+          className={variant === "glass" ? "standup-header-datetime-bell" : "nav-bell-btn header-metal-control"}
+          aria-label={t("nav.notificationsAriaLabel")}
+        >
+          <Bell size={variant === "glass" ? 16 : 18} />
           {notificationCount > 0 && (
             <span className="nav-bell-badge">{notificationCount > 9 ? "9+" : notificationCount}</span>
           )}
@@ -972,16 +1201,76 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link href={user ? "/standup/dashboard" : "/"} className="brand brand-oversized" ref={brandRef}>
+        {/* Desktop/tablet: the logo is a real navigation Link (home/
+            dashboard), unchanged. Hidden on mobile (see .brand-desktop-
+            only in globals.css) -- the mobile brand button below takes
+            its place there instead. */}
+        <Link
+          href={user ? "/standup/dashboard" : "/"}
+          className="brand brand-oversized brand-desktop-only"
+          ref={brandRef}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
         </Link>
 
+        {/* Mobile header amendment: on mobile ONLY, the logo becomes the
+            mobile menu trigger instead of a navigation link -- the
+            separate hamburger button that used to do this (further
+            below) is gone, freeing its width for the glass date/time
+            instrument. Reuses the EXACT same canonical menu state/
+            handler/outside-click/content as the old mobile hamburger
+            (toggleMenu("menu"), menuOpen, hamburgerMobileBtnRef,
+            mobileMenuPanelRef, hamburgerNavLinks()/secondaryLinks())
+            -- nothing about the menu itself is duplicated or
+            reimplemented, only which element triggers it changed. A
+            plain <button> (type="button", no href) with the same two
+            logo <img> children as the desktop Link and no visible
+            button chrome of its own (see .brand-mobile-trigger in
+            globals.css -- background/border:none, just a restrained
+            press/focus glow) so it still reads as "the StandUp logo,"
+            not a rectangular control. Hidden above the mobile
+            breakpoint (.brand-mobile-only). */}
+        <button
+          type="button"
+          ref={(el) => {
+            // Two refs, one element: brandMobileRef (layout measurement,
+            // see updateNavLayout() above) and hamburgerMobileBtnRef
+            // (the SAME ref the old mobile hamburger button used for
+            // outside-click detection, see the menuOpen effect above --
+            // reused as-is, not duplicated, now that this button is
+            // mobile's menu trigger instead).
+            brandMobileRef.current = el;
+            hamburgerMobileBtnRef.current = el;
+          }}
+          className="brand brand-oversized brand-mobile-only brand-mobile-trigger"
+          aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-menu-panel"
+          onClick={() => toggleMenu("menu")}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
+        </button>
+
         {/* Logged-out only — Sign In/Sign Up. Logged-in users get the same
             destinations via navTabs()'s hanging row below instead. */}
         {authLinks()}
+
+        {/* Glass date/time widget — sits in the natural space-between gap
+            .app-header-inner's flex layout already leaves between the
+            brand and whichever end cluster (desktop or mobile) is
+            visible at the current width. Signed-in only (see
+            headerDateTime()'s own comment), so it occupies the exact
+            same slot authLinks() uses for a signed-out visitor — the
+            two are mutually exclusive by construction (each gated on
+            opposite sides of the same `user` check), never both
+            present at once. */}
+        {headerDateTime()}
 
         {/* Hamburger + Bell + (logged-out only) More + Profile grouped
             together at the very end of the row — explicit user call. A
@@ -1042,31 +1331,15 @@ export default function Header() {
           {profileMenu("desktop")}
         </div>
 
-        {/* Mobile: logo stays on the left (above); hamburger/bell/avatar
-            live here, bell placed directly next to avatar (mirroring the
-            desktop bell-next-to-Profile grouping) rather than next to the
-            hamburger. Assignments no longer needs its own icon here —
-            it's a navTabs() tab now, visible at every breakpoint already.
-            For a signed-in user this button opens the SAME full
-            NAV_TABS list as the new desktop hamburger instance above
-            (see .mobile-menu-panel below); for a logged-out visitor it
-            still opens About/FAQ/Contact + Sign In/Get Started exactly
-            as before. Hidden above the mobile breakpoint — see
-            .nav-mobile-trigger. */}
+        {/* Mobile header amendment: the standalone mobile Hamburger and
+            Bell are gone from this cluster -- the logo (above) is now
+            the mobile menu trigger, and the Bell now lives as the third
+            chamber of the glass date/time instrument (headerDateTime()
+            above). Avatar stays independent on the far right, same
+            component/handlers as before, just alone in this wrapper
+            now instead of sharing it with two other controls. Hidden
+            above the mobile breakpoint — see .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
-          <button
-            type="button"
-            ref={hamburgerMobileBtnRef}
-            className="hamburger-btn header-metal-control"
-            aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-            aria-expanded={menuOpen}
-            onClick={() => toggleMenu("menu")}
-          >
-            <span className="hamburger-line" />
-            <span className="hamburger-line" />
-            <span className="hamburger-line" />
-          </button>
-          {notificationBell("mobile")}
           {!loading && profileMenu("mobile")}
         </div>
       </div>
@@ -1074,7 +1347,7 @@ export default function Header() {
       {navTabs()}
 
       {menuOpen && (
-        <div className="mobile-menu-panel" ref={mobileMenuPanelRef}>
+        <div className="mobile-menu-panel" id="mobile-menu-panel" ref={mobileMenuPanelRef}>
           {/* Header Navigation Refresh: a signed-in user's menu is now
               the full NAV_TABS list (same content as the new desktop
               hamburger instance above) -- Theme/Language/Logout moved

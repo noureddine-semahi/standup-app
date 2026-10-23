@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronUp, ChevronDown, TriangleAlert, Ticket, Check } from "lucide-react";
+import { ChevronUp, ChevronDown, TriangleAlert, Ticket, Check, CheckCircle2, Sun, Wrench } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
   toISODate,
@@ -190,8 +191,15 @@ export default function CalendarPage() {
   const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
   const searchParams = useSearchParams();
   const [showOverdueList, setShowOverdueList] = useState(() => searchParams.get("unreviewed") === "1");
+  // SSR/hydration guard for the fixed command bar's mobile portal — same
+  // convention Today's/Tomorrow's own fixed action bars already use.
+  const [mounted, setMounted] = useState(false);
 
   const todayISO = useMemo(() => toISODate(new Date()), []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     getOverdueDays(todayISO)
@@ -354,7 +362,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="card card-highlight">
+    <div className="card card-highlight calendar-page-card">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-3xl font-bold">{t("nav.calendar")}</h1>
           {/* Phase 10B: was one flat `flex flex-wrap` of 5 siblings (3 nav
@@ -586,17 +594,42 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-2 sm:gap-3 flex-wrap">
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/today">
-            {t("nav.reviewToday")}
-          </Link>
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tomorrow">
-            {t("nav.planTomorrow")}
-          </Link>
-          <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tools">
-            {t("calendar.storeInBacklog")}
-          </Link>
-        </div>
+        {/* Same fixed-bottom-bar architecture as Today's/Tomorrow's own
+            command bars — explicit user call to match their design and
+            move these three actions to a fixed mobile bar. .calendar-page-
+            card (like .today-page-card/.tomorrow-page-card) carries
+            backdrop-filter via the shared .card class, which makes it a
+            containing block and breaks position:fixed for an in-flow
+            descendant — rendering the SAME content a second time through a
+            portal straight to document.body escapes that, and a >640px
+            media query (matching Today's/Tomorrow's own breakpoint) picks
+            exactly one of the two to actually render at a time. All three
+            links/hrefs/labels are unchanged from before, just relocated
+            and reskinned to the shared accent pill style. */}
+        {(() => {
+          const content = (
+            <div className="calendar-command-grid">
+              <Link className="btn standup-metal-btn standup-metal-btn--accent calendar-command-btn" href="/standup/today">
+                <CheckCircle2 size={14} />
+                {t("nav.reviewToday")}
+              </Link>
+              <Link className="btn standup-metal-btn standup-metal-btn--accent calendar-command-btn" href="/standup/tomorrow">
+                <Sun size={14} />
+                {t("nav.planTomorrow")}
+              </Link>
+              <Link className="btn standup-metal-btn standup-metal-btn--accent calendar-command-btn" href="/standup/tools">
+                <Wrench size={14} />
+                {t("calendar.storeInBacklog")}
+              </Link>
+            </div>
+          );
+          return (
+            <>
+              <div className="calendar-command-bar calendar-command-bar-desktop">{content}</div>
+              {mounted && createPortal(<div className="calendar-command-bar calendar-command-bar-mobile">{content}</div>, document.body)}
+            </>
+          );
+        })()}
       </div>
   );
 }

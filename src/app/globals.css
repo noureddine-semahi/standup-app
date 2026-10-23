@@ -10434,6 +10434,85 @@ select:focus {
   }
 }
 
+/* ---- Calendar's fixed command area ----
+   Same architecture as .today-command-bar-desktop/-mobile above, and the
+   same .today-command-grid/.today-command-btn sizing -- explicit user
+   call to give Calendar's own Review Today/Plan Tomorrow/Store in Backlog
+   row the same design as Today's/Tomorrow's bars, move it to the bottom,
+   and make it a fixed bar on mobile. All three are equally primary here
+   (no secondary/neutral row the way Today's/Tomorrow's bars split into),
+   so this is just the one 3-across accent-gold row, Calendar-scoped
+   (not reusing .today-command-grid directly) for the same reason Today
+   and Tomorrow don't share classes either -- one page's future sizing
+   tweak must never silently recolor/resize another's bar. */
+.calendar-command-bar-mobile {
+  display: none;
+}
+
+.calendar-command-bar-desktop {
+  display: flex;
+  margin-top: 1.5rem;
+}
+
+.calendar-command-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: start;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.calendar-command-btn {
+  min-height: 34px;
+  padding: 0.3rem 0.4rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  width: 100%;
+  gap: 0.3rem;
+}
+
+@media (max-width: 640px) {
+  /* Measured against the real compiled bar (one 34px-tall row plus the
+     bar's own 10px top/bottom padding), same measured-not-guessed
+     approach as .today-page-card's own clearance. */
+  .calendar-page-card {
+    padding-bottom: 72px;
+  }
+
+  .calendar-command-bar-desktop {
+    display: none;
+  }
+
+  .calendar-command-bar-mobile {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: rgba(var(--panel-rgb), var(--chrome-alpha));
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border-top: 1px solid rgba(245, 158, 11, 0.2);
+    box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 360px) {
+  .calendar-command-btn {
+    font-size: 0.6rem !important;
+    padding: 0.28rem 0.25rem !important;
+    gap: 0.2rem;
+  }
+}
+
 /* ---- Header controls: hamburger / notification bell / profile-avatar ----
    Same premium metal LANGUAGE as .standup-metal-btn (the same
    --metal-color/--metal-edge-neutral/--metal-glow-* tokens, the same

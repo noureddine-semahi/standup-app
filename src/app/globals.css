@@ -4871,6 +4871,38 @@ select:focus {
 @media (max-width: 640px) {
   .goal-row-cols {
     flex-direction: column;
+    /* .goal-row-cols' own base rule (further up this file) sets
+       align-items: flex-start for the desktop ROW layout (so columns
+       align to the top rather than stretching to match each other's
+       height) -- once flex-direction flips to column here, stretch is
+       the correct cross-axis (now WIDTH) behavior instead, so each
+       stacked "column" actually becomes the container's full width. */
+    align-items: stretch;
+  }
+
+  /* Overflow fix: Tomorrow's own title column (.goal-row-title-col,
+     tomorrow/page.tsx) sets an inline min-width:200px meant as a
+     DESKTOP floor (so it doesn't get squeezed too narrow next to the
+     Priority/Actions column in the row layout above 640px) -- but a
+     flex item's default min-width is also "auto" (never shrink below
+     its own content's min-content size), and an inline style always
+     wins over align-items: stretch above. Once .goal-toolbar's content
+     grew (Assign/Clock/All day merged back into it, explicit user
+     call, more buttons in one row now), its natural min-content width
+     started exceeding the actual available space on narrow phones, and
+     neither align-items: stretch nor the 200px floor could shrink it
+     back down -- it visibly overflowed the card. !important here
+     forces the floor down to 0 specifically in this already-stacked,
+     single-column context, where the desktop justification for 200px
+     no longer applies, letting the column (and the toolbar inside it)
+     actually shrink to the real available width and wrap properly.
+     Today's own title column already does this correctly at baseline
+     (a plain min-width:0, no override needed) -- this just brings
+     Tomorrow's back in line with that same safe pattern. */
+  .goal-row-title-col {
+    min-width: 0 !important;
+    width: 100% !important;
+    flex-basis: auto !important;
   }
 
   /* Plan Tomorrow only (scoped to this one wrapper class): once the

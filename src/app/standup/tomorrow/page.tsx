@@ -1451,7 +1451,7 @@ export default function TomorrowGoalsPage() {
           <div className="goal-row-body">
           <div className="goal-row-cols">
             {/* Goal — static, ~45% */}
-            <div style={{ flex: "1 1 40%", minWidth: "200px" }}>
+            <div className="goal-row-title-col" style={{ flex: "1 1 40%", minWidth: "200px" }}>
               {/* Priority leads the title row as a compact tag directly
                   attached to the task — moved ahead of the (flexible,
                   stretching) title textarea instead of trailing after

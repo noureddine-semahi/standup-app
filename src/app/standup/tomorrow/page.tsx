@@ -82,7 +82,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronUp, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -133,6 +133,33 @@ export default function TomorrowGoalsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // The fixed action bar (below) is now always fixed/always visible on
+  // every viewport, not just mobile -- explicit user call -- so it also
+  // gets a collapse toggle, remembered per device, so it doesn't have to
+  // permanently claim screen space on desktop. Defaults to expanded
+  // (true) until localStorage says otherwise, read only after mount
+  // since localStorage doesn't exist during SSR.
+  const [barExpanded, setBarExpanded] = useState(true);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("standup-tomorrow-bar-expanded");
+      if (stored === "false") setBarExpanded(false);
+    } catch {
+      // Private browsing / storage disabled -- fall back to the default.
+    }
+  }, []);
+  function toggleBarExpanded() {
+    setBarExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("standup-tomorrow-bar-expanded", String(next));
+      } catch {
+        // Non-fatal -- the toggle still works for this session either way.
+      }
+      return next;
+    });
+  }
 
   const [planId, setPlanId] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<string>("draft");
@@ -1663,11 +1690,130 @@ export default function TomorrowGoalsPage() {
                   </PortalDropdownMenu>
                 )}
 
-                {/* Exclusive/Shared — Assign itself now lives in the
-                    scheduling row below, alongside Time/All day, instead
-                    of here; this control only shows pre-assignment, same
-                    as before (assignment/received replace it with the
-                    status line underneath). */}
+                {/* Assign — merged back into this same toolbar (was
+                    split out into its own "scheduling row" alongside
+                    Time/All day below; explicit user call to put it back
+                    here instead). Same condition as Exclusive/Shared
+                    right after it: only shows pre-assignment. */}
+                {!assignment && !received && g.id && acceptedConnections.length > 0 && (
+                  <PortalDropdownMenu
+                    open={openAssignMenuId === g.id}
+                    onClose={() => setOpenAssignMenuId(null)}
+                    anchorRef={assignMenuRef}
+                    align="left"
+                    panelClassName="conn-card-menu"
+                    panelStyle={{ minWidth: "180px", maxWidth: "min(240px, calc(100vw - 4rem))" }}
+                    panel={
+                      <>
+                        {acceptedConnections.map((c) => (
+                          <button
+                            key={c.otherUserId}
+                            type="button"
+                            onClick={() => {
+                              handleAssignGoal(g.id as string, c.otherUserId);
+                              setOpenAssignMenuId(null);
+                            }}
+                            className="conn-card-menu-item"
+                            title={connectionDisplayName(c, t)}
+                          >
+                            <span className="truncate min-w-0 flex-1">{connectionDisplayName(c, t)}</span>
+                          </button>
+                        ))}
+                      </>
+                    }
+                  >
+                    <div
+                      className="relative inline-flex items-center flex-shrink-0"
+                      ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
+                    >
+                      <button
+                        type="button"
+                        disabled={assigningGoalIds.has(g.id as string) || locked}
+                        onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
+                        className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
+                      >
+                        <UserPlus size={13} className="flex-shrink-0" />
+                        <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
+                        <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
+                      </button>
+                    </div>
+                  </PortalDropdownMenu>
+                )}
+
+                {/* Time — a compact clock-icon trigger instead of the
+                    wide native "--:--" box. The real <input type="time">
+                    is still here with its exact original value/onChange/
+                    onBlur/autosave; it's just layered invisibly
+                    (opacity:0, absolutely filling this wrapper) over the
+                    icon, so tapping anywhere on it opens the browser's
+                    native time picker exactly as before -- no new
+                    trigger logic, same element, same handlers. Hidden
+                    when all-day, same condition as before. */}
+                {!(g as any).is_all_day && (
+                  <div
+                    className={`btn goal-toolbar-btn relative${g.time_of_day ? " btn-tint btn-amber-tint" : ""}`}
+                    style={{
+                      opacity: locked || submitting || isExclusive ? 0.5 : 1,
+                    }}
+                  >
+                    <Clock size={13} className="flex-shrink-0" />
+                    <input
+                      type="time"
+                      value={g.time_of_day?.slice(0, 5) ?? ""}
+                      disabled={locked || submitting || isExclusive}
+                      onBlur={() => {
+                        if (skipNextBlurAutosaveRef.current) {
+                          skipNextBlurAutosaveRef.current = false;
+                          return;
+                        }
+                        if (priorityChangeInProgressRef.current) {
+                          return;
+                        }
+                        scheduleAutoSave();
+                      }}
+                      onChange={(e) =>
+                        setGoals((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, time_of_day: e.target.value || null } : x
+                          )
+                        )
+                      }
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0 }}
+                      title={t("tomorrow.optionalTimeTitle")}
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={locked || submitting || isExclusive}
+                  onClick={() => {
+                    setGoals((prev) =>
+                      prev.map((x, i) =>
+                        i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
+                      )
+                    );
+                    scheduleAutoSave();
+                  }}
+                  // Phase 8B: was a plain .btn with an inline
+                  // background/borderColor override for the
+                  // selected state -- the exact "bypasses the
+                  // shared system" pattern found and fixed on
+                  // Today's buttons in earlier phases. Reuses the
+                  // existing .btn-tint/.btn-amber-tint combo (the
+                  // same amber accent the Assign control already
+                  // uses) instead of a one-off inline color, so
+                  // Time + All Day read as the same family of
+                  // scheduling control.
+                  className={`btn goal-toolbar-btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
+                  title={t("tomorrow.allDayTitleTask")}
+                >
+                  {(g as any).is_all_day && <Sun size={12} className="flex-shrink-0" />} {t("tomorrow.allDay")}
+                </button>
+
+                {/* Exclusive/Shared — this control only shows
+                    pre-assignment, same as before (assignment/received
+                    replace it with the status line underneath). */}
                 {!assignment && !received && g.id && acceptedConnections.length > 0 && (
                   <PortalDropdownMenu
                     open={openPrivacyMenuId === g.id}
@@ -1790,129 +1936,6 @@ export default function TomorrowGoalsPage() {
                   className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
                 />
               )}
-
-              {/* Scheduling/control row — Assign (moved down from the
-                  toolbar above) + a compact clock-icon time trigger +
-                  All day, all three on one row so they read as a single
-                  group instead of Assign competing with
-                  Checklist/Files/Link/Exclusive-Shared up top. */}
-              <div className="mt-2 flex items-center flex-wrap gap-1.5">
-                {!assignment && !received && g.id && acceptedConnections.length > 0 && (
-                  <PortalDropdownMenu
-                    open={openAssignMenuId === g.id}
-                    onClose={() => setOpenAssignMenuId(null)}
-                    anchorRef={assignMenuRef}
-                    align="left"
-                    panelClassName="conn-card-menu"
-                    panelStyle={{ minWidth: "180px", maxWidth: "min(240px, calc(100vw - 4rem))" }}
-                    panel={
-                      <>
-                        {acceptedConnections.map((c) => (
-                          <button
-                            key={c.otherUserId}
-                            type="button"
-                            onClick={() => {
-                              handleAssignGoal(g.id as string, c.otherUserId);
-                              setOpenAssignMenuId(null);
-                            }}
-                            className="conn-card-menu-item"
-                            title={connectionDisplayName(c, t)}
-                          >
-                            <span className="truncate min-w-0 flex-1">{connectionDisplayName(c, t)}</span>
-                          </button>
-                        ))}
-                      </>
-                    }
-                  >
-                    <div
-                      className="relative inline-flex items-center flex-shrink-0"
-                      ref={openAssignMenuId === g.id ? assignMenuRef : undefined}
-                    >
-                      <button
-                        type="button"
-                        disabled={assigningGoalIds.has(g.id as string) || locked}
-                        onClick={() => setOpenAssignMenuId((prev) => (prev === g.id ? null : (g.id as string)))}
-                        className="btn btn-tint btn-amber-tint goal-toolbar-btn goal-toolbar-btn-assign"
-                      >
-                        <UserPlus size={13} className="flex-shrink-0" />
-                        <span className="goal-toolbar-label goal-toolbar-label-keep">{t("goalAssign.assignShort")}</span>
-                        <ChevronDown size={12} className="text-white/40 flex-shrink-0" />
-                      </button>
-                    </div>
-                  </PortalDropdownMenu>
-                )}
-
-                {/* Time — a compact clock-icon trigger instead of the
-                    wide native "--:--" box. The real <input type="time">
-                    is still here with its exact original value/onChange/
-                    onBlur/autosave; it's just layered invisibly
-                    (opacity:0, absolutely filling this wrapper) over the
-                    icon, so tapping anywhere on it opens the browser's
-                    native time picker exactly as before -- no new
-                    trigger logic, same element, same handlers. Hidden
-                    when all-day, same condition as before. */}
-                {!(g as any).is_all_day && (
-                  <div
-                    className={`btn goal-toolbar-btn relative${g.time_of_day ? " btn-tint btn-amber-tint" : ""}`}
-                    style={{
-                      opacity: locked || submitting || isExclusive ? 0.5 : 1,
-                    }}
-                  >
-                    <Clock size={13} className="flex-shrink-0" />
-                    <input
-                      type="time"
-                      value={g.time_of_day?.slice(0, 5) ?? ""}
-                      disabled={locked || submitting || isExclusive}
-                      onBlur={() => {
-                        if (skipNextBlurAutosaveRef.current) {
-                          skipNextBlurAutosaveRef.current = false;
-                          return;
-                        }
-                        if (priorityChangeInProgressRef.current) {
-                          return;
-                        }
-                        scheduleAutoSave();
-                      }}
-                      onChange={(e) =>
-                        setGoals((prev) =>
-                          prev.map((x, i) =>
-                            i === idx ? { ...x, time_of_day: e.target.value || null } : x
-                          )
-                        )
-                      }
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0 }}
-                      title={t("tomorrow.optionalTimeTitle")}
-                    />
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={locked || submitting || isExclusive}
-                  onClick={() => {
-                    setGoals((prev) =>
-                      prev.map((x, i) =>
-                        i === idx ? { ...x, is_all_day: !(x as any).is_all_day, time_of_day: null } : x
-                      )
-                    );
-                    scheduleAutoSave();
-                  }}
-                  // Phase 8B: was a plain .btn with an inline
-                  // background/borderColor override for the
-                  // selected state -- the exact "bypasses the
-                  // shared system" pattern found and fixed on
-                  // Today's buttons in earlier phases. Reuses the
-                  // existing .btn-tint/.btn-amber-tint combo (the
-                  // same amber accent the Assign control already
-                  // uses) instead of a one-off inline color, so
-                  // Time + All Day read as the same family of
-                  // scheduling control.
-                  className={`btn goal-toolbar-btn${(g as any).is_all_day ? " btn-tint btn-amber-tint" : ""}`}
-                  title={t("tomorrow.allDayTitleTask")}
-                >
-                  {(g as any).is_all_day && <Sun size={12} className="flex-shrink-0" />} {t("tomorrow.allDay")}
-                </button>
-              </div>
 
               {g.rescheduled_from_date && (
                 <div className="mt-2 flex items-start gap-2">
@@ -2269,31 +2292,23 @@ export default function TomorrowGoalsPage() {
         })()}
 
         {!locked && (() => {
-          // Phase 8A.1: the mobile bar used to be a `position: fixed`
-          // DESCENDANT of this card -- but .card carries `backdrop-filter`
-          // (confirmed via computed-style walk: it's the only ancestor
-          // between here and <body> with a containing-block-triggering
-          // property), which per spec makes any `position: fixed`
-          // descendant behave like `position: absolute` relative to the
-          // card instead of the viewport. Verified empirically pre-fix:
-          // the bar's getBoundingClientRect().top moved 1:1 with
-          // window.scrollTo(), which true fixed positioning never does.
+          // Phase 8A.1 originally rendered this bar twice (inline for
+          // desktop, portaled for mobile) because .card's backdrop-filter
+          // makes it a containing block, which per spec makes any
+          // `position: fixed` descendant behave like `position: absolute`
+          // relative to the card instead of the viewport. Verified
+          // empirically: the bar's getBoundingClientRect().top moved 1:1
+          // with window.scrollTo(), which true fixed positioning never
+          // does.
           //
-          // Fix: render the SAME content twice from one inner function
-          // (not a shared element reference -- each call produces its own
-          // element tree, so there's no React key collision) -- once
-          // inline here for desktop (unchanged from Phase 8A, still fully
-          // contained in the card's normal flow), and once through a
-          // portal straight to document.body for mobile, which escapes
-          // the card's containing block entirely so `position: fixed`
-          // finally anchors to the real viewport. Only one of the two
-          // ever displays at a given width (globals.css media query),
-          // the other is `display: none` -- same "render both, let CSS
-          // pick one" pattern this app already uses for mobile/desktop
-          // nav variants, and the portal itself reuses the exact
+          // Now that the bar is fixed+always-visible at every width
+          // (explicit user call, not just mobile), there's only one copy
+          // left -- always the portaled one, straight to document.body,
+          // which escapes the card's containing block the same way the
+          // old mobile-only copy did. The portal itself reuses the exact
           // `createPortal(..., document.body)` + `mounted` SSR-guard
           // convention already established by this app's modals (e.g.
-          // RescheduleModal) -- not a new pattern.
+          // RescheduleModal).
           const content = (
             <>
               {/* Planning-tools tier — Use a Pass / Reorder, relocated
@@ -2810,15 +2825,32 @@ export default function TomorrowGoalsPage() {
             </>
           );
 
+          // Explicit user call: this bar is now fixed and visible on every
+          // viewport, not just mobile (previously the desktop copy sat
+          // in-flow at the bottom of the card and scrolled away) — so it's
+          // ALWAYS the portaled copy now, never the in-flow one. A
+          // persistent toggle tab (barExpanded, declared near the top of
+          // this component) lets it collapse down to just that tab so it
+          // doesn't permanently claim screen space; collapse state is
+          // remembered per device via localStorage, default expanded.
           return (
-            <>
-              <div className="tomorrow-action-row tomorrow-action-row-desktop mt-8">{content}</div>
-              {mounted &&
-                createPortal(
-                  <div className="tomorrow-action-row tomorrow-action-row-mobile">{content}</div>,
-                  document.body
-                )}
-            </>
+            mounted &&
+            createPortal(
+              <div className="fixed-action-bar tomorrow-fixed-bar" data-expanded={barExpanded}>
+                <button
+                  type="button"
+                  onClick={toggleBarExpanded}
+                  className="fixed-bar-toggle"
+                  data-collapsed={!barExpanded}
+                  aria-expanded={barExpanded}
+                >
+                  {barExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  <span>{barExpanded ? t("tomorrow.hideControls") : t("tomorrow.showControls")}</span>
+                </button>
+                {barExpanded && <div className="tomorrow-action-row fixed-bar-inner">{content}</div>}
+              </div>,
+              document.body
+            )
           );
         })()}
 

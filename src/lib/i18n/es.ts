@@ -412,6 +412,8 @@ export const es: Record<keyof typeof en, string> = {
   "tomorrow.failedAddSuggested": "Error al agregar el objetivo sugerido",
   "tomorrow.failedAddSuggestedTask": "Error al agregar la tarea sugerida",
   "tomorrow.paymentGoalsAdded": "Agregado a tu plan: {names}",
+  "tomorrow.hideControls": "Ocultar",
+  "tomorrow.showControls": "Controles",
 
   // Payment confirmation modal — gates completing a payment-reminder goal
   // on confirming the actual amount paid, which is then logged and
@@ -520,6 +522,8 @@ export const es: Record<keyof typeof en, string> = {
   "today.addNoteTitle": "Agregar nota",
   "today.inProgressAction": "En Progreso",
   "today.pendingAction": "Pendiente",
+  "today.hideControls": "Ocultar",
+  "today.showControls": "Controles",
   "today.updateStatusLabel": "Actualizar estado",
   "today.rescheduledTo": "Reprogramado para {date}",
   "today.refresh": "Actualizar",

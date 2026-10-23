@@ -6910,29 +6910,12 @@ select:focus {
 
 /* Plan Tomorrow's bottom action area — Add Goal (secondary) / Saved
    (status feedback, not a button once there's nothing to save) /
-   Submit Plan (primary completion action). Desktop: one row, three
-   chunks, left to right -- unchanged from before Phase 8A. */
+   Submit Plan (primary completion action). */
 .tomorrow-action-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
-}
-
-/* Phase 8A.1: two copies of the SAME content now exist in the DOM
-   (tomorrow/page.tsx renders one inline, one through a portal to
-   document.body) so the mobile copy can truly be position:fixed to
-   the viewport -- .tomorrow-page-card's backdrop-filter (from the
-   shared .card class) otherwise traps a fixed descendant into
-   behaving like position:absolute relative to the card instead (see
-   the comment above this rule's mobile override below). Only one
-   copy is ever visible; this is the same "render both, let a media
-   query pick one" technique already used elsewhere in this app for
-   mobile/desktop variants, not scroll-position JS. Desktop copy needs
-   no override -- .tomorrow-action-row's base rule above already is
-   its complete, pre-Phase-8A.1 styling. */
-.tomorrow-action-row-mobile {
-  display: none;
 }
 
 /* Passive save-state feedback -- same min-height as .tomorrow-toolbar-btn
@@ -7054,69 +7037,106 @@ select:focus {
    it just styles the portal's output. Verified empirically post-fix:
    getBoundingClientRect().top stays constant across scroll positions,
    which it never did before this change. */
-@media (max-width: 640px) {
-  /* 235px clears the bar's tallest real measured footprint (was 280px,
-     then 240px, through several earlier revisions of this bar -- see
-     git history for that chain). Dropped again specifically because
-     .tomorrow-toolbar-btn (Use a Pass/Reorder/Add Task/Save draft/
-     Submit Plan) now matches .tomorrow-nav-btn's own smaller height/
-     padding/font-size (explicit "match the Calendar/Tools/Dashboard
-     row" call) instead of its own larger sizing -- re-measured at
-     167px total at 320px width, the worst case, down from 173px
-     before this change (via the same isolated harness against the
-     real compiled CSS, with the app's real --font-body, Space Mono,
-     actually loaded -- see the Dashboard quick-actions fix's own
-     comment for why that specifically matters to a measurement like
-     this one). 167px + the same ~67px safety cushion the previous
-     value already carried (for the Spanish 3-line Submitted-state
-     case this harness can't reproduce, plus general real-device
-     margin) -- not re-verified against that exact combination, but a
-     measured baseline with a carried-forward cushion, not a blind
-     guess. */
-  .tomorrow-page-card {
-    padding-bottom: 235px;
-  }
+/* ---- Shared collapsible fixed action bar ----
+   Explicit user call: Tomorrow's (and Today's, see its own
+   .today-fixed-bar below) bottom command bar is now fixed and visible
+   at EVERY viewport width, not just mobile -- it no longer sits in
+   normal page flow and scroll away on desktop. A persistent pull-tab
+   toggle lives in exactly the same spot whether the bar is expanded or
+   collapsed, so collapsing it down doesn't permanently cost desktop
+   screen space while still leaving one obvious, consistent place to
+   bring it back. Collapsed state glows (reuses the existing pulseGlow
+   keyframe, previously defined but unused) since it's the ONLY way back
+   into the bar once hidden; expanded state is a quiet neutral handle
+   since the full bar is already visible and doesn't need to shout.
+   Shared across pages because this chrome (the toggle tab itself, the
+   fixed-positioning mechanics) is genuinely identical UI regardless of
+   which page's bar it's attached to -- only the glass/border treatment
+   and the content inside stay page-scoped, same as every other
+   Today/Tomorrow pair in this file. */
+.fixed-action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-  .tomorrow-action-row-desktop {
-    display: none;
-  }
+.fixed-bar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 1rem;
+  border-radius: 10px 10px 0 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid rgba(var(--tint-rgb), 0.18);
+  border-bottom: none;
+  background: rgba(var(--panel-rgb), var(--chrome-alpha));
+  color: rgba(var(--tint-rgb), 0.6);
+  transform: translateY(1px);
+  flex-shrink: 0;
+}
 
-  .tomorrow-action-row-mobile {
-    display: flex;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 30;
-    flex-direction: column;
-    align-items: stretch;
-    margin: 0 !important;
-    gap: 0.6rem;
-    padding: 10px 14px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    background: rgba(var(--panel-rgb), var(--chrome-alpha));
-    backdrop-filter: blur(12px) saturate(180%);
-    border-top: 1px solid rgba(245, 158, 11, 0.2);
-    box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
-  }
+/* The only way back into the bar once it's hidden -- deliberately the
+   loudest control on either page's bar, amber border + glow pulse. */
+.fixed-bar-toggle[data-collapsed="true"] {
+  border-color: rgba(245, 158, 11, 0.6);
+  color: var(--status-missed, #f59e0b);
+  animation: pulseGlow 2s ease-in-out infinite;
+}
 
-  /* The open Standalone Task composer is a direct flex child of the bar
-     above once portaled to mobile, which already provides a 0.6rem gap
-     between it and the Saved indicator above it (gap: 0.6rem) -- the
-     composer's own `mt-2` utility (needed on desktop, where it isn't a
-     flex child of anything with its own gap) stacked an extra 0.5rem on
-     top of that here, producing a visibly oversized band between "Saved"
-     and the composer. Cancelled only on mobile/only on this element;
-     desktop's spacing (and the composer's own internal layout) is
-     untouched. */
-  .tomorrow-task-composer {
-    margin-top: 0;
-  }
+.fixed-bar-inner {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
 
-  .tomorrow-submit-btn {
-    width: 100%;
-    min-width: 0;
-  }
+.tomorrow-fixed-bar .fixed-bar-inner {
+  padding: 10px 14px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.tomorrow-fixed-bar {
+  background: rgba(var(--panel-rgb), var(--chrome-alpha));
+  backdrop-filter: blur(12px) saturate(180%);
+  border-top: 1px solid rgba(245, 158, 11, 0.2);
+  box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
+}
+
+/* 235px clears the bar's tallest real measured footprint (was 280px,
+   then 240px, through several earlier revisions of this bar -- see git
+   history for that chain), now reserved at every width since the bar
+   itself no longer changes shape by viewport (always a 3-column grid
+   of fixed-height rows, confirmed via screenshot at 320-1024px --
+   button WIDTH grows with the viewport, not row count/height). Applies
+   whenever the bar is expanded; collapsed needs only enough room for
+   the toggle tab itself. */
+.tomorrow-page-card {
+  padding-bottom: 235px;
+}
+
+body:has(.tomorrow-fixed-bar[data-expanded="false"]) .tomorrow-page-card {
+  padding-bottom: 56px;
+}
+
+/* Previously mobile-only (the bar was only ever fixed on mobile before)
+   -- now unconditional since the bar's flex-child layout no longer
+   differs by viewport; see .fixed-action-bar's own comment above. */
+.tomorrow-task-composer {
+  margin-top: 0;
+}
+
+.tomorrow-submit-btn {
+  width: 100%;
+  min-width: 0;
 }
 
 /* ✨ Community feed polish — tighter cards + a small "feels alive" reaction
@@ -10322,34 +10342,55 @@ select:focus {
    than inventing a second one: .today-page-card (like .tomorrow-page-card)
    carries backdrop-filter via the shared .card class, which makes it a
    containing block and breaks position:fixed for any descendant --
-   .today-command-bar-desktop renders inline in normal flow (used above
-   640px), .today-command-bar-mobile is the SAME content rendered a
-   second time through a portal straight to document.body (used at/below
-   640px), escaping that containing block so position:fixed can actually
-   anchor to the real viewport. Only one of the two is ever visible at a
-   given width; .today-page-card's own bottom padding (below) reserves
-   exactly the fixed bar's real footprint so the last Today goal can
-   still scroll completely clear of it.
+   rendered through a portal straight to document.body escapes that, same
+   as Tomorrow's own bar. Now fixed and visible at every viewport width
+   (explicit user call, same change as Tomorrow's), with the same shared
+   .fixed-action-bar/.fixed-bar-toggle collapse mechanism (see that
+   comment further up this file) -- .today-page-card's own bottom padding
+   (below) reserves exactly the expanded bar's real footprint so the last
+   Today goal can still scroll completely clear of it.
 
-   Explicit user call to mirror Tomorrow's just-finished bar layout
-   exactly: top row (.today-command-grid) is Plan Tomorrow/Share Your
-   Day/Add, all gold/accent and all on one line; bottom row
-   (.today-nav-row) is Calendar/Tools (new -- Today never linked to
-   Tools before)/Dashboard, all silver/neutral and all on one line.
+   Explicit user call to mirror Tomorrow's bar layout exactly: top row
+   (.today-command-grid) is Plan Tomorrow/Share Your Day/Add, all
+   gold/accent and all on one line; bottom row (.today-nav-row) is
+   Calendar/Tools/Dashboard, all silver/neutral and all on one line.
    Kept as Today-scoped classes rather than reusing
    .tomorrow-command-grid/.tomorrow-nav-row -- same established
    convention as every other pair of visually-identical Today/Tomorrow
    controls in this file -- but with the exact same values so the two
    bars genuinely match. */
-.today-command-bar-mobile {
-  display: none;
-}
-
-.today-command-bar-desktop {
+.today-command-bar {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-top: 1.5rem;
+}
+
+.today-fixed-bar .fixed-bar-inner {
+  padding: 10px 14px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.today-fixed-bar {
+  background: rgba(var(--panel-rgb), var(--chrome-alpha));
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-top: 1px solid rgba(245, 158, 11, 0.2);
+  box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
+}
+
+/* Measured against the real compiled bar (two 34px-tall rows plus the
+   bar's own 10px top/bottom padding and gaps) at the 320px worst case,
+   same measured-not-guessed approach as .tomorrow-page-card's own
+   clearance -- now reserved at every width since the bar no longer
+   changes shape by viewport (same finding as Tomorrow's own bar).
+   Applies whenever the bar is expanded; collapsed needs only enough
+   room for the toggle tab itself. */
+.today-page-card {
+  padding-bottom: 115px;
+}
+
+body:has(.today-fixed-bar[data-expanded="false"]) .today-page-card {
+  padding-bottom: 56px;
 }
 
 .today-command-grid {
@@ -10393,38 +10434,6 @@ select:focus {
   white-space: nowrap;
 }
 
-@media (max-width: 640px) {
-  /* Measured against the real compiled bar (two 34px-tall rows plus
-     the bar's own 10px top/bottom padding and gaps) at the 320px
-     worst case, same measured-not-guessed approach as
-     .tomorrow-page-card's own clearance. */
-  .today-page-card {
-    padding-bottom: 115px;
-  }
-
-  .today-command-bar-desktop {
-    display: none;
-  }
-
-  .today-command-bar-mobile {
-    display: flex;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 30;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 10px 14px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    background: rgba(var(--panel-rgb), var(--chrome-alpha));
-    backdrop-filter: blur(12px) saturate(180%);
-    -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border-top: 1px solid rgba(245, 158, 11, 0.2);
-    box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
-  }
-}
-
 @media (max-width: 360px) {
   .today-command-btn,
   .today-nav-btn {
@@ -10435,8 +10444,11 @@ select:focus {
 }
 
 /* ---- Calendar's fixed command area ----
-   Same architecture as .today-command-bar-desktop/-mobile above, and the
-   same .today-command-grid/.today-command-btn sizing -- explicit user
+   Same .today-command-grid/.today-command-btn sizing as Today's bar
+   above (though Today's bar itself has since moved to the shared
+   .fixed-action-bar/always-fixed/collapsible architecture -- Calendar's
+   own bar is unaffected by that change and still only fixes on mobile,
+   not asked to change here) -- explicit user
    call to give Calendar's own Review Today/Plan Tomorrow/Store in Backlog
    row the same design as Today's/Tomorrow's bars, move it to the bottom,
    and make it a fixed bar on mobile. All three are equally primary here

@@ -417,6 +417,8 @@ export const en = {
   "tomorrow.failedAddSuggested": "Failed to add suggested goal",
   "tomorrow.failedAddSuggestedTask": "Failed to add suggested task",
   "tomorrow.paymentGoalsAdded": "Added to your plan: {names}",
+  "tomorrow.hideControls": "Hide",
+  "tomorrow.showControls": "Controls",
 
   // Payment confirmation modal — gates completing a payment-reminder goal
   // on confirming the actual amount paid, which is then logged and
@@ -525,6 +527,8 @@ export const en = {
   "today.addNoteTitle": "Add note",
   "today.inProgressAction": "In Progress",
   "today.pendingAction": "Pending",
+  "today.hideControls": "Hide",
+  "today.showControls": "Controls",
   "today.updateStatusLabel": "Update status",
   "today.rescheduledTo": "Rescheduled to {date}",
   "today.refresh": "Refresh",

@@ -330,6 +330,33 @@ export default function TodayPage() {
   // SSR/hydration guard for the fixed command bar's mobile portal --
   // same convention Tomorrow's own fixed action bar already uses.
   const [mounted, setMounted] = useState(false);
+  // The fixed action bar (below) is now always fixed/always visible on
+  // every viewport, not just mobile -- explicit user call, same change
+  // as Tomorrow's own bar -- so it also gets a collapse toggle,
+  // remembered per device, so it doesn't have to permanently claim
+  // screen space on desktop. Defaults to expanded (true) until
+  // localStorage says otherwise, read only after mount since
+  // localStorage doesn't exist during SSR.
+  const [barExpanded, setBarExpanded] = useState(true);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("standup-today-bar-expanded");
+      if (stored === "false") setBarExpanded(false);
+    } catch {
+      // Private browsing / storage disabled -- fall back to the default.
+    }
+  }, []);
+  function toggleBarExpanded() {
+    setBarExpanded((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("standup-today-bar-expanded", String(next));
+      } catch {
+        // Non-fatal -- the toggle still works for this session either way.
+      }
+      return next;
+    });
+  }
   const [acceptedConnections, setAcceptedConnections] = useState<Connection[]>([]);
   const [goalAssignments, setGoalAssignments] = useState<GoalAssignmentWithLiveTasks[]>([]);
   const [assigningGoalIds, setAssigningGoalIds] = useState<Set<string>>(new Set());
@@ -4060,19 +4087,20 @@ export default function TodayPage() {
         </div>
 
         {/* Fixed Today command area -- Add/Plan Tomorrow/Calendar/Share
-            Your Day/Dashboard. Same dual-render-plus-portal pattern
+            Your Day/Dashboard. Same portal-to-document.body pattern
             Tomorrow's own fixed action bar already established (see
             tomorrow/page.tsx's own extensive comment on this): .card's
             backdrop-filter makes it a containing block, which breaks
-            position:fixed for an in-flow descendant on any viewport
-            (not just mobile) -- rendering the SAME content a second
-            time through a portal straight to document.body escapes
-            that, and a >640px media query (matching Tomorrow's own
-            breakpoint) picks exactly one of the two to actually render
-            at a time. Refresh is gone (replaced by Share Your Day);
-            Calendar/Dashboard reuse their exact original hrefs; Plan
-            Tomorrow/Add reuse their exact original handlers/labels/
-            visibility, just relocated here. */}
+            position:fixed for an in-flow descendant on any viewport.
+            Now fixed and visible at every viewport width, not just
+            mobile (explicit user call, same change as Tomorrow's own
+            bar) -- so there's only ever the one portaled copy, with a
+            persistent collapse toggle (barExpanded, declared near the
+            top of this component) so it doesn't permanently claim
+            desktop screen space. Refresh is gone (replaced by Share
+            Your Day); Calendar/Dashboard reuse their exact original
+            hrefs; Plan Tomorrow/Add reuse their exact original
+            handlers/labels/visibility, just relocated here. */}
         {(() => {
           const addVisible = !dayClosed && addFlowStep === "closed";
           const planTomorrowVisible = (!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at);
@@ -4126,10 +4154,23 @@ export default function TodayPage() {
             </>
           );
           return (
-            <>
-              <div className="today-command-bar today-command-bar-desktop">{content}</div>
-              {mounted && createPortal(<div className="today-command-bar today-command-bar-mobile">{content}</div>, document.body)}
-            </>
+            mounted &&
+            createPortal(
+              <div className="fixed-action-bar today-fixed-bar" data-expanded={barExpanded}>
+                <button
+                  type="button"
+                  onClick={toggleBarExpanded}
+                  className="fixed-bar-toggle"
+                  data-collapsed={!barExpanded}
+                  aria-expanded={barExpanded}
+                >
+                  {barExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  <span>{barExpanded ? t("today.hideControls") : t("today.showControls")}</span>
+                </button>
+                {barExpanded && <div className="today-command-bar fixed-bar-inner">{content}</div>}
+              </div>,
+              document.body
+            )
           );
         })()}
 

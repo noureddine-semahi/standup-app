@@ -7109,22 +7109,17 @@ select:focus {
 
 /* 235px clears the bar's tallest real measured content footprint (was
    280px, then 240px, through several earlier revisions -- see git
-   history for that chain), now reserved at every width since the bar
-   itself no longer changes shape by viewport (always a 3-column grid
-   of fixed-height rows, confirmed via screenshot at 320-1024px --
-   button WIDTH grows with the viewport, not row count/height). +30px on
-   top of that 235px for the toggle tab itself (measured ~27px real
-   height, rounded up for safety) -- the first version of this value
-   forgot the tab adds height ON TOP of the content it sits above,
-   which cut off the last bit of real page content behind the bar on a
-   real device. Applies whenever the bar is expanded; collapsed needs
-   only enough room for the toggle tab alone (see the rule below). */
+   history for that chain) -- but a static guessed value here kept
+   drifting out of sync with the bar's real rendered height on actual
+   devices (once for forgetting the toggle tab's own height, once more
+   after that), so tomorrow/page.tsx now measures the bar's live height
+   via ResizeObserver and sets this exact property as an inline style,
+   which always wins over this rule once it's applied. This value only
+   still matters for the brief instant before that measurement lands
+   (SSR/first paint) -- kept roughly matching the expanded bar's real
+   footprint so there's no visible jump once JS takes over. */
 .tomorrow-page-card {
   padding-bottom: 265px;
-}
-
-body:has(.tomorrow-fixed-bar[data-expanded="false"]) .tomorrow-page-card {
-  padding-bottom: 56px;
 }
 
 /* Previously mobile-only (the bar was only ever fixed on mobile before)
@@ -10378,22 +10373,15 @@ body:has(.tomorrow-fixed-bar[data-expanded="false"]) .tomorrow-page-card {
   box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
 }
 
-/* Measured against the real compiled bar (two 34px-tall rows plus the
-   bar's own 10px top/bottom padding and gaps) at the 320px worst case,
-   same measured-not-guessed approach as .tomorrow-page-card's own
-   clearance -- now reserved at every width since the bar no longer
-   changes shape by viewport (same finding as Tomorrow's own bar).
-   +30px on top for the toggle tab itself (measured ~27px, rounded up
-   for safety) -- same fix as Tomorrow's own clearance, which initially
-   forgot the tab adds height on top of the content it sits above.
-   Applies whenever the bar is expanded; collapsed needs only enough
-   room for the toggle tab alone. */
+/* Same story as .tomorrow-page-card's own clearance above: a static
+   guessed value here kept drifting out of sync with the bar's real
+   rendered height on actual devices, so today/page.tsx now measures
+   the bar's live height via ResizeObserver and sets this exact
+   property as an inline style, which always wins over this rule once
+   applied. This value only still matters for the brief instant before
+   that measurement lands (SSR/first paint). */
 .today-page-card {
   padding-bottom: 145px;
-}
-
-body:has(.today-fixed-bar[data-expanded="false"]) .today-page-card {
-  padding-bottom: 56px;
 }
 
 .today-command-grid {

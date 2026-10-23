@@ -160,6 +160,24 @@ export default function TomorrowGoalsPage() {
       return next;
     });
   }
+  // The page card's own bottom padding has to clear the bar's REAL
+  // rendered height, which a static guessed px value kept getting
+  // wrong on real devices (once for forgetting the toggle tab's own
+  // height, once more after that) -- ResizeObserver measures the bar's
+  // actual height directly instead, so this can't silently drift out
+  // of sync again regardless of font size, locale, or future content
+  // changes to the bar.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(0);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      setBarHeight(entries[0]?.contentRect.height ?? 0);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mounted]);
 
   const [planId, setPlanId] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<string>("draft");
@@ -2021,6 +2039,7 @@ export default function TomorrowGoalsPage() {
   return (
     <div
       className="card card-highlight tomorrow-page-card"
+      style={barHeight > 0 ? { paddingBottom: barHeight + 10 } : undefined}
     >
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div className="flex-1">
@@ -2851,7 +2870,7 @@ export default function TomorrowGoalsPage() {
           return (
             mounted &&
             createPortal(
-              <div className="fixed-action-bar tomorrow-fixed-bar" data-expanded={barExpanded}>
+              <div ref={barRef} className="fixed-action-bar tomorrow-fixed-bar" data-expanded={barExpanded}>
                 <button
                   type="button"
                   onClick={toggleBarExpanded}

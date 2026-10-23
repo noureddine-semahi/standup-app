@@ -592,7 +592,6 @@ export const en = {
   "calendar.streakPassHint": "Streak passes: earn 2 by reviewing 5 of 7 days in a week. Use one on a missed day to keep your streak alive.",
   "calendar.passesAvailable.one": "{count} pass available",
   "calendar.passesAvailable.other": "{count} passes available",
-  "calendar.storeInBacklog": "Store in Backlog",
   "calendar.daySun": "Sun",
   "calendar.dayMon": "Mon",
   "calendar.dayTue": "Tue",

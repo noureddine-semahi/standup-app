@@ -627,7 +627,7 @@ export default function CalendarPage() {
               </Link>
               <Link className="btn standup-metal-btn standup-metal-btn--accent calendar-command-btn" href="/standup/tools">
                 <Wrench size={14} />
-                {t("calendar.storeInBacklog")}
+                {t("nav.tools")}
               </Link>
             </div>
           );

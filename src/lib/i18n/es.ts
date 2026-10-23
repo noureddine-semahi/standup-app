@@ -587,7 +587,6 @@ export const es: Record<keyof typeof en, string> = {
   "calendar.streakPassHint": "Pases de racha: gana 2 revisando 5 de 7 días en una semana. Usa uno en un día perdido para mantener tu racha viva.",
   "calendar.passesAvailable.one": "{count} pase disponible",
   "calendar.passesAvailable.other": "{count} pases disponibles",
-  "calendar.storeInBacklog": "Guardar en Pendientes",
   "calendar.daySun": "Dom",
   "calendar.dayMon": "Lun",
   "calendar.dayTue": "Mar",

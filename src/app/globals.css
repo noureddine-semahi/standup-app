@@ -6156,7 +6156,6 @@ select:focus {
   align-items: start;
   gap: 0.4rem;
   width: 100%;
-  margin-top: 0.4rem;
 }
 
 /* Submit no longer gets a fixed 190px min-width or its own full-width
@@ -6910,12 +6909,15 @@ select:focus {
 
 /* Plan Tomorrow's bottom action area — Add Goal (secondary) / Saved
    (status feedback, not a button once there's nothing to save) /
-   Submit Plan (primary completion action). */
+   Submit Plan (primary completion action). Same tight column gap as
+   Today's own fixed bar (.today-command-bar) -- explicit user call to
+   remove the visible dead space between rows this used to have at
+   1rem (plus .tomorrow-command-row-2's own now-redundant extra
+   margin-top below, removed for the same reason). */
 .tomorrow-action-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 /* Fixed min-width sized to the longest EN/ES label this button ever

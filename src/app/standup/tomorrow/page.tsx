@@ -2756,10 +2756,25 @@ export default function TomorrowGoalsPage() {
                     {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
                   </button>
                 ) : (
-                  <span className="tomorrow-save-status" role="status">
+                  // Explicit user call: stays a real button-shaped element
+                  // (same tomorrow-toolbar-btn sizing as the real Save
+                  // button, so the row doesn't resize when swapping
+                  // between the two) instead of collapsing into plain
+                  // status text once there's nothing left to save. Not
+                  // .standup-metal-btn--accent/amber -- --metal-color is
+                  // overridden to the green "completed" token instead, and
+                  // there's no onClick (tabIndex -1, out of tab order)
+                  // since this is a status readout, not a real action.
+                  <button
+                    type="button"
+                    className="btn standup-metal-btn tomorrow-toolbar-btn"
+                    style={{ "--metal-color": "var(--status-completed)", color: "var(--status-completed)" } as React.CSSProperties}
+                    tabIndex={-1}
+                    aria-label={t("tomorrow.savedCheck")}
+                  >
                     <Check size={14} />
                     {t("tomorrow.savedCheck")}
-                  </span>
+                  </button>
                 )}
                 {submitted ? (
                   <div className="plan-submitted-card" style={{ gridColumn: "1 / -1" }}>

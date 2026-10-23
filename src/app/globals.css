@@ -6918,24 +6918,6 @@ select:focus {
   gap: 1rem;
 }
 
-/* Passive save-state feedback -- same min-height as .tomorrow-toolbar-btn
-   (so the grid row doesn't change height when this swaps with the real
-   Save button) but no border/background/cursor, so it reads as status
-   text instead of a second button competing with Submit Plan. */
-.tomorrow-save-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  min-height: 40px;
-  padding: 0 2px;
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--status-completed);
-  white-space: nowrap;
-  width: 100%;
-}
-
 /* Fixed min-width sized to the longest EN/ES label this button ever
    shows ("Enviar plan de mañana") so swapping to "Submitting…" or
    adding the lock icon doesn't visibly resize the button -- measured
@@ -7045,15 +7027,18 @@ select:focus {
    toggle lives in exactly the same spot whether the bar is expanded or
    collapsed, so collapsing it down doesn't permanently cost desktop
    screen space while still leaving one obvious, consistent place to
-   bring it back. Collapsed state glows (reuses the existing pulseGlow
-   keyframe, previously defined but unused) since it's the ONLY way back
-   into the bar once hidden; expanded state is a quiet neutral handle
-   since the full bar is already visible and doesn't need to shout.
-   Shared across pages because this chrome (the toggle tab itself, the
-   fixed-positioning mechanics) is genuinely identical UI regardless of
-   which page's bar it's attached to -- only the glass/border treatment
-   and the content inside stay page-scoped, same as every other
-   Today/Tomorrow pair in this file. */
+   bring it back. Both states reuse the SAME illuminated-strip recipe
+   .app-header-inner's own red divider already uses (thin bright border
+   + two-layer box-shadow halo, see that rule's own comment) rather than
+   inventing a new glow treatment -- explicit user call -- just recolored
+   per state: red while expanded ("Hide", quieter/settled), this app's
+   standard amber/gold accent while collapsed ("Controls", deliberately
+   the louder of the two since it's the ONLY way back into the bar once
+   it's hidden). Shared across pages because this chrome (the toggle tab
+   itself, the fixed-positioning mechanics) is genuinely identical UI
+   regardless of which page's bar it's attached to -- only the glass/
+   border treatment and the content inside stay page-scoped, same as
+   every other Today/Tomorrow pair in this file. */
 .fixed-action-bar {
   position: fixed;
   left: 0;
@@ -7068,28 +7053,39 @@ select:focus {
 .fixed-bar-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 1rem;
-  border-radius: 10px 10px 0 0;
-  font-size: 0.68rem;
+  gap: 0.3rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 8px 8px 0 0;
+  font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   cursor: pointer;
-  border: 1px solid rgba(var(--tint-rgb), 0.18);
-  border-bottom: none;
   background: rgba(var(--panel-rgb), var(--chrome-alpha));
-  color: rgba(var(--tint-rgb), 0.6);
+  color: rgba(248, 58, 58, 0.95);
   transform: translateY(1px);
   flex-shrink: 0;
+  /* Same red LED-strip recipe as .app-header-inner's own border-bottom +
+     box-shadow (further up this file) -- deliberately NOT the header's
+     own ::after downward light projection too, since that's tuned for a
+     full-width strip, not a small button. */
+  border: 1.5px solid rgba(248, 58, 58, 0.95);
+  border-bottom: none;
+  box-shadow:
+    0 0 6px 0.5px rgba(248, 58, 58, 0.55),
+    0 2px 10px -1px rgba(220, 38, 38, 0.4);
 }
 
-/* The only way back into the bar once it's hidden -- deliberately the
-   loudest control on either page's bar, amber border + glow pulse. */
+/* The only way back into the bar once it's hidden -- same recipe as
+   above, swapped to this app's standard amber/gold accent so it reads
+   as a distinctly different, more inviting cue than the settled red
+   "Hide" state. */
 .fixed-bar-toggle[data-collapsed="true"] {
-  border-color: rgba(245, 158, 11, 0.6);
   color: var(--status-missed, #f59e0b);
-  animation: pulseGlow 2s ease-in-out infinite;
+  border-color: rgba(245, 158, 11, 0.95);
+  box-shadow:
+    0 0 6px 0.5px rgba(245, 158, 11, 0.55),
+    0 2px 10px -1px rgba(217, 119, 6, 0.4);
 }
 
 .fixed-bar-inner {
@@ -7111,16 +7107,20 @@ select:focus {
   box-shadow: 0 -6px 18px -8px rgba(0, 0, 0, 0.5);
 }
 
-/* 235px clears the bar's tallest real measured footprint (was 280px,
-   then 240px, through several earlier revisions of this bar -- see git
+/* 235px clears the bar's tallest real measured content footprint (was
+   280px, then 240px, through several earlier revisions -- see git
    history for that chain), now reserved at every width since the bar
    itself no longer changes shape by viewport (always a 3-column grid
    of fixed-height rows, confirmed via screenshot at 320-1024px --
-   button WIDTH grows with the viewport, not row count/height). Applies
-   whenever the bar is expanded; collapsed needs only enough room for
-   the toggle tab itself. */
+   button WIDTH grows with the viewport, not row count/height). +30px on
+   top of that 235px for the toggle tab itself (measured ~27px real
+   height, rounded up for safety) -- the first version of this value
+   forgot the tab adds height ON TOP of the content it sits above,
+   which cut off the last bit of real page content behind the bar on a
+   real device. Applies whenever the bar is expanded; collapsed needs
+   only enough room for the toggle tab alone (see the rule below). */
 .tomorrow-page-card {
-  padding-bottom: 235px;
+  padding-bottom: 265px;
 }
 
 body:has(.tomorrow-fixed-bar[data-expanded="false"]) .tomorrow-page-card {
@@ -10383,10 +10383,13 @@ body:has(.tomorrow-fixed-bar[data-expanded="false"]) .tomorrow-page-card {
    same measured-not-guessed approach as .tomorrow-page-card's own
    clearance -- now reserved at every width since the bar no longer
    changes shape by viewport (same finding as Tomorrow's own bar).
+   +30px on top for the toggle tab itself (measured ~27px, rounded up
+   for safety) -- same fix as Tomorrow's own clearance, which initially
+   forgot the tab adds height on top of the content it sits above.
    Applies whenever the bar is expanded; collapsed needs only enough
-   room for the toggle tab itself. */
+   room for the toggle tab alone. */
 .today-page-card {
-  padding-bottom: 115px;
+  padding-bottom: 145px;
 }
 
 body:has(.today-fixed-bar[data-expanded="false"]) .today-page-card {

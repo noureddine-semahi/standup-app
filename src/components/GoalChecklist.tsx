@@ -216,6 +216,11 @@ export default function GoalChecklist({
                     handleAdd();
                   }
                 }}
+                // Shows "Next"/an arrow instead of a generic checkmark on
+                // mobile virtual keyboards -- explicit user call so it's
+                // visibly clear that Enter moves on to the next item,
+                // matching the already-wired onKeyDown behavior above.
+                enterKeyHint="next"
                 placeholder={t("checklist.addPlaceholder")}
                 disabled={adding}
                 className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"

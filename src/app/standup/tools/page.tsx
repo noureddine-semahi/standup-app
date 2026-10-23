@@ -1247,8 +1247,16 @@ export default function ToolsPage() {
                     value={newListItemDraft[list.id] ?? ""}
                     onChange={(e) => setNewListItemDraft((prev) => ({ ...prev, [list.id]: e.target.value }))}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddListItem(list.id);
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddListItem(list.id);
+                      }
                     }}
+                    // Shows "Next"/an arrow instead of a generic checkmark
+                    // on mobile virtual keyboards -- explicit user call so
+                    // it's visibly clear that Enter moves on to the next
+                    // item, matching the already-wired onKeyDown above.
+                    enterKeyHint="next"
                     placeholder={t("backlog.newListItemPlaceholder")}
                     disabled={addingItemListId === list.id}
                     className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"

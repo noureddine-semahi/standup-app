@@ -7498,30 +7498,20 @@ select:focus {
    anything); only layout/grouping and two narrow-width text rules are
    new. */
 
-/* Was one flat `flex flex-wrap` holding up to 5 siblings (3 nav
-   buttons + 2 conditional status pills) -- measured at ~190px tall at
-   320px because they wrapped wherever they ran out of room, often one
-   per row. Split into two intentional clusters: navigation (always a
-   single row -- confirmed via measurement that Prev+Today+Next fit in
-   254px, well under even a 320px viewport) and status/info (its own
-   row, allowed to wrap on its own terms if a translation needs it,
-   never mixed into the nav row's wrapping). */
+/* Now just the status/info cluster (overdue banner + passes pill) --
+   Prev/Today/Next used to also live in here as their own row (see
+   .calendar-month-nav below for where they moved) but Today was dropped
+   entirely and Prev/Next now sit beside the month heading instead,
+   explicit user call sketched directly on a screenshot of the old
+   layout. Kept as its own wrapper (rather than inlining the status
+   cluster directly) since a future status pill could still need this
+   row-vs-column breakpoint behavior on its own. */
 .calendar-controls {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-/* At >=640px, try a row first -- re-measuring the original flat
-   layout found it was already wrapping to 2 rows at 768px/1280px too
-   (86px, not single-row as first assumed; nav+status together need
-   ~729px but only ~559px is available once the heading and card
-   padding take their share). Row+wrap still matters here: it's what
-   lets both clusters share a row at wider desktop sizes this phase
-   didn't test, and costs nothing when they don't fit -- measured
-   96px, a negligible 10px over the original's own 2-row 86px, not a
-   single-row regression. Only mobile needs the unconditional column
-   stack below this breakpoint. */
 @media (min-width: 640px) {
   .calendar-controls {
     flex-direction: row;
@@ -7530,32 +7520,42 @@ select:focus {
   }
 }
 
-.calendar-nav-cluster {
+/* Prev/October 2026/Next -- replaces the old separate button row above
+   (.calendar-nav-cluster, removed). Space-between keeps Prev pinned left
+   and Next pinned right with the month title free to center itself
+   between them at any width. */
+.calendar-month-nav {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  flex-wrap: nowrap;
 }
 
-/* .btn sets `overflow: hidden` (for its ::after ripple -- a frozen
-   global rule, not touched here), which per spec makes a flex item's
-   *automatic* min-width resolve to 0 instead of its content size --
-   so without this override, flex-shrink is free to squeeze any .btn
-   narrower than its own text and silently clip it (found empirically:
-   forcing white-space:nowrap here first "fixed" a 2-line-wrap height
-   bump at 320px, but actually just traded a visible, complete 2-line
-   button for an invisible clipped one -- "← Prev" was rendering as
-   "← Pre", scrollWidth 100px inside a 96px clientWidth). Restoring a
-   real min-width lets flex-shrink fall back to the standard, safe
-   floor instead: each button may still wrap onto 2 lines at the
-   narrowest widths (Prev/Next's breakable arrow+word), but never
-   shrinks past the point where it'd have to cut text. Measured at
-   320px: Prev/Next's own wrapped min-content is 69.8px each, Today's
-   (unbreakable, stays 1 line) is 79.8px -- 219.4px combined + 16px of
-   gap fits inside the 238px actually available there, with ~3px to
-   spare and zero clipping. */
-.calendar-nav-btn {
+.calendar-month-nav-title {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.calendar-month-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   min-width: min-content;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 360px) {
+  .calendar-month-nav-title {
+    font-size: 1.05rem;
+  }
+  .calendar-month-nav-btn {
+    padding: 0.3rem 0.5rem !important;
+    font-size: 0.7rem !important;
+  }
 }
 
 .calendar-status-cluster {

@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronUp, ChevronDown, TriangleAlert, Ticket, Check, CheckCircle2, Sun, Wrench } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, TriangleAlert, Ticket, Check, CheckCircle2, Sun, Wrench, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
   toISODate,
@@ -223,6 +223,18 @@ export default function CalendarPage() {
     year: "numeric",
   });
 
+  // Prev/Next now sit directly beside the month heading itself (replacing
+  // the old separate "← Prev / Today / Next →" button row above it) and
+  // show the abbreviated name of the month they'll actually navigate TO,
+  // relative to whichever month is currently displayed -- explicit user
+  // call, sketched directly on a screenshot of the old layout. The
+  // standalone "Today" button is dropped entirely per that same request;
+  // there's no other way back to the current month once you've navigated
+  // away other than returning to this page fresh.
+  const locale = language === "es" ? "es-ES" : "en-US";
+  const prevMonthShortName = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toLocaleDateString(locale, { month: "short" });
+  const nextMonthShortName = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1).toLocaleDateString(locale, { month: "short" });
+
   useEffect(() => {
     async function loadMonthData() {
       setLoading(true);
@@ -339,10 +351,6 @@ export default function CalendarPage() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   }
 
-  function goToToday() {
-    setCurrentDate(new Date());
-  }
-
   const calendarDays = useMemo(() => {
     const days: (Date | null)[] = [];
     const firstDayOfWeek = monthStart.getDay();
@@ -365,26 +373,12 @@ export default function CalendarPage() {
     <div className="card card-highlight calendar-page-card">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-3xl font-bold">{t("nav.calendar")}</h1>
-          {/* Phase 10B: was one flat `flex flex-wrap` of 5 siblings (3 nav
-              buttons + 2 conditional status pills), which wrapped wherever
-              it happened to run out of room -- measured at ~190px tall at
-              320px. Split into two intentional clusters instead: month
-              navigation (always a single row) and status/info (its own
-              row, allowed to wrap on its own if a translation needs it).
-              See .calendar-controls/-nav-cluster/-status-cluster in
-              globals.css -- new, Calendar-scoped, nothing shared touched. */}
+          {/* Prev/Today/Next used to live here as their own button row --
+              moved down to sit directly beside the month heading instead
+              (see the Sept/October 2026/Nov row below), explicit user
+              call. Only the status/info cluster (overdue banner + passes
+              pill) is left in this top row now. */}
           <div className="calendar-controls">
-            <div className="calendar-nav-cluster">
-              <button onClick={previousMonth} className="btn standup-metal-btn calendar-nav-btn">
-                {t("calendar.prev")}
-              </button>
-              <button onClick={goToToday} className="btn standup-metal-btn calendar-nav-btn">
-                {t("calendar.today")}
-              </button>
-              <button onClick={nextMonth} className="btn standup-metal-btn calendar-nav-btn">
-                {t("calendar.next")}
-              </button>
-            </div>
             {(overdueDays.length > 0 || passBalance !== null) && (
               <div className="calendar-status-cluster">
                 {overdueDays.length > 0 && (
@@ -440,7 +434,21 @@ export default function CalendarPage() {
           </div>
         )}
 
-        <div className="text-center text-xl font-semibold mb-6">{monthName}</div>
+        {/* Replaces the old separate "← Prev / Today / Next →" button row
+            (removed above) -- Prev/Next now flank the month heading
+            itself, labeled with the abbreviated name of the month they'll
+            navigate to rather than a generic "Prev"/"Next". */}
+        <div className="calendar-month-nav mb-6">
+          <button onClick={previousMonth} className="btn standup-metal-btn calendar-month-nav-btn" aria-label={t("calendar.prev")}>
+            <ChevronLeft size={14} />
+            {prevMonthShortName}
+          </button>
+          <div className="calendar-month-nav-title">{monthName}</div>
+          <button onClick={nextMonth} className="btn standup-metal-btn calendar-month-nav-btn" aria-label={t("calendar.next")}>
+            {nextMonthShortName}
+            <ChevronRight size={14} />
+          </button>
+        </div>
 
         <div className="calendar-grid grid grid-cols-7 gap-1 sm:gap-3">
           {/* Day headers */}

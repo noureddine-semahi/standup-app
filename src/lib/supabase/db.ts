@@ -5577,32 +5577,98 @@ export async function getStreakPassCoveredDates(startISO: string, endISO: string
  * streak. 400 days is a documented limit, not a real cap — a streak longer
  * than that will undercount rather than fail.
  *
- * A day covered by a streak pass (see getStreakPassCoveredDates) counts
- * toward streak *continuity* here, same as a genuinely reviewed day — but
- * this union only ever happens for this streak-display purpose, never for
- * totalDaysClosed/achievements (see getLifetimeStats) or for earning more
- * passes (get_streak_pass_balance is keyed to reviewed_at only).
+ * A day counts toward streak continuity if EITHER it was explicitly closed
+ * (reviewed_at set, via Today's own Close Out Day) OR every one of its
+ * goals was individually handled (reviewed or postponed) — the same
+ * "fully handled" rule the Calendar page's own checkmark already uses
+ * (see its allCommitmentsHandled). Close Out Day only exists on Today's
+ * page, for TODAY's plan — there is no way to go back and explicitly close
+ * a past day, so a day whose goals were all reviewed but which rolled past
+ * midnight before the user closed it would otherwise permanently break the
+ * streak despite nothing actually being missed. Closure points and
+ * Tomorrow-unlocking still require the real explicit close — this only
+ * widens what counts for the streak NUMBER, matching what the Calendar
+ * already visually tells the user is "done."
+ *
+ * A day covered by a streak pass (see getStreakPassCoveredDates) also
+ * counts toward streak *continuity* here, same as a reviewed/handled day —
+ * but none of this union ever applies to totalDaysClosed/achievements (see
+ * getLifetimeStats) or to earning more passes (get_streak_pass_balance is
+ * keyed to reviewed_at only) — those stay strictly tied to an explicit
+ * close, this function is the streak-display number alone.
  */
 export async function getStreak(): Promise<number> {
   const userId = await getCurrentUserId();
   const todayISO = toISODate(new Date());
   const windowStartISO = toISODate(addDays(new Date(), -400));
 
-  const [{ data, error }, coveredDates] = await Promise.all([
+  const [{ data: plans, error: plansErr }, coveredDates] = await Promise.all([
     supabase
       .from("daily_plans")
-      .select("plan_date, reviewed_at")
+      .select("id, plan_date, reviewed_at, cleared_at")
       .eq("user_id", userId)
       .gte("plan_date", windowStartISO)
       .lte("plan_date", todayISO),
     getStreakPassCoveredDates(windowStartISO, todayISO),
   ]);
-
-  if (error) throw error;
+  if (plansErr) throw plansErr;
 
   const reviewedDates = new Set(
-    (data ?? []).filter((row) => !!row.reviewed_at).map((row) => row.plan_date as string)
+    (plans ?? []).filter((p) => !!p.reviewed_at).map((p) => p.plan_date as string)
   );
+
+  const planIds = (plans ?? []).map((p) => p.id);
+  if (planIds.length > 0) {
+    const { data: goals, error: goalsErr } = await supabase
+      .from("goals")
+      .select("id, plan_id, status, reviewed_at")
+      .in("plan_id", planIds);
+    if (goalsErr) throw goalsErr;
+
+    // Same orphaned-continuation reconciliation Calendar's own
+    // allCommitmentsHandled uses (see findOrphanedContinuationIds) — an
+    // auto-canceled stale continuation must not read as "an unreviewed
+    // goal" and wrongly deny a day that's actually fully handled.
+    let goalsData = goals ?? [];
+    const canceledIds = new Set(goalsData.filter((g) => g.status === "canceled").map((g) => g.id));
+    if (canceledIds.size > 0) {
+      const { data: edgeRows } = await supabase
+        .from("goal_reschedules")
+        .select("from_goal_id, materialized_goal_id")
+        .eq("materialized", true)
+        .in("materialized_goal_id", Array.from(canceledIds));
+      const edges = edgeRows ?? [];
+      if (edges.length > 0) {
+        const sourceIds = [...new Set(edges.map((e) => e.from_goal_id))];
+        const { data: sourceRows } = await supabase.from("goals").select("id, status").in("id", sourceIds);
+        const sourceStatusById = new Map((sourceRows ?? []).map((g) => [g.id, g.status as string]));
+        const orphanIds = findOrphanedContinuationIds(edges, sourceStatusById);
+        if (orphanIds.size > 0) {
+          goalsData = goalsData.filter((g) => !orphanIds.has(g.id));
+        }
+      }
+    }
+
+    const goalsByPlanId = new Map<string, typeof goalsData>();
+    for (const g of goalsData) {
+      const list = goalsByPlanId.get(g.plan_id) ?? [];
+      list.push(g);
+      goalsByPlanId.set(g.plan_id, list);
+    }
+
+    for (const plan of plans ?? []) {
+      if (reviewedDates.has(plan.plan_date)) continue;
+      if (plan.cleared_at) {
+        reviewedDates.add(plan.plan_date);
+        continue;
+      }
+      const planGoals = goalsByPlanId.get(plan.id) ?? [];
+      if (planGoals.length > 0 && planGoals.every((g) => g.status === "postponed" || !!g.reviewed_at)) {
+        reviewedDates.add(plan.plan_date);
+      }
+    }
+  }
+
   for (const d of coveredDates) reviewedDates.add(d);
 
   return computeStreak(reviewedDates, todayISO);

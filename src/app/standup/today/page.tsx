@@ -39,6 +39,7 @@ import {
   getStreakPassCoveredDates,
   hoursUntilMidnight,
   markGoalReviewed,
+  unmarkGoalReviewed,
   markPlanReviewed,
   updateGoalPriority,
   updateGoalStatus,
@@ -1207,20 +1208,24 @@ export default function TodayPage() {
 
     try {
       const wasReviewed = !!goal.reviewed_at;
+      // Pending is "not reviewed yet", not a reviewed outcome: resetting a
+      // task to it removes its reviewed mark (so Reviewed X/Y drops and the
+      // day can't close until it's actioned again).
+      const resetToPending = action === "not_started";
 
       setGoals((prev) =>
         prev.map((g) =>
           g.id === goal.id
             ? {
                 ...g,
-                reviewed_at: g.reviewed_at ?? new Date().toISOString(),
+                reviewed_at: resetToPending ? null : g.reviewed_at ?? new Date().toISOString(),
                 status: action === "reschedule" ? g.status : action,
               }
             : g
         )
       );
 
-      if (!wasReviewed) {
+      if (!wasReviewed && !resetToPending) {
         await markGoalReviewed(goal.id);
 
         // Same one-time awareness bonus as the old manual review toggle.
@@ -1241,6 +1246,7 @@ export default function TodayPage() {
         setRescheduleGoal(goal);
       } else {
         await updateGoalStatus(goal.id, action);
+        if (resetToPending && wasReviewed) await unmarkGoalReviewed(goal.id);
         const markedMsg = t("today.markedStatus", { status: statusLabel(action, t) });
         setMsg(markedMsg);
         setToastFollowUpOffer(isFollowUpEligible(action) ? { goal, forMsg: markedMsg } : null);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, ChevronDown, ChevronRight, ListPlus, ListChecks } from "lucide-react";
 import {
   addChecklistItem,
@@ -36,6 +36,7 @@ export default function GoalChecklist({
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(items.length > 0);
   const [draft, setDraft] = useState("");
+  const draftInputRef = useRef<HTMLInputElement | null>(null);
   const [adding, setAdding] = useState(false);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
   // Standing lists (Backlog page) can be attached here to bulk-load their
@@ -69,6 +70,11 @@ export default function GoalChecklist({
   async function handleAdd() {
     const text = draft.trim();
     if (!text || adding) return;
+    // Focus the field synchronously (still inside the tap / Enter gesture,
+    // so a mobile keyboard stays open) -- the input is read-only, not
+    // disabled, while adding, so it keeps focus and the cursor is ready
+    // for the next item the moment this one lands.
+    draftInputRef.current?.focus();
     setAdding(true);
     try {
       const nextPosition = items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
@@ -207,6 +213,7 @@ export default function GoalChecklist({
           {!readOnly && (
             <div className="flex gap-2 mt-1.5 w-full" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
               <input
+                ref={draftInputRef}
                 type="text"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -222,8 +229,9 @@ export default function GoalChecklist({
                 // matching the already-wired onKeyDown behavior above.
                 enterKeyHint="next"
                 placeholder={t("checklist.addPlaceholder")}
-                disabled={adding}
-                className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                readOnly={adding}
+                aria-busy={adding}
+                className={`flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 ${adding ? "opacity-50" : ""}`}
               />
               <button
                 type="button"

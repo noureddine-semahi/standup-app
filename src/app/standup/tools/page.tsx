@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, History, Target } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
@@ -143,6 +143,9 @@ export default function ToolsPage() {
   const [addingList, setAddingList] = useState(false);
   const [newListItemDraft, setNewListItemDraft] = useState<Record<string, string>>({});
   const [addingItemListId, setAddingItemListId] = useState<string | null>(null);
+  // One new-item input per list, so Add / Next can leave the cursor in the
+  // field ready for the next item.
+  const listItemInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [busyListIds, setBusyListIds] = useState<Set<string>>(new Set());
   const [busyListItemIds, setBusyListItemIds] = useState<Set<string>>(new Set());
   const [listPushDate, setListPushDate] = useState<Record<string, string>>({});
@@ -446,6 +449,9 @@ export default function ToolsPage() {
   async function handleAddListItem(listId: string) {
     const text = (newListItemDraft[listId] ?? "").trim();
     if (!text || addingItemListId === listId) return;
+    // Synchronous (inside the tap / Enter gesture) so a mobile keyboard
+    // stays open; the input is read-only, not disabled, while adding.
+    listItemInputRefs.current[listId]?.focus();
     setAddingItemListId(listId);
     setListsMsg(null);
     try {
@@ -1243,6 +1249,9 @@ export default function ToolsPage() {
 
                 <div className="flex items-stretch gap-2">
                   <input
+                    ref={(el) => {
+                      listItemInputRefs.current[list.id] = el;
+                    }}
                     type="text"
                     value={newListItemDraft[list.id] ?? ""}
                     onChange={(e) => setNewListItemDraft((prev) => ({ ...prev, [list.id]: e.target.value }))}
@@ -1258,8 +1267,9 @@ export default function ToolsPage() {
                     // item, matching the already-wired onKeyDown above.
                     enterKeyHint="next"
                     placeholder={t("backlog.newListItemPlaceholder")}
-                    disabled={addingItemListId === list.id}
-                    className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
+                    readOnly={addingItemListId === list.id}
+                    aria-busy={addingItemListId === list.id}
+                    className={`flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 ${addingItemListId === list.id ? "opacity-50" : ""}`}
                     style={{ height: "36px" }}
                   />
                   <button

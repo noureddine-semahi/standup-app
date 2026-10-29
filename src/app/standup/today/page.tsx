@@ -2511,7 +2511,7 @@ export default function TodayPage() {
                 reads "Actions & notes (N)", so nothing else is needed
                 here. */}
             <div>
-              <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
+              <GoalTimeline defaultExpanded={false} entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
               {showNoteInput[g.id] && (
                 <div className="mt-2 flex gap-2">
                   <input
@@ -2820,7 +2820,7 @@ export default function TodayPage() {
               />
             )}
 
-            <GoalTimeline entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
+            <GoalTimeline defaultExpanded={false} entries={buildGoalTimeline(g, goalNotes[g.id] ?? [], t)} />
 
             {showNoteInput[g.id] && (
               <div className="mt-3 flex gap-2">

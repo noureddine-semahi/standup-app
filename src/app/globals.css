@@ -11763,3 +11763,250 @@ select:focus {
   border: 1px solid rgba(var(--tint-rgb), 0.2);
   cursor: pointer;
 }
+
+/* ---- Machined-metal command console (Today + Tomorrow fixed bars) ------
+   Material/position polish only. Geometry is untouched: the 1px top border,
+   padding and content are unchanged, every extra layer is a background or an
+   absolutely positioned pointer-events:none pseudo-element behind the
+   content (z-index -1 inside the bar's own stacking context), and the HIDE
+   tab is moved purely with transform, so the live height measurement and
+   document flow are unaffected.
+
+   SOLID: the housing is fully opaque (the last background layer is a solid
+   gunmetal gradient and backdrop-filter is off), so nothing behind it can
+   show through; all the "glass" is surface highlights on top of that.
+
+   Surface, top to bottom: fractal streak noise (horizontal brushed grain,
+   irregular) -> two incommensurate fine line patterns (5px / 7px, so no
+   uniform scanlines) -> broad left-to-right tonal variation (charcoal /
+   blue-steel) -> soft overhead specular -> opaque body gradient. ::before is
+   the polished lip (bright silver hairline, dark recess below, faint red wash
+   from the rail); ::after carries soft reflected-light areas and the cool
+   lower steel edge. The red rail is the bar's own full-width top border. */
+.today-fixed-bar,
+.tomorrow-fixed-bar {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.85' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.92 0 0 0 0 1 0.3 0 0 0 -0.11'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 5px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.032) 0px, rgba(0, 0, 0, 0.032) 1px, transparent 1px, transparent 7px),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.32) 0%,
+      rgba(120, 145, 175, 0.14) 20%,
+      rgba(0, 0, 0, 0.16) 38%,
+      rgba(110, 135, 165, 0.12) 61%,
+      rgba(0, 0, 0, 0.26) 80%,
+      rgba(125, 150, 180, 0.14) 100%
+    ),
+    linear-gradient(112deg, transparent 14%, rgba(190, 210, 235, 0.1) 22%, rgba(190, 210, 235, 0.03) 27%, transparent 34%),
+    linear-gradient(112deg, transparent 56%, rgba(190, 210, 235, 0.09) 63%, rgba(190, 210, 235, 0.025) 68%, transparent 75%),
+    linear-gradient(68deg, transparent 80%, rgba(170, 195, 225, 0.07) 88%, transparent 95%),
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(205, 222, 242, 0.22), transparent 72%),
+    linear-gradient(180deg, #252d39 0%, #161c26 14%, #0d1119 42%, #090c13 78%, #1a222e 100%);
+  background-color: #0a0e16;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow:
+    0 -10px 22px -8px rgba(0, 0, 0, 0.7),
+    inset 0 -1px 0 rgba(180, 205, 230, 0.32),
+    inset 1px 0 0 rgba(180, 205, 230, 0.16),
+    inset -1px 0 0 rgba(180, 205, 230, 0.16);
+}
+
+/* Red rail: crisp core + tight dark-red bloom + a wider, restrained
+   reflection on the nearby metal (the wash lives in ::before below).
+   Expanded only -- collapsed keeps its amber strip. */
+.today-fixed-bar[data-expanded="true"],
+.tomorrow-fixed-bar[data-expanded="true"] {
+  border-top: 1px solid rgba(255, 74, 74, 1);
+  box-shadow:
+    0 -1px 3px 0 rgba(235, 40, 40, 0.75),
+    0 -2px 9px 0 rgba(200, 25, 25, 0.38),
+    0 -10px 22px -8px rgba(0, 0, 0, 0.7),
+    inset 0 -1px 0 rgba(180, 205, 230, 0.32),
+    inset 1px 0 0 rgba(180, 205, 230, 0.16),
+    inset -1px 0 0 rgba(180, 205, 230, 0.16);
+}
+
+.today-fixed-bar::before,
+.tomorrow-fixed-bar::before,
+.today-fixed-bar::after,
+.tomorrow-fixed-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Polished lip: silver hairline -> darker recess -> body, with a faint red
+   wash picked up from the rail. */
+.today-fixed-bar::before,
+.tomorrow-fixed-bar::before {
+  top: 0;
+  height: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(236, 245, 255, 0.78) 0px,
+      rgba(236, 245, 255, 0.78) 1px,
+      rgba(6, 10, 18, 0.7) 2px,
+      rgba(6, 10, 18, 0.3) 6px,
+      transparent 10px
+    ),
+    linear-gradient(180deg, rgba(235, 50, 50, 0.13) 0px, transparent 14px);
+}
+
+/* Reflected light on the metal (static): soft broad areas at the button-
+   group boundaries and top, a cool lower steel edge. */
+.today-fixed-bar::after,
+.tomorrow-fixed-bar::after {
+  top: 0;
+  bottom: 0;
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.11) 17%, transparent 31%),
+    linear-gradient(90deg, transparent 61%, rgba(255, 255, 255, 0.09) 74%, transparent 87%),
+    radial-gradient(ellipse 65% 38% at 50% 0%, rgba(220, 235, 250, 0.2), transparent 70%),
+    linear-gradient(0deg, rgba(150, 180, 210, 0.2) 0%, transparent 24%);
+}
+
+/* Contact recess around the button banks -- a soft dark halo only (no
+   padding, no frames), so the controls read as mounted into the metal. */
+.today-fixed-bar .today-command-grid,
+.today-fixed-bar .today-nav-row,
+.tomorrow-fixed-bar .tomorrow-command-grid,
+.tomorrow-fixed-bar .tomorrow-nav-row {
+  border-radius: 12px;
+  box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.38);
+}
+
+/* HIDE tab: sits ABOVE the rail. Positioned (its own full
+   height up); it is now out of flow (absolute, bottom:100% of the fixed
+   bar, same size and same spot as before), so it no longer reserves a dead
+   row of its own height inside the bar -- the rail's position is unchanged; the tab's bottom edge lands exactly on
+   the rail (the bar's top border) and covers it in the center, while the
+   rail runs on behind both sides. Nothing between the tab and <body>
+   clips it (the bar and its portal have no overflow rule). The bottom edge
+   is an inset shadow rather than a border so the box gets no extra
+   height. Collapsed (amber) tab is left exactly as it was. */
+.fixed-bar-toggle:not([data-collapsed="true"]) {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2a0f12 0%, #120a0e 55%, #0a0709 100%);
+  border-color: rgba(255, 96, 96, 1);
+  box-shadow:
+    0 0 10px 1px rgba(248, 58, 58, 0.55),
+    0 0 18px 2px rgba(200, 30, 30, 0.22),
+    inset 0 -1.5px 0 rgba(255, 96, 96, 0.9),
+    inset 1px 0 0 rgba(255, 96, 96, 0.35),
+    inset -1px 0 0 rgba(255, 96, 96, 0.35),
+    inset 0 3px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* Light mode: same construction in warm brushed aluminium. */
+[data-theme="light"] .today-fixed-bar,
+[data-theme="light"] .tomorrow-fixed-bar {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.85' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.25 0.28 0 0 0 -0.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.22) 0px, rgba(255, 255, 255, 0.22) 1px, transparent 1px, transparent 5px),
+    repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.04) 0px, rgba(90, 70, 40, 0.04) 1px, transparent 1px, transparent 7px),
+    linear-gradient(
+      90deg,
+      rgba(110, 95, 75, 0.14) 0%,
+      rgba(255, 255, 255, 0.25) 20%,
+      rgba(110, 95, 75, 0.08) 40%,
+      rgba(255, 255, 255, 0.22) 62%,
+      rgba(110, 95, 75, 0.13) 82%,
+      rgba(255, 255, 255, 0.25) 100%
+    ),
+    linear-gradient(112deg, transparent 14%, rgba(255, 255, 255, 0.6) 22%, rgba(255, 255, 255, 0.15) 27%, transparent 34%),
+    linear-gradient(112deg, transparent 56%, rgba(255, 255, 255, 0.5) 63%, rgba(255, 255, 255, 0.12) 68%, transparent 75%),
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255, 255, 255, 0.7), transparent 72%),
+    linear-gradient(180deg, #f1ece3 0%, #ddd5c7 16%, #c9bfae 50%, #bcb19f 82%, #a79c8a 100%);
+  background-color: #cfc6b6;
+  box-shadow:
+    0 -8px 20px -8px rgba(60, 40, 20, 0.4),
+    inset 0 -1px 0 rgba(80, 70, 60, 0.35);
+}
+[data-theme="light"] .today-fixed-bar[data-expanded="true"],
+[data-theme="light"] .tomorrow-fixed-bar[data-expanded="true"] {
+  border-top-color: rgba(225, 40, 40, 1);
+  box-shadow:
+    0 -1px 3px 0 rgba(215, 35, 35, 0.6),
+    0 -2px 8px 0 rgba(200, 30, 30, 0.28),
+    0 -8px 20px -8px rgba(60, 40, 20, 0.4),
+    inset 0 -1px 0 rgba(80, 70, 60, 0.35);
+}
+[data-theme="light"] .today-fixed-bar::before,
+[data-theme="light"] .tomorrow-fixed-bar::before {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0px,
+      rgba(255, 255, 255, 1) 1px,
+      rgba(110, 95, 75, 0.4) 2px,
+      rgba(110, 95, 75, 0.14) 6px,
+      transparent 10px
+    ),
+    linear-gradient(180deg, rgba(225, 40, 40, 0.12) 0px, transparent 14px);
+}
+[data-theme="light"] .today-fixed-bar::after,
+[data-theme="light"] .tomorrow-fixed-bar::after {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 17%, transparent 31%),
+    linear-gradient(90deg, transparent 61%, rgba(255, 255, 255, 0.5) 74%, transparent 87%),
+    radial-gradient(ellipse 65% 38% at 50% 0%, rgba(255, 255, 255, 0.55), transparent 70%),
+    linear-gradient(0deg, rgba(90, 80, 70, 0.2) 0%, transparent 24%);
+}
+[data-theme="light"] .today-fixed-bar .today-command-grid,
+[data-theme="light"] .today-fixed-bar .today-nav-row,
+[data-theme="light"] .tomorrow-fixed-bar .tomorrow-command-grid,
+[data-theme="light"] .tomorrow-fixed-bar .tomorrow-nav-row {
+  box-shadow: 0 0 10px 3px rgba(70, 50, 30, 0.18);
+}
+[data-theme="light"] .fixed-bar-toggle:not([data-collapsed="true"]) {
+  background: linear-gradient(180deg, #fff1ee 0%, #f3e3da 60%, #e6d6ca 100%);
+  border-color: rgba(225, 40, 40, 1);
+  box-shadow:
+    0 0 9px 1px rgba(225, 40, 40, 0.4),
+    inset 0 -1.5px 0 rgba(225, 40, 40, 0.85),
+    inset 0 3px 5px rgba(120, 60, 50, 0.25);
+}
+
+/* Breathing room between the red rail and the slider: with the HIDE tab out
+   of flow, the only space left above the slider is the inner container's own
+   top padding -- trimmed from 10px to 8px (top only). */
+.today-fixed-bar .fixed-bar-inner,
+.tomorrow-fixed-bar .fixed-bar-inner {
+  padding-top: 8px;
+}
+
+/* Inactive (powered-off) slider half -- Today's "off" tone, whichever side
+   it is on: a deep dark cavity with a lighter, muted bronze-gray engraving
+   (readable but unlit; no glow). Tomorrow never uses the "off" tone, so its
+   red / yellow / latched / green / pulse states are unaffected. */
+.today-day-slider .today-day-slider-engrave[data-tone="off"] {
+  color: rgba(176, 152, 126, 0.55);
+  background: linear-gradient(180deg, rgba(1, 3, 8, 0.82) 0%, rgba(4, 7, 14, 0.66) 100%);
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 0 rgba(150, 170, 200, 0.07);
+}
+.today-day-slider .today-day-slider-engrave-start[data-tone="off"] {
+  border-radius: 10px 0 0 10px;
+}
+.today-day-slider .today-day-slider-engrave-end[data-tone="off"] {
+  border-radius: 0 10px 10px 0;
+}
+[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="off"] {
+  color: rgba(105, 90, 72, 0.68);
+  background: linear-gradient(180deg, rgba(60, 50, 40, 0.3) 0%, rgba(90, 78, 64, 0.18) 100%);
+  box-shadow:
+    inset 0 3px 7px rgba(50, 36, 24, 0.4),
+    inset 0 0 0 1px rgba(60, 48, 36, 0.25);
+}

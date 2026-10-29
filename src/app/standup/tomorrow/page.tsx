@@ -83,7 +83,7 @@ import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, Check, ChevronDown, ChevronUp, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronUp, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -2622,23 +2622,30 @@ export default function TomorrowGoalsPage() {
                   .date-metal-caption block -- see .tomorrow-pass-btn's
                   own comment in globals.css. */}
               <div className="tomorrow-command-grid">
-                {/* Reorder now sits before Use a Pass (was after it) and
-                    is unconditionally standup-metal-btn--accent (was
-                    only accent while editMode was active, plain metal
-                    otherwise, which read as a different color from its
-                    two siblings) -- both explicit user calls. The
-                    editMode toggle's own text ("Reorder" <-> "Done")
-                    still communicates active state without needing a
-                    separate color, same as before. */}
-                {!locked && (
+                {/* Review Today replaces Reorder in this fixed-bar slot (navigation
+                    only -- Today's review logic is untouched; the page's own
+                    editMode/reorder state is left in place). Row order is now
+                    Review Today | Add Task | Use a Pass. */}
+                <Link
+                  href="/standup/today"
+                  className="btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn"
+                >
+                  <CheckCircle2 size={13} className="flex-shrink-0 mr-1" />
+                  {t("nav.reviewToday")}
+                </Link>
+                {addFlowStep === "closed" && (
                   <button
-                    onClick={() => setEditMode(!editMode)}
-                    disabled={submitting}
-                    className="btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn"
+                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
+                    onClick={() => setAddFlowStep("choice")}
+                    disabled={!canAddMore}
+                    title={
+                      goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
+                    }
                   >
-                    {editMode ? t("tomorrow.done") : t("tomorrow.reorder")}
+                    {t("tomorrow.addTaskTrigger")}
                   </button>
                 )}
+
                 {!coveredByPass && (
                   <button
                     className={`btn standup-metal-btn standup-metal-btn--accent tomorrow-toolbar-btn${
@@ -2673,19 +2680,6 @@ export default function TomorrowGoalsPage() {
                         </span>
                       </>
                     )}
-                  </button>
-                )}
-
-                {addFlowStep === "closed" && (
-                  <button
-                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
-                    onClick={() => setAddFlowStep("choice")}
-                    disabled={!canAddMore}
-                    title={
-                      goals.length >= MAX_GOALS ? t("tomorrow.maxCommitmentsReached", { max: MAX_GOALS }) : ""
-                    }
-                  >
-                    {t("tomorrow.addTaskTrigger")}
                   </button>
                 )}
 

@@ -514,6 +514,8 @@ export const en = {
   "today.pendingReview": "Pending review",
   "today.clickToExpand": "Click to expand",
   "today.collapseTitle": "Collapse",
+  "today.fullScreenTitle": "Full screen",
+  "today.exitFullScreenTitle": "Exit full screen",
   "today.goalCompletionStat": "{completed}/{total} completed",
   "today.goalPercentStat": "{pct}%",
   "today.goalReviewedStat": "{reviewed} reviewed",

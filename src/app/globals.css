@@ -11705,3 +11705,61 @@ select:focus {
   line-height: 1.1;
   opacity: 0.85;
 }
+
+/* ---- Full-screen goal/task card (Today) --------------------------------
+   The same live card is portaled into this layer; nothing about its
+   content or handlers changes. Sits above the fixed command bar but below
+   the app's dropdown panels (1000) and modals (9999). */
+.goal-fs-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  color: rgba(var(--tint-rgb), 0.45);
+  cursor: pointer;
+}
+.goal-fs-btn:hover {
+  color: rgba(var(--tint-rgb), 0.9);
+  background: rgba(var(--tint-rgb), 0.1);
+}
+.goal-fs-btn:focus-visible {
+  outline: 2px solid var(--accent-amber);
+  outline-offset: 1px;
+}
+
+.goal-fs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--page-bg);
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+}
+.goal-fs-inner {
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-top: 2.25rem;
+}
+.goal-fs-close {
+  position: fixed;
+  top: max(0.6rem, env(safe-area-inset-top));
+  right: 0.75rem;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: rgba(var(--tint-rgb), 0.8);
+  background: rgba(var(--tint-rgb), 0.1);
+  border: 1px solid rgba(var(--tint-rgb), 0.2);
+  cursor: pointer;
+}

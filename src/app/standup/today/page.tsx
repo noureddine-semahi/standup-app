@@ -90,7 +90,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
-  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
+  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, Maximize2, Minimize2, UserPlus,
   Target, Trash2, ChevronRight, TriangleAlert, Share2, CalendarDays, LayoutDashboard, Wrench, Circle,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -706,6 +706,24 @@ export default function TodayPage() {
   // matching how these cards already rendered before this card gained a
   // collapse toggle.
   const [collapsedGoalGroupIds, setCollapsedGoalGroupIds] = useState<Set<string>>(new Set());
+
+  // Goal/Task card currently shown full screen (a fixed overlay -- see
+  // renderTaskCard below). Presentation only: the card is the same live
+  // markup with the same handlers, just portaled into a full-viewport layer.
+  const [fullScreenGoalId, setFullScreenGoalId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fullScreenGoalId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setFullScreenGoalId(null);
+    }
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [fullScreenGoalId]);
 
   // Goal Engine Phase 2C-2: if `targetId`'s containing Major Goal group is
   // collapsed, un-collapses it and returns true so the calling effect can
@@ -1692,7 +1710,39 @@ export default function TodayPage() {
   // sortedGoals list (passed in by the caller), never recomputed locally
   // -- numbering must stay exactly as it was before grouping existed.
   function renderTaskCard(g: Goal, idx: number, opts?: { compact?: boolean }) {
+    const card = renderTaskCardInner(g, idx, opts);
+    if (fullScreenGoalId !== g.id) return card;
+    return createPortal(
+      <div className="goal-fs-overlay" data-goal-fs>
+        <button
+          type="button"
+          className="goal-fs-close"
+          onClick={() => setFullScreenGoalId(null)}
+          title={t("today.exitFullScreenTitle")}
+          aria-label={t("today.exitFullScreenTitle")}
+        >
+          <X size={18} />
+        </button>
+        <div className="goal-fs-inner">{card}</div>
+      </div>,
+      document.body,
+      g.id
+    );
+  }
+
+  function renderTaskCardInner(g: Goal, idx: number, opts?: { compact?: boolean }) {
     const compact = !!opts?.compact;
+    const fullScreenBtn = (
+      <button
+        type="button"
+        onClick={() => setFullScreenGoalId((cur) => (cur === g.id ? null : g.id))}
+        className="goal-fs-btn"
+        title={fullScreenGoalId === g.id ? t("today.exitFullScreenTitle") : t("today.fullScreenTitle")}
+        aria-label={fullScreenGoalId === g.id ? t("today.exitFullScreenTitle") : t("today.fullScreenTitle")}
+      >
+        {fullScreenGoalId === g.id ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+      </button>
+    );
     const p = typeof g.priority === "number" ? g.priority : 3;
     const isBusy = busyGoalIds.has(g.id);
     const isCelebrating = celebratingGoalIds.has(g.id);
@@ -2091,6 +2141,7 @@ export default function TodayPage() {
                   </option>
                 ))}
               </select>
+              {fullScreenBtn}
               <button
                 type="button"
                 onClick={() =>
@@ -2546,6 +2597,7 @@ export default function TodayPage() {
                   <Hourglass size={11} /> {t("today.pendingReview")}
                 </span>
               )}
+              <span className="ml-auto">{fullScreenBtn}</span>
             </div>
 
             <div className="text-white text-lg sm:text-xl font-medium mb-2">

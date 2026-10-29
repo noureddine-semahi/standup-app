@@ -509,6 +509,8 @@ export const es: Record<keyof typeof en, string> = {
   "today.pendingReview": "Revisión pendiente",
   "today.clickToExpand": "Clic para expandir",
   "today.collapseTitle": "Colapsar",
+  "today.fullScreenTitle": "Pantalla completa",
+  "today.exitFullScreenTitle": "Salir de pantalla completa",
   "today.goalCompletionStat": "{completed}/{total} completadas",
   "today.goalPercentStat": "{pct}%",
   "today.goalReviewedStat": "{reviewed} revisadas",

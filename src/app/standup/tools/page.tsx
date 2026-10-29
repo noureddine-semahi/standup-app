@@ -459,7 +459,8 @@ export default function ToolsPage() {
       const nextPosition = existingItems.length > 0 ? Math.max(...existingItems.map((i) => i.position)) + 1 : 0;
       const created = await addListItem(listId, text, nextPosition);
       setListItemsByListId((prev) => ({ ...prev, [listId]: [...(prev[listId] ?? []), created] }));
-      setNewListItemDraft((prev) => ({ ...prev, [listId]: "" }));
+      // Only clear what was just added -- anything typed while it saved stays.
+      setNewListItemDraft((prev) => ({ ...prev, [listId]: (prev[listId] ?? "").trim() === text ? "" : prev[listId] ?? "" }));
     } catch (e: any) {
       setListsMsg(e?.message ?? t("backlog.failedAddListItem"));
     } finally {
@@ -1267,7 +1268,6 @@ export default function ToolsPage() {
                     // item, matching the already-wired onKeyDown above.
                     enterKeyHint="next"
                     placeholder={t("backlog.newListItemPlaceholder")}
-                    readOnly={addingItemListId === list.id}
                     aria-busy={addingItemListId === list.id}
                     className={`flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 ${addingItemListId === list.id ? "opacity-50" : ""}`}
                     style={{ height: "36px" }}
@@ -1275,6 +1275,9 @@ export default function ToolsPage() {
                   <button
                     type="button"
                     onClick={() => handleAddListItem(list.id)}
+                    // Keeps focus (and the mobile keyboard) in the input
+                    // when the button is tapped.
+                    onMouseDown={(e) => e.preventDefault()}
                     disabled={addingItemListId === list.id || !(newListItemDraft[list.id] ?? "").trim()}
                     className="btn standup-metal-btn flex-shrink-0 flex items-center justify-center"
                     style={{ height: "36px", padding: "0 0.75rem", fontSize: "0.75rem" }}

@@ -80,7 +80,8 @@ export default function GoalChecklist({
       const nextPosition = items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
       const created = await addChecklistItem(goalId, text, nextPosition);
       onItemsChange([...items, created]);
-      setDraft("");
+      // Only clear what was just added -- anything typed while it saved stays.
+      setDraft((d) => (d.trim() === text ? "" : d));
     } catch {
       // Non-fatal — the input just keeps its draft so the user can retry.
     } finally {
@@ -229,13 +230,15 @@ export default function GoalChecklist({
                 // matching the already-wired onKeyDown behavior above.
                 enterKeyHint="next"
                 placeholder={t("checklist.addPlaceholder")}
-                readOnly={adding}
                 aria-busy={adding}
                 className={`flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 ${adding ? "opacity-50" : ""}`}
               />
               <button
                 type="button"
                 onClick={handleAdd}
+                // Keeps focus (and the mobile keyboard) in the input when
+                // the button is tapped.
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={adding || !draft.trim()}
                 className="btn standup-metal-btn flex-shrink-0"
                 style={{ padding: "0.25rem 0.75rem", fontSize: "0.75rem" }}

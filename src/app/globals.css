@@ -10122,7 +10122,7 @@ select:focus {
    own styling, not the glass layer. */
 .today-day-slider-wrap {
   width: 100%;
-  max-width: 360px;
+  max-width: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -10363,6 +10363,365 @@ select:focus {
   }
 }
 
+/* Tomorrow's submit slider + passive draft-status line, the top row of
+   its fixed bar. The slider itself is the shared .today-day-slider family
+   above; only the grouping and the status line are Tomorrow-specific. */
+.tomorrow-slider-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.tomorrow-draft-status {
+  display: flex;
+  justify-content: center;
+  min-height: 1.1rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(var(--tint-rgb), 0.55);
+}
+
+.tomorrow-draft-status-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--status-completed);
+}
+
+.tomorrow-draft-status-btn {
+  background: none;
+  border: 0;
+  padding: 0 0.4rem;
+  font: inherit;
+  color: #fdba74;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+[data-theme="light"] .tomorrow-draft-status-btn {
+  color: #92650a;
+}
+
+.tomorrow-draft-status-btn:focus-visible {
+  outline: 2px solid var(--accent-amber);
+  outline-offset: 2px;
+}
+
+
+/* ---- GlassSlider optical system: moving glass VIEWPORT ----
+   The instruction text is ENGRAVED into the stationary track
+   (.today-day-slider-engrave, one per half, both always rendered, never
+   swapped or moved). The moving plate (.today-day-slider-glass) is a
+   three-zone lens over it: FROSTED left | CLEAR center | FROSTED right.
+   Nothing is duplicated and nothing is repositioned in JS -- the crisp
+   read comes from backdrop-filter layers on the glass itself acting on
+   whatever engraving is underneath: the clear lens brightens/sharpens it,
+   the two frost layers blur and darken it. Text outside the glass keeps
+   only the dim engraved base color. The glass element carries NO filter,
+   opacity or backdrop-filter of its own (either would make it a backdrop
+   root and stop its children from seeing the engraving).
+
+   Light metaphor: the engraving under the clear lens is "lamp ON" (the
+   lens backdrop-filter brightens/saturates it into warm amber-cream and a
+   soft radial warm glow sits behind it); everywhere else the SAME
+   engraving is "lamp OFF" -- dark, low contrast, no amber, recognizable
+   only by its etched edge highlights/shadows. Frost is secondary: just
+   enough smoke to suppress the lamp near the glass's outer edges. */
+.today-day-slider {
+  --slider-engrave: rgba(196, 168, 140, 0.24);
+  --slider-engrave-hi: rgba(255, 255, 255, 0.09);
+  --slider-engrave-lo: rgba(0, 0, 0, 0.75);
+  --slider-clear-filter-on: brightness(3.5) contrast(1.25) saturate(1.4);
+  --slider-clear-filter: var(--slider-clear-filter-on);
+  --slider-frost-filter: blur(0.6px) brightness(0.7);
+  --slider-smoke: 8, 9, 11;
+  --slider-lamp: 253, 186, 116;
+  --slider-lens-bg-on:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 40%),
+    radial-gradient(ellipse 60% 70% at 50% 55%, rgba(var(--slider-lamp), 0.16) 0%, rgba(var(--slider-lamp), 0) 100%);
+  --slider-lens-bg: var(--slider-lens-bg-on);
+}
+
+[data-theme="light"] .today-day-slider {
+  --slider-engrave: rgba(110, 92, 64, 0.34);
+  --slider-engrave-hi: rgba(255, 255, 255, 0.9);
+  --slider-engrave-lo: rgba(40, 32, 28, 0.22);
+  --slider-clear-filter-on: contrast(2.4) brightness(0.62) saturate(1.6);
+  --slider-clear-filter: var(--slider-clear-filter-on);
+  --slider-frost-filter: blur(0.6px) brightness(1.06);
+  --slider-smoke: 240, 232, 220;
+  --slider-lamp: 202, 138, 4;
+}
+
+/* Disabled: no lens boost, so the engraving stays dim and the control
+   plainly reads as inactive (the button's own opacity dims it further). */
+.today-day-slider:disabled {
+  --slider-clear-filter: none;
+  --slider-lens-bg: none;
+}
+
+.today-day-slider-engrave {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--slider-engrave);
+  text-shadow: 0 1px 0 var(--slider-engrave-hi), 0 -1px 0 var(--slider-engrave-lo);
+  pointer-events: none;
+}
+
+.today-day-slider-engrave-start {
+  left: 0;
+}
+
+.today-day-slider-engrave-end {
+  right: 0;
+}
+
+/* The plate itself: polished rim + depth only; optics live in the two
+   child layers. */
+.today-day-slider-glass,
+[data-theme="light"] .today-day-slider-glass {
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: hidden;
+}
+
+.today-day-slider-frost,
+.today-day-slider-lens {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* Smoked outer zones: narrow edge bands (a light smoke tint plus a hair of
+   blur -- illumination suppression is the point, not obscuring) whose mask
+   fades to nothing well before the center, so there's no hard edge. */
+.today-day-slider-frost {
+  left: 0;
+  right: 0;
+  backdrop-filter: var(--slider-frost-filter);
+  -webkit-backdrop-filter: var(--slider-frost-filter);
+  background: linear-gradient(
+    to right,
+    rgba(var(--slider-smoke), 0.3) 0%,
+    rgba(var(--slider-smoke), 0.1) 14%,
+    rgba(var(--slider-smoke), 0) 26%,
+    rgba(var(--slider-smoke), 0) 74%,
+    rgba(var(--slider-smoke), 0.1) 86%,
+    rgba(var(--slider-smoke), 0.3) 100%
+  );
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 6%, rgba(0, 0, 0, 0.6) 15%, rgba(0, 0, 0, 0.2) 22%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.2) 78%, rgba(0, 0, 0, 0.6) 85%, #000 94%, #000 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 6%, rgba(0, 0, 0, 0.6) 15%, rgba(0, 0, 0, 0.2) 22%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.2) 78%, rgba(0, 0, 0, 0.6) 85%, #000 94%, #000 100%);
+}
+
+/* Clear lamp lens: turns the engraving beneath it ON (brightness/
+   saturation boost plus a restrained warm radial glow), with a faint top
+   specular so it still reads as polished glass. Its mask eases in over the
+   outer ~20% on each side, so the light fades up/down continuously as the
+   glass travels across a label. */
+.today-day-slider-lens {
+  left: 3%;
+  right: 3%;
+  backdrop-filter: var(--slider-clear-filter);
+  -webkit-backdrop-filter: var(--slider-clear-filter);
+  background: var(--slider-lens-bg);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 6%, rgba(0, 0, 0, 0.7) 12%, #000 20%, #000 80%, rgba(0, 0, 0, 0.7) 88%, rgba(0, 0, 0, 0.25) 94%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 6%, rgba(0, 0, 0, 0.7) 12%, #000 20%, #000 80%, rgba(0, 0, 0, 0.7) 88%, rgba(0, 0, 0, 0.25) 94%, transparent 100%);
+}
+
+/* Busy pulse moved off opacity (which would turn the glass into a
+   backdrop root and kill the optics) onto the rim glow. */
+@keyframes today-day-slider-busy-glow {
+  0%, 100% { box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.5), 0 0 12px -3px rgba(245, 158, 11, 0.35); }
+  50% { box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.5), 0 0 16px 0 rgba(245, 158, 11, 0.75); }
+}
+.today-day-slider[data-busy="true"] .today-day-slider-glass {
+  animation: today-day-slider-busy-glow 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .today-day-slider-glass {
+    transition: none;
+  }
+  .today-day-slider[data-busy="true"] .today-day-slider-glass {
+    animation: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .today-day-slider-engrave {
+    font-size: 0.68rem;
+    padding: 0 0.4rem;
+    gap: 0.22rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .today-day-slider-engrave {
+    font-size: 0.62rem;
+    padding: 0 0.3rem;
+  }
+}
+
+/* ---- Tomorrow's two-stage control: PRESS Save plan, THEN SLIDE to Submit ----
+   Same optical system as Today (engraved labels under a moving three-zone
+   glass, ACTIVE = lamp on / INACTIVE = lamp off); only the states differ.
+   data-tstate on .tomorrow-glass: locked (<3 commitments: everything
+   unpowered) | save (Save plan lit + pressable, Submit off) | saving |
+   saved (Save plan latched down; Submit on standby, glass unlocked when
+   data-ready="true"). The slider is natively :disabled until unlocked, so
+   its default disabled look (opacity, lens off) is overridden here: the
+   dimness comes from the engraving being unlit, and while Save plan is the
+   live stage the lens must stay ON over it. The transparent
+   .tomorrow-glass-save button sits above the slider's left half only while
+   pressable (pointer-events:none otherwise), so press and drag never
+   compete for the same pointer. */
+.tomorrow-glass {
+  position: relative;
+}
+
+.tomorrow-glass .today-day-slider:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.tomorrow-glass:not([data-tstate="locked"]) .today-day-slider:disabled {
+  --slider-clear-filter: var(--slider-clear-filter-on);
+  --slider-lens-bg: var(--slider-lens-bg-on);
+}
+
+.tomorrow-glass .today-day-slider-engrave {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tomorrow-glass-save {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 3;
+  padding: 0;
+  border: 0;
+  border-radius: 13px 0 0 13px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tomorrow-glass-save:disabled {
+  pointer-events: none;
+}
+
+.tomorrow-glass-save:focus-visible {
+  outline: 2px solid var(--accent-amber);
+  outline-offset: -2px;
+}
+
+/* The Save plan face: a recessed pad under the glass. Depth only changes
+   through shadows/light -- nothing is translated. */
+.tomorrow-save-face {
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 4px 2px;
+  padding: 0 0.3rem;
+  border-radius: 9px;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.tomorrow-glass[data-tstate="save"] .tomorrow-save-face {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.16));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.tomorrow-glass:has(.tomorrow-glass-save:active:not(:disabled)) .tomorrow-save-face,
+.tomorrow-glass[data-tstate="saving"] .tomorrow-save-face {
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 0 3px 7px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.tomorrow-glass[data-tstate="saved"] .tomorrow-save-face {
+  background: rgba(0, 0, 0, 0.26);
+  box-shadow:
+    inset 0 3px 7px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 1px rgba(var(--slider-lamp), 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@keyframes tomorrow-save-busy {
+  0%, 100% { box-shadow: inset 0 3px 7px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(var(--slider-lamp), 0.15); }
+  50% { box-shadow: inset 0 3px 7px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(var(--slider-lamp), 0.55); }
+}
+.tomorrow-glass[data-tstate="saving"] .tomorrow-save-face {
+  animation: tomorrow-save-busy 1s ease-in-out infinite;
+}
+
+/* Submit plan: unlit until the plan is explicitly saved AND the slider is
+   ready; then a restrained standby glow, which the moving lens takes the
+   rest of the way to fully lit as it approaches. */
+.tomorrow-glass[data-ready="true"] .today-day-slider-engrave-end {
+  color: rgba(253, 186, 116, 0.36);
+}
+
+[data-theme="light"] .tomorrow-glass[data-ready="true"] .today-day-slider-engrave-end {
+  color: rgba(146, 101, 10, 0.5);
+}
+
+[data-theme="light"] .tomorrow-glass[data-tstate="save"] .tomorrow-save-face {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(120, 100, 70, 0.1));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -2px 3px rgba(80, 60, 30, 0.25),
+    0 1px 2px rgba(60, 40, 20, 0.25);
+}
+
+[data-theme="light"] .tomorrow-glass:has(.tomorrow-glass-save:active:not(:disabled)) .tomorrow-save-face,
+[data-theme="light"] .tomorrow-glass[data-tstate="saving"] .tomorrow-save-face,
+[data-theme="light"] .tomorrow-glass[data-tstate="saved"] .tomorrow-save-face {
+  background: rgba(120, 100, 70, 0.14);
+  box-shadow:
+    inset 0 3px 7px rgba(60, 40, 20, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.tomorrow-draft-status-error {
+  color: var(--status-blocked);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tomorrow-glass[data-tstate="saving"] .tomorrow-save-face {
+    animation: none;
+  }
+}
+
 /* ---- Today's fixed command area ----
    Supersedes the earlier .today-next-action-group standalone container
    (removed). Mirrors Tomorrow's own fixed action-bar architecture
@@ -10438,6 +10797,15 @@ select:focus {
   white-space: normal;
   width: 100%;
   gap: 0.3rem;
+}
+
+/* Closed day: + Add Task stays in the row but powered off -- same socket and
+   size, no amber text glow, muted label. (The shared .standup-metal-btn
+   :disabled rules already darken the face and drop the rim glow.) */
+.today-command-btn:disabled {
+  text-shadow: none;
+  color: rgba(var(--tint-rgb), 0.42);
+  cursor: not-allowed;
 }
 
 .today-nav-row {

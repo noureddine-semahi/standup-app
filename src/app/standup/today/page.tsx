@@ -21,6 +21,7 @@ import GoalNumberOrb from "@/components/GoalNumberOrb";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
+import GlassSlider from "@/components/GlassSlider";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -89,7 +90,7 @@ import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
   AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
-  Target, Trash2, ChevronRight, TriangleAlert, Undo2, Share2, CalendarDays, LayoutDashboard, Wrench, Circle,
+  Target, Trash2, ChevronRight, TriangleAlert, Share2, CalendarDays, LayoutDashboard, Wrench, Circle,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
@@ -268,22 +269,6 @@ export default function TodayPage() {
   // manually expanded back open (e.g. to re-read notes or change status).
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
-  // Day-state glass slider drag geometry -- deliberately refs, not React
-  // state: none of this needs to trigger a re-render, it's read/written
-  // on every pointermove and applied directly to the DOM via glassRef.
-  // dragStateRef persists across the whole gesture; glassRef is the
-  // sliding plate itself (style.transform/transition set imperatively
-  // during the drag, cleared afterward so the normal CSS rule --keyed
-  // off data-state, i.e. the real dayClosed-- takes back over).
-  const glassRef = useRef<HTMLSpanElement | null>(null);
-  const dragStateRef = useRef<{
-    pointerId: number | null;
-    startX: number;
-    startY: number;
-    glassWidth: number;
-    intent: "none" | "horizontal" | "vertical";
-    suppressClick: boolean;
-  }>({ pointerId: null, startX: 0, startY: 0, glassWidth: 0, intent: "none", suppressClick: false });
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   // Blocked requires a reason before it's applied — see confirmBlocked().
   // The prompt intercepts selectQuickAction before anything else happens,
@@ -1510,148 +1495,6 @@ export default function TodayPage() {
       setMsg(t("today.errorPrefix", { message: e?.message ?? t("today.couldNotReopen") }));
     } finally {
       setReopening(false);
-    }
-  }
-
-  // Day-state glass slider -- drag/swipe is ONLY another way to trigger
-  // the exact same closeOutDay()/reopenDay() above; neither is touched,
-  // duplicated, or bypassed. The gesture only ever decides WHEN to call
-  // one of them, exactly once. touch-action:pan-y (set in CSS on
-  // .today-day-slider) already hands a vertical touch gesture to the
-  // browser's native scroll before any JS here runs; the dx/dy check
-  // below is the equivalent safety net for mouse/pen input, and for the
-  // first few px of a touch gesture before the browser has committed to
-  // an axis -- the glass never starts moving until horizontal intent is
-  // clear, so page scroll is never hijacked by jitter.
-  const SLIDER_INTENT_PX = 6;
-  const SLIDER_THRESHOLD = 0.45;
-
-  function sliderPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
-    if (e.currentTarget.disabled) return;
-    const glass = glassRef.current;
-    if (!glass) return;
-    dragStateRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      glassWidth: glass.offsetWidth,
-      intent: "none",
-      suppressClick: false,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function sliderPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
-    const drag = dragStateRef.current;
-    if (drag.pointerId !== e.pointerId) return;
-    const glass = glassRef.current;
-    if (!glass) return;
-
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-
-    if (drag.intent === "none") {
-      if (Math.abs(dx) < SLIDER_INTENT_PX && Math.abs(dy) < SLIDER_INTENT_PX) return;
-      // Whichever axis clearly dominates once movement is big enough to
-      // judge -- a vertical gesture hands off to the page's own scroll
-      // (this function simply stops acting for the rest of the
-      // gesture); only a clearly horizontal one claims the drag.
-      drag.intent = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
-      if (drag.intent === "horizontal") {
-        glass.style.transition = "none";
-      }
-    }
-
-    if (drag.intent !== "horizontal") return;
-
-    e.preventDefault();
-    const basePx = dayClosed ? drag.glassWidth : 0;
-    const targetPx = Math.min(Math.max(basePx + dx, 0), drag.glassWidth);
-    glass.style.transform = `translateX(${targetPx}px)`;
-  }
-
-  // Hands control back to the CSS rule (keyed off data-state, i.e. the
-  // real dayClosed) -- whichever way dayClosed actually landed after a
-  // completed gesture, clearing the inline override here never fights
-  // it: the class rule's own transition animates smoothly from wherever
-  // the inline style last left the glass to the now-correct resting
-  // spot, covering both "snap back, nothing happened" and "reconcile
-  // after a real close/reopen" with the same one code path.
-  function sliderSettle(glass: HTMLSpanElement) {
-    glass.style.transition = "";
-    glass.style.transform = "";
-  }
-
-  async function sliderPointerUp(e: React.PointerEvent<HTMLButtonElement>) {
-    const drag = dragStateRef.current;
-    if (drag.pointerId !== e.pointerId) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    const glass = glassRef.current;
-    const intent = drag.intent;
-    dragStateRef.current.pointerId = null;
-
-    if (intent === "none") return; // genuine stationary tap -- native click fallback handles it
-
-    // Any recognized movement -- horizontal OR vertical -- suppresses
-    // the synthetic click the browser fires right after pointerup. A
-    // vertical gesture is the page being scrolled, not a tap, and must
-    // never fall through to the click fallback and accidentally
-    // Close/Reopen; a horizontal drag (crossed or not) already decided
-    // its own outcome above and must not ALSO fire via a trailing click.
-    drag.suppressClick = true;
-
-    if (intent !== "horizontal" || !glass) return; // vertical -- page scrolls, nothing else to do here
-
-    const dx = e.clientX - drag.startX;
-    const basePx = dayClosed ? drag.glassWidth : 0;
-    const targetPx = Math.min(Math.max(basePx + dx, 0), drag.glassWidth);
-    const crossed = Math.abs(targetPx - basePx) >= drag.glassWidth * SLIDER_THRESHOLD;
-
-    if (!crossed) {
-      sliderSettle(glass);
-      return;
-    }
-
-    // Threshold crossed -- finish the slide toward the opposite resting
-    // spot as visual acceptance of the gesture, then invoke the one
-    // real handler for whichever direction this was, exactly once. If
-    // the action is blocked/fails, dayClosed never actually changes, so
-    // sliderSettle() naturally animates the glass back to where it
-    // started -- no separate failure/undo path needed.
-    glass.style.transition = "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)";
-    glass.style.transform = `translateX(${dayClosed ? 0 : drag.glassWidth}px)`;
-    if (dayClosed) {
-      await reopenDay();
-    } else {
-      await closeOutDay();
-    }
-    sliderSettle(glass);
-  }
-
-  function sliderPointerCancel(e: React.PointerEvent<HTMLButtonElement>) {
-    const drag = dragStateRef.current;
-    if (drag.pointerId !== e.pointerId) return;
-    const glass = glassRef.current;
-    dragStateRef.current.pointerId = null;
-    if (glass && drag.intent === "horizontal") {
-      sliderSettle(glass);
-    }
-  }
-
-  // Tap/click/keyboard fallback -- native <button> semantics mean Enter/
-  // Space already synthesize a click, so this one handler covers both.
-  // Guarded against the synthetic click a completed drag's pointerup
-  // also triggers, so a drag can never ALSO fire this (one drag = one
-  // action, never two).
-  function sliderClick() {
-    if (dragStateRef.current.suppressClick) {
-      dragStateRef.current.suppressClick = false;
-      return;
-    }
-    if (dayClosed) {
-      reopenDay();
-    } else {
-      closeOutDay();
     }
   }
 
@@ -3208,53 +3051,6 @@ export default function TodayPage() {
                 handlePublishClick/handlePublish/handleUnpublish,
                 unchanged; only the permanently-visible top UI is gone. */}
 
-            {/* B. DAY STATE -- the glass slider. Same visibility union the
-                two old buttons had between them: Close showed when
-                !dayClosed && totalCount>0, Reopen showed when dayClosed &&
-                plan?.reviewed_at (a pass-covered-only closed day, with no
-                explicit review, showed neither before -- preserved exactly
-                via this combined condition). */}
-            {((!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at)) && (
-              <div className="today-day-slider-wrap">
-                <button
-                  type="button"
-                  onClick={sliderClick}
-                  onPointerDown={sliderPointerDown}
-                  onPointerMove={sliderPointerMove}
-                  onPointerUp={sliderPointerUp}
-                  onPointerCancel={sliderPointerCancel}
-                  disabled={dayClosed ? reopening : !canCloseDay || closing}
-                  data-state={dayClosed ? "closed" : "open"}
-                  data-busy={closing || reopening}
-                  aria-label={dayClosed ? t("today.reopenDaySliderLabel") : t("today.closeOutDaySliderLabel")}
-                  aria-busy={closing || reopening}
-                  title={
-                    dayClosed
-                      ? t("today.reopenDaySliderLabel")
-                      : !canCloseDay
-                      ? pendingGoals.length > 0
-                        ? t("today.reviewAllGoalsFirstShort")
-                        : t("today.finishInProgressShort")
-                      : t("today.closeOutDayTitle")
-                  }
-                  className="today-day-slider"
-                >
-                  <span className="today-day-slider-track">
-                    <span className="today-day-slider-half today-day-slider-half-close">
-                      <CheckCircle2 size={14} />
-                      {t("today.closeOutDaySliderLabel")}
-                    </span>
-                    <span className="today-day-slider-half today-day-slider-half-reopen">
-                      <Undo2 size={14} />
-                      {t("today.reopenDaySliderLabel")}
-                    </span>
-                    <span ref={glassRef} className="today-day-slider-glass" aria-hidden="true" />
-                  </span>
-                </button>
-                <p className="today-day-slider-hint">{t("today.sliderInstruction")}</p>
-              </div>
-            )}
-
             {/* Plan Tomorrow + Add moved into the fixed Today command bar
                 below (superseding the standalone container this used to
                 be) -- same handlers/labels/icons/visibility, presentation
@@ -4121,11 +3917,46 @@ export default function TodayPage() {
             hrefs; Plan Tomorrow/Add reuse their exact original
             handlers/labels/visibility, just relocated here. */}
         {(() => {
-          const addVisible = !dayClosed && addFlowStep === "closed";
+          // Add Task stays in the row (and the DOM) when the day is closed so
+          // the three-button geometry never changes -- it's just natively
+          // disabled then. Still hidden while the add flow itself is open
+          // (unchanged behavior).
+          const addVisible = addFlowStep === "closed";
           const planTomorrowVisible = (!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at);
           const shareVisible = totalCount > 0;
+          // Day-state slider -- the PRIMARY row of this bar. Same
+          // visibility union the two old Close/Reopen buttons had between
+          // them: Close showed when !dayClosed && totalCount>0, Reopen
+          // showed when dayClosed && plan?.reviewed_at (a pass-covered-only
+          // closed day, with no explicit review, showed neither before --
+          // preserved exactly via this combined condition). The gesture
+          // only ever decides WHEN to call closeOutDay()/reopenDay(),
+          // both untouched (mechanics live in GlassSlider).
+          const sliderVisible = (!dayClosed && totalCount > 0) || !!(dayClosed && plan?.reviewed_at);
           const content = (
             <>
+              {sliderVisible && (
+                <div className="today-day-slider-wrap">
+                  <GlassSlider
+                    atEnd={dayClosed}
+                    onComplete={dayClosed ? reopenDay : closeOutDay}
+                    disabled={dayClosed ? reopening : !canCloseDay || closing}
+                    busy={closing || reopening}
+                    startLabel={t("today.slideToFinish")}
+                    endLabel={t("today.slideToReopen")}
+                    ariaLabel={dayClosed ? t("today.reopenTodayLabel") : t("today.finishTodayLabel")}
+                    title={
+                      dayClosed
+                        ? t("today.reopenTodayLabel")
+                        : !canCloseDay
+                        ? pendingGoals.length > 0
+                          ? t("today.reviewAllGoalsFirstShort")
+                          : t("today.finishInProgressShort")
+                        : t("today.closeOutDayTitle")
+                    }
+                  />
+                </div>
+              )}
               <div className="today-command-grid">
                 {planTomorrowVisible && (
                   <Link
@@ -4139,6 +3970,7 @@ export default function TodayPage() {
                   <button
                     type="button"
                     onClick={() => setAddFlowStep("choice")}
+                    disabled={dayClosed}
                     className="btn standup-metal-btn standup-metal-btn--accent today-command-btn"
                   >
                     <Plus size={14} />
@@ -4157,17 +3989,17 @@ export default function TodayPage() {
                 )}
               </div>
               <div className="today-nav-row">
-                <Link href="/standup/calendar" className="btn standup-metal-btn today-nav-btn">
-                  <CalendarDays size={13} />
-                  {t("nav.calendar")}
+                <Link href="/standup/dashboard" className="btn standup-metal-btn today-nav-btn">
+                  <LayoutDashboard size={13} />
+                  {t("nav.dashboard")}
                 </Link>
                 <Link href="/standup/tools" className="btn standup-metal-btn today-nav-btn">
                   <Wrench size={13} />
                   {t("nav.tools")}
                 </Link>
-                <Link href="/standup/dashboard" className="btn standup-metal-btn today-nav-btn">
-                  <LayoutDashboard size={13} />
-                  {t("nav.dashboard")}
+                <Link href="/standup/calendar" className="btn standup-metal-btn today-nav-btn">
+                  <CalendarDays size={13} />
+                  {t("nav.calendar")}
                 </Link>
               </div>
             </>

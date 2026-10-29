@@ -78,6 +78,7 @@ import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
+import GlassSlider from "@/components/GlassSlider";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
@@ -125,6 +126,17 @@ export default function TomorrowGoalsPage() {
   // reviewed — so this no longer blocks the whole page.
   const [submitEligible, setSubmitEligible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // True only while a debounced autosave (scheduleAutoSave) is actually
+  // writing -- drives the passive "Saving…" status next to the submit
+  // slider; never set for any other persistGoals() caller.
+  const [draftSaving, setDraftSaving] = useState(false);
+  // Explicit "Save plan" checkpoint (the physical press that precedes the
+  // submit slider). explicitSavedHash is the persisted-state hash at the
+  // moment an EXPLICIT press succeeded -- autosave never sets it, so
+  // autosave can never unlock submission. See planLatched below.
+  const [explicitSaving, setExplicitSaving] = useState(false);
+  const [explicitSavedHash, setExplicitSavedHash] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   // Phase 8A.1: gates the mobile action bar's createPortal(document.body)
   // call until after hydration (same pattern RescheduleModal/other modals
   // in this app already use for their own portals) -- document doesn't
@@ -477,6 +489,13 @@ export default function TomorrowGoalsPage() {
   const lastSavedHashRef = useRef<string>("");
   const skipNextBlurAutosaveRef = useRef(false);
   const priorityChangeInProgressRef = useRef(false);
+  // Latest onSubmitPlan/canSubmit for the submit slider's async path (see
+  // submitViaSlider) -- it awaits an in-flight autosave first, so a
+  // closure captured when the gesture began could hold a goals snapshot
+  // that predates the id-bearing rows that autosave just committed.
+  const onSubmitPlanRef = useRef<() => Promise<void>>(async () => {});
+  const canSubmitRef = useRef(false);
+  const sliderSubmitInFlightRef = useRef(false);
 
   // Debounced autosave is triggered from setTimeout callbacks that may have
   // been created several renders ago (stale closures). Reading `goals`
@@ -1169,7 +1188,10 @@ export default function TomorrowGoalsPage() {
 
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
-      persistGoals(true).catch(() => {});
+      setDraftSaving(true);
+      persistGoals(true)
+        .catch(() => {})
+        .finally(() => setDraftSaving(false));
     }, 450);
   }
 
@@ -1271,6 +1293,59 @@ export default function TomorrowGoalsPage() {
     }
   }
 
+  // Submit slider's completion handler -- the ONLY thing it adds to
+  // onSubmitPlan() is ordering: it lets an in-flight autosave finish (and
+  // its saved rows commit to state) before calling the canonical submit,
+  // so the two never overlap, and ignores a second completion while one
+  // is already running. Eligibility/3-10 rules stay entirely inside
+  // onSubmitPlan() and the slider's own disabled gate (canSubmit).
+  async function submitViaSlider() {
+    if (sliderSubmitInFlightRef.current || !canSubmitRef.current) return;
+    sliderSubmitInFlightRef.current = true;
+    try {
+      const deadline = Date.now() + 8000;
+      let waited = false;
+      while (autosaveInFlightRef.current && Date.now() < deadline) {
+        waited = true;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      if (waited) await new Promise((r) => setTimeout(r, 120));
+      await onSubmitPlanRef.current();
+    } finally {
+      sliderSubmitInFlightRef.current = false;
+    }
+  }
+
+  // Explicit "Save plan" press -- the first stage of the Tomorrow control.
+  // Persistence is entirely the canonical saveDraftOrChanges() (which
+  // clears the autosave timer and runs persistGoals(false)); this only
+  // (1) lets any in-flight autosave finish first so persistGoals() doesn't
+  // bail on its own in-flight guard, and (2) decides afterwards whether the
+  // save really persisted, since persistGoals() swallows its own errors:
+  // it did if the plan was already clean beforehand (nothing to write) or
+  // if lastSavedHashRef actually moved. Only then is the explicit latch set.
+  async function explicitSavePlan() {
+    if (explicitSaving || submitting || totalGoalsFilled < 3) return;
+    setExplicitSaving(true);
+    setSaveFailed(false);
+    try {
+      const deadline = Date.now() + 8000;
+      while (autosaveInFlightRef.current && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      const wasClean = computeHashForSave(compactForSave(goalsRef.current)) === lastSavedHashRef.current;
+      const before = lastSavedHashRef.current;
+      await saveDraftOrChanges();
+      if (wasClean || lastSavedHashRef.current !== before) {
+        setExplicitSavedHash(lastSavedHashRef.current);
+      } else {
+        setSaveFailed(true);
+      }
+    } finally {
+      setExplicitSaving(false);
+    }
+  }
+
   async function removeGoal(idx: number) {
     const g = goals[idx];
 
@@ -1355,6 +1430,24 @@ export default function TomorrowGoalsPage() {
   // computed at render time (not a ref) so typing immediately flips it
   // active instead of waiting for the debounced autosave to catch up.
   const isDirty = computeHashForSave(compactForSave(goals)) !== lastSavedHashRef.current;
+
+  // The explicit save is only valid for the exact plan state it saved:
+  // any later edit makes the plan dirty (or, once autosave catches up,
+  // moves lastSavedHashRef off explicitSavedHash), which drops the latch
+  // and re-locks the slider until Save plan is pressed again.
+  const planLatched =
+    totalGoalsFilled >= 3 && explicitSavedHash !== null && !isDirty && explicitSavedHash === lastSavedHashRef.current;
+  const glassState: "locked" | "save" | "saving" | "saved" = explicitSaving
+    ? "saving"
+    : totalGoalsFilled < 3
+    ? "locked"
+    : planLatched
+    ? "saved"
+    : "save";
+  const sliderReady = planLatched && canSubmit;
+
+  onSubmitPlanRef.current = onSubmitPlan;
+  canSubmitRef.current = sliderReady;
 
   const goalsProgressPercent = Math.min(100, Math.round((totalGoalsFilled / MAX_GOALS) * 100));
 
@@ -2330,6 +2423,113 @@ export default function TomorrowGoalsPage() {
           // RescheduleModal).
           const content = (
             <>
+              {/* PRIMARY row: the two-stage Tomorrow control -- PRESS Save plan,
+                  THEN SLIDE to Submit plan. One physical track with both
+                  instructions permanently engraved (aria-hidden, inside
+                  the slider); the moving glass lights whichever is under
+                  its clear lens. Stage 1 is the transparent
+                  .tomorrow-glass-save hit target over the left half, which
+                  calls the canonical saveDraftOrChanges() via
+                  explicitSavePlan(); the slider underneath stays disabled
+                  (and the hit target inert once saved) so the two never
+                  compete for the same pointer. Stage 2 completes through
+                  submitViaSlider() -> the canonical onSubmitPlan(), and is
+                  only enabled while the plan is explicitly saved AND
+                  unchanged (planLatched) AND canSubmit. Autosave keeps
+                  running for data protection but never sets the latch. */}
+              {!locked &&
+                (submitted ? (
+                  <div className="tomorrow-slider-group">
+                    <div className="plan-submitted-card">
+                      <CheckCircle2 size={16} />
+                      <div>
+                        <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
+                        <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
+                      </div>
+                    </div>
+                    {/* Post-submission edits still autosave; this line (and
+                        its retry-on-tap) is the only save surface once the
+                        plan is submitted and the glass control is gone. */}
+                    <div className="tomorrow-draft-status" role="status" aria-live="polite">
+                      {draftSaving || submitting ? (
+                        <span>{t("tomorrow.saving")}</span>
+                      ) : isDirty ? (
+                        <button
+                          type="button"
+                          className="tomorrow-draft-status-btn"
+                          onClick={saveDraftOrChanges}
+                          title={t("tomorrow.manualSaveTitle")}
+                        >
+                          {t("tomorrow.unsavedChanges")}
+                        </button>
+                      ) : (
+                        <span className="tomorrow-draft-status-saved">
+                          <Check size={12} />
+                          {t("tomorrow.savedCheck")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="tomorrow-slider-group">
+                    <div className="tomorrow-glass today-day-slider-wrap" data-tstate={glassState} data-ready={sliderReady ? "true" : "false"}>
+                      <button
+                        type="button"
+                        className="tomorrow-glass-save"
+                        onClick={explicitSavePlan}
+                        disabled={glassState !== "save"}
+                        aria-busy={glassState === "saving"}
+                        aria-label={
+                          glassState === "saving"
+                            ? t("tomorrow.saving")
+                            : glassState === "saved"
+                            ? t("tomorrow.planSaved")
+                            : t("tomorrow.savePlan")
+                        }
+                      />
+                      <GlassSlider
+                        onComplete={submitViaSlider}
+                        disabled={!sliderReady}
+                        busy={submitting && !explicitSaving}
+                        startLabel={
+                          <span className="tomorrow-save-face">
+                            {glassState === "saving"
+                              ? t("tomorrow.saving")
+                              : glassState === "saved"
+                              ? t("tomorrow.planSaved")
+                              : t("tomorrow.savePlan")}
+                          </span>
+                        }
+                        endLabel={
+                          submitting && !explicitSaving ? (
+                            t("tomorrow.submitting")
+                          ) : (
+                            <>
+                              {!submitEligible && <Lock size={13} />}
+                              {t("tomorrow.submitPlanShort")}
+                            </>
+                          )
+                        }
+                        ariaLabel={t("tomorrow.submitPlan")}
+                        title={
+                          !submitEligible
+                            ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
+                            : totalGoalsFilled < 3
+                            ? t("tomorrow.fillInMore", { count: 3 - totalGoalsFilled, filled: totalGoalsFilled })
+                            : !planLatched
+                            ? t("tomorrow.pressSaveFirst")
+                            : ""
+                        }
+                      />
+                    </div>
+                    {saveFailed && glassState === "save" && (
+                      <div className="tomorrow-draft-status tomorrow-draft-status-error" role="alert">
+                        {t("tomorrow.saveFailed")}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
               {/* Planning-tools tier — Use a Pass / Reorder, relocated
                   here verbatim from the top of the page (same
                   handleUseStreakPass/setEditMode handlers, same
@@ -2751,86 +2951,6 @@ export default function TomorrowGoalsPage() {
                 </div>
               )}
 
-              {/* Primary tier — Save draft and Submit Plan now share one
-                  row instead of Save draft living in the 2x2 grid above
-                  and Submit always claiming its own full-width row below
-                  it -- explicit user call to fit both on one mobile
-                  line. A CSS Grid (not flex), same technique the 3-
-                  across row above already uses, so the submitted-card
-                  (richer/wider content than a plain button) can still
-                  span the row's full width via grid-column: 1 / -1 when
-                  it appears, rather than being squeezed into a half-
-                  width column. Every condition (isDirty/submitted/
-                  canSubmit/submitEligible/submitting) and the
-                  saveDraftOrChanges/onSubmitPlan handlers are byte-
-                  identical to before -- only the grouping/layout moved. */}
-              <div className="tomorrow-command-row-2">
-                {isDirty ? (
-                  <button
-                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-toolbar-btn"
-                    onClick={saveDraftOrChanges}
-                    disabled={submitting}
-                    title={t("tomorrow.manualSaveTitle")}
-                  >
-                    {submitting ? t("tomorrow.saving") : submitted ? t("tomorrow.saveChanges") : t("tomorrow.saveDraft")}
-                  </button>
-                ) : (
-                  // Explicit user call: stays a real button-shaped element
-                  // (same tomorrow-toolbar-btn sizing as the real Save
-                  // button, so the row doesn't resize when swapping
-                  // between the two) instead of collapsing into plain
-                  // status text once there's nothing left to save. Not
-                  // .standup-metal-btn--accent/amber -- --metal-color is
-                  // overridden to the green "completed" token instead, and
-                  // there's no onClick (tabIndex -1, out of tab order)
-                  // since this is a status readout, not a real action.
-                  <button
-                    type="button"
-                    className="btn standup-metal-btn tomorrow-toolbar-btn"
-                    style={{ "--metal-color": "var(--status-completed)", color: "var(--status-completed)" } as React.CSSProperties}
-                    tabIndex={-1}
-                    aria-label={t("tomorrow.savedCheck")}
-                  >
-                    <Check size={14} />
-                    {t("tomorrow.savedCheck")}
-                  </button>
-                )}
-                {submitted ? (
-                  <div className="plan-submitted-card" style={{ gridColumn: "1 / -1" }}>
-                    <CheckCircle2 size={16} />
-                    <div>
-                      <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
-                      <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    className="btn standup-metal-btn standup-metal-btn--accent hover-scale tomorrow-submit-btn tomorrow-toolbar-btn"
-                    onClick={onSubmitPlan}
-                    disabled={!canSubmit}
-                    aria-busy={submitting}
-                    title={
-                      !submitEligible
-                        ? t("tomorrow.submitUnlocksOnce", { date: formatDateDisplay(todayISO) })
-                        : totalGoalsFilled < 3
-                        ? t("tomorrow.fillInMore", { count: 3 - totalGoalsFilled, filled: totalGoalsFilled })
-                        : ""
-                    }
-                  >
-                    {submitting ? (
-                      t("tomorrow.submitting")
-                    ) : !submitEligible ? (
-                      <>
-                        <Lock size={14} />
-                        {t("tomorrow.submitPlan")}
-                      </>
-                    ) : (
-                      t("tomorrow.submitPlan")
-                    )}
-                  </button>
-                )}
-              </div>
-
               {/* Navigation tier — Calendar/Tools/Dashboard, same shortcuts
                   Today's own fixed command bar already gives (plus Tools,
                   which Today's own bar doesn't carry either but this one
@@ -2843,17 +2963,17 @@ export default function TomorrowGoalsPage() {
                   state-changing actions), so no canonical handler is
                   involved here at all. */}
               <div className="tomorrow-nav-row">
-                <Link href="/standup/calendar" className="btn standup-metal-btn tomorrow-nav-btn">
-                  <CalendarDays size={13} />
-                  {t("nav.calendar")}
+                <Link href="/standup/dashboard" className="btn standup-metal-btn tomorrow-nav-btn">
+                  <LayoutDashboard size={13} />
+                  {t("nav.dashboard")}
                 </Link>
                 <Link href="/standup/tools" className="btn standup-metal-btn tomorrow-nav-btn">
                   <Wrench size={13} />
                   {t("nav.tools")}
                 </Link>
-                <Link href="/standup/dashboard" className="btn standup-metal-btn tomorrow-nav-btn">
-                  <LayoutDashboard size={13} />
-                  {t("nav.dashboard")}
+                <Link href="/standup/calendar" className="btn standup-metal-btn tomorrow-nav-btn">
+                  <CalendarDays size={13} />
+                  {t("nav.calendar")}
                 </Link>
               </div>
             </>

@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, TriangleAlert, Ticket, Check, CheckCircle2, Sun, Wrench, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, TriangleAlert, Ticket, Check, CheckCircle2, Sun, Target, Calendar as CalendarIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
   toISODate,
@@ -19,8 +19,23 @@ import {
 } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import PageLoadingState from "@/components/PageLoadingState";
+import { getPriorityMeta } from "@/lib/priorityStyles";
+
+type CalendarView = "month" | "week";
+
+// Read-only slice of each goal row for the Week view's commitment list --
+// the same `goals` rows the Month aggregation below already fetches (just
+// with title/priority/sort_order added to the select), never a second
+// query or data model.
+type DayGoal = {
+  id: string;
+  title: string;
+  status: string;
+  priority: number | null;
+};
 
 type DayData = {
+  goals: DayGoal[];
   date: string;
   hasCommitments: boolean;
   commitmentCount: number;
@@ -182,10 +197,35 @@ const DOMINANT_GLOW_COLOR: Record<DominantStatus, string> = {
   pending: "var(--calendar-status-pending)",
 };
 
+// Same status -> color mapping ringSegments() uses ("postponed" is this
+// schema's rescheduled-away status; anything else unresolved is "pending").
+function goalStatusKey(status: string): DominantStatus {
+  if (status === "completed") return "completed";
+  if (status === "postponed") return "rescheduled";
+  if (status === "canceled") return "canceled";
+  if (status === "missed") return "missed";
+  return "pending";
+}
+
+const STATUS_LABEL_KEY = {
+  completed: "status.completed",
+  rescheduled: "status.rescheduled",
+  canceled: "status.canceled",
+  missed: "status.missed",
+  pending: "status.notStarted",
+} as const;
+
+const DAY_KEYS = ["calendar.daySun", "calendar.dayMon", "calendar.dayTue", "calendar.dayWed", "calendar.dayThu", "calendar.dayFri", "calendar.daySat"] as const;
+
 export default function CalendarPage() {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
+  // Anchor date for BOTH views: Month uses its month, Week uses the
+  // Sunday-start week that contains it -- one navigation state, no second
+  // copy to keep in sync.
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<CalendarView>("month");
+  const [selectedDayISO, setSelectedDayISO] = useState<string | null>(null);
   const [dayData, setDayData] = useState<Record<string, DayData>>({});
   const [overdueDays, setOverdueDays] = useState<OverdueDay[]>([]);
   const [passBalance, setPassBalance] = useState<StreakPassBalance | null>(null);
@@ -218,6 +258,20 @@ export default function CalendarPage() {
     return new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
   }, [currentDate]);
 
+  const weekStart = useMemo(() => {
+    return new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - currentDate.getDay());
+  }, [currentDate]);
+
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + i));
+  }, [weekStart]);
+
+  // The one date range the data effect loads: the displayed month in
+  // Month view (unchanged), the displayed week in Week view (which can
+  // straddle two months).
+  const rangeStartISO = toISODate(view === "week" ? weekDays[0] : monthStart);
+  const rangeEndISO = toISODate(view === "week" ? weekDays[6] : monthEnd);
+
   const monthName = currentDate.toLocaleDateString(language === "es" ? "es-ES" : "en-US", {
     month: "long",
     year: "numeric",
@@ -241,8 +295,8 @@ export default function CalendarPage() {
       try {
         const userId = await getCurrentUserId();
 
-        const startISO = toISODate(monthStart);
-        const endISO = toISODate(monthEnd);
+        const startISO = rangeStartISO;
+        const endISO = rangeEndISO;
 
         const [{ data: plans, error: plansErr }, coveredDates] = await Promise.all([
           supabase
@@ -262,8 +316,9 @@ export default function CalendarPage() {
         if (planIds.length > 0) {
           const { data: goals, error: goalsErr } = await supabase
             .from("goals")
-            .select("id, plan_id, status, reviewed_at")
-            .in("plan_id", planIds);
+            .select("id, plan_id, status, reviewed_at, title, priority, sort_order")
+            .in("plan_id", planIds)
+            .order("sort_order", { ascending: true });
 
           if (goalsErr) throw goalsErr;
           goalsData = goals || [];
@@ -316,6 +371,12 @@ export default function CalendarPage() {
           const missedGoals = planGoals.filter((g) => g.status === "missed");
 
           dataMap[plan.plan_date] = {
+            goals: planGoals.map((g) => ({
+              id: g.id,
+              title: typeof g.title === "string" ? g.title : "",
+              status: g.status,
+              priority: typeof g.priority === "number" ? g.priority : null,
+            })),
             date: plan.plan_date,
             hasCommitments: planGoals.length > 0,
             commitmentCount: planGoals.length,
@@ -341,7 +402,28 @@ export default function CalendarPage() {
     }
 
     loadMonthData();
-  }, [currentDate, monthStart, monthEnd]);
+  }, [rangeStartISO, rangeEndISO]);
+
+  function previousWeek() {
+    setCurrentDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7));
+  }
+
+  function nextWeek() {
+    setCurrentDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7));
+  }
+
+  // Month -> Week lands on today's week when today is inside the month
+  // being viewed, otherwise the first week of that month.
+  function changeView(next: CalendarView) {
+    if (next === view) return;
+    if (next === "week") {
+      const now = new Date();
+      const todayInMonth = now.getFullYear() === currentDate.getFullYear() && now.getMonth() === currentDate.getMonth();
+      setCurrentDate(todayInMonth ? now : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+      setSelectedDayISO(null);
+    }
+    setView(next);
+  }
 
   function previousMonth() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -364,6 +446,63 @@ export default function CalendarPage() {
 
     return days;
   }, [monthStart, monthEnd, currentDate]);
+
+  const weekISOs = weekDays.map(toISODate);
+  const selectedISO =
+    selectedDayISO && weekISOs.includes(selectedDayISO) ? selectedDayISO : weekISOs.includes(todayISO) ? todayISO : weekISOs[0];
+  const isCurrentWeek = weekISOs.includes(todayISO);
+  const weekRangeLabel = `${weekDays[0].toLocaleDateString(locale, { month: "short", day: "numeric" })} – ${weekDays[6].toLocaleDateString(
+    locale,
+    weekDays[0].getMonth() === weekDays[6].getMonth() ? { day: "numeric" } : { month: "short", day: "numeric" }
+  )}`;
+
+  // Stacked status meter: the same proportional segments the Month ring
+  // draws, as a flat bar.
+  function renderWeekMeter(data: DayData | undefined) {
+    const segments = ringSegments(data);
+    return (
+      <div className="calendar-week-meter" aria-hidden="true">
+        {segments.map((s, i) => (
+          <span key={i} style={{ width: `${s.pct}%`, background: s.color }} />
+        ))}
+      </div>
+    );
+  }
+
+  function renderWeekGoals(data: DayData | undefined) {
+    if (!data || data.goals.length === 0) {
+      return <p className="calendar-week-empty">{t("calendar.noCommitments")}</p>;
+    }
+    return (
+      <>
+        <div className="calendar-week-day-count">
+          {data.completedCount}/{data.commitmentCount}
+          {data.completedCount === data.commitmentCount && <Check size={11} />}
+        </div>
+        <ul className="calendar-week-goals">
+          {data.goals.map((g) => {
+            const key = goalStatusKey(g.status);
+            return (
+              <li
+                key={g.id}
+                className="calendar-week-goal"
+                style={g.priority ? { borderLeftColor: getPriorityMeta(g.priority).color } : undefined}
+              >
+                <span
+                  className="calendar-week-goal-dot"
+                  style={{ background: DOMINANT_GLOW_COLOR[key] }}
+                  role="img"
+                  aria-label={t(STATUS_LABEL_KEY[key])}
+                  title={t(STATUS_LABEL_KEY[key])}
+                />
+                <span className="calendar-week-goal-title">{g.title}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </>
+    );
+  }
 
   if (loading) {
     return <PageLoadingState label={t("calendar.loading")} />;
@@ -434,6 +573,105 @@ export default function CalendarPage() {
           </div>
         )}
 
+        {/* Month / Week segmented view selector -- one shared housing
+            (.standup-metal-btn-group) with two sockets; the active one is
+            lit cyan via .calendar-view-switch-btn[aria-pressed="true"]. */}
+        <div className="calendar-view-switch-row mb-5">
+          <div className="standup-metal-btn-group calendar-view-switch" role="group" aria-label={t("calendar.viewLabel")}>
+            {(["month", "week"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => changeView(v)}
+                aria-pressed={view === v}
+                className="btn standup-metal-btn calendar-view-switch-btn"
+              >
+                {v === "month" ? t("calendar.viewMonth") : t("calendar.viewWeek")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {view === "week" ? (
+          <>
+            <div className="calendar-month-nav calendar-week-nav mb-6">
+              <button onClick={previousWeek} className="btn standup-metal-btn calendar-month-nav-btn" aria-label={t("calendar.prevWeek")}>
+                <ChevronLeft size={14} />
+              </button>
+              <div className="calendar-month-nav-title calendar-week-nav-title">
+                <span>{weekRangeLabel}</span>
+                <button
+                  type="button"
+                  className="calendar-week-today-link"
+                  onClick={() => {
+                    setCurrentDate(new Date());
+                    setSelectedDayISO(null);
+                  }}
+                  style={isCurrentWeek ? { visibility: "hidden" } : undefined}
+                >
+                  {t("calendar.thisWeek")}
+                </button>
+              </div>
+              <button onClick={nextWeek} className="btn standup-metal-btn calendar-month-nav-btn" aria-label={t("calendar.nextWeek")}>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            {/* Desktop/tablet: seven day columns. */}
+            <div className="calendar-week-grid">
+              {weekDays.map((d) => {
+                const iso = toISODate(d);
+                const data = dayData[iso];
+                const isToday = iso === todayISO;
+                return (
+                  <section key={iso} className={`calendar-week-day${isToday ? " calendar-week-day-today" : ""}`} aria-label={formatDateDisplay(iso)}>
+                    <Link href={isToday ? "/standup/today" : `/standup/date/${iso}`} className="calendar-week-day-head">
+                      <span className="calendar-week-day-dow">{t(DAY_KEYS[d.getDay()])}</span>
+                      <span className="calendar-week-day-num">{d.getDate()}</span>
+                    </Link>
+                    {renderWeekMeter(data)}
+                    {renderWeekGoals(data)}
+                  </section>
+                );
+              })}
+            </div>
+
+            {/* Phone: day strip + the selected day's commitments below. */}
+            <div className="calendar-week-mobile">
+              <div className="calendar-week-strip">
+                {weekDays.map((d) => {
+                  const iso = toISODate(d);
+                  const isToday = iso === todayISO;
+                  const isSelected = iso === selectedISO;
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      onClick={() => setSelectedDayISO(iso)}
+                      aria-pressed={isSelected}
+                      aria-label={formatDateDisplay(iso)}
+                      className={`calendar-week-strip-day${isToday ? " calendar-week-strip-day-today" : ""}`}
+                    >
+                      <span className="calendar-week-day-dow">{t(DAY_KEYS[d.getDay()])}</span>
+                      <span className="calendar-week-strip-num">{d.getDate()}</span>
+                      {renderWeekMeter(dayData[iso])}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className={`calendar-week-mobile-panel${selectedISO === todayISO ? " calendar-week-day-today" : ""}`}>
+                <div className="calendar-week-mobile-panel-head">
+                  <span className="calendar-week-mobile-panel-title">{formatDateDisplay(selectedISO)}</span>
+                  <Link href={selectedISO === todayISO ? "/standup/today" : `/standup/date/${selectedISO}`} className="calendar-week-open-link">
+                    {t("calendar.openDay")} <ChevronRight size={13} />
+                  </Link>
+                </div>
+                {renderWeekGoals(dayData[selectedISO])}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         {/* Replaces the old separate "← Prev / Today / Next →" button row
             (removed above) -- Prev/Next now flank the month heading
             itself, labeled with the abbreviated name of the month they'll
@@ -562,6 +800,8 @@ export default function CalendarPage() {
             );
           })}
         </div>
+          </>
+        )}
 
         {/* Legend -- explains the proportional ring's 4 segment colors
             (same mapping as ringSegments() above) plus Today's purple
@@ -626,8 +866,8 @@ export default function CalendarPage() {
                 {t("nav.planTomorrow")}
               </Link>
               <Link className="btn standup-metal-btn standup-metal-btn--accent calendar-command-btn" href="/standup/tools">
-                <Wrench size={14} />
-                {t("nav.tools")}
+                <Target size={14} />
+                {t("backlog.tabGoals")}
               </Link>
             </div>
           );

@@ -603,6 +603,14 @@ export const en = {
   "calendar.dayThu": "Thu",
   "calendar.dayFri": "Fri",
   "calendar.daySat": "Sat",
+  "calendar.viewLabel": "Calendar view",
+  "calendar.viewMonth": "Month",
+  "calendar.viewWeek": "Week",
+  "calendar.prevWeek": "Previous week",
+  "calendar.nextWeek": "Next week",
+  "calendar.thisWeek": "This week",
+  "calendar.openDay": "Open day",
+  "calendar.noCommitments": "No commitments",
 
   // Backlog
   "backlog.failedLoad": "Failed to load backlog",

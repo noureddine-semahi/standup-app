@@ -598,6 +598,14 @@ export const es: Record<keyof typeof en, string> = {
   "calendar.dayThu": "Jue",
   "calendar.dayFri": "Vie",
   "calendar.daySat": "Sáb",
+  "calendar.viewLabel": "Vista del calendario",
+  "calendar.viewMonth": "Mes",
+  "calendar.viewWeek": "Semana",
+  "calendar.prevWeek": "Semana anterior",
+  "calendar.nextWeek": "Semana siguiente",
+  "calendar.thisWeek": "Esta semana",
+  "calendar.openDay": "Abrir día",
+  "calendar.noCommitments": "Sin compromisos",
 
   // Backlog
   "backlog.failedLoad": "Error al cargar pendientes",

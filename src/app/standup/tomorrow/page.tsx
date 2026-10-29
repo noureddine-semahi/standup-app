@@ -16,6 +16,7 @@ import {
   getPlanWithGoals,
   isYesterdayReviewed,
   submitPlan,
+  markPlanSaved,
   toISODate,
   formatDateDisplay,
   formatDateTimeDisplay,
@@ -135,7 +136,10 @@ export default function TomorrowGoalsPage() {
   // moment an EXPLICIT press succeeded -- autosave never sets it, so
   // autosave can never unlock submission. See planLatched below.
   const [explicitSaving, setExplicitSaving] = useState(false);
-  const [explicitSavedHash, setExplicitSavedHash] = useState<string | null>(null);
+  // Persisted checkpoint (daily_plans.saved_hash), written only by an
+  // explicit Save plan press -- autosave never touches it. Loaded by
+  // refresh(), so ✓ Plan saved survives navigation, reloads and devices.
+  const [savedHash, setSavedHash] = useState<string | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   // Canonical hash (computeHashForSave) of the exact plan most recently
   // EXPLICITLY submitted, loaded from daily_plans.submitted_hash -- so
@@ -723,6 +727,7 @@ export default function TomorrowGoalsPage() {
     setPlanId(plan.id);
     setPlanStatus(plan.status);
     setSubmittedHash(plan.status === "submitted" ? plan.submitted_hash ?? null : null);
+    setSavedHash(plan.saved_hash ?? null);
     setPassBalance(balance);
     setCoveredByPass(coveredDates.has(tomorrowISO));
 
@@ -1383,11 +1388,16 @@ export default function TomorrowGoalsPage() {
       const wasClean = computeHashForSave(compactForSave(goalsRef.current)) === lastSavedHashRef.current;
       const before = lastSavedHashRef.current;
       await saveDraftOrChanges();
-      if (wasClean || lastSavedHashRef.current !== before) {
-        setExplicitSavedHash(lastSavedHashRef.current);
+      if (planId && (wasClean || lastSavedHashRef.current !== before)) {
+        // Persist the acceptance checkpoint for the exact persisted state.
+        const hashToRecord = lastSavedHashRef.current;
+        await markPlanSaved(planId, hashToRecord);
+        setSavedHash(hashToRecord);
       } else {
         setSaveFailed(true);
       }
+    } catch {
+      setSaveFailed(true);
     } finally {
       setExplicitSaving(false);
     }
@@ -1479,15 +1489,15 @@ export default function TomorrowGoalsPage() {
 
   // The explicit save is only valid for the exact plan state it saved:
   // any later edit makes the plan dirty (or, once autosave catches up,
-  // moves lastSavedHashRef off explicitSavedHash), which drops the latch
+  // moves lastSavedHashRef off savedHash), which drops the latch
   // and re-locks the slider until Save plan is pressed again.
   const planLatched =
-    totalGoalsFilled >= 3 && explicitSavedHash !== null && !isDirty && explicitSavedHash === lastSavedHashRef.current;
+    totalGoalsFilled >= 3 && savedHash !== null && !isDirty && savedHash === lastSavedHashRef.current;
   const glassState: "locked" | "save" | "saving" | "saved" = explicitSaving
     ? "saving"
     : totalGoalsFilled < 3
     ? "locked"
-    : planLatched || (submittedHash !== null && computeHashForSave(compactForSave(goals)) === submittedHash && lastSavedHashRef.current === submittedHash)
+    : planLatched
     ? "saved"
     : "save";
   const sliderReady = planLatched && canSubmit && !(submittedHash !== null && computeHashForSave(compactForSave(goals)) === submittedHash);
@@ -1512,7 +1522,7 @@ export default function TomorrowGoalsPage() {
       ? "yellow"
       : totalGoalsFilled < 3
       ? "red"
-      : planLatched || exactSubmitted
+      : planLatched
       ? "latched"
       : changedSinceSubmit
       ? "pulse"

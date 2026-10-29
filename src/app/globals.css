@@ -10319,6 +10319,14 @@ select:focus {
 }
 
 [data-theme="light"] .today-day-slider {
+  /* Light-mode semantic state palette (glow rgb + deep ink rgb). Every
+     light tone rule below reads these. */
+  --lt-yellow: 255, 176, 32;
+  --lt-yellow-ink: 150, 64, 0;
+  --lt-red: 214, 40, 52;
+  --lt-red-ink: 140, 14, 28;
+  --lt-green: 34, 197, 94;
+  --lt-green-ink: 6, 96, 42;
   --rim-out:
     0 0 0 1px rgba(60, 48, 36, 0.5),
     0 1px 0 1px rgba(255, 255, 255, 0.75),
@@ -11658,30 +11666,61 @@ select:focus {
     0 2px 10px rgba(34, 197, 94, 0.2);
 }
 
-[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="off"] {
-  color: rgba(90, 90, 96, 0.28);
+/* Light mode: the shell stays neutral aluminium; the state is light from
+   INSIDE the control -- a colored glow in the cavity behind deep-ink
+   engraving, so each state still reads on a bright surface. Brightness
+   order: off < locked red < saved < ready yellow < submitted green. */
+[data-theme="light"] .today-day-slider .today-day-slider-engrave-start[data-tone] {
+  border-radius: 10px 0 0 10px;
+}
+[data-theme="light"] .today-day-slider .today-day-slider-engrave-end[data-tone] {
+  border-radius: 0 10px 10px 0;
 }
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="dormant"] {
-  color: rgba(150, 100, 30, 0.5);
+  color: rgb(98, 80, 56);
+  background: linear-gradient(180deg, rgba(60, 48, 36, 0.24) 0%, rgba(90, 76, 60, 0.12) 100%);
+  box-shadow: inset 0 3px 7px rgba(50, 38, 26, 0.35), inset 0 0 0 1px rgba(60, 48, 36, 0.2);
 }
-[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="yellow"] {
-  color: #a86a00;
-  text-shadow: 0 0 8px rgba(245, 158, 11, 0.55), 0 1px 0 var(--slider-engrave-hi);
+[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="yellow"],
+[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="pulse"] {
+  color: rgb(var(--lt-yellow-ink));
+  background: radial-gradient(ellipse 62% 95% at 50% 55%, rgba(var(--lt-yellow), 0.66) 0%, rgba(var(--lt-yellow), 0.17) 55%, rgba(var(--lt-yellow), 0.03) 100%);
+  text-shadow: 0 0 10px rgba(var(--lt-yellow), 0.95), 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 0 12px rgba(var(--lt-yellow), 0.36), inset 0 2px 5px rgba(70, 40, 0, 0.22);
+}
+/* Submit ready is the primary next action: a touch brighter than Save. */
+[data-theme="light"] .tomorrow-glass[data-ready="true"] .today-day-slider-engrave-end[data-tone="yellow"] {
+  background: radial-gradient(ellipse 62% 95% at 50% 55%, rgba(var(--lt-yellow), 0.8) 0%, rgba(var(--lt-yellow), 0.22) 55%, rgba(var(--lt-yellow), 0.04) 100%);
+  box-shadow: inset 0 0 14px rgba(var(--lt-yellow), 0.46), inset 0 2px 5px rgba(70, 40, 0, 0.22);
 }
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="red"] {
-  color: #c62828;
-  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5), 0 1px 0 var(--slider-engrave-hi);
+  color: rgb(var(--lt-red-ink));
+  background: radial-gradient(ellipse 90% 130% at 50% 55%, rgba(var(--lt-red), 0.4) 0%, rgba(var(--lt-red), 0.15) 62%, rgba(var(--lt-red), 0.04) 100%);
+  text-shadow: 0 0 8px rgba(var(--lt-red), 0.6), 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 0 12px rgba(var(--lt-red), 0.32), inset 0 2px 5px rgba(60, 10, 14, 0.25);
 }
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="dimRed"] {
-  color: rgba(150, 60, 56, 0.5);
-  text-shadow: 0 1px 0 var(--slider-engrave-hi);
+  color: rgb(116, 20, 32);
+  background: linear-gradient(180deg, rgba(70, 14, 22, 0.28) 0%, rgba(120, 30, 40, 0.14) 100%);
+  text-shadow: 0 0 5px rgba(var(--lt-red), 0.22);
+  box-shadow: inset 0 3px 7px rgba(50, 10, 16, 0.38), inset 0 0 0 1px rgba(80, 20, 28, 0.2);
+}
+[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="standby"] {
+  color: rgb(128, 34, 24);
+  background: linear-gradient(180deg, rgba(80, 22, 14, 0.28) 0%, rgba(130, 50, 30, 0.14) 100%);
+  text-shadow: 0 0 5px rgba(var(--lt-red), 0.2);
+  box-shadow: inset 0 3px 7px rgba(60, 16, 10, 0.38), inset 0 0 0 1px rgba(90, 30, 20, 0.2);
 }
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="latched"] {
-  color: rgba(130, 112, 60, 0.6);
+  color: rgb(104, 76, 10);
+  background: linear-gradient(180deg, rgba(110, 84, 20, 0.26) 0%, rgba(150, 120, 40, 0.12) 100%);
+  box-shadow: inset 0 3px 7px rgba(70, 50, 10, 0.36), inset 0 0 0 1px rgba(90, 70, 20, 0.2);
 }
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="green"] {
-  color: #15803d;
-  text-shadow: 0 0 8px rgba(34, 197, 94, 0.5), 0 1px 0 var(--slider-engrave-hi);
+  color: rgb(var(--lt-green-ink));
+  background: radial-gradient(ellipse 90% 130% at 50% 55%, rgba(var(--lt-green), 0.7) 0%, rgba(var(--lt-green), 0.28) 62%, rgba(var(--lt-green), 0.08) 100%);
+  text-shadow: 0 0 10px rgba(var(--lt-green), 0.95), 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 0 18px rgba(var(--lt-green), 0.6), inset 0 2px 5px rgba(0, 50, 20, 0.22);
 }
 
 /* Reduced motion: strong STATIC equivalents, no breathing, no bloom. */
@@ -11696,13 +11735,19 @@ select:focus {
 }
 
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="pulse"] {
-  color: #a86a00;
-  text-shadow: 0 0 8px rgba(245, 158, 11, 0.55), 0 1px 0 var(--slider-engrave-hi);
   animation: slider-tone-breathe-light 2.6s ease-in-out infinite;
 }
 @keyframes slider-tone-breathe-light {
-  0%, 100% { color: #a86a00; text-shadow: 0 0 10px rgba(245, 158, 11, 0.7), 0 1px 0 var(--slider-engrave-hi); }
-  50% { color: #b98a2e; text-shadow: 0 0 3px rgba(245, 158, 11, 0.2), 0 1px 0 var(--slider-engrave-hi); }
+  0%, 100% {
+    color: rgb(var(--lt-yellow-ink));
+    text-shadow: 0 0 12px rgba(var(--lt-yellow), 1), 0 1px 0 rgba(255, 255, 255, 0.45);
+    box-shadow: inset 0 0 14px rgba(var(--lt-yellow), 0.46), inset 0 2px 5px rgba(70, 40, 0, 0.22);
+  }
+  50% {
+    color: rgb(128, 84, 24);
+    text-shadow: 0 0 3px rgba(var(--lt-yellow), 0.3), 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 0 6px rgba(var(--lt-yellow), 0.2), inset 0 2px 5px rgba(70, 40, 0, 0.22);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="pulse"] {
@@ -11716,10 +11761,6 @@ select:focus {
 .today-day-slider .today-day-slider-engrave[data-tone="standby"] {
   color: rgba(184, 112, 60, 0.5);
   text-shadow: 0 0 5px rgba(200, 110, 50, 0.14), 0 1px 0 var(--slider-engrave-hi), 0 -1px 0 var(--slider-engrave-lo);
-}
-[data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="standby"] {
-  color: rgba(150, 84, 36, 0.6);
-  text-shadow: 0 1px 0 var(--slider-engrave-hi);
 }
 .tomorrow-submit-face {
   display: flex;
@@ -12043,9 +12084,37 @@ select:focus {
   border-radius: 0 10px 10px 0;
 }
 [data-theme="light"] .today-day-slider .today-day-slider-engrave[data-tone="off"] {
-  color: rgba(105, 90, 72, 0.68);
-  background: linear-gradient(180deg, rgba(60, 50, 40, 0.3) 0%, rgba(90, 78, 64, 0.18) 100%);
+  color: rgba(88, 76, 62, 0.85);
+  background: linear-gradient(180deg, rgba(50, 40, 30, 0.34) 0%, rgba(80, 68, 54, 0.22) 100%);
   box-shadow:
-    inset 0 3px 7px rgba(50, 36, 24, 0.4),
-    inset 0 0 0 1px rgba(60, 48, 36, 0.25);
+    inset 0 3px 7px rgba(40, 28, 18, 0.48),
+    inset 0 0 0 1px rgba(50, 38, 28, 0.28);
+}
+
+/* Light mode: semantic light reflected on the polished rim (the rim itself
+   stays silver). Same precedence as dark: green over red over yellow. */
+[data-theme="light"] .today-day-slider:has(.today-day-slider-engrave[data-tone="yellow"], .today-day-slider-engrave[data-tone="pulse"]) {
+  --rim-reflect: 0 0 12px -1px rgba(var(--lt-yellow), 0.6);
+}
+[data-theme="light"] .today-day-slider:has(.today-day-slider-engrave[data-tone="red"]) {
+  --rim-reflect: 0 0 12px -1px rgba(var(--lt-red), 0.5);
+}
+[data-theme="light"] .today-day-slider:has(.today-day-slider-engrave[data-tone="green"]) {
+  --rim-reflect:
+    0 0 14px -1px rgba(var(--lt-green), 0.6),
+    0 2px 10px rgba(var(--lt-green), 0.3);
+}
+
+/* Light mode, command bars: a disabled button (e.g. Add Task on a closed
+   Today) reads as powered off -- a darker cavity and readable text, not
+   a faded ghost. */
+[data-theme="light"] .today-fixed-bar .standup-metal-btn:disabled,
+[data-theme="light"] .tomorrow-fixed-bar .standup-metal-btn:disabled {
+  opacity: 0.9;
+  color: rgba(70, 58, 46, 0.78);
+}
+[data-theme="light"] .today-fixed-bar .standup-metal-btn:disabled::before,
+[data-theme="light"] .tomorrow-fixed-bar .standup-metal-btn:disabled::before {
+  background: linear-gradient(to bottom, #cfc8b9 0%, #c3bcab 45%, #b8b09e 100%);
+  box-shadow: inset 0 3px 6px rgba(50, 38, 26, 0.3);
 }

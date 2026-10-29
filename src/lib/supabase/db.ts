@@ -24,6 +24,9 @@ export type DailyPlan = {
   // (see computeHashForSave on the Tomorrow page). null = never submitted
   // under this tracking, including plans submitted before it existed.
   submitted_hash?: string | null;
+  // Same canonical serialization, recorded when the user EXPLICITLY pressed
+  // Save plan (never by autosave). null = never explicitly saved.
+  saved_hash?: string | null;
   reviewed_at: string | null;
   // Manually dismissed via the "Clear this day" button on a past day's
   // view-only page — distinct from reviewed_at, which past days can never
@@ -2540,6 +2543,12 @@ export async function submitPlan(planId: string, submittedHash: string | null = 
 
   if (error) throw error;
   return data as DailyPlan;
+}
+
+/** Records the exact persisted plan state the user explicitly saved. */
+export async function markPlanSaved(planId: string, savedHash: string) {
+  const { error } = await supabase.from("daily_plans").update({ saved_hash: savedHash }).eq("id", planId);
+  if (error) throw error;
 }
 
 export async function markPlanReviewed(planId: string) {

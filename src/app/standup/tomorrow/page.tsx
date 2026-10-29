@@ -78,12 +78,12 @@ import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
-import GlassSlider from "@/components/GlassSlider";
+import GlassSlider, { type SliderTone } from "@/components/GlassSlider";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
-import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronUp, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
+import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, Check, ChevronDown, ChevronUp, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
@@ -137,6 +137,17 @@ export default function TomorrowGoalsPage() {
   const [explicitSaving, setExplicitSaving] = useState(false);
   const [explicitSavedHash, setExplicitSavedHash] = useState<string | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
+  // Canonical hash (computeHashForSave) of the exact plan most recently
+  // EXPLICITLY submitted, loaded from daily_plans.submitted_hash -- so
+  // "submitted plan changed" survives reloads/devices. null = not
+  // submitted under this tracking, which includes plans submitted before
+  // the column existed: those are never assumed to match the current
+  // goals and simply go through Save -> Submit once to establish it.
+  const [submittedHash, setSubmittedHash] = useState<string | null>(null);
+  // Brief premium green shimmer after a successful submit; purely visual.
+  const [submitFlash, setSubmitFlash] = useState(false);
+  // Real submit failure only (never set by normal state changes).
+  const [submitError, setSubmitError] = useState<string | null>(null);
   // Phase 8A.1: gates the mobile action bar's createPortal(document.body)
   // call until after hydration (same pattern RescheduleModal/other modals
   // in this app already use for their own portals) -- document doesn't
@@ -663,6 +674,7 @@ export default function TomorrowGoalsPage() {
       time_of_day: g.time_of_day || null,
       is_all_day: !!(g as any).is_all_day,
       link_url: (g as any).link_url || null,
+      outcome_goal_id: (g as any).outcome_goal_id || null,
     }));
     return JSON.stringify(normalized);
   }
@@ -710,6 +722,7 @@ export default function TomorrowGoalsPage() {
     setSubmitEligible(eligible);
     setPlanId(plan.id);
     setPlanStatus(plan.status);
+    setSubmittedHash(plan.status === "submitted" ? plan.submitted_hash ?? null : null);
     setPassBalance(balance);
     setCoveredByPass(coveredDates.has(tomorrowISO));
 
@@ -828,6 +841,24 @@ export default function TomorrowGoalsPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tomorrowISO]);
+
+  // Today's closed/reviewed state can change in another tab or on the Today
+  // page; re-read the canonical eligibility whenever this page comes back
+  // into view so Submit unlocks without recreating the plan.
+  useEffect(() => {
+    function recheck() {
+      if (document.visibilityState === "hidden") return;
+      isYesterdayReviewed()
+        .then(setSubmitEligible)
+        .catch(() => {});
+    }
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
+    return () => {
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
+    };
+  }, []);
 
   useEffect(() => {
     getSuggestedTemplatesForDate(tomorrowISO)
@@ -1220,6 +1251,7 @@ export default function TomorrowGoalsPage() {
             : x
         )
       );
+      scheduleAutoSave();
     } catch (e: any) {
       setMsg(e?.message ?? t("tomorrow.saveFailed"));
     }
@@ -1239,7 +1271,13 @@ export default function TomorrowGoalsPage() {
       return;
     }
     if (planStatus === "locked") return;
-    if (planStatus === "submitted") {
+    // Re-submission after edits is allowed; only the EXACT already-submitted
+    // plan is refused.
+    if (
+      submittedHash !== null &&
+      computeHashForSave(compactForSave(goalsRef.current)) === submittedHash &&
+      lastSavedHashRef.current === submittedHash
+    ) {
       setMsg(t("tomorrow.alreadySubmitted"));
       return;
     }
@@ -1251,6 +1289,7 @@ export default function TomorrowGoalsPage() {
     autosaveInFlightRef.current = false;
 
     setMsg(null);
+    setSubmitError(null);
 
     // compactForSave is position-agnostic now -- its length IS the total
     // non-empty Commitment count, regardless of which slots they sit in.
@@ -1274,20 +1313,28 @@ export default function TomorrowGoalsPage() {
         }))
         .filter((g) => g.title.length > 0);
 
+      // The hash recorded as "submitted" must describe exactly what is
+      // persisted: it has to equal the last saved state (every row already
+      // carries its real id), or a not-yet-saved row would be certified.
+      const submitHash = computeHashForSave(compacted);
+      if (submitHash !== lastSavedHashRef.current) {
+        setMsg(t("tomorrow.pressSaveFirst"));
+        return;
+      }
+
       await upsertGoals(planId, toSave);
-      await submitPlan(planId);
+      await submitPlan(planId, submitHash);
 
       const planningResult = await awardPlanningPoints(planId, 5);
       if (planningResult?.success) notifyPointsUpdated();
 
       await refresh({ silent: true });
-      setMsg(
-        planningResult?.success
-          ? t("tomorrow.submittedPoints", { points: 5 })
-          : t("tomorrow.submittedMsg")
-      );
+      // No success banner: the Submit control itself turns green.
+      setSubmitFlash(true);
+      window.setTimeout(() => setSubmitFlash(false), 1600);
     } catch (e: any) {
       setMsg(e?.message ?? t("tomorrow.submitFailed"));
+      setSubmitError(e?.message ?? t("tomorrow.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -1403,7 +1450,6 @@ export default function TomorrowGoalsPage() {
   }
 
   const locked = planStatus === "locked";
-  const submitted = planStatus === "submitted";
 
   const normalized = normalizeGoals(goals);
 
@@ -1421,7 +1467,7 @@ export default function TomorrowGoalsPage() {
   const totalGoalsFilled = normalized.filter((g) => (g.title ?? "").trim().length > 0).length;
 
   const canSubmit =
-    !!planId && !locked && !submitted && totalGoalsFilled >= 3 && !submitting && submitEligible;
+    !!planId && !locked && totalGoalsFilled >= 3 && !submitting && submitEligible;
 
   const canAddMore = !locked && !submitting && goals.length < MAX_GOALS;
 
@@ -1441,10 +1487,50 @@ export default function TomorrowGoalsPage() {
     ? "saving"
     : totalGoalsFilled < 3
     ? "locked"
-    : planLatched
+    : planLatched || (submittedHash !== null && computeHashForSave(compactForSave(goals)) === submittedHash && lastSavedHashRef.current === submittedHash)
     ? "saved"
     : "save";
-  const sliderReady = planLatched && canSubmit;
+  const sliderReady = planLatched && canSubmit && !(submittedHash !== null && computeHashForSave(compactForSave(goals)) === submittedHash);
+
+  // Acceptance model. submittedHash (persisted) is the one source of truth
+  // for "what was last explicitly submitted"; autosave never touches it.
+  //  - exactSubmitted: the plan on screen AND in the database is exactly
+  //    the submitted plan -> Submit shows green.
+  //  - changedSinceSubmit: a plan was submitted, and the current one is
+  //    different (added / edited / removed / reordered) -> needs
+  //    Save -> Submit again. A plan with no recorded hash (never submitted,
+  //    or submitted before tracking existed) is NOT "changed"; it is just
+  //    an ordinary draft.
+  const exactSubmitted =
+    submittedHash !== null &&
+    computeHashForSave(compactForSave(goals)) === submittedHash &&
+    lastSavedHashRef.current === submittedHash;
+  const changedSinceSubmit = submittedHash !== null && !exactSubmitted;
+  // Presentation tones handed to GlassSlider (it only renders them).
+  const saveTone: SliderTone =
+    explicitSaving
+      ? "yellow"
+      : totalGoalsFilled < 3
+      ? "red"
+      : planLatched || exactSubmitted
+      ? "latched"
+      : changedSinceSubmit
+      ? "pulse"
+      : "yellow";
+  // Saved and complete, but the canonical eligibility gate
+  // (submitEligible = Today closed/reviewed, from isYesterdayReviewed) is
+  // the only thing still locking Submit.
+  const waitingOnToday = !submitEligible && planLatched && totalGoalsFilled >= 3 && !exactSubmitted && !locked;
+  const submitTone: SliderTone =
+    exactSubmitted && totalGoalsFilled >= 3
+      ? "green"
+      : sliderReady
+      ? "yellow"
+      : waitingOnToday
+      ? "standby"
+      : changedSinceSubmit && totalGoalsFilled >= 3 && !planLatched
+      ? "pulse"
+      : "dimRed";
 
   onSubmitPlanRef.current = onSubmitPlan;
   canSubmitRef.current = sliderReady;
@@ -2437,40 +2523,7 @@ export default function TomorrowGoalsPage() {
                   only enabled while the plan is explicitly saved AND
                   unchanged (planLatched) AND canSubmit. Autosave keeps
                   running for data protection but never sets the latch. */}
-              {!locked &&
-                (submitted ? (
-                  <div className="tomorrow-slider-group">
-                    <div className="plan-submitted-card">
-                      <CheckCircle2 size={16} />
-                      <div>
-                        <div className="plan-submitted-title">{t("tomorrow.planSubmittedTitle")}</div>
-                        <div className="plan-submitted-sub">{t("tomorrow.planSubmittedSub", { count: totalGoalsFilled })}</div>
-                      </div>
-                    </div>
-                    {/* Post-submission edits still autosave; this line (and
-                        its retry-on-tap) is the only save surface once the
-                        plan is submitted and the glass control is gone. */}
-                    <div className="tomorrow-draft-status" role="status" aria-live="polite">
-                      {draftSaving || submitting ? (
-                        <span>{t("tomorrow.saving")}</span>
-                      ) : isDirty ? (
-                        <button
-                          type="button"
-                          className="tomorrow-draft-status-btn"
-                          onClick={saveDraftOrChanges}
-                          title={t("tomorrow.manualSaveTitle")}
-                        >
-                          {t("tomorrow.unsavedChanges")}
-                        </button>
-                      ) : (
-                        <span className="tomorrow-draft-status-saved">
-                          <Check size={12} />
-                          {t("tomorrow.savedCheck")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
+              {!locked && (
                   <div className="tomorrow-slider-group">
                     <div className="tomorrow-glass today-day-slider-wrap" data-tstate={glassState} data-ready={sliderReady ? "true" : "false"}>
                       <button
@@ -2489,8 +2542,12 @@ export default function TomorrowGoalsPage() {
                       />
                       <GlassSlider
                         onComplete={submitViaSlider}
+                        atEnd={exactSubmitted && totalGoalsFilled >= 3}
                         disabled={!sliderReady}
                         busy={submitting && !explicitSaving}
+                        startTone={saveTone}
+                        endTone={submitTone}
+                        flash={submitFlash ? "end" : undefined}
                         startLabel={
                           <span className="tomorrow-save-face">
                             {glassState === "saving"
@@ -2504,10 +2561,15 @@ export default function TomorrowGoalsPage() {
                           submitting && !explicitSaving ? (
                             t("tomorrow.submitting")
                           ) : (
-                            <>
-                              {!submitEligible && <Lock size={13} />}
-                              {t("tomorrow.submitPlanShort")}
-                            </>
+                            <span className="tomorrow-submit-face">
+                              <span className="tomorrow-submit-face-main">
+                                {!submitEligible && <Lock size={13} />}
+                                {submitTone === "green" ? t("tomorrow.planSubmittedShort") : t("tomorrow.submitPlanShort")}
+                              </span>
+                              {waitingOnToday && (
+                                <span className="tomorrow-submit-face-hint">{t("tomorrow.closeTodayToUnlock")}</span>
+                              )}
+                            </span>
                           )
                         }
                         ariaLabel={t("tomorrow.submitPlan")}
@@ -2522,13 +2584,18 @@ export default function TomorrowGoalsPage() {
                         }
                       />
                     </div>
+                    {submitError && !exactSubmitted && (
+                      <div className="tomorrow-draft-status tomorrow-draft-status-error" role="alert">
+                        {submitError}
+                      </div>
+                    )}
                     {saveFailed && glassState === "save" && (
                       <div className="tomorrow-draft-status tomorrow-draft-status-error" role="alert">
                         {t("tomorrow.saveFailed")}
                       </div>
                     )}
                   </div>
-                ))}
+              )}
 
               {/* Planning-tools tier — Use a Pass / Reorder, relocated
                   here verbatim from the top of the page (same
@@ -3008,13 +3075,13 @@ export default function TomorrowGoalsPage() {
           );
         })()}
 
-        {!locked && !submitted && !submitEligible && (
+        {!locked && !exactSubmitted && !submitEligible && (
           <div className="mt-3 text-xs text-white/50">
             {t("tomorrow.lockedSubmitMsg", { date: formatDateDisplay(todayISO) })}
           </div>
         )}
 
-        {!locked && !submitted && submitEligible && totalGoalsFilled < 3 && (
+        {!locked && !exactSubmitted && submitEligible && totalGoalsFilled < 3 && (
           <div className="mt-3 text-xs text-white/50">
             {t("tomorrow.lockedNeedMore", { count: 3 - totalGoalsFilled, filled: totalGoalsFilled })}
           </div>

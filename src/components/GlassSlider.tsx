@@ -21,6 +21,21 @@ import { useRef } from "react";
 const SLIDER_INTENT_PX = 6;
 const SLIDER_THRESHOLD = 0.45;
 
+// Presentation-only lamp state for ONE engraved label. The component never
+// decides which tone applies -- the owning page derives it from its own
+// canonical state and passes it in:
+//   off      powered down, dark (irrelevant / opposite action)
+//   dormant  muted amber: the action exists but isn't available yet
+//   yellow   neon amber/yellow: action available now
+//   red      neon red: requirement not met
+//   dimRed   grayed red: unavailable / locked
+//   standby  powered-off amber-red: ready, waiting on something external
+//   latched  grayed yellow: this stage is complete
+//   pulse    breathing neon yellow: previously finalized state changed
+//   green    neon green: successful state
+// Omitted = the original unthemed engraving.
+export type SliderTone = "off" | "dormant" | "yellow" | "red" | "dimRed" | "standby" | "latched" | "pulse" | "green";
+
 type Props = {
   atEnd?: boolean;
   onComplete: () => void | Promise<void>;
@@ -34,9 +49,14 @@ type Props = {
   endLabel?: React.ReactNode;
   ariaLabel: string;
   title?: string;
+  startTone?: SliderTone;
+  endTone?: SliderTone;
+  // One-shot green shimmer on the label whose action just succeeded (owner
+  // clears it again after ~1.5s). Purely visual.
+  flash?: "start" | "end";
 };
 
-export default function GlassSlider({ atEnd = false, onComplete, disabled = false, busy = false, startLabel, endLabel, ariaLabel, title }: Props) {
+export default function GlassSlider({ atEnd = false, onComplete, disabled = false, busy = false, startLabel, endLabel, ariaLabel, title, startTone, endTone, flash }: Props) {
   const glassRef = useRef<HTMLSpanElement | null>(null);
   const dragStateRef = useRef<{
     pointerId: number | null;
@@ -177,17 +197,18 @@ export default function GlassSlider({ atEnd = false, onComplete, disabled = fals
       disabled={disabled}
       data-state={atEnd ? "closed" : "open"}
       data-busy={busy}
+      data-flash={flash}
       aria-label={ariaLabel}
       aria-busy={busy}
       title={title}
       className="today-day-slider"
     >
       <span className="today-day-slider-track">
-        <span className="today-day-slider-engrave today-day-slider-engrave-start" aria-hidden="true">
+        <span className="today-day-slider-engrave today-day-slider-engrave-start" data-tone={startTone} aria-hidden="true">
           {startLabel}
         </span>
         {endLabel != null && (
-          <span className="today-day-slider-engrave today-day-slider-engrave-end" aria-hidden="true">
+          <span className="today-day-slider-engrave today-day-slider-engrave-end" data-tone={endTone} aria-hidden="true">
             {endLabel}
           </span>
         )}

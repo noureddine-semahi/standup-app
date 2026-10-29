@@ -21,7 +21,7 @@ import GoalNumberOrb from "@/components/GoalNumberOrb";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
-import GlassSlider from "@/components/GlassSlider";
+import GlassSlider, { type SliderTone } from "@/components/GlassSlider";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import {
   addDays,
@@ -1002,6 +1002,23 @@ export default function TodayPage() {
   // enough to close; nothing can still be actively in progress either.
   const inProgressGoals = useMemo(() => reviewableGoals.filter((g) => g.status === "in_progress"), [reviewableGoals]);
   const canCloseDay = allReviewed && inProgressGoals.length === 0;
+
+  // Brief green confirmation on the label whose action just succeeded.
+  // Purely visual: it fires only when closeOutDay()/reopenDay() finish AND
+  // the refreshed day state actually changed; the lamp tones themselves
+  // are derived directly from dayClosed/canCloseDay above, never stored.
+  const [dayFlash, setDayFlash] = useState<"start" | "end" | undefined>(undefined);
+  const prevBusyRef = useRef({ closing: false, reopening: false });
+  useEffect(() => {
+    const prev = prevBusyRef.current;
+    prevBusyRef.current = { closing, reopening };
+    let side: "start" | "end" | undefined;
+    if (prev.closing && !closing && dayClosed) side = "start";
+    else if (prev.reopening && !reopening && !dayClosed) side = "end";
+    if (!side) return;
+    setDayFlash(side);
+    window.setTimeout(() => setDayFlash(undefined), 1600);
+  }, [closing, reopening, dayClosed]);
 
   // No push/email in this app — the only "reminder" is this banner, shown
   // while the user has the page open, once 6 or fewer hours remain today.
@@ -3942,6 +3959,9 @@ export default function TodayPage() {
                     onComplete={dayClosed ? reopenDay : closeOutDay}
                     disabled={dayClosed ? reopening : !canCloseDay || closing}
                     busy={closing || reopening}
+                    startTone={dayClosed ? "off" : canCloseDay ? "yellow" : "dormant"}
+                    endTone={dayClosed ? "yellow" : "off"}
+                    flash={dayFlash}
                     startLabel={t("today.slideToFinish")}
                     endLabel={t("today.slideToReopen")}
                     ariaLabel={dayClosed ? t("today.reopenTodayLabel") : t("today.finishTodayLabel")}

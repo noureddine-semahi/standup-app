@@ -20,6 +20,10 @@ export type DailyPlan = {
   plan_date: string; // YYYY-MM-DD
   status: PlanStatus;
   submitted_at: string | null;
+  // Canonical serialization of the exact plan most recently submitted
+  // (see computeHashForSave on the Tomorrow page). null = never submitted
+  // under this tracking, including plans submitted before it existed.
+  submitted_hash?: string | null;
   reviewed_at: string | null;
   // Manually dismissed via the "Clear this day" button on a past day's
   // view-only page — distinct from reviewed_at, which past days can never
@@ -2516,7 +2520,7 @@ export async function ensurePaymentReminderGoals(planDateISO: string): Promise<P
   return created;
 }
 
-export async function submitPlan(planId: string) {
+export async function submitPlan(planId: string, submittedHash: string | null = null) {
   const { data: goals, error: gErr } = await supabase
     .from("goals")
     .select("id")
@@ -2529,7 +2533,7 @@ export async function submitPlan(planId: string) {
 
   const { data, error } = await supabase
     .from("daily_plans")
-    .update({ status: "submitted", submitted_at: new Date().toISOString() })
+    .update({ status: "submitted", submitted_at: new Date().toISOString(), submitted_hash: submittedHash })
     .eq("id", planId)
     .select("*")
     .single();

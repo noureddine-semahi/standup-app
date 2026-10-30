@@ -1343,13 +1343,25 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   --hdr-p: clamp(36px, 13vw, 56px);
   --hdr-b: clamp(22px, 6.6vw, 30px);
+  /* room for the bell's overhang past the profile (0.7 x its width) beyond
+     what the row's own right padding already gives */
+  margin-right: calc(var(--hdr-b) * 0.7 - 10px);
 }
 
-/* Phones: a LARGE round profile with the Bell as a small badge-sized control
-   mounted on its top-right corner. The bell's center sits on the circle's
-   north-east rim (0.19 x the diameter in from the top and right of the
-   profile's box, just inside the rim so it never clips the top of the header), above it in z-order. !important on the avatar only because
-   Avatar sets its pixel size inline. */
+@media (max-width: 340px) {
+  .nav-mobile-trigger {
+    --hdr-p: 37px;
+    margin-right: calc(var(--hdr-b) * 0.7 - 4px);
+  }
+}
+
+/* Phones: a LARGE round profile with the Bell as a small control that is only
+   BARELY attached to it: the bell sits against the profile's top-right, its top
+   2px below the header's top edge and about 0.7 of its own width past the
+   profile's right edge, so just its lower-left corner dips into the profile's
+   rim. It is out of the row's flow (the trigger's margin-right reserves its
+   overhang) and above the profile in z-order. !important on the avatar only
+   because Avatar sets its pixel size inline. */
 .nav-mobile-trigger .header-metal-control--round .avatar-circle {
   width: var(--hdr-p) !important;
   height: var(--hdr-p) !important;
@@ -1360,8 +1372,8 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 2;
   width: var(--hdr-b);
   height: var(--hdr-b);
-  top: calc(var(--hdr-p) * 0.19 - var(--hdr-b) / 2);
-  right: calc(var(--hdr-p) * 0.19 - var(--hdr-b) / 2);
+  top: calc(var(--hdr-p) / 2 - 29px);
+  right: calc(var(--hdr-b) * -0.7);
   border-radius: 8px;
 }
 

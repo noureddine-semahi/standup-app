@@ -997,7 +997,7 @@ export default function Header() {
                 : "nav-link nav-profile header-metal-control flex items-center gap-2"
             }
           >
-            <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={22} />
+            <Avatar avatarUrl={profile?.avatar_url} label={profile?.display_name || user.email || "U"} size={28} />
             {profile?.display_name || user.email?.split("@")[0] || t("common.user")}
           </button>
         ) : (
@@ -1072,10 +1072,6 @@ export default function Header() {
       return (
         <div className="standup-header-datetime standup-header-datetime-placeholder">
           <span className="standup-header-datetime-placeholder-box" aria-hidden="true" />
-          <span className="standup-header-datetime-bell-chamber">
-            <span className="standup-header-datetime-divider standup-header-datetime-divider-bell" aria-hidden="true" />
-            {notificationBell("glass")}
-          </span>
         </div>
       );
     }
@@ -1112,10 +1108,6 @@ export default function Header() {
             </span>
             <span className="standup-header-datetime-time">{timeStr}</span>
           </span>
-        </span>
-        <span className="standup-header-datetime-bell-chamber">
-          <span className="standup-header-datetime-divider standup-header-datetime-divider-bell" aria-hidden="true" />
-          {notificationBell("glass")}
         </span>
       </div>
     );
@@ -1338,8 +1330,6 @@ export default function Header() {
               </div>
             )}
 
-            {notificationBell("desktop")}
-
             {/* Logged-out only now — About/FAQ/Contact. A signed-in user
                 has nothing left to show here (Theme/Language/Logout live
                 in the profile dropdown, everything else in the hamburger
@@ -1361,6 +1351,10 @@ export default function Header() {
             )}
           </div>
           {profileMenu("desktop")}
+          {/* The Bell is its own standalone control at the far right, after
+              the profile (same canonical desktop bell + dropdown as before,
+              only its position in the row changed). */}
+          {notificationBell("desktop")}
         </div>
 
         {/* Mobile header amendment: the standalone mobile Hamburger and
@@ -1373,6 +1367,7 @@ export default function Header() {
             above the mobile breakpoint — see .nav-mobile-trigger. */}
         <div className="nav-mobile-trigger">
           {!loading && profileMenu("mobile")}
+          {!loading && notificationBell("mobile")}
         </div>
       </div>
 

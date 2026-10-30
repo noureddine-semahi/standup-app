@@ -5484,7 +5484,11 @@ select:focus {
    horizontally into the chambers -- see the max-width:640px block below. */
 .goal-ctl-bar {
   position: absolute;
-  top: -5px;
+  /* One mounting rule for every state: the bar's vertical center sits on the
+     rank module's (module: top -5px, 32px tall -> center 11px below the card's
+     padding edge; this 30px bar at -4px -> 11px). Closed / open / pinned all
+     share these coordinates -- only width ever changes. */
+  top: -4px;
   right: -5px;
   z-index: 3;
   box-sizing: border-box;
@@ -5612,7 +5616,15 @@ select:focus {
    click target / holds the title); lifted a little higher so it clears the
    status stamp. */
 .goal-row-done-collapsed-wrap .goal-ctl-bar {
-  top: -14px;
+  top: -9px;
+}
+
+/* On desktop the collapsed row's status stamp sits a touch lower so the bar,
+   now on the rank module's centerline, clears it. */
+@media (min-width: 641px) {
+  .goal-row-done-collapsed .goal-done-banner {
+    margin-top: 6px;
+  }
 }
 
 /* Nested task header: the bar sits in the header row's flow instead of the
@@ -5655,9 +5667,11 @@ select:focus {
    the card top; housing: top -7px). The dots cross-fade into the chambers.
    Opening/closing the controls is purely a hardware change: it never alters
    the card's height, padding or content. Full screen / nested rows pin it open.
-   COLLAPSED rows: same module, same anchor, vertically centered in the 60px row
-   (top 12px). The row's height is identical with the controls closed or open;
-   opening only pushes the status stamp left and lets the title truncate more. */
+   COLLAPSED rows: same module, same anchor, on the rim at the rank module's
+   centerline there (module: top -10px -> center 6px; this 36px housing at
+   -12px -> 6px), closed AND open. The row's height is identical with the
+   controls closed or open; opening only pushes the status stamp left and lets
+   the title truncate more. */
 @media (max-width: 640px) {
   .goal-ctl-bar {
     top: -7px;
@@ -5757,7 +5771,7 @@ select:focus {
   }
 
   .goal-row-done-collapsed-wrap .goal-ctl-bar:not([data-pinned="true"]) {
-    top: 12px;
+    top: -12px;
     right: 8px;
   }
 

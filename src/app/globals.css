@@ -4965,35 +4965,36 @@ select:focus {
     0 0 11px -5px color-mix(in srgb, var(--metal-color) 20%, transparent);
 }
 
-/* Structural steel rim for the DEFAULT priority (P3 "medium", whose
-   --p-color is var(--priority-3), the yellow/gold perimeter). The card
-   perimeter is priority-derived by design, so only P3 -- the neutral
-   default -- is replaced; P1 red, P2 orange and every status color keep
-   their semantic edge. The rim itself is a ring-only pseudo-element
-   (gradient masked down to the 1.5px border area), so the translucent
-   card body, its dimensions and radius are untouched and the corner
-   catches follow the card shape. Quiet on purpose: roughly 40% of the
-   slider rim's strength. */
-.goal-row[style*="--priority-3"] {
+/* Structural steel rim for every PRIORITY card (--p-color is a
+   var(--priority-N)): the chassis is neutral metal whatever the priority,
+   and priority stays semantic through the number orb, the priority
+   select and the other chips. Cards whose --p-color is a STATUS color
+   (resolved/expanded-done cards) keep their status-colored edge. The rim
+   is a 3px ring-only pseudo-element (gradient masked to a ring): the
+   outer 1.5px covers the existing border and the other 1.5px is built
+   INWARD, so card dimensions, padding and radius don't move and the
+   corner catches follow the card shape. Quiet on purpose: well below the
+   slider / command-bank rims. */
+.goal-row[style*="--priority-"] {
   --goal-rim:
     radial-gradient(ellipse 14% 130% at 5% 0%, rgba(232, 240, 250, 0.7), transparent 100%),
     radial-gradient(ellipse 10% 130% at 95% 0%, rgba(214, 228, 244, 0.42), transparent 100%),
     linear-gradient(180deg, #8794a6 0%, #66758a 30%, #4a5666 62%, #2b333f 90%, #586679 100%);
   border-color: transparent;
   box-shadow:
-    inset 0 0 0 1px rgba(2, 4, 8, 0.42),
+    inset 0 0 0 4px rgba(2, 4, 8, 0.4),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 1px rgba(0, 0, 0, 0.16),
     0 0 0 1px rgba(0, 0, 0, 0.32),
     0 6px 16px -10px rgba(0, 0, 0, 0.45);
 }
 
-.goal-row[style*="--priority-3"]::before {
+.goal-row[style*="--priority-"]::before {
   content: "";
   position: absolute;
   inset: -1.5px;
   border-radius: inherit;
-  padding: 1.5px;
+  padding: 3px;
   background: var(--goal-rim);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -5015,14 +5016,14 @@ select:focus {
 
 /* Light mode: the same structural rim in medium polished aluminium, kept
    visible against the light card body without becoming a heavy outline. */
-[data-theme="light"] .goal-row[style*="--priority-3"] {
+[data-theme="light"] .goal-row[style*="--priority-"] {
   --goal-rim:
     radial-gradient(ellipse 14% 130% at 5% 0%, #ffffff, transparent 100%),
     radial-gradient(ellipse 10% 130% at 95% 0%, rgba(255, 255, 255, 0.85), transparent 100%),
     linear-gradient(180deg, #d9dee4 0%, #b9c0c9 30%, #a3abb5 62%, #7b838d 90%, #c5ccd4 100%);
   border-color: transparent;
   box-shadow:
-    inset 0 0 0 1px rgba(60, 48, 36, 0.16),
+    inset 0 0 0 4px rgba(60, 48, 36, 0.14),
     inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
     inset 0 -1px 0 1px rgba(40, 32, 28, 0.06),
     0 0 0 1px rgba(60, 48, 36, 0.2),

@@ -1341,7 +1341,7 @@ h1, h2, h3, h4, h5, h6 {
      Both sizes scale with the viewport so the row never overflows next to the
      large logo: profile 36-56px, bell 22-30px. */
   position: relative;
-  --hdr-p: clamp(36px, 13vw, 56px);
+  --hdr-p: clamp(36px, 13vw, 52px);
   --hdr-b: clamp(22px, 6.6vw, 30px);
   /* room for the bell's overhang past the profile (0.7 x its width) beyond
      what the row's own right padding already gives */

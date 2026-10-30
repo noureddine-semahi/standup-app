@@ -518,6 +518,7 @@ export const en = {
   "today.collapseCard": "Collapse card",
   "today.restoreCard": "Restore card",
   "today.fullScreenTitle": "Full screen",
+  "today.openFullScreen": "Open full screen",
   "today.exitFullScreenTitle": "Exit full screen",
   "today.goalCompletionStat": "{completed}/{total} completed",
   "today.goalPercentStat": "{pct}%",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -91,7 +91,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
-  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, Maximize2, Minimize2, UserPlus,
+  AlarmClock, Hourglass, Lock, Unlock, Ticket, X, ChevronUp, ChevronDown, UserPlus,
   Target, Trash2, ChevronRight, TriangleAlert, Share2, CalendarDays, LayoutDashboard, Wrench, Circle,
 } from "lucide-react";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -711,19 +711,41 @@ export default function TodayPage() {
   // Goal/Task card currently shown full screen (a fixed overlay -- see
   // renderTaskCard below). Presentation only: the card is the same live
   // markup with the same handlers, just portaled into a full-viewport layer.
+  // The purple chamber of the card's control bar is the ONLY entry and exit
+  // (Escape also exits). While it is open the card's original slot keeps its
+  // height (a spacer), the page behind is scroll-locked, and closing puts the
+  // page back at the exact scroll position it was opened from.
   const [fullScreenGoalId, setFullScreenGoalId] = useState<string | null>(null);
+  const fsSpacerPxRef = useRef(0);
+  const fsScrollYRef = useRef(0);
+  function openFullScreen(id: string) {
+    const slot = document.querySelector(`[data-goal-id="${id}"]`) as HTMLElement | null;
+    fsSpacerPxRef.current = slot ? slot.offsetHeight : 0;
+    fsScrollYRef.current = window.scrollY;
+    setFullScreenGoalId(id);
+  }
+  function closeFullScreen() {
+    setFullScreenGoalId(null);
+    const y = fsScrollYRef.current;
+    window.requestAnimationFrame(() => window.scrollTo(0, y));
+  }
   useEffect(() => {
     if (!fullScreenGoalId) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setFullScreenGoalId(null);
+      if (e.key === "Escape") closeFullScreen();
     }
     window.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
+    const html = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = html.style.overflow;
     document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      document.body.style.overflow = prevBody;
+      html.style.overflow = prevHtml;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullScreenGoalId]);
 
   // Goal Engine Phase 2C-2: if `targetId`'s containing Major Goal group is
@@ -1713,37 +1735,25 @@ export default function TodayPage() {
   function renderTaskCard(g: Goal, idx: number, opts?: { compact?: boolean }) {
     const card = renderTaskCardInner(g, idx, opts);
     if (fullScreenGoalId !== g.id) return card;
-    return createPortal(
-      <div className="goal-fs-overlay" data-goal-fs>
-        <button
-          type="button"
-          className="goal-fs-close"
-          onClick={() => setFullScreenGoalId(null)}
-          title={t("today.exitFullScreenTitle")}
-          aria-label={t("today.exitFullScreenTitle")}
-        >
-          <X size={18} />
-        </button>
-        <div className="goal-fs-inner">{card}</div>
-      </div>,
-      document.body,
-      g.id
+    // The card moves into the overlay; its slot keeps the same height so the
+    // page behind doesn't reflow. Exit is the card's own purple chamber (it
+    // shows the exit icon) -- there is no separate close button.
+    return (
+      <Fragment key={g.id}>
+        <div aria-hidden="true" style={{ height: fsSpacerPxRef.current }} />
+        {createPortal(
+          <div className="goal-fs-overlay" data-goal-fs>
+            <div className="goal-fs-inner">{card}</div>
+          </div>,
+          document.body
+        )}
+      </Fragment>
     );
   }
 
   function renderTaskCardInner(g: Goal, idx: number, opts?: { compact?: boolean }) {
     const compact = !!opts?.compact;
-    const fullScreenBtn = (
-      <button
-        type="button"
-        onClick={() => setFullScreenGoalId((cur) => (cur === g.id ? null : g.id))}
-        className="goal-fs-btn"
-        title={fullScreenGoalId === g.id ? t("today.exitFullScreenTitle") : t("today.fullScreenTitle")}
-        aria-label={fullScreenGoalId === g.id ? t("today.exitFullScreenTitle") : t("today.fullScreenTitle")}
-      >
-        {fullScreenGoalId === g.id ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-      </button>
-    );
+    const isFullScreen = fullScreenGoalId === g.id;
     const p = typeof g.priority === "number" ? g.priority : 3;
     const isBusy = busyGoalIds.has(g.id);
     const isCelebrating = celebratingGoalIds.has(g.id);
@@ -1838,10 +1848,10 @@ export default function TodayPage() {
           <GoalNumberOrb number={idx + 1} />
           <GoalCardControls
             groupLabel={t("goalCard.controls")}
-            expand={{ label: t("today.fullScreenTitle") }}
+            collapsed
+            expand={{ label: t("today.openFullScreen") }}
             collapse={{
               label: t("today.restoreCard"),
-              restore: true,
               onClick: () =>
                 compact
                   ? setExpandedCompactTaskIds((prev) => new Set(prev).add(g.id))
@@ -2155,22 +2165,26 @@ export default function TodayPage() {
                   </option>
                 ))}
               </select>
-              {fullScreenBtn}
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedCompactTaskIds((prev) => {
-                    const next = new Set(prev);
-                    next.delete(g.id);
-                    return next;
-                  })
-                }
-                className="goal-child-collapse-chevron"
-                title={t("today.collapseTitle")}
-                aria-label={t("today.collapseTitle")}
-              >
-                <ChevronUp size={14} />
-              </button>
+              <GoalCardControls
+                className="goal-ctl-bar--inline"
+                groupLabel={t("goalCard.controls")}
+                fullScreen={isFullScreen}
+                expand={{
+                  label: isFullScreen ? t("today.exitFullScreenTitle") : t("today.openFullScreen"),
+                  onClick: isFullScreen ? closeFullScreen : () => openFullScreen(g.id),
+                }}
+                collapse={{
+                  label: t("today.collapseCard"),
+                  disabled: isFullScreen,
+                  onClick: () =>
+                    setExpandedCompactTaskIds((prev) => {
+                      const next = new Set(prev);
+                      next.delete(g.id);
+                      return next;
+                    }),
+                }}
+                close={{ label: t("today.deleteGoal") }}
+              />
             </div>
 
             {g.details && <div className="text-xs text-white/60">{g.details}</div>}
@@ -2581,14 +2595,14 @@ export default function TodayPage() {
             cards those two stay physically present but dimmed. */}
         <GoalCardControls
           groupLabel={t("goalCard.controls")}
+          fullScreen={isFullScreen}
           expand={{
-            label: t("today.fullScreenTitle"),
-            onClick: () => setFullScreenGoalId(g.id),
-            disabled: fullScreenGoalId === g.id,
+            label: isFullScreen ? t("today.exitFullScreenTitle") : t("today.openFullScreen"),
+            onClick: isFullScreen ? closeFullScreen : () => openFullScreen(g.id),
           }}
           collapse={{
             label: t("today.collapseCard"),
-            onClick: isCollapsible ? () => toggleExpandedDone(g.id) : undefined,
+            onClick: isCollapsible && !isFullScreen ? () => toggleExpandedDone(g.id) : undefined,
           }}
           close={{
             label: t("today.deleteGoal"),

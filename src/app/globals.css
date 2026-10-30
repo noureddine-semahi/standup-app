@@ -681,15 +681,19 @@ h1, h2, h3, h4, h5, h6 {
   left: 0;
   right: 0;
   z-index: 50;
-  backdrop-filter: blur(12px) saturate(180%);
-  background: rgba(var(--panel-rgb), var(--chrome-alpha));
+  /* Opaque near-black gunmetal: this is the recessed channel behind the
+     tab row (the polished top row paints its own surface over it). */
+  background: linear-gradient(180deg, #1a2230 0%, #121823 100%);
   border-bottom: 1px solid rgba(245, 158, 11, 0.2);
   transition: all 0.3s ease;
 }
 
 .app-header:hover {
   border-bottom-color: rgba(245, 158, 11, 0.4);
-  background: rgba(var(--panel-rgb), var(--chrome-alpha-hover));
+}
+
+[data-theme="light"] .app-header {
+  background: linear-gradient(180deg, #c4bba9 0%, #b3a995 100%);
 }
 
 .app-header-inner {
@@ -721,12 +725,47 @@ h1, h2, h3, h4, h5, h6 {
      border-bottom further down (unchanged, still the outer edge of the
      whole fixed header including the tab row). */
   border-bottom: 3px solid rgba(248, 58, 58, 0.95);
+  /* Smooth polished gunmetal -- the same material family as the bottom
+     command bar, header-weight (about 70% of its visibility; darker and
+     calmer). The metal is carried by LARGE smooth reflections, never by
+     visible lines. Layers, top to bottom: top-edge catches (narrow, only
+     in a few places) -> top-edge line (dark outer edge, then a steel
+     line) -> three broad feathered environmental catches (logo area,
+     behind the date/time instrument, right controls) -> micro-noise ->
+     two diagonal reflections -> overhead specular -> left-to-right
+     charcoal / blue-steel variation -> a graphite-to-dark-steel body that
+     is clearly lighter than black. */
+  background:
+    linear-gradient(90deg, transparent 5%, rgba(255, 255, 255, 0.6) 9%, transparent 14%, transparent 46%, rgba(255, 255, 255, 0.55) 50%, transparent 55%, transparent 85%, rgba(255, 255, 255, 0.55) 90%, transparent 95%) top / 100% 2px no-repeat,
+    linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0, rgba(0, 0, 0, 0.7) 1px, rgba(205, 222, 244, 0.55) 1px, rgba(205, 222, 244, 0.55) 2px, transparent 3px) top / 100% 4px no-repeat,
+    radial-gradient(ellipse 20% 95% at 9% 0%, rgba(205, 222, 246, 0.24), transparent 72%),
+    radial-gradient(ellipse 26% 110% at 50% 0%, rgba(205, 222, 246, 0.2), transparent 72%),
+    radial-gradient(ellipse 20% 95% at 91% 0%, rgba(205, 222, 246, 0.2), transparent 72%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='h' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.45' numOctaves='2' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.92 0 0 0 0 1 0.09 0 0 0 -0.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23h)'/%3E%3C/svg%3E"),
+    linear-gradient(112deg, transparent 12%, rgba(190, 210, 238, 0.16) 20%, rgba(190, 210, 238, 0.05) 27%, transparent 35%),
+    linear-gradient(112deg, transparent 56%, rgba(190, 210, 238, 0.14) 64%, rgba(190, 210, 238, 0.04) 70%, transparent 78%),
+    radial-gradient(ellipse 80% 70% at 50% 0%, rgba(205, 222, 244, 0.22), transparent 74%),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.34) 0%,
+      rgba(140, 165, 196, 0.2) 20%,
+      rgba(0, 0, 0, 0.2) 38%,
+      rgba(130, 156, 188, 0.17) 61%,
+      rgba(0, 0, 0, 0.32) 80%,
+      rgba(142, 168, 200, 0.2) 100%
+    ),
+    linear-gradient(180deg, #2c3541 0%, #212935 28%, #171d27 64%, #11151d 100%);
+  background-color: #151a23;
   /* Tight halo right at the line, then the original softer/wider falloff
      -- two layers so the line itself reads "lit" up close, not just
-     generally shadowed. */
+     generally shadowed. The inset lines are the polished perimeter:
+     steel hairlines down the sides (the bright top edge is the layered
+     catches above). */
   box-shadow:
     0 0 6px 0.5px rgba(248, 58, 58, 0.55),
-    0 2px 10px -1px rgba(220, 38, 38, 0.4);
+    0 2px 10px -1px rgba(220, 38, 38, 0.4),
+    inset 1px 0 0 rgba(180, 203, 232, 0.24),
+    inset -1px 0 0 rgba(180, 203, 232, 0.24);
   /* Anchors .brand-oversized's absolute-positioned logo below, and this
      row's own ::after light-projection below. */
   position: relative;
@@ -743,6 +782,31 @@ h1, h2, h3, h4, h5, h6 {
    ambiguity -- a known trap with percentage offsets on an absolutely
    positioned pseudo-element. pointer-events:none so it never blocks
    clicks on the tab row it visually sits above. */
+[data-theme="light"] .app-header-inner {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='h' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.45' numOctaves='2' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.25 0.08 0 0 0 -0.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23h)'/%3E%3C/svg%3E"),
+    linear-gradient(112deg, transparent 12%, rgba(255, 255, 255, 0.65) 20%, rgba(255, 255, 255, 0.16) 26%, transparent 33%),
+    linear-gradient(112deg, transparent 58%, rgba(255, 255, 255, 0.55) 65%, rgba(255, 255, 255, 0.14) 70%, transparent 77%),
+    radial-gradient(ellipse 70% 70% at 50% 0%, rgba(255, 255, 255, 0.75), transparent 72%),
+    linear-gradient(
+      90deg,
+      rgba(110, 95, 75, 0.12) 0%,
+      rgba(255, 255, 255, 0.26) 22%,
+      rgba(110, 95, 75, 0.07) 40%,
+      rgba(255, 255, 255, 0.24) 62%,
+      rgba(110, 95, 75, 0.11) 82%,
+      rgba(255, 255, 255, 0.26) 100%
+    ),
+    linear-gradient(180deg, #f3eee5 0%, #e4dccd 40%, #d2c9b7 100%);
+  background-color: #dcd4c4;
+  box-shadow:
+    0 0 6px 0.5px rgba(248, 58, 58, 0.55),
+    0 2px 10px -1px rgba(220, 38, 38, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset -1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
 .app-header-inner::after {
   content: "";
   position: absolute;
@@ -938,8 +1002,10 @@ h1, h2, h3, h4, h5, h6 {
   .brand-oversized .brand-logo {
     position: absolute;
     left: 0;
-    /* Pushed up 4px (was -4px) -- explicit user call. */
-    top: -8px;
+    /* Was -8px; moved down 6px so the artwork crosses the red rail by a
+       touch more -- explicit user call (desktop only; tablet/mobile have
+       their own offsets below). */
+    top: -2px;
     height: 68px;
     width: auto;
     z-index: 2;
@@ -1526,7 +1592,9 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(135deg, rgba(24, 28, 38, 0.36), rgba(10, 12, 18, 0.2));
   backdrop-filter: blur(18px) saturate(185%);
   -webkit-backdrop-filter: blur(18px) saturate(185%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(160, 176, 198, 0.42);
+  border-top-color: rgba(235, 243, 253, 0.78);
+  border-bottom-color: rgba(60, 70, 86, 0.65);
   box-shadow:
     /* inset white specular reflection -- top edge catches light.
        Strengthened (0.32 -> 0.44) per the polish pass -- this is the
@@ -1537,7 +1605,8 @@ h1, h2, h3, h4, h5, h6 {
     /* polished silver/glass perimeter ring, one step out from the
        1px border itself -- same "double ring" read
        .header-metal-control uses, translucent instead of metal */
-    0 0 0 1px rgba(148, 163, 184, 0.18),
+    0 0 0 1px rgba(6, 9, 15, 0.8),
+    0 1px 0 1px rgba(185, 208, 232, 0.3),
     /* soft dimensional shadow, grounds the widget against the header */
     0 4px 14px -5px rgba(0, 0, 0, 0.5),
     /* Reflected-light trio at rest, not a single cyan glow -- cyan
@@ -1948,12 +2017,15 @@ h1, h2, h3, h4, h5, h6 {
      and the same cyan/violet/amber reflected-light trio instead of
      cyan alone. */
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 250, 240, 0.24));
-  border-color: rgba(120, 113, 108, 0.2);
+  border-color: rgba(130, 124, 116, 0.4);
+  border-top-color: rgba(255, 255, 255, 0.95);
+  border-bottom-color: rgba(90, 82, 74, 0.5);
   color: rgba(35, 30, 25, 0.92);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.85),
     inset 0 -1px 0 0 rgba(120, 113, 108, 0.14),
-    0 0 0 1px rgba(148, 163, 184, 0.24),
+    0 0 0 1px rgba(80, 70, 60, 0.4),
+    0 1px 0 1px rgba(255, 255, 255, 0.7),
     0 4px 14px -5px rgba(120, 113, 108, 0.25),
     0 0 16px -6px rgba(56, 189, 248, 0.18),
     0 0 14px -7px rgba(167, 139, 250, 0.12),
@@ -4088,8 +4160,14 @@ select.btn {
   border-radius: 0 0 7px 7px;
   border: 1px solid rgba(90, 94, 102, 0.45);
   border-top: none;
-  border-bottom-color: rgba(140, 144, 155, 0.35);
-  background: rgba(var(--panel-rgb), var(--panel-alpha));
+  border-bottom-color: rgba(170, 183, 204, 0.6);
+  background:
+    radial-gradient(ellipse 60% 90% at 50% 0%, rgba(248, 58, 58, 0.06), transparent 70%),
+    linear-gradient(180deg, rgba(190, 210, 235, 0.1) 0%, transparent 38%),
+    linear-gradient(112deg, transparent 10%, rgba(180, 203, 234, 0.16) 21%, rgba(180, 203, 234, 0.05) 30%, transparent 41%),
+    linear-gradient(112deg, transparent 56%, rgba(180, 203, 234, 0.14) 65%, rgba(180, 203, 234, 0.045) 72%, transparent 81%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, rgba(130, 155, 188, 0.12) 24%, rgba(0, 0, 0, 0.1) 46%, rgba(120, 145, 178, 0.1) 68%, rgba(0, 0, 0, 0.18) 100%),
+    linear-gradient(180deg, #243040 0%, #1d2735 50%, #161d29 100%);
   /* Glossy metallic rim, INSET rather than outset here specifically --
      this element has overflow-x:auto/overflow-y:hidden just below
      (needed for its own horizontal-scroll behavior), and overflow
@@ -4102,7 +4180,7 @@ select.btn {
   box-shadow:
     inset 0 -1px 0 0 rgba(77, 77, 77, 0.8),
     inset 0 -5px 0 0 rgba(255, 255, 255, 0.0857),
-    inset 0 4px 0 0 rgba(30, 30, 30, 0.9),
+    inset 0 4px 0 0 rgba(12, 16, 24, 0.8),
     inset 0 1px 0 0 color-mix(in srgb, var(--metal-edge-neutral) 40%, white 20%),
     inset -1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 40%, white 20%),
     inset 1px 0 0 0 color-mix(in srgb, var(--metal-edge-neutral) 40%, white 20%),
@@ -4148,7 +4226,9 @@ select.btn {
 [data-theme="light"] .folder-tabbar-hanging {
   border-color: rgba(40, 32, 28, 0.3);
   border-bottom-color: rgba(255, 255, 255, 0.75);
-  background: rgba(var(--panel-rgb), 0.55);
+  background:
+    linear-gradient(112deg, transparent 30%, rgba(255, 255, 255, 0.25) 40%, transparent 52%),
+    linear-gradient(180deg, #a89e8a 0%, #bcb2a0 100%);
   box-shadow:
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.7),
     inset 0 -5px 0 0 rgba(40, 32, 28, 0.05),
@@ -4315,6 +4395,39 @@ select.btn {
     0 2px 3px 0 rgba(40, 32, 28, 0.22);
 }
 
+/* Light-mode header tabs: dark tinted smoked-metal faces with the accent
+   as illumination (text, icon, rim reflection) -- not pale pastel faces on
+   the aluminium channel. Each tab keeps its own accent through
+   --tab-color-rgb; the neutral dark base is shared. Geometry untouched
+   (only colors / shadows). */
+[data-theme="light"] .folder-tabbar-hanging .folder-tab-hanging {
+  color: rgb(var(--tab-color-rgb));
+  text-shadow: 0 0 7px rgba(var(--tab-color-rgb), 0.55);
+  background:
+    linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.26), rgba(var(--tab-color-rgb), 0.12)),
+    linear-gradient(to bottom, #3f4147, #28292d);
+  border-color: rgba(150, 160, 174, 0.38);
+  border-top-color: rgba(226, 232, 240, 0.6);
+  border-bottom-color: rgba(10, 10, 14, 0.7);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.4),
+    0 1px 2px 0 rgba(40, 32, 28, 0.4),
+    0 2px 3px 1px rgba(40, 32, 28, 0.22),
+    0 0 8px -2px rgba(var(--tab-color-rgb), 0.38);
+}
+
+[data-theme="light"] .folder-tabbar-hanging .folder-tab-hanging:hover:not(.folder-tab-hanging-active) {
+  background:
+    linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.36), rgba(var(--tab-color-rgb), 0.19)),
+    linear-gradient(to bottom, #474950, #2e2f35);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.4),
+    0 2px 3px 0 rgba(40, 32, 28, 0.4),
+    0 0 10px -2px rgba(var(--tab-color-rgb), 0.5);
+}
+
 /* Active state fully replaced with the Tools "pressed-into-a-socket"
    system (explicit "Tools tabs are the source of truth" call),
    superseding the previous "pulled-out hanging tab" metaphor (no more
@@ -4343,6 +4456,22 @@ select.btn {
     inset 0 -5px 7px -2px rgba(40, 32, 28, 0.24),
     inset 5px 0 7px -2px rgba(40, 32, 28, 0.21),
     inset -5px 0 7px -2px rgba(40, 32, 28, 0.21);
+}
+
+/* Header row only: the socket is a deeper dark cavity and the lit face
+   inside it (::before below) is a richly tinted dark face, so the active
+   tab keeps its accent identity with strong internal illumination. */
+[data-theme="light"] .folder-tabbar-hanging .folder-tab-hanging-active {
+  color: rgb(var(--tab-color-rgb));
+  text-shadow: 0 0 9px rgba(var(--tab-color-rgb), 0.75);
+  background: linear-gradient(to bottom, #1d1e22, #131316);
+  border-color: transparent;
+  box-shadow:
+    inset 0 6px 7px -2px rgba(0, 0, 0, 0.7),
+    inset 0 -5px 7px -2px rgba(0, 0, 0, 0.45),
+    inset 5px 0 7px -2px rgba(0, 0, 0, 0.4),
+    inset -5px 0 7px -2px rgba(0, 0, 0, 0.4),
+    0 1px 0 0 rgba(255, 255, 255, 0.35);
 }
 
 /* The lit face itself, inset 6px on every side (centered by
@@ -4383,6 +4512,16 @@ select.btn {
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.6),
     inset -1px -1px 2px 0 rgba(40, 32, 28, 0.2),
     0 0 3px 0 color-mix(in srgb, var(--tab-color) 36%, transparent);
+}
+
+[data-theme="light"] .folder-tabbar-hanging .folder-tab-hanging-active::before {
+  background:
+    linear-gradient(to bottom, rgba(var(--tab-color-rgb), 0.55), rgba(var(--tab-color-rgb), 0.24)),
+    linear-gradient(to bottom, #2f3036, #1c1d21);
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.34),
+    inset -1px -1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 0 7px 0 color-mix(in srgb, var(--tab-color) 55%, transparent);
 }
 
 /* Reflection glow spilling below the active tab -- same technique as
@@ -11361,17 +11500,19 @@ select:focus {
   border-left-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 66%, white 18%);
   border-right-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 16%, black 42%);
   border-bottom-color: color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 9%, black 62%);
-  background: linear-gradient(to bottom, #363a3f 0%, #1f2226 50%, #121315 100%);
+  background: linear-gradient(to bottom, #31353b 0%, #1a1d21 50%, #0e0f11 100%);
   box-shadow:
     /* crisp bright top-left catch light, corner-anchored rather than
        edge-wide -- reads tighter/shinier on a small control than the
        full-width inset line .standup-metal-btn uses */
-    inset 1px 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 0 6px 8px -4px rgba(255, 255, 255, 0.07),
     inset -1px -1px 0 0 rgba(0, 0, 0, 0.5),
     /* double outer ring: a thin bright inner line + a slightly wider,
        dimmer outer line -- the "noticeably reflective perimeter" read */
     0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 58%, white 12%),
     0 0 0 2px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 20%, transparent),
+    0 0 0 4px rgba(0, 0, 0, 0.32),
     /* subtle rear glow, same resting tier .standup-metal-btn uses */
     var(--metal-glow-int-rest) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-rest-strength), transparent),
     /* small grounded shadow */
@@ -11394,6 +11535,7 @@ select:focus {
     inset -1px -1px 0 0 rgba(0, 0, 0, 0.45),
     0 0 0 1px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 72%, white 15%),
     0 0 0 2.5px color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 30%, transparent),
+    0 0 0 4.5px rgba(0, 0, 0, 0.32),
     var(--metal-glow-int-hover) color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) var(--metal-glow-int-hover-strength), transparent),
     0 4px 8px -2px rgba(0, 0, 0, 0.5);
 }

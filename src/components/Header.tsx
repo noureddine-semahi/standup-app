@@ -1221,7 +1221,7 @@ export default function Header() {
                 Same technique as the app's existing data-theme CSS
                 pattern elsewhere, no new state/effect needed. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
+            <img src="/brand/standup-wordmark-clean.png" alt="StandUp" className="brand-logo brand-logo-dark" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
           </Link>
@@ -1243,7 +1243,7 @@ export default function Header() {
           ref={brandRef}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
+          <img src="/brand/standup-wordmark-clean.png" alt="StandUp" className="brand-logo brand-logo-dark" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
         </Link>
@@ -1284,7 +1284,7 @@ export default function Header() {
           onClick={() => toggleMenu("menu")}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/standup-wordmark.png" alt="StandUp" className="brand-logo brand-logo-dark" />
+          <img src="/brand/standup-wordmark-clean.png" alt="StandUp" className="brand-logo brand-logo-dark" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/standup-wordmark-light.png" alt="StandUp" className="brand-logo brand-logo-light" />
         </button>

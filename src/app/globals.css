@@ -11865,32 +11865,32 @@ select:focus {
 .today-fixed-bar,
 .tomorrow-fixed-bar {
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.85' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.92 0 0 0 0 1 0.3 0 0 0 -0.11'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='170'%3E%3Cfilter id='s' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0035 0.55' numOctaves='2' seed='23' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.95 0 0 0 0 1 1.9 0 0 0 -1.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E"),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 5px),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.032) 0px, rgba(0, 0, 0, 0.032) 1px, transparent 1px, transparent 7px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.45' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.92 0 0 0 0 1 0.12 0 0 0 -0.045'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='170'%3E%3Cfilter id='s' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0035 0.55' numOctaves='2' seed='23' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.95 0 0 0 0 1 1.0 0 0 0 -0.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.0035) 0px, rgba(255, 255, 255, 0.0035) 1px, transparent 1px, transparent 5px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.01) 0px, rgba(0, 0, 0, 0.01) 1px, transparent 1px, transparent 7px),
     linear-gradient(
       90deg,
       rgba(0, 0, 0, 0.42) 0%,
-      rgba(135, 160, 190, 0.2) 19%,
+      rgba(135, 160, 190, 0.235) 19%,
       rgba(0, 0, 0, 0.22) 37%,
-      rgba(125, 150, 182, 0.17) 60%,
+      rgba(125, 150, 182, 0.2) 60%,
       rgba(0, 0, 0, 0.36) 80%,
-      rgba(138, 164, 195, 0.2) 100%
+      rgba(138, 164, 195, 0.235) 100%
     ),
-    linear-gradient(112deg, transparent 14%, rgba(190, 210, 235, 0.1) 22%, rgba(190, 210, 235, 0.03) 27%, transparent 34%),
-    linear-gradient(112deg, transparent 56%, rgba(190, 210, 235, 0.09) 63%, rgba(190, 210, 235, 0.025) 68%, transparent 75%),
+    linear-gradient(112deg, transparent 14%, rgba(190, 210, 235, 0.12) 22%, rgba(190, 210, 235, 0.04) 27%, transparent 34%),
+    linear-gradient(112deg, transparent 56%, rgba(190, 210, 235, 0.105) 63%, rgba(190, 210, 235, 0.035) 68%, transparent 75%),
     linear-gradient(68deg, transparent 80%, rgba(170, 195, 225, 0.07) 88%, transparent 95%),
-    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(205, 222, 242, 0.22), transparent 72%),
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(205, 222, 242, 0.26), transparent 72%),
     linear-gradient(180deg, #252d39 0%, #161c26 14%, #0d1119 42%, #090c13 78%, #1a222e 100%);
   background-color: #0a0e16;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow:
     0 -10px 22px -8px rgba(0, 0, 0, 0.7),
-    inset 0 -1px 0 rgba(180, 205, 230, 0.32),
-    inset 1px 0 0 rgba(180, 205, 230, 0.16),
-    inset -1px 0 0 rgba(180, 205, 230, 0.16);
+    inset 0 -1px 0 rgba(190, 213, 238, 0.44),
+    inset 1px 0 0 rgba(190, 213, 238, 0.22),
+    inset -1px 0 0 rgba(190, 213, 238, 0.22);
 }
 
 /* Red rail: crisp core + tight dark-red bloom + a wider, restrained
@@ -11903,9 +11903,9 @@ select:focus {
     0 -1px 3px 0 rgba(235, 40, 40, 0.75),
     0 -2px 9px 0 rgba(200, 25, 25, 0.38),
     0 -10px 22px -8px rgba(0, 0, 0, 0.7),
-    inset 0 -1px 0 rgba(180, 205, 230, 0.32),
-    inset 1px 0 0 rgba(180, 205, 230, 0.16),
-    inset -1px 0 0 rgba(180, 205, 230, 0.16);
+    inset 0 -1px 0 rgba(190, 213, 238, 0.44),
+    inset 1px 0 0 rgba(190, 213, 238, 0.22),
+    inset -1px 0 0 rgba(190, 213, 238, 0.22);
 }
 
 .today-fixed-bar::before,
@@ -11929,8 +11929,8 @@ select:focus {
   background:
     linear-gradient(
       180deg,
-      rgba(236, 245, 255, 0.78) 0px,
-      rgba(236, 245, 255, 0.78) 1px,
+      rgba(240, 248, 255, 0.92) 0px,
+      rgba(240, 248, 255, 0.92) 1px,
       rgba(6, 10, 18, 0.7) 2px,
       rgba(6, 10, 18, 0.3) 6px,
       transparent 10px
@@ -11945,20 +11945,46 @@ select:focus {
   top: 0;
   bottom: 0;
   background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.11) 17%, transparent 31%),
-    linear-gradient(90deg, transparent 61%, rgba(255, 255, 255, 0.09) 74%, transparent 87%),
-    radial-gradient(ellipse 65% 38% at 50% 0%, rgba(220, 235, 250, 0.2), transparent 70%),
-    linear-gradient(0deg, rgba(160, 190, 220, 0.3) 0%, transparent 26%);
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.13) 17%, transparent 31%),
+    linear-gradient(90deg, transparent 61%, rgba(255, 255, 255, 0.105) 74%, transparent 87%),
+    radial-gradient(ellipse 65% 38% at 50% 0%, rgba(220, 235, 250, 0.235), transparent 70%),
+    linear-gradient(180deg, transparent 36%, rgba(150, 182, 214, 0.055) 50%, transparent 64%),
+    linear-gradient(0deg, rgba(160, 190, 220, 0.36) 0%, transparent 26%);
 }
 
-/* Contact recess around the button banks -- a soft dark halo only (no
-   padding, no frames), so the controls read as mounted into the metal. */
-.today-fixed-bar .today-command-grid,
-.today-fixed-bar .today-nav-row,
-.tomorrow-fixed-bar .tomorrow-command-grid,
-.tomorrow-fixed-bar .tomorrow-nav-row {
-  border-radius: 12px;
-  box-shadow: 0 0 10px 3px rgba(0, 0, 0, 0.38);
+/* Shared housing around the six command buttons (3x2): ONE polished-steel
+   frame, a notch quieter than the slider's so the slider stays the primary
+   control. Same technique as the slider rim: a transparent border with the
+   steel ring painted behind it (border-box layers) and an opaque dark
+   channel inside (padding-box layer). The ring is 2px and, unlike a single
+   diagonal gradient, is lit all the way round -- bright silver along the
+   top, small brighter catches in both upper corners, mid-steel down the
+   sides, a darker lower edge with a narrow reflected silver line -- and a
+   dark outline plus faint silver under-edge outside it separate it from
+   the surrounding metal. 2px border + 3px padding = 5px, exactly cancelled
+   by the -5px side margins, so the buttons keep their position and width
+   and are never covered by the frame (the padding is the dark channel). */
+.command-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 -5px;
+  padding: 3px;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, #03050a 0%, #080c13 100%) padding-box,
+    radial-gradient(ellipse 12% 80% at 4% 0%, rgba(255, 255, 255, 0.85), transparent 100%) border-box,
+    radial-gradient(ellipse 12% 80% at 96% 0%, rgba(235, 245, 255, 0.7), transparent 100%) border-box,
+    linear-gradient(180deg, #e6eef8 0%, #aab8ca 14%, #75839a 40%, #5b687a 62%, #323c4a 88%, #94a5b8 100%) border-box;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 0 rgba(0, 0, 0, 0.7),
+    inset 0 5px 9px -2px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    0 1px 0 1px rgba(185, 208, 232, 0.2),
+    0 0 10px -3px rgba(245, 158, 11, 0.16),
+    0 5px 9px -4px rgba(0, 0, 0, 0.65);
 }
 
 /* HIDE tab: sits ABOVE the rail. Positioned (its own full
@@ -11991,26 +12017,26 @@ select:focus {
 [data-theme="light"] .today-fixed-bar,
 [data-theme="light"] .tomorrow-fixed-bar {
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.85' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.25 0.28 0 0 0 -0.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.22) 0px, rgba(255, 255, 255, 0.22) 1px, transparent 1px, transparent 5px),
-    repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.04) 0px, rgba(90, 70, 40, 0.04) 1px, transparent 1px, transparent 7px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.45' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.25 0.12 0 0 0 -0.04'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0px, rgba(255, 255, 255, 0.06) 1px, transparent 1px, transparent 5px),
+    repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.012) 0px, rgba(90, 70, 40, 0.012) 1px, transparent 1px, transparent 7px),
     linear-gradient(
       90deg,
       rgba(110, 95, 75, 0.14) 0%,
-      rgba(255, 255, 255, 0.25) 20%,
+      rgba(255, 255, 255, 0.29) 20%,
       rgba(110, 95, 75, 0.08) 40%,
-      rgba(255, 255, 255, 0.22) 62%,
+      rgba(255, 255, 255, 0.26) 62%,
       rgba(110, 95, 75, 0.13) 82%,
-      rgba(255, 255, 255, 0.25) 100%
+      rgba(255, 255, 255, 0.29) 100%
     ),
-    linear-gradient(112deg, transparent 14%, rgba(255, 255, 255, 0.6) 22%, rgba(255, 255, 255, 0.15) 27%, transparent 34%),
-    linear-gradient(112deg, transparent 56%, rgba(255, 255, 255, 0.5) 63%, rgba(255, 255, 255, 0.12) 68%, transparent 75%),
-    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255, 255, 255, 0.7), transparent 72%),
+    linear-gradient(112deg, transparent 14%, rgba(255, 255, 255, 0.7) 22%, rgba(255, 255, 255, 0.18) 27%, transparent 34%),
+    linear-gradient(112deg, transparent 56%, rgba(255, 255, 255, 0.6) 63%, rgba(255, 255, 255, 0.15) 68%, transparent 75%),
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255, 255, 255, 0.8), transparent 72%),
     linear-gradient(180deg, #f1ece3 0%, #ddd5c7 16%, #c9bfae 50%, #bcb19f 82%, #a79c8a 100%);
   background-color: #cfc6b6;
   box-shadow:
     0 -8px 20px -8px rgba(60, 40, 20, 0.4),
-    inset 0 -1px 0 rgba(80, 70, 60, 0.35);
+    inset 0 -1px 0 rgba(80, 70, 60, 0.42);
 }
 [data-theme="light"] .today-fixed-bar[data-expanded="true"],
 [data-theme="light"] .tomorrow-fixed-bar[data-expanded="true"] {
@@ -12019,7 +12045,7 @@ select:focus {
     0 -1px 3px 0 rgba(215, 35, 35, 0.6),
     0 -2px 8px 0 rgba(200, 30, 30, 0.28),
     0 -8px 20px -8px rgba(60, 40, 20, 0.4),
-    inset 0 -1px 0 rgba(80, 70, 60, 0.35);
+    inset 0 -1px 0 rgba(80, 70, 60, 0.42);
 }
 [data-theme="light"] .today-fixed-bar::before,
 [data-theme="light"] .tomorrow-fixed-bar::before {
@@ -12037,16 +12063,25 @@ select:focus {
 [data-theme="light"] .today-fixed-bar::after,
 [data-theme="light"] .tomorrow-fixed-bar::after {
   background:
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 17%, transparent 31%),
-    linear-gradient(90deg, transparent 61%, rgba(255, 255, 255, 0.5) 74%, transparent 87%),
-    radial-gradient(ellipse 65% 38% at 50% 0%, rgba(255, 255, 255, 0.55), transparent 70%),
-    linear-gradient(0deg, rgba(90, 80, 70, 0.2) 0%, transparent 24%);
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 17%, transparent 31%),
+    linear-gradient(90deg, transparent 61%, rgba(255, 255, 255, 0.6) 74%, transparent 87%),
+    radial-gradient(ellipse 65% 38% at 50% 0%, rgba(255, 255, 255, 0.65), transparent 70%),
+    linear-gradient(180deg, transparent 36%, rgba(255, 255, 255, 0.22) 50%, transparent 64%),
+    linear-gradient(0deg, rgba(90, 80, 70, 0.24) 0%, transparent 24%);
 }
-[data-theme="light"] .today-fixed-bar .today-command-grid,
-[data-theme="light"] .today-fixed-bar .today-nav-row,
-[data-theme="light"] .tomorrow-fixed-bar .tomorrow-command-grid,
-[data-theme="light"] .tomorrow-fixed-bar .tomorrow-nav-row {
-  box-shadow: 0 0 10px 3px rgba(70, 50, 30, 0.18);
+[data-theme="light"] .command-bank {
+  background:
+    linear-gradient(180deg, #b9b0a0 0%, #cbc4b6 100%) padding-box,
+    radial-gradient(ellipse 12% 80% at 4% 0%, #ffffff, transparent 100%) border-box,
+    radial-gradient(ellipse 12% 80% at 96% 0%, rgba(255, 255, 255, 0.9), transparent 100%) border-box,
+    linear-gradient(180deg, #ffffff 0%, #dde2e8 14%, #aab2bd 40%, #8c949f 62%, #5c626b 88%, #c3cad2 100%) border-box;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 0 rgba(60, 48, 36, 0.45),
+    inset 0 5px 9px -2px rgba(50, 36, 24, 0.4),
+    0 0 0 1px rgba(60, 48, 36, 0.5),
+    0 1px 0 1px rgba(255, 255, 255, 0.8),
+    0 5px 9px -4px rgba(50, 36, 24, 0.35);
 }
 [data-theme="light"] .fixed-bar-toggle:not([data-collapsed="true"]) {
   background: linear-gradient(180deg, #fff1ee 0%, #f3e3da 60%, #e6d6ca 100%);

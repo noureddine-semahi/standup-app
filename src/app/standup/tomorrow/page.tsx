@@ -2631,6 +2631,7 @@ export default function TomorrowGoalsPage() {
                   label) instead of stacking below it as a separate
                   .date-metal-caption block -- see .tomorrow-pass-btn's
                   own comment in globals.css. */}
+              <div className="command-bank">
               <div className="tomorrow-command-grid">
                 {/* Review Today replaces Reorder in this fixed-bar slot (navigation
                     only -- Today's review logic is untouched; the page's own
@@ -3046,6 +3047,7 @@ export default function TomorrowGoalsPage() {
                   <CalendarDays size={13} />
                   {t("nav.calendar")}
                 </Link>
+              </div>
               </div>
             </>
           );

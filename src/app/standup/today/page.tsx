@@ -4035,6 +4035,7 @@ export default function TodayPage() {
                   />
                 </div>
               )}
+              <div className="command-bank">
               <div className="today-command-grid">
                 {planTomorrowVisible && (
                   <Link
@@ -4079,6 +4080,7 @@ export default function TodayPage() {
                   <CalendarDays size={13} />
                   {t("nav.calendar")}
                 </Link>
+              </div>
               </div>
             </>
           );

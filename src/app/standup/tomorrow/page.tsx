@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -80,6 +80,8 @@ import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
 import GlassSlider, { type SliderTone } from "@/components/GlassSlider";
+import GoalCardControls, { closeGoalCardPills } from "@/components/GoalCardControls";
+import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
@@ -220,6 +222,53 @@ export default function TomorrowGoalsPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
+
+  // Card PRESENTATION state only -- which cards are collapsed rows, which one
+  // is full screen, and which one the red chamber asked to remove. None of it
+  // touches goals, saves, Submit or the saved/submitted hashes. Keyed by goal
+  // id, so a draft row that has no id yet simply has no collapse / full screen.
+  const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  const [fullScreenKey, setFullScreenKey] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ idx: number; title: string } | null>(null);
+  const fsSpacerPxRef = useRef(0);
+  const fsScrollYRef = useRef(0);
+  function toggleCollapsedCard(key: string) {
+    setCollapsedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+  function openFullScreen(key: string) {
+    const slot = document.querySelector(`[data-goal-id="${key}"]`) as HTMLElement | null;
+    fsSpacerPxRef.current = slot ? slot.offsetHeight : 0;
+    fsScrollYRef.current = window.scrollY;
+    setFullScreenKey(key);
+  }
+  function closeFullScreen() {
+    setFullScreenKey(null);
+    const y = fsScrollYRef.current;
+    window.requestAnimationFrame(() => window.scrollTo(0, y));
+  }
+  useEffect(() => {
+    if (!fullScreenKey) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeFullScreen();
+    }
+    window.addEventListener("keydown", onKey);
+    const html = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = html.style.overflow;
+    document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevBody;
+      html.style.overflow = prevHtml;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullScreenKey]);
   const [suggestedTemplates, setSuggestedTemplates] = useState<RecurringGoalTemplate[]>([]);
   const [addingTemplateId, setAddingTemplateId] = useState<string | null>(null);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -1555,11 +1604,75 @@ export default function TomorrowGoalsPage() {
   // old `displayIdx + 1` (now computed per-section instead of globally --
   // a continuous 1..N badge across multiple Goal cards plus a standalone
   // section wouldn't read sensibly once the list is grouped).
-  function renderTaskCard(
+  function renderTaskCard(args: { g: DraftGoal; originalIdx: number }, cardNumber: number) {
+    const key = args.g.id ?? null;
+    // Collapsed row (presentation only).
+    if (key && collapsedKeys.has(key) && fullScreenKey !== key) {
+      return renderCollapsedCard(args, cardNumber, key);
+    }
+    const card = renderTaskCardInner(args, cardNumber);
+    if (!key || fullScreenKey !== key) return card;
+    // Full screen: the card moves into the overlay; its slot keeps its height
+    // so nothing behind it reflows. Exit is the card's own purple chamber.
+    return (
+      <Fragment key={key}>
+        <div aria-hidden="true" style={{ height: fsSpacerPxRef.current }} />
+        {createPortal(
+          <div className="goal-fs-overlay" data-goal-fs>
+            <div className="goal-fs-inner">{card}</div>
+          </div>,
+          document.body
+        )}
+      </Fragment>
+    );
+  }
+
+  function renderCollapsedCard(
+    { g, originalIdx }: { g: DraftGoal; originalIdx: number },
+    cardNumber: number,
+    key: string
+  ) {
+    const p =
+      typeof g.priority === "number" && Number.isFinite(g.priority) ? g.priority : DEFAULT_PRIORITY;
+    const opt = getPriorityMeta(p);
+    const assignment = assignedOutByGoalId.get(key);
+    const isExclusive = assignment?.assignmentType === "exclusive" && assignment.status === "accepted";
+    const removable = !locked && !isExclusive;
+    return (
+      <div key={key} className="goal-row-done-collapsed-wrap" data-goal-id={key}>
+        <GoalNumberOrb number={cardNumber} />
+        <GoalCardControls
+          groupLabel={t("goalCard.controls")}
+          collapsed
+          expand={{ label: t("today.openFullScreen") }}
+          collapse={{ label: t("today.restoreCard"), onClick: () => toggleCollapsedCard(key) }}
+          close={{
+            label: (p >= 1 && p <= 3) ? t("tomorrow.clearPriorityTask") : t("tomorrow.removeTask"),
+            onClick: removable ? () => setRemoveTarget({ idx: originalIdx, title: g.title ?? "" }) : undefined,
+            disabled: submitting,
+          }}
+        />
+        <div
+          className="goal-row goal-row-done-collapsed"
+          style={{ "--p-color": opt.color, position: "relative", cursor: "default" } as React.CSSProperties}
+        >
+          <div className="flex flex-col goal-collapsed-title-wrap" style={{ minWidth: 0, paddingLeft: "30px" }}>
+            <div className="goal-done-title flex-1 text-left text-white/70 text-base truncate" style={{ minWidth: 0 }}>
+              {(g.title ?? "").trim() || "—"}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderTaskCardInner(
     { g, originalIdx }: { g: DraftGoal; originalIdx: number },
     cardNumber: number
   ) {
     const idx = originalIdx;
+    const cardKey = g.id ?? null;
+    const isFullScreen = !!cardKey && fullScreenKey === cardKey;
     const p =
       typeof g.priority === "number" && Number.isFinite(g.priority)
         ? g.priority
@@ -1625,17 +1738,27 @@ export default function TomorrowGoalsPage() {
           {/* Mirrors the number badge on the opposite corner —
               moved here from an inline button next to the priority
               select, same as Today's goal-delete-corner-btn. */}
-          {!locked && !isExclusive && (
-            <button
-              type="button"
-              onClick={() => removeGoal(idx)}
-              disabled={submitting}
-              className="goal-delete-corner-btn"
-              title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityTask") : t("tomorrow.removeTask")}
-            >
-              <X size={12} />
-            </button>
-          )}
+          {/* The shared window controls: purple full screen, green collapse
+              (both presentation only), red -> confirmation -> the existing
+              removeGoal, with its existing eligibility. */}
+          <GoalCardControls
+            groupLabel={t("goalCard.controls")}
+            fullScreen={isFullScreen}
+            pinned={isFullScreen}
+            expand={{
+              label: isFullScreen ? t("today.exitFullScreenTitle") : t("today.openFullScreen"),
+              onClick: cardKey ? (isFullScreen ? closeFullScreen : () => openFullScreen(cardKey)) : undefined,
+            }}
+            collapse={{
+              label: t("today.collapseCard"),
+              onClick: cardKey && !isFullScreen ? () => toggleCollapsedCard(cardKey) : undefined,
+            }}
+            close={{
+              label: (p >= 1 && p <= 3) ? t("tomorrow.clearPriorityTask") : t("tomorrow.removeTask"),
+              onClick: !locked && !isExclusive ? () => setRemoveTarget({ idx, title: g.title ?? "" }) : undefined,
+              disabled: submitting,
+            }}
+          />
 
           <div className="goal-row-body">
           <div className="goal-row-cols">
@@ -3098,6 +3221,20 @@ export default function TomorrowGoalsPage() {
             {t("tomorrow.planIsPart1")}<b>{planStatus}</b>{t("tomorrow.planIsPart2")}
           </div>
         )}
+
+        <ConfirmRemoveModal
+          open={!!removeTarget}
+          goalTitle={removeTarget?.title ?? ""}
+          onCancel={() => {
+            setRemoveTarget(null);
+            closeGoalCardPills();
+          }}
+          onConfirm={async () => {
+            if (removeTarget) await removeGoal(removeTarget.idx);
+            setRemoveTarget(null);
+            closeGoalCardPills();
+          }}
+        />
 
         {msg && (
           <div className="mt-6 px-4 py-3 rounded-xl text-sm text-white animate-fadeIn" style={{ background: "rgba(var(--tint-rgb),0.1)", backdropFilter: "blur(10px)", border: "1px solid rgba(var(--tint-rgb),0.2)" }}>

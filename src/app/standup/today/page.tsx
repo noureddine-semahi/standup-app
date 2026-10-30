@@ -18,7 +18,8 @@ import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
-import GoalCardControls from "@/components/GoalCardControls";
+import GoalCardControls, { closeGoalCardPills } from "@/components/GoalCardControls";
+import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
@@ -716,6 +717,9 @@ export default function TodayPage() {
   // height (a spacer), the page behind is scroll-locked, and closing puts the
   // page back at the exact scroll position it was opened from.
   const [fullScreenGoalId, setFullScreenGoalId] = useState<string | null>(null);
+  // Goal whose red "remove" chamber was pressed -- the confirmation modal
+  // below is the only thing that can actually remove it.
+  const [removeTarget, setRemoveTarget] = useState<Goal | null>(null);
   const fsSpacerPxRef = useRef(0);
   const fsScrollYRef = useRef(0);
   function openFullScreen(id: string) {
@@ -2167,6 +2171,7 @@ export default function TodayPage() {
               </select>
               <GoalCardControls
                 className="goal-ctl-bar--inline"
+                pinned
                 groupLabel={t("goalCard.controls")}
                 fullScreen={isFullScreen}
                 expand={{
@@ -2596,6 +2601,7 @@ export default function TodayPage() {
         <GoalCardControls
           groupLabel={t("goalCard.controls")}
           fullScreen={isFullScreen}
+          pinned={isFullScreen}
           expand={{
             label: isFullScreen ? t("today.exitFullScreenTitle") : t("today.openFullScreen"),
             onClick: isFullScreen ? closeFullScreen : () => openFullScreen(g.id),
@@ -2606,7 +2612,7 @@ export default function TodayPage() {
           }}
           close={{
             label: t("today.deleteGoal"),
-            onClick: isCollapsible ? () => handleDeleteGoal(g) : undefined,
+            onClick: isCollapsible ? () => setRemoveTarget(g) : undefined,
             disabled: busyGoalIds.has(g.id),
           }}
         />
@@ -4206,6 +4212,22 @@ export default function TodayPage() {
       {goalTypeInfo && (
         <GoalTypeInfoModal goalType={goalTypeInfo} onDismiss={() => setGoalTypeInfo(null)} />
       )}
+
+      {/* Mandatory confirmation for the control bar's red chamber: only the
+          explicit "Remove Task" runs the existing handleDeleteGoal. */}
+      <ConfirmRemoveModal
+        open={!!removeTarget}
+        goalTitle={removeTarget?.title ?? ""}
+        onCancel={() => {
+          setRemoveTarget(null);
+          closeGoalCardPills();
+        }}
+        onConfirm={async () => {
+          if (removeTarget) await handleDeleteGoal(removeTarget);
+          setRemoveTarget(null);
+          closeGoalCardPills();
+        }}
+      />
     </div>
   );
 }

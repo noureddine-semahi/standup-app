@@ -45,6 +45,19 @@ function subscribePill(l: () => void) {
 const getOpenPill = () => openPillId;
 const getServerOpenPill = () => null;
 
+// Phone layout (kept in step with the max-width:640px block in globals.css).
+// The pill only exists in the DOM on phones: on desktop there is nothing to
+// retract, and the three chambers are the whole control.
+const PHONE_QUERY = "(max-width: 640px)";
+function subscribePhone(cb: () => void) {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+const getPhone = () => typeof window.matchMedia === "function" && window.matchMedia(PHONE_QUERY).matches;
+const getServerPhone = () => false;
+
 /** Closes whichever card's pill is open (e.g. after a remove confirmation). */
 export function closeGoalCardPills() {
   setOpenPill(null);
@@ -78,7 +91,11 @@ export default function GoalCardControls({
   const id = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const openId = useSyncExternalStore(subscribePill, getOpenPill, getServerOpenPill);
+  const phone = useSyncExternalStore(subscribePhone, getPhone, getServerPhone);
   const open = pinned || openId === id;
+  // Chambers are reachable by keyboard whenever they are exposed: always on
+  // desktop / pinned, only once the pill is open on a phone.
+  const exposed = open || !phone;
 
   // Tap outside closes the pill and swallows that one click, so the tap can't
   // also activate whatever control happens to be underneath.
@@ -135,19 +152,23 @@ export default function GoalCardControls({
       data-open={open ? "true" : "false"}
       data-pinned={pinned ? "true" : "false"}
     >
-      <button
-        type="button"
-        className="goal-ctl-pill"
-        aria-label={t("goalCard.showControls")}
-        aria-expanded={open}
-        tabIndex={open ? -1 : 0}
-        onClick={() => setOpenPill(id)}
-      >
-        <span aria-hidden="true" />
-        <span aria-hidden="true" />
-        <span aria-hidden="true" />
-      </button>
-      <div className="goal-ctl-chambers">
+      {phone && !pinned && (
+        <button
+          type="button"
+          className="goal-ctl-pill"
+          aria-label={t("goalCard.showControls")}
+          aria-expanded={open}
+          tabIndex={open ? -1 : 0}
+          onClick={() => setOpenPill(id)}
+        >
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+        </button>
+      )}
+      {/* The row direction is stated inline as well as in CSS: the chambers can
+          never stack vertically, even against a stale stylesheet. */}
+      <div className="goal-ctl-chambers" style={{ display: "flex", flexDirection: "row", flexWrap: "nowrap", gap: 1 }}>
         {chambers.map(([kind, c, state, icon, closesPill]) => (
           <button
             key={kind}
@@ -161,7 +182,7 @@ export default function GoalCardControls({
             disabled={c.disabled || !c.onClick}
             title={c.label}
             aria-label={c.label}
-            tabIndex={open ? 0 : -1}
+            tabIndex={exposed ? 0 : -1}
           >
             {icon}
           </button>

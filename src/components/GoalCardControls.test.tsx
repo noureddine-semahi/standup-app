@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import GoalCardControls, { closeGoalCardPills } from "./GoalCardControls";
@@ -27,6 +27,22 @@ function renderBar(props: Parameters<typeof Bar>[0] = {}) {
   return { handlers, ...utils };
 }
 
+// jsdom has no matchMedia; the pill only exists on phones, so tests choose.
+function mockViewport(phone: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: phone,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }),
+  });
+}
+
+beforeEach(() => mockViewport(true));
+
 afterEach(() => {
   act(() => closeGoalCardPills());
 });
@@ -40,6 +56,17 @@ describe("GoalCardControls", () => {
     expect(screen.getByRole("button", { name: "Open full screen", hidden: true })).toHaveAttribute("data-state", "normal");
     expect(screen.getByRole("button", { name: "Collapse card", hidden: true })).toHaveAttribute("data-state", "collapse");
     expect(screen.getByRole("button", { name: "Remove task", hidden: true })).toHaveAttribute("data-state", "delete");
+  });
+
+  it("desktop: no pill, chambers always exposed, one horizontal row", () => {
+    mockViewport(false);
+    renderBar();
+    expect(screen.queryByRole("button", { name: "Show card controls" })).toBeNull();
+    const chambers = document.querySelector(".goal-ctl-chambers") as HTMLElement;
+    expect(chambers.style.display).toBe("flex");
+    expect(chambers.style.flexDirection).toBe("row");
+    expect(screen.getByRole("button", { name: "Open full screen" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("button", { name: "Remove task" })).toBeEnabled();
   });
 
   it("starts closed, opens from the pill, and a non-destructive action closes it again", () => {

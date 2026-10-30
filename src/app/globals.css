@@ -5488,7 +5488,11 @@ select:focus {
   right: -5px;
   z-index: 3;
   box-sizing: border-box;
+  /* ALWAYS one horizontal row of chambers -- there is no vertical state. */
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
   height: 30px;
   padding: 1px;
   border: 2px solid transparent;
@@ -5506,6 +5510,8 @@ select:focus {
 
 .goal-ctl-chambers {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: 1px;
 }
 
@@ -5606,7 +5612,7 @@ select:focus {
    click target / holds the title); lifted a little higher so it clears the
    status stamp. */
 .goal-row-done-collapsed-wrap .goal-ctl-bar {
-  top: -12px;
+  top: -14px;
 }
 
 /* Nested task header: the bar sits in the header row's flow instead of the
@@ -5637,40 +5643,48 @@ select:focus {
 }
 
 /* Phones.
-   NORMAL cards: the housing is mounted on the card's top rim, centered on the
-   card, as a ~46 x 32px pill (tap area ~50 x 44px via the pill's ::after). Tapping
-   it widens the SAME housing to ~116 x 40px over 200ms (width/height only --
-   the top edge never moves), the pill's dots cross-fade into the three
-   chambers (36 x 34px each, no extra hit area, so a tap can't reach the card
-   above) and the dividers appear. Full screen / nested rows pin it open.
-   COLLAPSED rows: the closed pill sits at the right, vertically centered,
-   with real padding reserved for it, so the title keeps the row. While it is
-   open the row grows to 92px, the status stamp drops to the lower right and
-   the title reserves the whole right column. */
+   The visible chambers are 32 x 32px with the same 8px-family corners as the
+   rank module (.goal-number-badge), and the housing sits on the card's top
+   rim on the SAME centerline as that module (module: top -5px, 32px tall, so
+   center = 11px from the card top): the closed pill is 46 x 32px at top -5px
+   (tap area ~50 x 44px via ::after); opened it widens to 102 x 36px at top
+   -7px -- the same centerline, growing 2px each way, never jumping. Opening is
+   200ms of width/height only; the pill's dots cross-fade into the chambers
+   and the dividers appear. Full screen / nested rows pin it open. Chambers
+   reach ~34 x 44px of tap area without overlapping each other, the title, the
+   stamp or the card above (it rises only ~13px, less than the card gap).
+   COLLAPSED rows: the closed pill sits at the right, vertically centered
+   (top 14px of the 60px row), with real padding reserved for it so the title
+   keeps the row. Open, the row grows to 92px, the stamp drops to the lower
+   right and the title reserves the open bar's column. */
 @media (max-width: 640px) {
   .goal-ctl-bar {
-    top: -12px;
+    top: -7px;
     right: auto;
     left: 50%;
     transform: translateX(-50%);
-    height: 40px;
-    border-radius: 11px;
+    height: 36px;
+    padding: 0;
+    border-radius: 10px;
   }
 
   .goal-ctl-bar:not([data-pinned="true"]) {
+    top: -5px;
     width: 46px;
     height: 32px;
-    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+      top 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .goal-ctl-bar:not([data-pinned="true"])[data-open="true"] {
-    width: 116px;
-    height: 40px;
+    top: -7px;
+    width: 102px;
+    height: 36px;
   }
 
   .goal-ctl-bar:not([data-pinned="true"]) .goal-ctl-chambers {
     position: absolute;
-    inset: 1px;
+    inset: 0;
     overflow: hidden;
     border-radius: 8px;
     opacity: 0;
@@ -5723,32 +5737,37 @@ select:focus {
   }
 
   .goal-ctl {
-    width: 36px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
   }
 
   .goal-ctl:first-child {
-    border-radius: 8px 3px 3px 8px;
+    border-radius: 7px 3px 3px 7px;
   }
 
   .goal-ctl:last-child {
-    border-radius: 3px 8px 8px 3px;
+    border-radius: 3px 7px 7px 3px;
   }
 
   .goal-ctl svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
+  /* ~34 x 44px: full height, 1px sideways (the dividers) so neighbours never overlap. */
   .goal-ctl::after {
-    inset: 0;
+    inset: -6px -1px;
   }
 
-  .goal-row-done-collapsed-wrap .goal-ctl-bar {
+  .goal-row-done-collapsed-wrap .goal-ctl-bar:not([data-pinned="true"]) {
     top: 14px;
     right: 8px;
     left: auto;
     transform: none;
+  }
+
+  .goal-row-done-collapsed-wrap .goal-ctl-bar:not([data-pinned="true"])[data-open="true"] {
+    top: 12px;
   }
 
   .goal-row-done-collapsed {
@@ -5778,7 +5797,7 @@ select:focus {
   }
 
   /* open: the row grows, the stamp drops to the lower right, the title
-     reserves the whole right column */
+     reserves the open bar's column */
   .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-row-done-collapsed {
     min-height: 92px;
   }
@@ -5791,7 +5810,7 @@ select:focus {
   }
 
   .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-collapsed-title-wrap {
-    padding-right: 132px;
+    padding-right: 122px;
   }
 }
 

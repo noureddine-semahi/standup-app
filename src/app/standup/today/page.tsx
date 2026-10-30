@@ -18,6 +18,7 @@ import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
+import GoalCardControls from "@/components/GoalCardControls";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
@@ -1835,6 +1836,18 @@ export default function TodayPage() {
            .goal-number-badge (globals.css) changes where it sits. */
         <div key={g.id} className="goal-row-done-collapsed-wrap">
           <GoalNumberOrb number={idx + 1} />
+          <GoalCardControls
+            groupLabel={t("goalCard.controls")}
+            expand={{
+              label: t("today.clickToExpand"),
+              onClick: () =>
+                compact
+                  ? setExpandedCompactTaskIds((prev) => new Set(prev).add(g.id))
+                  : toggleExpandedDone(g.id),
+            }}
+            collapse={{ label: t("today.collapseTitle") }}
+            close={{ label: t("today.deleteGoal") }}
+          />
           <button
             type="button"
             data-goal-id={g.id}
@@ -2558,31 +2571,28 @@ export default function TodayPage() {
         style={{ "--p-color": isCollapsible ? doneColors.color : getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
       >
         {isCelebrating && <div className="goal-complete-badge"><Check size={14} strokeWidth={3} /></div>}
-        {isCollapsible && (
-          <>
-            {/* Top-right corner tag, mirrors goal-number-badge's
-                shape — now a delete action (was the old text
-                "Collapse" button) since collapsing moved to its
-                own half-circle tab on the top border, below. */}
-            <button
-              type="button"
-              onClick={() => handleDeleteGoal(g)}
-              disabled={busyGoalIds.has(g.id)}
-              className="goal-delete-corner-btn"
-              title={t("today.deleteGoal")}
-            >
-              <X size={12} />
-            </button>
-            <button
-              type="button"
-              onClick={() => toggleExpandedDone(g.id)}
-              className="goal-collapse-top-btn"
-              title={t("today.collapseTitle")}
-            >
-              <ChevronUp size={12} />
-            </button>
-          </>
-        )}
+        {/* Upper-right window controls: Expand (full screen), Collapse and
+            Close are three chambers of one housing. They reuse the card's
+            existing handlers; Collapse / Close keep their existing
+            eligibility (resolved cards only), everything else stays
+            physically present but dimmed. */}
+        <GoalCardControls
+          groupLabel={t("goalCard.controls")}
+          expand={{
+            label: t("today.fullScreenTitle"),
+            onClick: () => setFullScreenGoalId(g.id),
+            disabled: fullScreenGoalId === g.id,
+          }}
+          collapse={{
+            label: t("today.collapseTitle"),
+            onClick: isCollapsible ? () => toggleExpandedDone(g.id) : undefined,
+          }}
+          close={{
+            label: t("today.deleteGoal"),
+            onClick: isCollapsible ? () => handleDeleteGoal(g) : undefined,
+            disabled: busyGoalIds.has(g.id),
+          }}
+        />
         {/* Number badge — a small corner tag flush with the card's
             own top-left border/radius. */}
         <GoalNumberOrb number={idx + 1} />
@@ -2597,7 +2607,6 @@ export default function TodayPage() {
                   <Hourglass size={11} /> {t("today.pendingReview")}
                 </span>
               )}
-              <span className="ml-auto">{fullScreenBtn}</span>
             </div>
 
             <div className="text-white text-lg sm:text-xl font-medium mb-2">

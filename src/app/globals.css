@@ -5468,33 +5468,150 @@ select:focus {
   background: rgba(239, 68, 68, 0.12);
 }
 
-/* Centered on the top border rather than a corner — a half-circle tab
-   (flat edge flush with the border, rounded bottom dipping down INTO the
-   card) instead of the corner tags' quarter-circle cut. Collapses an
-   already-resolved goal back to its compact summary row. */
-.goal-collapse-top-btn {
+/* Goal-card window controls -- EXPAND | COLLAPSE | CLOSE as ONE connected
+   piece of hardware at the card's upper-right corner (GoalCardControls.tsx;
+   it replaced the separate corner X, the half-circle collapse tab and the
+   full-screen button). Same material family as the rank module
+   (.goal-number-badge) but smaller and tighter: a shared polished-steel
+   housing (a 2px transparent border with the steel ring painted behind it)
+   around a dark recessed channel that shows through as the narrow dividers
+   between three adjacent chambers -- no external gaps. Each chamber is a
+   real button with a dark metallic face; its semantic color (purple expand,
+   green collapse, red close, via --ctl) lights ONLY the icon, a thin inner
+   edge and a small localized glow. The housing and faces never translate:
+   hover raises the illumination, pressed deepens the inner shadow. A
+   disabled chamber stays physically present and just dims. */
+.goal-ctl-bar {
   position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 34px;
-  height: 17px;
-  border-radius: 0 0 17px 17px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 2px;
-  color: rgba(var(--tint-rgb), 0.5);
-  background: rgba(var(--tint-rgb), 0.07);
-  border: 1px solid rgba(var(--tint-rgb), 0.15);
-  border-top: none;
+  top: -5px;
+  right: -5px;
   z-index: 3;
-  cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  gap: 1px;
+  height: 28px;
+  padding: 1px;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, #04060a, #090c11) padding-box,
+    radial-gradient(ellipse 26% 120% at 6% 0%, rgba(240, 246, 255, 0.8), transparent 100%) border-box,
+    radial-gradient(ellipse 20% 120% at 94% 0%, rgba(214, 226, 242, 0.45), transparent 100%) border-box,
+    linear-gradient(180deg, #a2adbd 0%, #6a788b 32%, #465363 62%, #232a35 90%, #607085 100%) border-box;
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(2, 4, 8, 0.55),
+    0 3px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
-.goal-collapse-top-btn:hover {
-  color: rgba(var(--tint-rgb), 0.9);
-  background: rgba(var(--tint-rgb), 0.12);
+.goal-ctl {
+  --ctl: 180, 107, 255;
+  position: relative;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  color: rgb(var(--ctl));
+  background: linear-gradient(180deg, #1d2128, #0e1014);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--ctl), 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55);
+  transition: box-shadow 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.goal-ctl:first-child {
+  border-radius: 6px 3px 3px 6px;
+}
+
+.goal-ctl:last-child {
+  border-radius: 3px 6px 6px 3px;
+}
+
+.goal-ctl--collapse {
+  --ctl: 62, 232, 154;
+}
+
+.goal-ctl--close {
+  --ctl: 255, 90, 102;
+}
+
+.goal-ctl svg {
+  filter: drop-shadow(0 0 3px rgba(var(--ctl), 0.7));
+}
+
+/* Larger hit area than the chamber itself, without changing its look. */
+.goal-ctl::after {
+  content: "";
+  position: absolute;
+  inset: -6px -1px;
+}
+
+.goal-ctl:hover:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--ctl), 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 0 7px -1px rgba(var(--ctl), 0.5);
+}
+
+.goal-ctl:hover:not(:disabled) svg {
+  filter: drop-shadow(0 0 4px rgba(var(--ctl), 0.95));
+}
+
+.goal-ctl:active:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--ctl), 0.4),
+    inset 0 3px 5px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.goal-ctl:focus-visible {
+  outline: 2px solid var(--accent-amber);
+  outline-offset: -2px;
+}
+
+.goal-ctl:disabled {
+  cursor: default;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--ctl), 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.goal-ctl:disabled svg {
+  opacity: 0.3;
+  filter: none;
+}
+
+/* Collapsed Today rows carry the trio on their wrapper (the row itself is a
+   button, so it can't contain one); lifted a little higher so it clears the
+   status stamp. */
+.goal-row-done-collapsed-wrap .goal-ctl-bar {
+  top: -12px;
+}
+
+/* Light mode: polished aluminium housing, dark chambers for contrast. */
+[data-theme="light"] .goal-ctl-bar {
+  background:
+    linear-gradient(180deg, #2a2c31, #1f2125) padding-box,
+    radial-gradient(ellipse 26% 120% at 6% 0%, #ffffff, transparent 100%) border-box,
+    radial-gradient(ellipse 20% 120% at 94% 0%, rgba(255, 255, 255, 0.85), transparent 100%) border-box,
+    linear-gradient(180deg, #f2f4f7 0%, #c4cad2 32%, #a0a8b2 62%, #6c747e 90%, #c2c9d1 100%) border-box;
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(60, 48, 36, 0.5),
+    0 3px 6px -1px rgba(40, 32, 28, 0.3);
+}
+
+[data-theme="light"] .goal-ctl {
+  background: linear-gradient(180deg, #3a3d44, #26282d);
 }
 
 /* ✨ Goal-completion celebration — a brief emerald pulse on the row plus a

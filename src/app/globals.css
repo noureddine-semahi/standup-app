@@ -1337,50 +1337,56 @@ h1, h2, h3, h4, h5, h6 {
 .nav-mobile-trigger {
   display: none;
   align-items: center;
-  gap: 5px;
+  /* The Bell is out of flow (see below), so this box is exactly the profile.
+     Both sizes scale with the viewport so the row never overflows next to the
+     large logo: profile 36-56px, bell 22-30px. */
+  position: relative;
+  --hdr-p: clamp(36px, 13vw, 56px);
+  --hdr-b: clamp(22px, 6.6vw, 30px);
 }
 
-/* Profile (round) and Bell (rounded square) on phones: both larger than the
-   old 34px controls, scaling with the viewport so the row never overflows next
-   to the large logo. !important on the avatar only because Avatar sets its
-   pixel size inline. */
+/* Phones: a LARGE round profile with the Bell as a small badge-sized control
+   mounted on its top-right corner. The bell's center sits on the circle's
+   north-east rim (0.19 x the diameter in from the top and right of the
+   profile's box, just inside the rim so it never clips the top of the header), above it in z-order. !important on the avatar only because
+   Avatar sets its pixel size inline. */
 .nav-mobile-trigger .header-metal-control--round .avatar-circle {
-  width: clamp(28px, 9.4vw, 44px) !important;
-  height: clamp(28px, 9.4vw, 44px) !important;
+  width: var(--hdr-p) !important;
+  height: var(--hdr-p) !important;
 }
 
 .nav-mobile-trigger .nav-bell-btn {
-  width: clamp(26px, 8.6vw, 42px);
-  height: clamp(26px, 8.6vw, 42px);
-  border-radius: 10px;
+  position: absolute;
+  z-index: 2;
+  width: var(--hdr-b);
+  height: var(--hdr-b);
+  top: calc(var(--hdr-p) * 0.19 - var(--hdr-b) / 2);
+  right: calc(var(--hdr-p) * 0.19 - var(--hdr-b) / 2);
+  border-radius: 8px;
 }
 
-@media (min-width: 405px) and (max-width: 760px) {
-  .nav-mobile-trigger .header-metal-control--round .avatar-circle {
-    width: clamp(40px, 10.2vw, 44px) !important;
-    height: clamp(40px, 10.2vw, 44px) !important;
-  }
-  .nav-mobile-trigger .nav-bell-btn {
-    width: clamp(36px, 9.4vw, 42px);
-    height: clamp(36px, 9.4vw, 42px);
-  }
-  .nav-mobile-trigger {
-    gap: 6px;
-  }
+.nav-mobile-trigger .nav-bell-btn svg {
+  width: 58%;
+  height: 58%;
 }
 
-@media (max-width: 340px) {
-  .nav-mobile-trigger {
-    gap: 3px;
-  }
-  .nav-mobile-trigger .header-metal-control--round .avatar-circle {
-    width: 28px !important;
-    height: 28px !important;
-  }
-  .nav-mobile-trigger .nav-bell-btn {
-    width: 26px;
-    height: 26px;
-  }
+/* The unread-count badge scales down with the small bell. */
+.nav-mobile-trigger .nav-bell-badge {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 0.56rem;
+  line-height: 14px;
+  top: -6px;
+  right: -6px;
+}
+
+/* A little extra tap area around the small bell (the bell wins the overlap with
+   the profile's corner). */
+.nav-mobile-trigger .nav-bell-btn::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }
 
 /* Desktop / tablet: the standalone bell is a touch larger too. */

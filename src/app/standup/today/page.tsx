@@ -19,6 +19,7 @@ import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import GoalCardControls, { closeGoalCardPills } from "@/components/GoalCardControls";
+import { isStandaloneCardCollapsed, toggleId } from "@/lib/cardPresentation";
 import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
@@ -271,6 +272,10 @@ export default function TodayPage() {
   // keep a reviewed list scannable — this tracks which ones have been
   // manually expanded back open (e.g. to re-read notes or change status).
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(new Set());
+  // Cards the user collapsed by hand that are NOT resolved (pending review,
+  // not started, ...). Resolved cards keep using expandedDoneIds above.
+  // Presentation only -- nothing about the goal changes.
+  const [collapsedPendingIds, setCollapsedPendingIds] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   // Blocked requires a reason before it's applied — see confirmBlocked().
@@ -497,13 +502,12 @@ export default function TodayPage() {
     });
   }
 
-  function toggleExpandedDone(id: string) {
-    setExpandedDoneIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // The green chamber: collapse <-> restore for ANY standalone card, whatever
+  // its status (resolved cards through their original set, others through the
+  // user-collapsed set).
+  function toggleCardCollapsed(id: string, resolved: boolean) {
+    if (resolved) setExpandedDoneIds((prev) => toggleId(prev, id));
+    else setCollapsedPendingIds((prev) => toggleId(prev, id));
   }
 
   // Permanent delete — explicit user call: Today previously only offered
@@ -1811,6 +1815,16 @@ export default function TodayPage() {
     // layout instead of the compact row. Standalone Tasks are unaffected,
     // still driven entirely by expandedDoneIds as before.
     const isCollapsed = isCollapsible && !(compact ? expandedCompactTaskIds.has(g.id) : expandedDoneIds.has(g.id));
+    // Standalone cards of ANY status can be collapsed by hand (green chamber);
+    // nested tasks keep their own compact-row mechanism above.
+    const showCollapsedRow = compact
+      ? isCollapsed
+      : isStandaloneCardCollapsed({
+          resolved: isCollapsible,
+          id: g.id,
+          expandedDone: expandedDoneIds,
+          collapsedPending: collapsedPendingIds,
+        });
     const doneColors = statusChipColors(effectiveStatus);
     // Phase 7B: corrects perceived card-edge visual WEIGHT, not
     // color identity -- P3's yellow and Completed's green read
@@ -1832,7 +1846,7 @@ export default function TodayPage() {
         ? "quiet"
         : undefined;
 
-    if (isCollapsed) {
+    if (showCollapsedRow) {
       return (
         /* Phase 6: GoalNumberOrb now renders as a sibling BEFORE
            the button (not nested inside the small inline wrapper
@@ -1859,7 +1873,7 @@ export default function TodayPage() {
               onClick: () =>
                 compact
                   ? setExpandedCompactTaskIds((prev) => new Set(prev).add(g.id))
-                  : toggleExpandedDone(g.id),
+                  : toggleCardCollapsed(g.id, isCollapsible),
             }}
             close={{ label: t("today.deleteGoal") }}
           />
@@ -1869,7 +1883,7 @@ export default function TodayPage() {
             onClick={() =>
               compact
                 ? setExpandedCompactTaskIds((prev) => new Set(prev).add(g.id))
-                : toggleExpandedDone(g.id)
+                : toggleCardCollapsed(g.id, isCollapsible)
             }
             className={`goal-row goal-row-done-collapsed${g.id === highlightGoalId ? " post-card-highlight" : ""}`}
             style={
@@ -2584,7 +2598,7 @@ export default function TodayPage() {
         data-pending={!reviewed}
         data-edge-weight={edgeWeight}
         /* A resolved-but-expanded goal (isCollapsible, re-opened via
-           toggleExpandedDone) reflects its STATUS color here, same as
+           toggleCardCollapsed) reflects its STATUS color here, same as
            it would show collapsed -- an active/pending goal still
            reflects PRIORITY, same as before. --p-color feeds
            .goal-row's --metal-color (see globals.css). */
@@ -2594,10 +2608,10 @@ export default function TodayPage() {
         {/* Window controls (one housing, three chambers), reusing the
             card's existing handlers and eligibility: PURPLE = full screen
             (the existing full-screen state, dimmed while already full
-            screen), GREEN = collapse (the same toggleExpandedDone the
-            collapsed row uses to restore), RED = delete. Collapse and
-            delete exist only on resolved cards, as before, so on other
-            cards those two stay physically present but dimmed. */}
+            screen), GREEN = collapse <-> restore for ANY card (presentation
+            only), RED = delete, which still exists only on resolved cards as
+            before, so on other cards it stays physically present but
+            dimmed. */}
         <GoalCardControls
           groupLabel={t("goalCard.controls")}
           fullScreen={isFullScreen}
@@ -2608,7 +2622,7 @@ export default function TodayPage() {
           }}
           collapse={{
             label: t("today.collapseCard"),
-            onClick: isCollapsible && !isFullScreen ? () => toggleExpandedDone(g.id) : undefined,
+            onClick: !isFullScreen ? () => toggleCardCollapsed(g.id, isCollapsible) : undefined,
           }}
           close={{
             label: t("today.deleteGoal"),

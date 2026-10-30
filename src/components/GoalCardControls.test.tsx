@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import GoalCardControls, { closeGoalCardPills } from "./GoalCardControls";
@@ -207,5 +208,86 @@ describe("ConfirmRemoveModal", () => {
     const onCancel = renderModal(vi.fn());
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The control module's open/closed state and the card's presentation state are
+// independent: opening, closing or tapping away from the pill never touches
+// the card, and only the revealed chambers act on it.
+function CardHarness({ initial }: { initial: "collapsed" | "normal" }) {
+  const [presentation, setPresentation] = useState<"collapsed" | "normal" | "fullscreen">(initial);
+  const [goal] = useState({ title: "Pick up kids", count: 3 });
+  const [removeRequests, setRemoveRequests] = useState(0);
+  const isCollapsed = presentation === "collapsed";
+  return (
+    <div>
+      <div data-testid="card" data-presentation={presentation} data-goal={JSON.stringify(goal)} data-removes={removeRequests} />
+      <button data-testid="outside">outside</button>
+      <GoalCardControls
+        groupLabel="Card controls"
+        collapsed={isCollapsed}
+        fullScreen={presentation === "fullscreen"}
+        expand={{
+          label: presentation === "fullscreen" ? "Exit full screen" : "Open full screen",
+          onClick: () => setPresentation((p) => (p === "fullscreen" ? "normal" : "fullscreen")),
+        }}
+        collapse={{
+          label: isCollapsed ? "Restore card" : "Collapse card",
+          onClick: () => setPresentation((p) => (p === "collapsed" ? "normal" : "collapsed")),
+        }}
+        close={{ label: "Remove task", onClick: () => setRemoveRequests((n) => n + 1) }}
+      />
+    </div>
+  );
+}
+
+function renderCard(initial: "collapsed" | "normal") {
+  render(
+    <LanguageProvider>
+      <CardHarness initial={initial} />
+    </LanguageProvider>
+  );
+  const card = () => screen.getByTestId("card");
+  return { card, goalBefore: screen.getByTestId("card").getAttribute("data-goal") };
+}
+
+describe("control module vs card presentation (independent states)", () => {
+  it.each(["collapsed", "normal"] as const)("opening, closing and tapping away never change a %s card", (initial) => {
+    const { card, goalBefore } = renderCard(initial);
+    const group = screen.getByRole("group", { name: "Card controls" });
+    fireEvent.click(screen.getByRole("button", { name: "Show card controls" }));
+    expect(group).toHaveAttribute("data-open", "true");
+    expect(card()).toHaveAttribute("data-presentation", initial);
+    // tap away: closes the pill, card untouched, goal data untouched
+    fireEvent.pointerDown(screen.getByTestId("outside"));
+    fireEvent.click(screen.getByTestId("outside")); // the swallowed click that follows a tap-away
+    expect(group).toHaveAttribute("data-open", "false");
+    expect(card()).toHaveAttribute("data-presentation", initial);
+    expect(card().getAttribute("data-goal")).toBe(goalBefore);
+    expect(card()).toHaveAttribute("data-removes", "0");
+  });
+
+  it("green restores a collapsed card and collapses a normal one", () => {
+    const { card } = renderCard("collapsed");
+    fireEvent.click(screen.getByRole("button", { name: "Show card controls" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore card" }));
+    expect(card()).toHaveAttribute("data-presentation", "normal");
+    fireEvent.click(screen.getByRole("button", { name: "Show card controls" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse card" }));
+    expect(card()).toHaveAttribute("data-presentation", "collapsed");
+  });
+
+  it("purple toggles full screen; red only requests removal", () => {
+    const { card } = renderCard("normal");
+    fireEvent.click(screen.getByRole("button", { name: "Show card controls" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open full screen" }));
+    expect(card()).toHaveAttribute("data-presentation", "fullscreen");
+    fireEvent.click(screen.getByRole("button", { name: "Show card controls" }));
+    fireEvent.click(screen.getByRole("button", { name: "Exit full screen" }));
+    expect(card()).toHaveAttribute("data-presentation", "normal");
+    fireEvent.click(screen.getByRole("button", { name: "Show card controls" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove task" }));
+    expect(card()).toHaveAttribute("data-removes", "1");
+    expect(card()).toHaveAttribute("data-presentation", "normal");
   });
 });

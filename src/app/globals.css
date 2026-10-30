@@ -5643,48 +5643,45 @@ select:focus {
 }
 
 /* Phones.
-   The visible chambers are 32 x 32px with the same 8px-family corners as the
-   rank module (.goal-number-badge), and the housing sits on the card's top
-   rim on the SAME centerline as that module (module: top -5px, 32px tall, so
-   center = 11px from the card top): the closed pill is 46 x 32px at top -5px
-   (tap area ~50 x 44px via ::after); opened it widens to 102 x 36px at top
-   -7px -- the same centerline, growing 2px each way, never jumping. Opening is
-   200ms of width/height only; the pill's dots cross-fade into the chambers
-   and the dividers appear. Full screen / nested rows pin it open. Chambers
-   reach ~34 x 44px of tap area without overlapping each other, the title, the
-   stamp or the card above (it rises only ~13px, less than the card gap).
-   COLLAPSED rows: the closed pill sits at the right, vertically centered
-   (top 14px of the 60px row), with real padding reserved for it so the title
-   keeps the row. Open, the row grows to 92px, the stamp drops to the lower
-   right and the title reserves the open bar's column. */
+   ONE physical module, two states. The closed pill and the open bar are the
+   same housing at the same place: its RIGHT edge is the fixed anchor (right:
+   8px of the card), its top is fixed, and its height is fixed at 36px (a 32px
+   chamber face plus the 2px steel rim). Only the WIDTH changes -- 44px closed
+   (tap area ~48 x 44px via ::after), 102px open (three 32 x 32px chambers
+   like the rank module, with the dividers) -- so opening extends the housing
+   LEFTWARD over ~200ms and closing retracts it back to the anchor; nothing
+   jumps, recenters or moves vertically. The 36px housing is centered on the
+   rank module's centerline (module: top -5px, 32px tall -> center 11px from
+   the card top; housing: top -7px). The dots cross-fade into the chambers.
+   Opening/closing the controls is purely a hardware change: it never alters
+   the card's height, padding or content. Full screen / nested rows pin it open.
+   COLLAPSED rows: same module, same anchor, vertically centered in the 60px row
+   (top 12px). The row's height is identical with the controls closed or open;
+   opening only pushes the status stamp left and lets the title truncate more. */
 @media (max-width: 640px) {
   .goal-ctl-bar {
     top: -7px;
-    right: auto;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 8px;
+    left: auto;
+    transform: none;
     height: 36px;
     padding: 0;
     border-radius: 10px;
   }
 
   .goal-ctl-bar:not([data-pinned="true"]) {
-    top: -5px;
-    width: 46px;
-    height: 32px;
-    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-      top 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 44px;
+    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .goal-ctl-bar:not([data-pinned="true"])[data-open="true"] {
-    top: -7px;
     width: 102px;
-    height: 36px;
   }
 
   .goal-ctl-bar:not([data-pinned="true"]) .goal-ctl-chambers {
     position: absolute;
     inset: 0;
+    justify-content: flex-end;
     overflow: hidden;
     border-radius: 8px;
     opacity: 0;
@@ -5721,11 +5718,11 @@ select:focus {
     transition-delay: 0s;
   }
 
-  /* Touch area ~50 x 44px around the compact pill. */
+  /* Touch area ~48 x 44px around the compact pill. */
   .goal-ctl-pill::after {
     content: "";
     position: absolute;
-    inset: -6px -2px;
+    inset: -4px -2px;
   }
 
   .goal-ctl-pill span {
@@ -5760,31 +5757,24 @@ select:focus {
   }
 
   .goal-row-done-collapsed-wrap .goal-ctl-bar:not([data-pinned="true"]) {
-    top: 14px;
-    right: 8px;
-    left: auto;
-    transform: none;
-  }
-
-  .goal-row-done-collapsed-wrap .goal-ctl-bar:not([data-pinned="true"])[data-open="true"] {
     top: 12px;
+    right: 8px;
   }
 
-  .goal-row-done-collapsed {
-    transition: min-height 0.2s ease;
-  }
-
-  /* closed: status stamp sits just left of the pill */
+  /* closed: the status stamp sits just left of the pill */
   .goal-row-done-collapsed .goal-done-banner {
-    right: 64px;
+    right: 62px;
+    transition: right 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .goal-row-done-collapsed .goal-done-title-wrap-tight {
-    padding-right: 176px !important;
+    padding-right: 180px !important;
+    transition: padding-right 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .goal-row-done-collapsed .goal-collapsed-title-wrap {
     padding-right: 58px;
+    transition: padding-right 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .goal-row-done-collapsed .goal-done-title {
@@ -5796,21 +5786,18 @@ select:focus {
     overflow: hidden;
   }
 
-  /* open: the row grows, the stamp drops to the lower right, the title
-     reserves the open bar's column */
-  .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-row-done-collapsed {
-    min-height: 92px;
+  /* open: same row height; the stamp slides left of the wider bar and the
+     title truncates further */
+  .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-done-banner {
+    right: 118px;
   }
 
-  .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-done-banner {
-    top: auto;
-    bottom: 8px;
-    right: 0.6rem;
-    transform: rotate(-5deg);
+  .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-done-title-wrap-tight {
+    padding-right: 236px !important;
   }
 
   .goal-row-done-collapsed-wrap:has(.goal-ctl-bar[data-open="true"]:not([data-pinned="true"])) .goal-collapsed-title-wrap {
-    padding-right: 122px;
+    padding-right: 114px;
   }
 }
 
@@ -5818,7 +5805,10 @@ select:focus {
   .goal-ctl-bar,
   .goal-ctl-bar .goal-ctl-chambers,
   .goal-ctl-pill,
-  .goal-row-done-collapsed {
+  .goal-row-done-collapsed,
+  .goal-row-done-collapsed .goal-done-banner,
+  .goal-row-done-collapsed .goal-done-title-wrap-tight,
+  .goal-row-done-collapsed .goal-collapsed-title-wrap {
     transition: none !important;
   }
 }

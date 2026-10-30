@@ -5200,195 +5200,113 @@ select:focus {
   }
 }
 
-/* Goal number marker -- a metallic hemisphere/domed stud mounted at the
-   card's top-left corner, replacing the old flat corner-tag shape
-   (quarter-rounded flag, 24x24px). VISUAL ONLY: still position:absolute
-   with no effect on .goal-row-cols/.goal-row-body's flex layout, exactly
-   like the shape it replaces -- the slight size increase (24px -> 34px)
-   and small negative top/left offset (so part of the sphere overhangs
-   the card's own rounded corner, "mounted on the surface" rather than
-   inset into it) were verified via Playwright getBoundingClientRect
-   against the actual title text node to confirm zero overlap before
-   landing on these numbers; do not enlarge further without re-checking.
-   --metal-color is inherited from .goal-row (already set there, Phase 2
-   of the metal-edge system) -- no JSX/inline-style changes needed, same
-   value every other semantic reflection on the card already uses.
-   Three layers: this element's own background (base gunmetal material +
-   baked-in highlight/shadow gradients) and box-shadow (inset curvature +
-   outer contact shadow + rim), ::before (a small crisp specular glint,
-   the "sparkle" a flat gradient alone can't sell), ::after (the
-   semantic-color reflection, soft-light blended so it reads as colored
-   light hitting metal rather than a tinted sphere). Both pseudo-elements
-   are position:absolute/inset:0 and pointer-events:none -- decorative
-   only, never part of layout. */
+/* Goal number marker -- a compact rounded-square hardware counter mounted at
+   the card's top-left corner (it replaces the old glowing metallic ball).
+   Built like the rest of the StandUp hardware: a polished metal frame (a
+   2px transparent border with the steel ring painted behind it) around a
+   recessed dark cavity with a faintly lit face and a centered numeral.
+   VISUAL ONLY: still position:absolute with no effect on .goal-row-cols /
+   .goal-row-body layout, same anchor as before (a few px of it overhang the
+   card's own corner). --metal-color is inherited from .goal-row (the card's
+   priority or status color) and is the one dynamic color here: it lights the
+   numeral, a thin inner edge, a small reflected accent and a very small
+   localized glow -- the body stays dark metal. Nothing is hardcoded per
+   rank. Pseudo-elements are decorative (absolute, pointer-events:none):
+   ::before is a small specular catch, ::after the reflected accent. */
 .goal-number-badge {
   position: absolute;
   top: -5px;
   left: -5px;
-  width: 34px;
-  height: 34px;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border: 2px solid transparent;
+  border-radius: 8px;
   background:
-    radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.3) 9%, transparent 20%),
-    radial-gradient(circle at 37% 33%, rgba(225, 229, 236, 0.5) 0%, transparent 46%),
-    radial-gradient(circle at 68% 76%, rgba(0, 0, 0, 0.6) 0%, transparent 58%),
-    linear-gradient(155deg, #9aa0ad 0%, #5b606c 48%, #202229 100%);
-  /* Order matters here -- CSS layers box-shadows front-to-back in list
-     order (first = closest to viewer). Front to back: inset surface
-     shading, the dark machined bezel ring, a thin metallic reflection
-     just outside it, the existing downward edge/contact shadows, and
-     finally (furthest back, widest reach) the amber ambient glow the
-     LED number casts onto the card behind the hemisphere -- kept to a
-     ~10-12px bloom, not a large halo. */
+    radial-gradient(ellipse 90% 80% at 50% 35%, color-mix(in srgb, var(--metal-color, #ff6a1a) 14%, #11141a), #090b0f 90%) padding-box,
+    radial-gradient(ellipse 30% 120% at 8% 0%, rgba(240, 246, 255, 0.85), transparent 100%) border-box,
+    radial-gradient(ellipse 22% 120% at 92% 0%, rgba(214, 226, 242, 0.5), transparent 100%) border-box,
+    linear-gradient(180deg, #a9b4c4 0%, #6f7d90 32%, #4a5666 62%, #262d38 90%, #66758a 100%) border-box;
   box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.3),
-    inset 0 -3px 4px rgba(0, 0, 0, 0.55),
-    inset 2px 0 2px rgba(255, 255, 255, 0.08),
-    /* Warm bounce-light off the inner metal from the numeral's own glow
-       -- subtle, inset, same hot amber-orange/red family as the digit
-       below (not the --metal-color semantic reflection in ::after,
-       which is a separate, unrelated per-card tint). */
-    inset 0 0 6px 1px rgba(255, 92, 20, 0.16),
-    /* Outer rim -- one more subtle step down from 1px/0.5 opacity to
-       1px/0.38, per explicit "reduce the remaining rim one more subtle
-       step" follow-up. Still a real, visible dark separation from the
-       card -- the metallic sphere's own shading now does more of the
-       work of defining the shape. */
-    0 0 0 1px rgba(8, 9, 11, 0.38),
-    0 0 0 1.7px rgba(255, 255, 255, 0.08),
-    0 1px 0 0 rgba(0, 0, 0, 0.5),
+    /* thin inner-edge illumination in the card's semantic color */
+    inset 0 0 0 1px color-mix(in srgb, var(--metal-color, #ff6a1a) 38%, transparent),
+    inset 0 3px 5px rgba(0, 0, 0, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(2, 4, 8, 0.55),
     0 3px 6px -1px rgba(0, 0, 0, 0.55),
-    /* Ambient glow -- retuned from yellow-gold (255,176,0) to the same
-       hot amber-orange/red as the digit, opacity trimmed slightly so
-       it reads as restrained illumination, not neon bloom. */
-    0 0 11px 2px rgba(255, 90, 20, 0.28);
+    /* small localized glow only */
+    0 0 7px -1px color-mix(in srgb, var(--metal-color, #ff6a1a) 34%, transparent);
   z-index: 3;
   pointer-events: none;
 }
 
-/* The digit itself -- a real gradient fill (bright warm core fading to
-   saturated amber/orange at the edges), not a flat color, via
-   background-clip:text. This HAS to be a separate element from
-   .goal-number-badge: that element's own `background` is already the
-   multi-layer gunmetal sphere material, and background-clip:text would
-   clip THAT to the glyph shape if applied on the same element, erasing
-   the sphere everywhere else. `color`/`-webkit-text-fill-color` is the
-   standard progressive-enhancement fallback pair -- engines without
-   background-clip:text support (none in this app's real target
-   browsers, but cheap insurance) fall back to the flat `color` below
-   instead of invisible text.
-   Bumped noticeably heavier/larger than the previous pass (800/0.82rem
-   -> 900/1rem) -- the earlier digits were getting visually lost against
-   the gunmetal shading, per explicit "3 and 4 unreadable" feedback.
-   position:relative + z-index:1 is what actually fixes that: ::before/
-   ::after below are position:absolute with no z-index of their own,
-   which (per normal CSS stacking) placed them ABOVE this plain-text
-   content by default -- a real layering bug, not just a contrast one.
-   Giving the digit its own stacking level, and the pseudo-elements an
-   explicit negative one, makes the ordering explicit both ways. */
+/* The numeral: lit by the card's semantic color (plain color, not a
+   background-clip gradient, so it never depends on text-clip support). */
 .goal-number-badge-digit {
   position: relative;
   z-index: 1;
   display: block;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 900;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  /* Hot orange-red LED (StandUp's accent family), pushed further off
-     yellow/gold/beige than the previous pass -- "reads too beige/gold"
-     feedback traced to the core stop being a pale cream (#ffe3c2, low
-     saturation) rather than a genuinely hot pale ORANGE, so the core is
-     now a saturated orange instead of a near-white/cream tone, through
-     vivid orange, to a red-orange edge. Never pure/flat red, per
-     explicit "avoid a flat solid-red appearance" call. */
-  background-image: radial-gradient(circle at 50% 32%, #ffb366 0%, #ff6a1a 35%, #ff3d0a 65%, #d62c00 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: #ff5214;
-  -webkit-text-fill-color: transparent;
-  /* Crisp outline, tuned to sharpen the now-thicker glyph without
-     swallowing its interior -- "the stroke exists to sharpen the
-     shape, not dominate it." */
-  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.92);
-  /* Restrained warm glow around the numeral -- three tight layers
-     (crisp core / mid bloom / faint outer reach) instead of a wide
-     single blur, so it reads as an illuminated LED rather than neon.
-     Core layer recolored from pale cream (the other "beige" culprit)
-     to a saturated orange, and strengthened slightly tighter-in per
-     explicit "strengthen the glow immediately around the digit" call;
-     the outer bloom layer is intentionally left alone (already
-     restrained) so the halo doesn't grow. */
+  color: var(--metal-color, #ff6a1a);
   text-shadow:
-    0 0 2px rgba(255, 170, 100, 0.95),
-    0 0 5px rgba(255, 90, 20, 0.75),
-    0 0 9px rgba(214, 44, 0, 0.35),
-    0 1px 1px rgba(0, 0, 0, 0.4);
+    0 0 3px color-mix(in srgb, var(--metal-color, #ff6a1a) 80%, transparent),
+    0 0 7px color-mix(in srgb, var(--metal-color, #ff6a1a) 40%, transparent),
+    0 1px 1px rgba(0, 0, 0, 0.5);
 }
 
 .goal-number-badge::before,
 .goal-number-badge::after {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
+  border-radius: 5px;
   pointer-events: none;
   z-index: -1;
 }
 
-/* Small crisp specular glint -- upper-left, where the "small bright
-   specular highlight" spec calls for it, distinct from the softer
-   broader highlight already baked into the background gradient above. */
+/* Small specular catch, upper-left of the cavity. */
 .goal-number-badge::before {
-  background: radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.4) 30%, transparent 55%);
-  width: 40%;
-  height: 32%;
-  top: 10%;
-  left: 14%;
-  inset: auto;
+  top: 1px;
+  left: 2px;
+  width: 42%;
+  height: 24%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), transparent 85%);
 }
 
-/* Semantic reflection -- soft-light blended (reads as colored light
-   hitting the metal, not a colored sphere) and concentrated toward one
-   edge, same --metal-color every other card-surface reflection uses. */
+/* Reflected semantic accent, low and to the right. */
 .goal-number-badge::after {
+  inset: 1px;
   background: radial-gradient(
-    circle at 78% 70%,
-    color-mix(in srgb, var(--metal-color, var(--metal-edge-neutral)) 65%, transparent) 0%,
-    transparent 48%
+    circle at 82% 88%,
+    color-mix(in srgb, var(--metal-color, #ff6a1a) 45%, transparent) 0%,
+    transparent 52%
   );
-  mix-blend-mode: soft-light;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
-/* Light mode: a genuinely different palette (not a dark-theme ratio) --
-   lighter brushed-steel gradient, a neutral warm-gray contact shadow
-   instead of near-black, and the inset highlight/shadow pair rebalanced
-   so the curvature still reads clearly against a light card. The amber
-   number itself (fill/stroke/glow) is unchanged from the base rule --
-   an LED reads the same color regardless of ambient light -- only the
-   bezel ring and the surrounding ambient bloom are retuned: the bezel
-   stays just as dark/crisp (explicit "keep the black bezel clearly
-   visible" call) while the amber glow is cut substantially so it
-   doesn't wash out against a light card. */
+/* Light mode: polished aluminium frame around a darker recessed cavity (so
+   the lit numeral stays readable), restrained semantic illumination. */
 [data-theme="light"] .goal-number-badge {
   background:
-    radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.6) 10%, transparent 22%),
-    radial-gradient(circle at 37% 33%, rgba(255, 255, 255, 0.4) 0%, transparent 48%),
-    radial-gradient(circle at 68% 76%, rgba(40, 42, 48, 0.4) 0%, transparent 56%),
-    linear-gradient(155deg, #eef0f3 0%, #a6abb6 48%, #686d77 100%);
+    radial-gradient(ellipse 90% 80% at 50% 35%, color-mix(in srgb, var(--metal-color, #ff6a1a) 18%, #3a3d44), #26282d 90%) padding-box,
+    radial-gradient(ellipse 30% 120% at 8% 0%, #ffffff, transparent 100%) border-box,
+    radial-gradient(ellipse 22% 120% at 92% 0%, rgba(255, 255, 255, 0.85), transparent 100%) border-box,
+    linear-gradient(180deg, #f2f4f7 0%, #c4cad2 32%, #a0a8b2 62%, #6c747e 90%, #c2c9d1 100%) border-box;
   box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.8),
-    inset 0 -3px 4px rgba(40, 42, 48, 0.4),
-    inset 2px 0 2px rgba(255, 255, 255, 0.3),
-    inset 0 0 6px 1px rgba(255, 92, 20, 0.12),
-    0 0 0 1px rgba(8, 9, 11, 0.42),
-    0 0 0 1.7px rgba(255, 255, 255, 0.5),
-    0 1px 0 0 rgba(40, 42, 48, 0.16),
-    0 3px 6px -1px rgba(40, 32, 28, 0.32),
-    0 0 8px 1px rgba(255, 90, 20, 0.16);
+    inset 0 0 0 1px color-mix(in srgb, var(--metal-color, #ff6a1a) 34%, transparent),
+    inset 0 3px 5px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(60, 48, 36, 0.5),
+    0 3px 6px -1px rgba(40, 32, 28, 0.3),
+    0 0 6px -1px color-mix(in srgb, var(--metal-color, #ff6a1a) 26%, transparent);
+}
+
+[data-theme="light"] .goal-number-badge-digit {
+  color: color-mix(in srgb, var(--metal-color, #ff6a1a) 55%, white);
 }
 
 .goal-row:hover {

@@ -30,9 +30,9 @@ export default function GoalCardControls({
   className?: string;
 }) {
   const chambers: Array<[string, Chamber, React.ReactNode]> = [
-    ["expand", expand, <Maximize2 key="i" size={11} strokeWidth={2.4} />],
-    ["collapse", collapse, <Minus key="i" size={12} strokeWidth={2.8} />],
-    ["close", close, <X key="i" size={12} strokeWidth={2.6} />],
+    ["expand", expand, <Maximize2 key="i" size={13} strokeWidth={2.4} />],
+    ["collapse", collapse, <Minus key="i" size={14} strokeWidth={2.8} />],
+    ["close", close, <X key="i" size={14} strokeWidth={2.6} />],
   ];
   return (
     <div className={`goal-ctl-bar${className ? ` ${className}` : ""}`} role="group" aria-label={groupLabel}>

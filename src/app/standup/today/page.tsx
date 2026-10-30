@@ -2571,28 +2571,24 @@ export default function TodayPage() {
         style={{ "--p-color": isCollapsible ? doneColors.color : getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
       >
         {isCelebrating && <div className="goal-complete-badge"><Check size={14} strokeWidth={3} /></div>}
-        {/* Upper-right window controls: Expand (full screen), Collapse and
-            Close are three chambers of one housing. They reuse the card's
-            existing handlers; Collapse / Close keep their existing
-            eligibility (resolved cards only), everything else stays
-            physically present but dimmed. */}
-        <GoalCardControls
-          groupLabel={t("goalCard.controls")}
-          expand={{
-            label: t("today.fullScreenTitle"),
-            onClick: () => setFullScreenGoalId(g.id),
-            disabled: fullScreenGoalId === g.id,
-          }}
-          collapse={{
-            label: t("today.collapseTitle"),
-            onClick: isCollapsible ? () => toggleExpandedDone(g.id) : undefined,
-          }}
-          close={{
-            label: t("today.deleteGoal"),
-            onClick: isCollapsible ? () => handleDeleteGoal(g) : undefined,
-            disabled: busyGoalIds.has(g.id),
-          }}
-        />
+        {/* Upper-right window controls for a resolved card that is EXPANDED:
+            Expand (card expand -- already expanded, so dimmed), Collapse and
+            Close, three chambers of one housing, reusing the card's existing
+            handlers/eligibility (these are exactly the cards that could
+            already collapse or be deleted). Unresolved cards have neither
+            action, so they carry no controls. */}
+        {isCollapsible && (
+          <GoalCardControls
+            groupLabel={t("goalCard.controls")}
+            expand={{ label: t("today.clickToExpand") }}
+            collapse={{ label: t("today.collapseTitle"), onClick: () => toggleExpandedDone(g.id) }}
+            close={{
+              label: t("today.deleteGoal"),
+              onClick: () => handleDeleteGoal(g),
+              disabled: busyGoalIds.has(g.id),
+            }}
+          />
+        )}
         {/* Number badge — a small corner tag flush with the card's
             own top-left border/radius. */}
         <GoalNumberOrb number={idx + 1} />
@@ -2607,6 +2603,7 @@ export default function TodayPage() {
                   <Hourglass size={11} /> {t("today.pendingReview")}
                 </span>
               )}
+              <span className="ml-auto">{fullScreenBtn}</span>
             </div>
 
             <div className="text-white text-lg sm:text-xl font-medium mb-2">

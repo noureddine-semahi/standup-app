@@ -5489,7 +5489,7 @@ select:focus {
   box-sizing: border-box;
   display: flex;
   gap: 1px;
-  height: 28px;
+  height: 30px;
   padding: 1px;
   border: 2px solid transparent;
   border-radius: 9px;
@@ -5508,8 +5508,8 @@ select:focus {
   --ctl: 180, 107, 255;
   position: relative;
   box-sizing: border-box;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -5586,7 +5586,7 @@ select:focus {
 }
 
 .goal-ctl:disabled svg {
-  opacity: 0.3;
+  opacity: 0.4;
   filter: none;
 }
 

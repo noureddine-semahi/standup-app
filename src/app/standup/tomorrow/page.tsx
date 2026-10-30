@@ -80,7 +80,6 @@ import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
 import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
 import GlassSlider, { type SliderTone } from "@/components/GlassSlider";
-import GoalCardControls from "@/components/GoalCardControls";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
@@ -1627,16 +1626,15 @@ export default function TomorrowGoalsPage() {
               moved here from an inline button next to the priority
               select, same as Today's goal-delete-corner-btn. */}
           {!locked && !isExclusive && (
-            <GoalCardControls
-              groupLabel={t("goalCard.controls")}
-              expand={{ label: t("today.fullScreenTitle") }}
-              collapse={{ label: t("today.collapseTitle") }}
-              close={{
-                label: (p >= 1 && p <= 3) ? t("tomorrow.clearPriorityTask") : t("tomorrow.removeTask"),
-                onClick: () => removeGoal(idx),
-                disabled: submitting,
-              }}
-            />
+            <button
+              type="button"
+              onClick={() => removeGoal(idx)}
+              disabled={submitting}
+              className="goal-delete-corner-btn"
+              title={(p >= 1 && p <= 3) ? t("tomorrow.clearPriorityTask") : t("tomorrow.removeTask")}
+            >
+              <X size={12} />
+            </button>
           )}
 
           <div className="goal-row-body">

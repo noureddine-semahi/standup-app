@@ -20,6 +20,7 @@ import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import GoalCardControls, { closeGoalCardPills } from "@/components/GoalCardControls";
 import { isStandaloneCardCollapsed, toggleId } from "@/lib/cardPresentation";
+import { loadCardPresentation, saveCardPresentation } from "@/lib/cardPresentationStorage";
 import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
@@ -42,6 +43,7 @@ import {
   getStreakPassCoveredDates,
   hoursUntilMidnight,
   markGoalReviewed,
+  getCurrentUserId,
   unmarkGoalReviewed,
   markPlanReviewed,
   updateGoalPriority,
@@ -276,6 +278,36 @@ export default function TodayPage() {
   // not started, ...). Resolved cards keep using expandedDoneIds above.
   // Presentation only -- nothing about the goal changes.
   const [collapsedPendingIds, setCollapsedPendingIds] = useState<Set<string>>(new Set());
+  // Which cards are collapsed / opened is remembered on this device, per user
+  // (see cardPresentationStorage): it is restored once on mount and saved
+  // whenever it changes, so it survives refresh and logging out / in.
+  const [presentationUserId, setPresentationUserId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUserId()
+      .then((uid) => {
+        if (cancelled) return;
+        const saved = loadCardPresentation(uid);
+        setCollapsedPendingIds(new Set(saved.collapsedPending));
+        setExpandedDoneIds(new Set(saved.expandedDone));
+        setPresentationUserId(uid);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const goalIdsKey = goals.map((g) => g.id).join(",");
+  useEffect(() => {
+    // Only after the saved state was restored (presentationUserId is set in the
+    // same batch as the restored sets), so the first save can't wipe it.
+    if (!presentationUserId) return;
+    saveCardPresentation(
+      presentationUserId,
+      { collapsedPending: [...collapsedPendingIds], expandedDone: [...expandedDoneIds] },
+      new Set(goalIdsKey.split(",").filter(Boolean))
+    );
+  }, [presentationUserId, collapsedPendingIds, expandedDoneIds, goalIdsKey]);
   const [closing, setClosing] = useState(false);
   const [rescheduleGoal, setRescheduleGoal] = useState<Goal | null>(null);
   // Blocked requires a reason before it's applied — see confirmBlocked().

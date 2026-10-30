@@ -14,6 +14,7 @@ import {
   getChecklistItemsForGoals,
   getNotesForGoals,
   getPlanWithGoals,
+  getCurrentUserId,
   isYesterdayReviewed,
   submitPlan,
   markPlanSaved,
@@ -82,6 +83,7 @@ import GoalTypeInfoModal from "@/components/GoalTypeInfoModal";
 import GlassSlider, { type SliderTone } from "@/components/GlassSlider";
 import GoalCardControls, { closeGoalCardPills } from "@/components/GoalCardControls";
 import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
+import { loadCardPresentation, saveCardPresentation } from "@/lib/cardPresentationStorage";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { statusLabel } from "@/lib/goalStatus";
@@ -228,6 +230,34 @@ export default function TomorrowGoalsPage() {
   // touches goals, saves, Submit or the saved/submitted hashes. Keyed by goal
   // id, so a draft row that has no id yet simply has no collapse / full screen.
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  // Collapsed cards are remembered on this device (per user), separately from
+  // Today's, so they survive refresh and logging out / in. Presentation only:
+  // this never touches the plan, its hashes, Save or Submit.
+  const [presentationUserId, setPresentationUserId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUserId()
+      .then((uid) => {
+        if (cancelled) return;
+        const uidKey = `tomorrow:${uid}`;
+        setCollapsedKeys(new Set(loadCardPresentation(uidKey).collapsedPending));
+        setPresentationUserId(uidKey);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  // Only the SET of goal ids matters here (for pruning), not every keystroke.
+  const goalIdsKey = goals.map((g) => g.id ?? "").join(",");
+  useEffect(() => {
+    if (!presentationUserId) return;
+    saveCardPresentation(
+      presentationUserId,
+      { collapsedPending: [...collapsedKeys], expandedDone: [] },
+      new Set(goalIdsKey.split(",").filter(Boolean))
+    );
+  }, [presentationUserId, collapsedKeys, goalIdsKey]);
   const [fullScreenKey, setFullScreenKey] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ idx: number; title: string } | null>(null);
   const fsSpacerPxRef = useRef(0);

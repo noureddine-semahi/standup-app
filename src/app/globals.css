@@ -4975,7 +4975,7 @@ select:focus {
    INWARD, so card dimensions, padding and radius don't move and the
    corner catches follow the card shape. Quiet on purpose: well below the
    slider / command-bank rims. */
-.goal-row[style*="--priority-"] {
+.goal-row[style*="--priority-"]:not(.goal-row-done-collapsed) {
   --goal-rim:
     radial-gradient(ellipse 14% 130% at 5% 0%, rgba(232, 240, 250, 0.7), transparent 100%),
     radial-gradient(ellipse 10% 130% at 95% 0%, rgba(214, 228, 244, 0.42), transparent 100%),
@@ -4989,7 +4989,7 @@ select:focus {
     0 6px 16px -10px rgba(0, 0, 0, 0.45);
 }
 
-.goal-row[style*="--priority-"]::before {
+.goal-row[style*="--priority-"]:not(.goal-row-done-collapsed)::before {
   content: "";
   position: absolute;
   inset: -1.5px;
@@ -5000,6 +5000,65 @@ select:focus {
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   pointer-events: none;
+}
+
+/* Today status cards (resolved / in-progress / rescheduled ...): the same
+   physical rim as the steel chassis, tinted with the card's STATUS color
+   (--metal-color is the status color on both the expanded card, via
+   --p-color, and the collapsed row, via --done-color). Anodized metal, not
+   a flat border: lit upper edge and corner catches, status-colored sides,
+   darker lower edge, narrow dark inner separation. Expanded cards build
+   the extra thickness inward exactly like the steel rim; collapsed rows
+   clip overflow, so their ring sits fully inside (2px + the 1px border). */
+.goal-row[style*="--status-"],
+.goal-row.goal-row-done-collapsed {
+  --goal-rim:
+    radial-gradient(ellipse 14% 130% at 5% 0%, color-mix(in srgb, var(--metal-color) 28%, white), transparent 100%),
+    radial-gradient(ellipse 10% 130% at 95% 0%, color-mix(in srgb, var(--metal-color) 42%, white), transparent 100%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--metal-color) 64%, #d6dfea) 0%,
+      color-mix(in srgb, var(--metal-color) 80%, #6b7a8e) 30%,
+      color-mix(in srgb, var(--metal-color) 72%, #3a4452) 62%,
+      color-mix(in srgb, var(--metal-color) 42%, #12161c) 90%,
+      color-mix(in srgb, var(--metal-color) 56%, #8e9bad) 100%
+    );
+}
+
+.goal-row[style*="--status-"]:not(.goal-row-done-collapsed) {
+  border-color: transparent;
+  box-shadow:
+    inset 0 0 0 4px rgba(2, 4, 8, 0.4),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 1px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(0, 0, 0, 0.32),
+    0 6px 16px -10px rgba(0, 0, 0, 0.45),
+    0 0 11px -5px color-mix(in srgb, var(--metal-color) 38%, transparent);
+}
+
+.goal-row.goal-row-done-collapsed {
+  box-shadow:
+    inset 0 0 0 3px rgba(2, 4, 8, 0.38),
+    0 6px 16px -10px rgba(0, 0, 0, 0.4);
+}
+
+.goal-row[style*="--status-"]:not(.goal-row-done-collapsed)::before,
+.goal-row.goal-row-done-collapsed::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 3px;
+  background: var(--goal-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+.goal-row.goal-row-done-collapsed::before {
+  inset: 0;
+  padding: 2px;
 }
 
 [data-theme="light"] .goal-row[data-edge-weight="boost"] {
@@ -5016,7 +5075,7 @@ select:focus {
 
 /* Light mode: the same structural rim in medium polished aluminium, kept
    visible against the light card body without becoming a heavy outline. */
-[data-theme="light"] .goal-row[style*="--priority-"] {
+[data-theme="light"] .goal-row[style*="--priority-"]:not(.goal-row-done-collapsed) {
   --goal-rim:
     radial-gradient(ellipse 14% 130% at 5% 0%, #ffffff, transparent 100%),
     radial-gradient(ellipse 10% 130% at 95% 0%, rgba(255, 255, 255, 0.85), transparent 100%),
@@ -5027,6 +5086,37 @@ select:focus {
     inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
     inset 0 -1px 0 1px rgba(40, 32, 28, 0.06),
     0 0 0 1px rgba(60, 48, 36, 0.2),
+    0 4px 12px -10px rgba(40, 32, 28, 0.3);
+}
+
+/* Light mode status rim: the same tinted-metal ring on lighter neutrals. */
+[data-theme="light"] .goal-row[style*="--status-"],
+[data-theme="light"] .goal-row.goal-row-done-collapsed {
+  --goal-rim:
+    radial-gradient(ellipse 14% 130% at 5% 0%, #ffffff, transparent 100%),
+    radial-gradient(ellipse 10% 130% at 95% 0%, rgba(255, 255, 255, 0.85), transparent 100%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--metal-color) 50%, #eef1f5) 0%,
+      color-mix(in srgb, var(--metal-color) 66%, #b7bec8) 30%,
+      color-mix(in srgb, var(--metal-color) 70%, #8b939e) 62%,
+      color-mix(in srgb, var(--metal-color) 62%, #5c636d) 90%,
+      color-mix(in srgb, var(--metal-color) 46%, #c5ccd4) 100%
+    );
+}
+
+[data-theme="light"] .goal-row[style*="--status-"]:not(.goal-row-done-collapsed) {
+  box-shadow:
+    inset 0 0 0 4px rgba(60, 48, 36, 0.14),
+    inset 0 1px 0 1px rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(60, 48, 36, 0.2),
+    0 4px 12px -10px rgba(40, 32, 28, 0.3),
+    0 0 7px -4px color-mix(in srgb, var(--metal-color) 26%, transparent);
+}
+
+[data-theme="light"] .goal-row.goal-row-done-collapsed {
+  box-shadow:
+    inset 0 0 0 3px rgba(60, 48, 36, 0.12),
     0 4px 12px -10px rgba(40, 32, 28, 0.3);
 }
 

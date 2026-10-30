@@ -510,6 +510,8 @@ export const es: Record<keyof typeof en, string> = {
   "today.clickToExpand": "Clic para expandir",
   "today.collapseTitle": "Colapsar",
   "goalCard.controls": "Controles de la tarjeta",
+  "today.collapseCard": "Colapsar tarjeta",
+  "today.restoreCard": "Restaurar tarjeta",
   "today.fullScreenTitle": "Pantalla completa",
   "today.exitFullScreenTitle": "Salir de pantalla completa",
   "today.goalCompletionStat": "{completed}/{total} completadas",

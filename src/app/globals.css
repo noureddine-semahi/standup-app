@@ -5597,6 +5597,47 @@ select:focus {
   top: -12px;
 }
 
+/* Phones: the bar moves from the upper-right (where a bigger trio would sit
+   on the status stamp) to the TOP-CENTER of its own card, mounted on the top
+   rim, and grows to a thumb-friendly size (~116 x 40px; chambers 36 x 34).
+   Centered on the card (left:50% of the card, not the viewport). It rises
+   only 14px above the card -- less than the gap between stacked cards -- and
+   the chambers carry no extra invisible hit area, so a tap can never reach
+   the card above. */
+@media (max-width: 640px) {
+  .goal-ctl-bar,
+  .goal-row-done-collapsed-wrap .goal-ctl-bar {
+    top: -14px;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 40px;
+    border-radius: 11px;
+  }
+
+  .goal-ctl {
+    width: 36px;
+    height: 34px;
+  }
+
+  .goal-ctl:first-child {
+    border-radius: 8px 3px 3px 8px;
+  }
+
+  .goal-ctl:last-child {
+    border-radius: 3px 8px 8px 3px;
+  }
+
+  .goal-ctl svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .goal-ctl::after {
+    inset: 0;
+  }
+}
+
 /* Light mode: polished aluminium housing, dark chambers for contrast. */
 [data-theme="light"] .goal-ctl-bar {
   background:

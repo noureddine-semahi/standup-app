@@ -1838,14 +1838,15 @@ export default function TodayPage() {
           <GoalNumberOrb number={idx + 1} />
           <GoalCardControls
             groupLabel={t("goalCard.controls")}
-            expand={{
-              label: t("today.clickToExpand"),
+            expand={{ label: t("today.fullScreenTitle") }}
+            collapse={{
+              label: t("today.restoreCard"),
+              restore: true,
               onClick: () =>
                 compact
                   ? setExpandedCompactTaskIds((prev) => new Set(prev).add(g.id))
                   : toggleExpandedDone(g.id),
             }}
-            collapse={{ label: t("today.collapseTitle") }}
             close={{ label: t("today.deleteGoal") }}
           />
           <button
@@ -2571,24 +2572,30 @@ export default function TodayPage() {
         style={{ "--p-color": isCollapsible ? doneColors.color : getPriorityMeta(p).color, position: "relative" } as React.CSSProperties}
       >
         {isCelebrating && <div className="goal-complete-badge"><Check size={14} strokeWidth={3} /></div>}
-        {/* Upper-right window controls for a resolved card that is EXPANDED:
-            Expand (card expand -- already expanded, so dimmed), Collapse and
-            Close, three chambers of one housing, reusing the card's existing
-            handlers/eligibility (these are exactly the cards that could
-            already collapse or be deleted). Unresolved cards have neither
-            action, so they carry no controls. */}
-        {isCollapsible && (
-          <GoalCardControls
-            groupLabel={t("goalCard.controls")}
-            expand={{ label: t("today.clickToExpand") }}
-            collapse={{ label: t("today.collapseTitle"), onClick: () => toggleExpandedDone(g.id) }}
-            close={{
-              label: t("today.deleteGoal"),
-              onClick: () => handleDeleteGoal(g),
-              disabled: busyGoalIds.has(g.id),
-            }}
-          />
-        )}
+        {/* Window controls (one housing, three chambers), reusing the
+            card's existing handlers and eligibility: PURPLE = full screen
+            (the existing full-screen state, dimmed while already full
+            screen), GREEN = collapse (the same toggleExpandedDone the
+            collapsed row uses to restore), RED = delete. Collapse and
+            delete exist only on resolved cards, as before, so on other
+            cards those two stay physically present but dimmed. */}
+        <GoalCardControls
+          groupLabel={t("goalCard.controls")}
+          expand={{
+            label: t("today.fullScreenTitle"),
+            onClick: () => setFullScreenGoalId(g.id),
+            disabled: fullScreenGoalId === g.id,
+          }}
+          collapse={{
+            label: t("today.collapseCard"),
+            onClick: isCollapsible ? () => toggleExpandedDone(g.id) : undefined,
+          }}
+          close={{
+            label: t("today.deleteGoal"),
+            onClick: isCollapsible ? () => handleDeleteGoal(g) : undefined,
+            disabled: busyGoalIds.has(g.id),
+          }}
+        />
         {/* Number badge — a small corner tag flush with the card's
             own top-left border/radius. */}
         <GoalNumberOrb number={idx + 1} />
@@ -2603,7 +2610,6 @@ export default function TodayPage() {
                   <Hourglass size={11} /> {t("today.pendingReview")}
                 </span>
               )}
-              <span className="ml-auto">{fullScreenBtn}</span>
             </div>
 
             <div className="text-white text-lg sm:text-xl font-medium mb-2">

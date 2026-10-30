@@ -515,6 +515,8 @@ export const en = {
   "today.clickToExpand": "Click to expand",
   "today.collapseTitle": "Collapse",
   "goalCard.controls": "Card controls",
+  "today.collapseCard": "Collapse card",
+  "today.restoreCard": "Restore card",
   "today.fullScreenTitle": "Full screen",
   "today.exitFullScreenTitle": "Exit full screen",
   "today.goalCompletionStat": "{completed}/{total} completed",

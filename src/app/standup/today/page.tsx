@@ -21,6 +21,7 @@ import GoalNumberOrb from "@/components/GoalNumberOrb";
 import GoalCardControls, { closeGoalCardPills } from "@/components/GoalCardControls";
 import { isStandaloneCardCollapsed, toggleId } from "@/lib/cardPresentation";
 import { loadCardPresentation, saveCardPresentation } from "@/lib/cardPresentationStorage";
+import { computeRevealScroll } from "@/lib/revealAboveBar";
 import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import MarqueeText from "@/components/MarqueeText";
 import GoalTypeSelect from "@/components/GoalTypeSelect";
@@ -434,6 +435,35 @@ export default function TodayPage() {
 
   // Per-goal action menu (collapsed behind the gear icon until clicked)
   const [showActions, setShowActions] = useState<Record<string, boolean>>({});
+  // When a card's status selector opens, bring it fully into view between the
+  // fixed header and the fixed command bar -- only if it is actually hidden,
+  // and by the minimum distance. Edges are measured live (the bar's own ref,
+  // the header element), never a hardcoded height. Purely a scroll: it never
+  // touches status or the selector's open state.
+  const prevShowActionsRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    const prev = prevShowActionsRef.current;
+    prevShowActionsRef.current = showActions;
+    const openedId = Object.keys(showActions).find((id) => showActions[id] && !prev[id]);
+    if (!openedId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const panel = document.querySelector<HTMLElement>(`[data-goal-id="${openedId}"] .status-selector`);
+      if (!panel) return;
+      const rect = panel.getBoundingClientRect();
+      const header = document.querySelector<HTMLElement>(".app-header");
+      const bar = barRef.current;
+      const delta = computeRevealScroll({
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportTop: header ? header.getBoundingClientRect().bottom : 0,
+        viewportBottom: bar ? bar.getBoundingClientRect().top : window.innerHeight,
+      });
+      if (Math.abs(delta) < 1) return;
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      window.scrollBy({ top: delta, behavior: reduce ? "auto" : "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [showActions]);
   // Per-goal "Add Note" input, toggled from next to the action controls.
   const [showNoteInput, setShowNoteInput] = useState<Record<string, boolean>>({});
   // Per-goal "Attach a link" input, toggled from the compact Checklist/Files/Link row.
@@ -2490,7 +2520,7 @@ export default function TodayPage() {
               )}
             </div>
 
-            <div className="text-white text-lg sm:text-xl font-medium mb-2">
+            <div className="text-white text-lg sm:text-xl font-medium mb-2 break-words">
               {g.title}
               {g.time_of_day && (
                 <span className="ml-2 inline-flex items-center gap-1 text-sm font-normal text-white/50">
@@ -2744,7 +2774,7 @@ export default function TodayPage() {
               only the editable controls (review/status/reschedule) hide then. */}
           <div className="flex flex-col gap-3" style={{ minWidth: "160px" }}>
             {/* Priority sits right next to the review toggle */}
-            <div className="flex items-center gap-3">
+            <div className="goal-status-row flex items-center gap-3">
               <select
                 value={p}
                 disabled={locked || dayClosed || isExclusive}

@@ -5176,6 +5176,13 @@ select:focus {
 @media (max-width: 640px) {
   .goal-row-cols {
     flex-direction: column;
+    /* The base rule's flex-wrap: wrap must be turned OFF once this stacks.
+       In a WRAPPING column container the flex line is as wide as its widest
+       item's max-content (the nowrap toolbar, an unbroken title, the status
+       selector), so align-items: stretch fills that line instead of the
+       card's inner width and the content spills past the right edge. A
+       single-line column stretches to the container itself. */
+    flex-wrap: nowrap;
     /* .goal-row-cols' own base rule (further up this file) sets
        align-items: flex-start for the desktop ROW layout (so columns
        align to the top rather than stretching to match each other's
@@ -13170,4 +13177,78 @@ button.status-chip-trigger[aria-expanded="true"] {
     inset 1px 1px 0 0 rgba(255, 255, 255, 0.8),
     inset -1px -1px 1px 0 rgba(40, 32, 28, 0.16),
     0 0 7px -1px currentColor;
+}
+
+/* Priority + status chip + the two toggles: wider than a phone card's inner
+   width (chip is a fixed 128px), so the row wraps instead of overflowing. */
+@media (max-width: 640px) {
+  .goal-status-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+/* Mobile: compact selector buttons (~40px visible) with the 44px touch target
+   kept by an invisible hit-area extension; both columns shrink inside the
+   card (min-width:0 all the way down), no fixed width. */
+@media (max-width: 640px) {
+  .status-selector {
+    width: 100%;
+    min-width: 0;
+    padding: 0.4rem 0.4rem 0.45rem;
+  }
+  .status-selector-grid {
+    gap: 0.35rem;
+  }
+  .status-selector-btn {
+    min-height: 40px;
+    padding: 0.25rem 0.5rem;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+  }
+  .status-selector-btn::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+  }
+}
+@media (max-width: 360px) {
+  .status-selector-btn {
+    gap: 0.3rem;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.72rem;
+  }
+}
+
+/* 320px-class phones: the card's inner width is only ~190px, too tight for two
+   readable columns. The selector borrows the card body's own side padding
+   (still inside the card rim), so both columns keep full labels. */
+@media (max-width: 340px) {
+  .status-selector {
+    width: calc(100% + 1.1rem);
+    max-width: none;
+    margin-inline: -0.55rem;
+    padding: 0.35rem 0.3rem 0.4rem;
+  }
+  .status-selector-grid {
+    gap: 0.3rem;
+  }
+  .status-selector-btn {
+    gap: 0.25rem;
+    padding: 0.22rem 0.3rem;
+    font-size: 0.68rem;
+  }
+  .status-selector-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  /* The selected dot leaves the label row so it never costs label width. */
+  .status-selector-mark {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    margin: 0;
+    width: 5px;
+    height: 5px;
+  }
 }

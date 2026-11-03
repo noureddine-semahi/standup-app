@@ -9260,12 +9260,13 @@ select:focus {
   /* 8 tabs: tighter row gap + icon padding so the ACTIVE tab keeps room for its
      full title (it takes whatever the 7 icon-only tabs leave). */
   .folder-tabbar-tools {
-    gap: 4px;
+    gap: 1px;
+    padding: 5px 3px;
   }
   .folder-tabbar-tools .folder-tab-tools {
     flex: 0 0 auto;
     gap: 0;
-    padding: 0.6rem 0.5rem;
+    padding: 0.6rem 0.45rem;
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
       box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
   }
@@ -9284,7 +9285,7 @@ select:focus {
   .folder-tabbar-tools .folder-tab-tools.folder-tab-active {
     flex: 1 1 0%;
     min-width: 40px;
-    padding: 0.6rem 0.6rem;
+    padding: 0.6rem 0.55rem;
   }
   .folder-tabbar-tools .folder-tab-tools span {
     display: inline-block;
@@ -9315,7 +9316,7 @@ select:focus {
 
 @media (max-width: 375px) {
   .folder-tabbar-tools {
-    gap: 4px;
+    gap: 1px;
   }
   .folder-tabbar-tools .folder-tab-tools {
     padding: 0.6rem 0.4rem;

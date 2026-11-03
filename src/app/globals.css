@@ -12864,22 +12864,30 @@ select:focus {
 }
 
 /* ===== Today status selector (compact two-column, inline) =====
-   Polished housing holding eight recessed buttons. Every option is tinted by
-   the same --status-<tone>-* tokens the old stacked buttons used, so the
-   existing statuses keep their colors; Attempted adds its own copper pair.
-   Opening only reveals it (no overlay, no status change). */
+   Housing keeps the recessed equipment-panel look. The eight buttons reuse
+   .goal-toolbar-btn's recipe, scaled up: a socket (directional tint rim over
+   a dark panel face with four inset shadows) holding a small inset FACE
+   (::before: 2px inset, directional rim, faint tint gradient, specular
+   inset highlight, restrained currentColor glow). Status color lives in the
+   icon, label, rim and that faint face tint only -- the surface stays dark
+   metal. Same rgba(var(--tone-rgb), x) idiom as .btn-tint (no color-mix on
+   currentColor for backgrounds/borders). Opening only reveals it (no
+   overlay, no status change). */
 .status-selector {
   width: 300px;
   max-width: 100%;
   box-sizing: border-box;
   padding: 0.45rem 0.5rem 0.5rem;
-  border-radius: 12px;
-  border: 1px solid rgba(160, 168, 182, 0.28);
-  background: linear-gradient(180deg, #2b3039 0%, #1b1f26 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(90, 94, 102, 0.35);
+  border-top-color: rgba(60, 63, 70, 0.45);
+  border-bottom-color: rgba(140, 144, 155, 0.25);
+  background: rgba(var(--panel-rgb), 0.3);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-    0 4px 10px -6px rgba(0, 0, 0, 0.6);
+    inset 0 2px 3px -1px rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 32%, transparent),
+    0 2px 5px -3px rgba(0, 0, 0, 0.4);
   animation: status-selector-reveal 180ms ease-out;
 }
 
@@ -12895,45 +12903,69 @@ select:focus {
 .status-selector-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .status-selector-btn {
   --tone: var(--status-not-started);
-  --tone-bg: var(--status-not-started-bg);
-  --tone-border: var(--status-not-started-border);
-  --tone-border-active: var(--status-not-started-border-active);
+  --tone-rgb: 161, 161, 170;
   position: relative;
+  /* Contains the ::before face (z-index:-1) above this button's own socket background. */
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 0.4rem;
   min-height: 44px;
   min-width: 0;
-  padding: 0.4rem 0.55rem;
-  border-radius: 9px;
-  border: 1px solid var(--tone-border);
-  background:
-    linear-gradient(180deg, var(--tone-bg), var(--tone-bg)),
-    linear-gradient(180deg, #10131a 0%, #181c24 100%);
+  padding: 0.4rem 0.6rem;
+  border-radius: 7px;
+  border-width: 1px;
+  border-style: solid;
+  border-top-color: rgba(var(--tone-rgb), 0.5);
+  border-left-color: rgba(var(--tone-rgb), 0.38);
+  border-right-color: rgba(var(--tone-rgb), 0.14);
+  border-bottom-color: rgba(var(--tone-rgb), 0.1);
+  background: rgba(var(--panel-rgb), 0.85);
   color: var(--tone);
   font-size: 0.76rem;
-  font-weight: 650;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.45),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.05);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    inset 0 3px 4px -1px rgba(0, 0, 0, 0.5),
+    inset 0 -2px 3px -1px rgba(0, 0, 0, 0.3),
+    inset 2px 0 3px -1px rgba(0, 0, 0, 0.25),
+    inset -2px 0 3px -1px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.status-selector-btn[data-tone="not-started"] { --tone: var(--status-not-started); --tone-bg: var(--status-not-started-bg); --tone-border: var(--status-not-started-border); --tone-border-active: var(--status-not-started-border-active); }
-.status-selector-btn[data-tone="completed"] { --tone: var(--status-completed); --tone-bg: var(--status-completed-bg); --tone-border: var(--status-completed-border); --tone-border-active: var(--status-completed-border-active); }
-.status-selector-btn[data-tone="in-progress"] { --tone: var(--status-in-progress); --tone-bg: var(--status-in-progress-bg); --tone-border: var(--status-in-progress-border); --tone-border-active: var(--status-in-progress-border-active); }
-.status-selector-btn[data-tone="attempted"] { --tone: var(--status-attempted); --tone-bg: var(--status-attempted-bg); --tone-border: var(--status-attempted-border); --tone-border-active: var(--status-attempted-border-active); }
-.status-selector-btn[data-tone="blocked"] { --tone: var(--status-blocked); --tone-bg: var(--status-blocked-bg); --tone-border: var(--status-blocked-border); --tone-border-active: var(--status-blocked-border-active); }
-.status-selector-btn[data-tone="missed"] { --tone: var(--status-missed); --tone-bg: var(--status-missed-bg); --tone-border: var(--status-missed-border); --tone-border-active: var(--status-missed-border-active); }
-.status-selector-btn[data-tone="postponed"] { --tone: var(--status-postponed); --tone-bg: var(--status-postponed-bg); --tone-border: var(--status-postponed-border); --tone-border-active: var(--status-postponed-border-active); }
-.status-selector-btn[data-tone="canceled"] { --tone: var(--status-canceled); --tone-bg: var(--status-canceled-bg); --tone-border: var(--status-canceled-border); --tone-border-active: var(--status-canceled-border-active); }
+.status-selector-btn[data-tone="not-started"] { --tone: var(--status-not-started); --tone-rgb: 161, 161, 170; }
+.status-selector-btn[data-tone="completed"] { --tone: var(--status-completed); --tone-rgb: 16, 185, 129; }
+.status-selector-btn[data-tone="in-progress"] { --tone: var(--status-in-progress); --tone-rgb: 59, 130, 246; }
+.status-selector-btn[data-tone="attempted"] { --tone: var(--status-attempted); --tone-rgb: 224, 144, 95; }
+.status-selector-btn[data-tone="blocked"] { --tone: var(--status-blocked); --tone-rgb: 239, 68, 68; }
+.status-selector-btn[data-tone="missed"] { --tone: var(--status-missed); --tone-rgb: 245, 158, 11; }
+.status-selector-btn[data-tone="postponed"] { --tone: var(--status-postponed); --tone-rgb: 168, 85, 247; }
+.status-selector-btn[data-tone="canceled"] { --tone: var(--status-canceled); --tone-rgb: 100, 116, 139; }
+
+/* Inset face: the toolbar button's plate, same insets and highlights. */
+.status-selector-btn::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 5px;
+  pointer-events: none;
+  border: 1px solid rgba(var(--tone-rgb), 0.28);
+  border-top-color: rgba(var(--tone-rgb), 0.55);
+  border-left-color: rgba(var(--tone-rgb), 0.4);
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.16), rgba(var(--tone-rgb), 0.05));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.14),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 4px -1px currentColor;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
 
 .status-selector-btn svg {
   flex-shrink: 0;
@@ -12947,14 +12979,42 @@ select:focus {
 }
 
 .status-selector-btn:hover:not(:disabled) {
-  border-color: var(--tone-border-active);
+  border-top-color: rgba(var(--tone-rgb), 0.72);
+  border-left-color: rgba(var(--tone-rgb), 0.55);
+  box-shadow:
+    inset 0 2px 3px -1px rgba(0, 0, 0, 0.42),
+    inset 0 -2px 3px -1px rgba(0, 0, 0, 0.24),
+    inset 2px 0 3px -1px rgba(0, 0, 0, 0.18),
+    inset -2px 0 3px -1px rgba(0, 0, 0, 0.18);
 }
 
-/* Stationary pressed state: sinks inward, never moves. */
-.status-selector-btn:active:not(:disabled) {
+.status-selector-btn:hover:not(:disabled)::before {
+  border-top-color: rgba(var(--tone-rgb), 0.78);
+  border-left-color: rgba(var(--tone-rgb), 0.6);
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.24), rgba(var(--tone-rgb), 0.08));
   box-shadow:
-    inset 0 3px 6px rgba(0, 0, 0, 0.6),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.32),
+    0 0 7px -1px currentColor;
+}
+
+/* Stationary pressed state: sinks deeper, never moves. */
+.status-selector-btn:active:not(:disabled) {
+  border-top-color: rgba(var(--tone-rgb), 0.3);
+  border-left-color: rgba(var(--tone-rgb), 0.22);
+  box-shadow:
+    inset 0 4px 5px -1px rgba(0, 0, 0, 0.62),
+    inset 0 -2px 3px -1px rgba(0, 0, 0, 0.4);
+}
+
+.status-selector-btn:active:not(:disabled)::before {
+  border-top-color: rgba(var(--tone-rgb), 0.32);
+  border-left-color: rgba(var(--tone-rgb), 0.24);
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.08), rgba(var(--tone-rgb), 0.02));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.4),
+    0 0 2px -1px currentColor;
 }
 
 .status-selector-btn:focus-visible {
@@ -12967,14 +13027,22 @@ select:focus {
   cursor: default;
 }
 
-/* Current status: brighter rim, restrained internal glow, plus a pip so it
-   never relies on color alone. */
+/* Current status: same engaged treatment .goal-toolbar-btn[aria-expanded]
+   reserves -- brighter polished rim and a more lit face, no outer glow. The
+   pip still marks it so it never relies on color alone. */
 .status-selector-btn[data-current="true"] {
-  border-color: var(--tone-border-active);
+  border-top-color: rgba(var(--tone-rgb), 0.85);
+  border-left-color: rgba(var(--tone-rgb), 0.65);
+}
+
+.status-selector-btn[data-current="true"]::before {
+  border-top-color: rgba(var(--tone-rgb), 0.9);
+  border-left-color: rgba(var(--tone-rgb), 0.7);
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.3), rgba(var(--tone-rgb), 0.1));
   box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.45),
-    inset 0 0 12px -4px var(--tone),
-    0 0 8px -3px var(--tone);
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.26),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 8px -1px currentColor;
 }
 
 .status-selector-mark {
@@ -12984,7 +13052,7 @@ select:focus {
   height: 7px;
   border-radius: 50%;
   background: var(--tone);
-  box-shadow: 0 0 6px var(--tone);
+  box-shadow: 0 0 5px -1px var(--tone);
 }
 
 /* Trigger: the status chip doubles as the selector's button. */
@@ -13015,7 +13083,8 @@ button.status-chip-trigger[aria-expanded="true"] {
   .status-selector {
     animation: none;
   }
-  .status-selector-btn {
+  .status-selector-btn,
+  .status-selector-btn::before {
     transition: none;
   }
 }
@@ -13026,42 +13095,79 @@ button.status-chip-trigger[aria-expanded="true"] {
   }
 }
 
-/* Light: warm aluminium housing, lightly smoked recessed faces. */
+@media (max-width: 360px) {
+  .status-selector-btn {
+    gap: 0.3rem;
+    padding: 0.4rem 0.45rem;
+    font-size: 0.72rem;
+  }
+}
+
+/* Light: warm aluminium housing (same recipe as the light .goal-toolbar),
+   recessed warm faces with the toolbar's light-mode shadows/highlights. */
 [data-theme="light"] .status-selector {
-  border-color: rgba(120, 108, 92, 0.4);
-  background: linear-gradient(180deg, #f1ece2 0%, #d9d2c5 100%);
+  border-color: rgba(40, 32, 28, 0.22);
+  border-top-color: rgba(40, 32, 28, 0.3);
+  border-bottom-color: rgba(255, 255, 255, 0.65);
+  background: rgba(var(--panel-rgb), 0.45);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    inset 0 -1px 0 rgba(60, 50, 40, 0.18),
-    0 4px 10px -6px rgba(40, 32, 28, 0.35);
+    inset 0 2px 3px -1px rgba(40, 32, 28, 0.12),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 30%, white 20%),
+    0 2px 5px -3px rgba(40, 32, 28, 0.2);
 }
 [data-theme="light"] .status-selector-title {
   color: rgba(60, 52, 44, 0.65);
 }
 [data-theme="light"] .status-selector-btn {
-  background:
-    linear-gradient(180deg, var(--tone-bg), var(--tone-bg)),
-    linear-gradient(180deg, #cfc8ba 0%, #e3ddd0 100%);
+  border-top-color: rgba(var(--tone-rgb), 0.45);
+  border-left-color: rgba(var(--tone-rgb), 0.32);
+  border-right-color: rgba(var(--tone-rgb), 0.12);
+  border-bottom-color: rgba(var(--tone-rgb), 0.08);
+  background: rgba(var(--panel-rgb), 0.7);
   box-shadow:
-    inset 0 2px 3px rgba(60, 50, 40, 0.28),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+    inset 0 3px 4px -1px rgba(40, 32, 28, 0.2),
+    inset 0 -2px 3px -1px rgba(40, 32, 28, 0.1),
+    inset 2px 0 3px -1px rgba(40, 32, 28, 0.08),
+    inset -2px 0 3px -1px rgba(40, 32, 28, 0.08);
+}
+[data-theme="light"] .status-selector-btn:hover:not(:disabled) {
+  box-shadow:
+    inset 0 2px 3px -1px rgba(40, 32, 28, 0.18),
+    inset 0 -2px 3px -1px rgba(40, 32, 28, 0.08),
+    inset 2px 0 3px -1px rgba(40, 32, 28, 0.06),
+    inset -2px 0 3px -1px rgba(40, 32, 28, 0.06);
 }
 [data-theme="light"] .status-selector-btn:active:not(:disabled) {
   box-shadow:
-    inset 0 3px 5px rgba(60, 50, 40, 0.38),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+    inset 0 4px 5px -1px rgba(40, 32, 28, 0.26),
+    inset 0 -2px 3px -1px rgba(40, 32, 28, 0.14);
 }
-[data-theme="light"] .status-selector-btn[data-current="true"] {
+[data-theme="light"] .status-selector-btn::before {
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.14), rgba(255, 253, 250, 0.7));
   box-shadow:
-    inset 0 2px 3px rgba(60, 50, 40, 0.28),
-    inset 0 0 10px -4px var(--tone),
-    0 0 6px -3px var(--tone);
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.75),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.14),
+    0 0 4px -1px currentColor;
 }
-
-@media (max-width: 360px) {
-  .status-selector-btn {
-    gap: 0.3rem;
-    padding: 0.4rem 0.4rem;
-    font-size: 0.72rem;
-  }
+[data-theme="light"] .status-selector-btn:hover:not(:disabled)::before {
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.2), rgba(255, 253, 250, 0.7));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.9),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.16),
+    0 0 7px -1px currentColor;
+}
+[data-theme="light"] .status-selector-btn:active:not(:disabled)::before {
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.06), rgba(230, 224, 212, 0.6));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.18),
+    0 0 2px -1px currentColor;
+}
+[data-theme="light"] .status-selector-btn[data-current="true"]::before {
+  background: linear-gradient(to bottom, rgba(var(--tone-rgb), 0.28), rgba(255, 253, 250, 0.6));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.8),
+    inset -1px -1px 1px 0 rgba(40, 32, 28, 0.16),
+    0 0 7px -1px currentColor;
 }

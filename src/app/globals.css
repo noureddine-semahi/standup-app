@@ -9235,7 +9235,10 @@ select:focus {
   }
 }
 
-@media (max-width: 660px) {
+/* Calculator + Salary joined the bar (8 tabs): full labels need ~890px, so the
+   existing icon-collapse tier below now runs up to 940px instead of 660px
+   (the 661-859px padding band above is superseded by it). */
+@media (max-width: 940px) {
   /* position:sticky was abandoned here (real-device testing kept
      failing even after the diagnosed body-overflow fix) in favor of a
      JS-driven position:fixed, applied via inline style from
@@ -9302,6 +9305,18 @@ select:focus {
     max-width: none;
     margin-left: 0.4rem;
     opacity: 1;
+  }
+}
+
+@media (max-width: 340px) {
+  .folder-tabbar-tools {
+    gap: 4px;
+  }
+  .folder-tabbar-tools .folder-tab-tools {
+    padding: 0.6rem 0.4rem;
+  }
+  .folder-tabbar-tools .folder-tab-tools.folder-tab-active {
+    padding: 0.6rem 0.5rem;
   }
 }
 
@@ -13251,4 +13266,318 @@ button.status-chip-trigger[aria-expanded="true"] {
     width: 5px;
     height: 5px;
   }
+}
+
+/* ===== Tools: Calculator + Salary Calculator =====
+   Keys, basis picker and clear buttons reuse .goal-toolbar-btn's metallic
+   socket/face recipe (and its .btn-tint accents); only size, layout and the
+   display housing are defined here. */
+.calc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (min-width: 760px) {
+  .calc-layout {
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.calc-main {
+  min-width: 0;
+  max-width: 380px;
+  width: 100%;
+}
+
+.calc-display {
+  padding: 0.5rem 0.75rem 0.6rem;
+  margin-bottom: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid rgba(90, 94, 102, 0.35);
+  border-top-color: rgba(60, 63, 70, 0.45);
+  background: rgba(var(--panel-rgb), 0.55);
+  box-shadow:
+    inset 0 3px 5px -1px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 0 rgba(77, 77, 77, 0.4),
+    0 0 0 1px color-mix(in srgb, var(--metal-edge-neutral) 28%, transparent);
+  min-width: 0;
+}
+
+.calc-display-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.1rem;
+  font-size: 0.72rem;
+  color: rgba(var(--tint-rgb), 0.55);
+}
+
+.calc-memory-flag[data-on="true"] {
+  color: #a78bfa;
+  font-weight: 700;
+}
+
+.calc-readout {
+  text-align: right;
+  font-size: 2.1rem;
+  font-weight: 600;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(var(--tint-rgb), 0.95);
+}
+
+.calc-readout[data-long="true"] {
+  font-size: 1.5rem;
+}
+
+.calc-readout[data-error="true"] {
+  color: #f87171;
+}
+
+.calc-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.calc-keys-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.calc-key.goal-toolbar-btn {
+  isolation: isolate;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0.3rem !important;
+  font-size: 1.15rem !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-key.calc-key-memory {
+  min-height: 38px;
+  font-size: 0.8rem !important;
+}
+
+.calc-hint {
+  margin-top: 0.6rem;
+  font-size: 0.7rem;
+  color: rgba(var(--tint-rgb), 0.45);
+}
+
+@media (hover: none) {
+  .calc-hint {
+    display: none;
+  }
+}
+
+.calc-history {
+  min-width: 0;
+}
+
+.calc-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.calc-history-clear.goal-toolbar-btn {
+  isolation: isolate;
+}
+
+.calc-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.calc-history-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--tint-rgb), 0.1);
+  background: rgba(var(--tint-rgb), 0.04);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-history-item:hover {
+  border-color: rgba(var(--tint-rgb), 0.3);
+}
+
+.calc-history-expr {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(var(--tint-rgb), 0.65);
+}
+
+.calc-history-result {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+/* Salary calculator */
+.salary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (min-width: 760px) {
+  .salary-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.salary-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.salary-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(var(--tint-rgb), 0.55);
+}
+
+.salary-basis {
+  margin-top: 0;
+}
+
+.salary-basis-btn.goal-toolbar-btn {
+  isolation: isolate;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 36px;
+}
+
+.salary-basis-btn[aria-pressed="true"],
+.salary-basis-btn[aria-pressed="true"]:hover {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.85);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.65);
+}
+
+.salary-basis-btn[aria-pressed="true"]::before {
+  border-top-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.9);
+  border-left-color: rgba(var(--tint-color-rgb, 148, 163, 184), 0.7);
+  background: linear-gradient(to bottom, rgba(var(--tint-color-rgb, 148, 163, 184), 0.3), rgba(var(--tint-color-rgb, 148, 163, 184), 0.1));
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.26),
+    inset -1px -1px 1px 0 rgba(0, 0, 0, 0.3),
+    0 0 8px -1px currentColor;
+}
+
+.salary-amount-wrap {
+  position: relative;
+}
+
+.salary-currency {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(var(--tint-rgb), 0.55);
+  pointer-events: none;
+}
+
+.salary-amount.salary-amount {
+  padding-left: 1.7rem;
+  font-size: 1rem;
+}
+
+.salary-config {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.salary-results {
+  min-width: 0;
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(90, 94, 102, 0.35);
+  background: rgba(var(--panel-rgb), 0.35);
+  box-shadow: inset 0 2px 3px -1px rgba(0, 0, 0, 0.3);
+}
+
+.salary-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.salary-result-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--tint-rgb), 0.08);
+  background: rgba(var(--tint-rgb), 0.04);
+}
+
+.salary-result-row[data-entered="true"] {
+  border-color: rgba(250, 204, 21, 0.45);
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.salary-result-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: rgba(var(--tint-rgb), 0.75);
+}
+
+.salary-entered {
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #facc15;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+}
+
+.salary-result-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
 }

@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, History, Target } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, History, Target, Calculator as CalculatorIcon, Banknote } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
+import CalculatorTool from "@/components/tools/CalculatorTool";
+import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
   addBacklogGoal,
@@ -69,7 +71,7 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
 }
 
-type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments";
+type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "calculator" | "salary";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
@@ -86,6 +88,8 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
   { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
   { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
   { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e", descriptionKey: "tools.descPayments" },
+  { key: "calculator", labelKey: "backlog.tabCalculator", icon: CalculatorIcon, color: "#fb923c", descriptionKey: "tools.descCalculator" },
+  { key: "salary", labelKey: "backlog.tabSalary", icon: Banknote, color: "#facc15", descriptionKey: "tools.descSalary" },
 ];
 
 export default function ToolsPage() {
@@ -1532,6 +1536,18 @@ export default function ToolsPage() {
         </div>
       )}
     </div>
+    )}
+
+    {activeTab === "calculator" && (
+      <div className="mt-6">
+        <CalculatorTool />
+      </div>
+    )}
+
+    {activeTab === "salary" && (
+      <div className="mt-6">
+        <SalaryCalculatorTool />
+      </div>
     )}
     </div>
 

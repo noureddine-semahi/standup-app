@@ -9257,10 +9257,15 @@ select:focus {
      stability is what makes the active tab's own sizing below correct:
      it can reliably claim "whatever's left in the row" because the
      other 5 are guaranteed not to be contesting it. */
+  /* 8 tabs: tighter row gap + icon padding so the ACTIVE tab keeps room for its
+     full title (it takes whatever the 7 icon-only tabs leave). */
+  .folder-tabbar-tools {
+    gap: 4px;
+  }
   .folder-tabbar-tools .folder-tab-tools {
     flex: 0 0 auto;
     gap: 0;
-    padding: 0.6rem 0.65rem;
+    padding: 0.6rem 0.5rem;
     transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, border-color 0.2s ease,
       box-shadow 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), padding 0.25s ease;
   }
@@ -9279,7 +9284,7 @@ select:focus {
   .folder-tabbar-tools .folder-tab-tools.folder-tab-active {
     flex: 1 1 0%;
     min-width: 40px;
-    padding: 0.6rem 0.85rem;
+    padding: 0.6rem 0.6rem;
   }
   .folder-tabbar-tools .folder-tab-tools span {
     display: inline-block;
@@ -9308,7 +9313,7 @@ select:focus {
   }
 }
 
-@media (max-width: 340px) {
+@media (max-width: 375px) {
   .folder-tabbar-tools {
     gap: 4px;
   }

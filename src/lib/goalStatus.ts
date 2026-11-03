@@ -29,7 +29,7 @@ export function statusPillClass(status: GoalStatus) {
     case "in_progress": return "bg-sky-500/15 text-sky-300 border-sky-500/30";
     case "blocked": return "bg-rose-500/15 text-rose-300 border-rose-500/30";
     case "postponed": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
-    case "attempted": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
+    case "attempted": return "bg-orange-400/15 text-orange-300 border-orange-400/30";
     case "canceled": return "bg-slate-500/15 text-slate-300 border-slate-500/30";
     case "missed": return "bg-amber-500/15 text-amber-300 border-amber-500/30";
     case "not_started":
@@ -54,7 +54,7 @@ export function statusChipColors(status: GoalStatus): StatusChipColors {
     case "postponed":
       return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "var(--status-postponed)" };
     case "attempted":
-      return { bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.45)", color: "var(--status-postponed)" };
+      return { bg: "rgba(224, 144, 95, 0.12)", border: "rgba(224, 144, 95, 0.45)", color: "var(--status-attempted)" };
     case "canceled":
       return { bg: "rgba(100, 116, 139, 0.15)", border: "rgba(100, 116, 139, 0.5)", color: "var(--status-canceled)" };
     case "missed":

@@ -549,6 +549,7 @@ export const en = {
   "today.hideControls": "Hide",
   "today.showControls": "Controls",
   "today.updateStatusLabel": "Update status",
+  "today.statusTrigger": "Status: {status}. Change status",
   "today.rescheduledTo": "Rescheduled to {date}",
   "today.refresh": "Refresh",
   "today.movedToBacklog": "Moved to Backlog ✓",

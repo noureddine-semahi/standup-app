@@ -544,6 +544,7 @@ export const es: Record<keyof typeof en, string> = {
   "today.hideControls": "Ocultar",
   "today.showControls": "Controles",
   "today.updateStatusLabel": "Actualizar estado",
+  "today.statusTrigger": "Estado: {status}. Cambiar estado",
   "today.rescheduledTo": "Reprogramado para {date}",
   "today.refresh": "Actualizar",
   "today.movedToBacklog": "Movido a Pendientes ✓",

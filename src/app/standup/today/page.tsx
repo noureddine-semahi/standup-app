@@ -92,6 +92,7 @@ import { supabase } from "@/lib/supabase/client";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
+import StatusSelector, { StatusChipTrigger } from "@/components/StatusSelector";
 import {
   ClipboardList, CheckCircle2, Settings2, Ban, XCircle, MinusCircle, CalendarClock, Check,
   Clock, Link2, Plus, CalendarPlus, SquareCheck, Square, MessageCircle,
@@ -1839,6 +1840,7 @@ export default function TodayPage() {
       effectiveStatus === "canceled" ||
       effectiveStatus === "blocked" ||
       effectiveStatus === "missed" ||
+      effectiveStatus === "attempted" ||
       effectiveStatus === "in_progress" ||
       effectiveStatus === "postponed";
     // Nested (compact) Tasks track their own reopen/collapse via
@@ -2028,6 +2030,8 @@ export default function TodayPage() {
                   }}
                   disabled={locked}
                   className="actions-toggle"
+                  data-status-trigger
+                  aria-expanded={!!showActions[g.id]}
                   data-open={!!showActions[g.id]}
                   title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
                 >
@@ -2043,112 +2047,14 @@ export default function TodayPage() {
               reachable directly from the compact row so reviewing never
               needs a full expand first. */}
           {!dayClosed && !isExclusive && showActions[g.id] && (
-            <div className="goal-child-quick-actions" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "not_started")}
+            <div onClick={(e) => e.stopPropagation()}>
+              <StatusSelector
+                status={g.status}
+                rescheduledLabel={g.rescheduled_to ? formatDateDisplay(g.rescheduled_to) : null}
                 disabled={locked || isBusy}
-                className="action-btn"
-                data-current={g.status === "not_started"}
-                style={{
-                  "--btn-bg": g.status === "not_started" ? "var(--status-not-started-bg-active)" : "var(--status-not-started-bg)",
-                  "--btn-border": g.status === "not_started" ? "var(--status-not-started-border-active)" : "var(--status-not-started-border)",
-                  "--btn-color": "var(--status-not-started)",
-                } as React.CSSProperties}
-              >
-                <Circle size={14} />
-                <span>{t("today.pendingAction")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "completed")}
-                disabled={locked || isBusy}
-                className="action-btn"
-                data-current={g.status === "completed"}
-                style={{
-                  "--btn-bg": g.status === "completed" ? "var(--status-completed-bg-active)" : "var(--status-completed-bg)",
-                  "--btn-border": g.status === "completed" ? "var(--status-completed-border-active)" : "var(--status-completed-border)",
-                  "--btn-color": "var(--status-completed)",
-                } as React.CSSProperties}
-              >
-                <CheckCircle2 size={14} />
-                <span>{t("status.completed")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "in_progress")}
-                disabled={locked || isBusy}
-                className="action-btn"
-                data-current={g.status === "in_progress"}
-                style={{
-                  "--btn-bg": g.status === "in_progress" ? "var(--status-in-progress-bg-active)" : "var(--status-in-progress-bg)",
-                  "--btn-border": g.status === "in_progress" ? "var(--status-in-progress-border-active)" : "var(--status-in-progress-border)",
-                  "--btn-color": "var(--status-in-progress)",
-                } as React.CSSProperties}
-              >
-                <Settings2 size={14} />
-                <span>{t("today.inProgressAction")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "blocked")}
-                disabled={locked || isBusy}
-                className="action-btn"
-                data-current={g.status === "blocked"}
-                style={{
-                  "--btn-bg": g.status === "blocked" ? "var(--status-blocked-bg-active)" : "var(--status-blocked-bg)",
-                  "--btn-border": g.status === "blocked" ? "var(--status-blocked-border-active)" : "var(--status-blocked-border)",
-                  "--btn-color": "var(--status-blocked)",
-                } as React.CSSProperties}
-              >
-                <Ban size={14} />
-                <span>{t("status.blocked")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "canceled")}
-                disabled={locked || isBusy}
-                className="action-btn"
-                data-current={g.status === "canceled"}
-                style={{
-                  "--btn-bg": g.status === "canceled" ? "var(--status-canceled-bg-active)" : "var(--status-canceled-bg)",
-                  "--btn-border": g.status === "canceled" ? "var(--status-canceled-border-active)" : "var(--status-canceled-border)",
-                  "--btn-color": "var(--status-canceled)",
-                } as React.CSSProperties}
-              >
-                <XCircle size={14} />
-                <span>{t("status.canceled")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "missed")}
-                disabled={locked || isBusy}
-                className="action-btn"
-                data-current={g.status === "missed"}
-                style={{
-                  "--btn-bg": g.status === "missed" ? "var(--status-missed-bg-active)" : "var(--status-missed-bg)",
-                  "--btn-border": g.status === "missed" ? "var(--status-missed-border-active)" : "var(--status-missed-border)",
-                  "--btn-color": "var(--status-missed)",
-                } as React.CSSProperties}
-              >
-                <MinusCircle size={14} />
-                <span>{t("status.missed")}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => selectQuickAction(g, "reschedule")}
-                disabled={locked || isBusy}
-                className="action-btn"
-                data-current={!!g.rescheduled_to}
-                style={{
-                  "--btn-bg": g.rescheduled_to ? "var(--status-postponed-bg-active)" : "var(--status-postponed-bg)",
-                  "--btn-border": g.rescheduled_to ? "var(--status-postponed-border-active)" : "var(--status-postponed-border)",
-                  "--btn-color": "var(--status-postponed)",
-                } as React.CSSProperties}
-              >
-                <CalendarClock size={14} />
-                <span>{g.rescheduled_to ? t("today.rescheduledTo", { date: formatDateDisplay(g.rescheduled_to) }) : t("status.rescheduled")}</span>
-              </button>
+                onSelect={(action) => selectQuickAction(g, action)}
+                onClose={() => setShowActions((prev) => ({ ...prev, [g.id]: false }))}
+              />
             </div>
           )}
         </div>
@@ -2242,8 +2148,12 @@ export default function TodayPage() {
 
             {/* Status/review — directly below the header */}
             <div className="goal-child-expanded-status-row">
-              <div
-                className="status-chip"
+              <StatusChipTrigger
+                interactive={!dayClosed && !isExclusive}
+                disabled={locked}
+                open={!!showActions[g.id]}
+                onToggle={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                label={t("today.statusTrigger", { status: statusLabel(effectiveStatus, t) })}
                 style={{
                   "--chip-bg": statusChipColors(effectiveStatus).bg,
                   "--chip-border": statusChipColors(effectiveStatus).border,
@@ -2252,13 +2162,15 @@ export default function TodayPage() {
               >
                 <StatusIcon status={effectiveStatus} size={13} />
                 <span>{statusLabel(effectiveStatus, t)}</span>
-              </div>
+              </StatusChipTrigger>
               {!dayClosed && !isExclusive && (
                 <button
                   type="button"
                   onClick={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
                   disabled={locked}
                   className="actions-toggle"
+                  data-status-trigger
+                  aria-expanded={!!showActions[g.id]}
                   data-open={!!showActions[g.id]}
                   title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
                 >
@@ -2287,113 +2199,13 @@ export default function TodayPage() {
             {/* Status action menu — width:100% of this nested child,
                 never viewport/card width, per spec. */}
             {!dayClosed && !isExclusive && showActions[g.id] && (
-              <div className="goal-child-quick-actions" style={{ width: "100%" }}>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "not_started")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "not_started"}
-                  style={{
-                    "--btn-bg": g.status === "not_started" ? "var(--status-not-started-bg-active)" : "var(--status-not-started-bg)",
-                    "--btn-border": g.status === "not_started" ? "var(--status-not-started-border-active)" : "var(--status-not-started-border)",
-                    "--btn-color": "var(--status-not-started)",
-                  } as React.CSSProperties}
-                >
-                  <Circle size={14} />
-                  <span>{t("today.pendingAction")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "completed")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "completed"}
-                  style={{
-                    "--btn-bg": g.status === "completed" ? "var(--status-completed-bg-active)" : "var(--status-completed-bg)",
-                    "--btn-border": g.status === "completed" ? "var(--status-completed-border-active)" : "var(--status-completed-border)",
-                    "--btn-color": "var(--status-completed)",
-                  } as React.CSSProperties}
-                >
-                  <CheckCircle2 size={14} />
-                  <span>{t("status.completed")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "in_progress")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "in_progress"}
-                  style={{
-                    "--btn-bg": g.status === "in_progress" ? "var(--status-in-progress-bg-active)" : "var(--status-in-progress-bg)",
-                    "--btn-border": g.status === "in_progress" ? "var(--status-in-progress-border-active)" : "var(--status-in-progress-border)",
-                    "--btn-color": "var(--status-in-progress)",
-                  } as React.CSSProperties}
-                >
-                  <Settings2 size={14} />
-                  <span>{t("today.inProgressAction")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "blocked")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "blocked"}
-                  style={{
-                    "--btn-bg": g.status === "blocked" ? "var(--status-blocked-bg-active)" : "var(--status-blocked-bg)",
-                    "--btn-border": g.status === "blocked" ? "var(--status-blocked-border-active)" : "var(--status-blocked-border)",
-                    "--btn-color": "var(--status-blocked)",
-                  } as React.CSSProperties}
-                >
-                  <Ban size={14} />
-                  <span>{t("status.blocked")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "canceled")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "canceled"}
-                  style={{
-                    "--btn-bg": g.status === "canceled" ? "var(--status-canceled-bg-active)" : "var(--status-canceled-bg)",
-                    "--btn-border": g.status === "canceled" ? "var(--status-canceled-border-active)" : "var(--status-canceled-border)",
-                    "--btn-color": "var(--status-canceled)",
-                  } as React.CSSProperties}
-                >
-                  <XCircle size={14} />
-                  <span>{t("status.canceled")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "missed")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "missed"}
-                  style={{
-                    "--btn-bg": g.status === "missed" ? "var(--status-missed-bg-active)" : "var(--status-missed-bg)",
-                    "--btn-border": g.status === "missed" ? "var(--status-missed-border-active)" : "var(--status-missed-border)",
-                    "--btn-color": "var(--status-missed)",
-                  } as React.CSSProperties}
-                >
-                  <MinusCircle size={14} />
-                  <span>{t("status.missed")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "reschedule")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={!!g.rescheduled_to}
-                  style={{
-                    "--btn-bg": g.rescheduled_to ? "var(--status-postponed-bg-active)" : "var(--status-postponed-bg)",
-                    "--btn-border": g.rescheduled_to ? "var(--status-postponed-border-active)" : "var(--status-postponed-border)",
-                    "--btn-color": "var(--status-postponed)",
-                  } as React.CSSProperties}
-                >
-                  <CalendarClock size={14} />
-                  <span>{g.rescheduled_to ? t("today.rescheduledTo", { date: formatDateDisplay(g.rescheduled_to) }) : t("status.rescheduled")}</span>
-                </button>
-              </div>
+              <StatusSelector
+                status={g.status}
+                rescheduledLabel={g.rescheduled_to ? formatDateDisplay(g.rescheduled_to) : null}
+                disabled={locked || isBusy}
+                onSelect={(action) => selectQuickAction(g, action)}
+                onClose={() => setShowActions((prev) => ({ ...prev, [g.id]: false }))}
+              />
             )}
 
             {/* Checklist / Files / Link / Assign — same wrapping compact
@@ -2965,8 +2777,12 @@ export default function TodayPage() {
               </select>
 
               {/* Status chip - same fashion as the priority select, distinct color per status */}
-              <div
-                className="status-chip"
+              <StatusChipTrigger
+                interactive={!dayClosed && !isExclusive}
+                disabled={locked}
+                open={!!showActions[g.id]}
+                onToggle={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
+                label={t("today.statusTrigger", { status: statusLabel(effectiveStatus, t) })}
                 style={{
                   "--chip-bg": statusChipColors(effectiveStatus).bg,
                   "--chip-border": statusChipColors(effectiveStatus).border,
@@ -2975,7 +2791,7 @@ export default function TodayPage() {
               >
                 <StatusIcon status={effectiveStatus} size={13} />
                 <span>{statusLabel(effectiveStatus, t)}</span>
-              </div>
+              </StatusChipTrigger>
 
               {/* Actions checkbox — unchecked until the goal has
                   been reviewed; opens the same 5-action dropdown
@@ -2993,6 +2809,8 @@ export default function TodayPage() {
                   onClick={() => setShowActions((prev) => ({ ...prev, [g.id]: !prev[g.id] }))}
                   disabled={locked}
                   className="actions-toggle"
+                  data-status-trigger
+                  aria-expanded={!!showActions[g.id]}
                   data-open={!!showActions[g.id]}
                   title={reviewed ? t("today.changeAction") : t("today.chooseAction")}
                 >
@@ -3018,122 +2836,13 @@ export default function TodayPage() {
                 the goal, applies the action, and closes itself in
                 one click (see selectQuickAction). */}
             {!dayClosed && !isExclusive && showActions[g.id] && (
-              <div className="flex flex-col gap-2" style={{ minWidth: "180px" }}>
-                <div className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">
-                  {t("today.updateStatusLabel")}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "not_started")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "not_started"}
-                  style={{
-                    "--btn-bg": g.status === "not_started" ? "var(--status-not-started-bg-active)" : "var(--status-not-started-bg)",
-                    "--btn-border": g.status === "not_started" ? "var(--status-not-started-border-active)" : "var(--status-not-started-border)",
-                    "--btn-color": "var(--status-not-started)",
-                  } as React.CSSProperties}
-                >
-                  <Circle size={15} />
-                  <span>{t("today.pendingAction")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "completed")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "completed"}
-                  style={{
-                    "--btn-bg": g.status === "completed" ? "var(--status-completed-bg-active)" : "var(--status-completed-bg)",
-                    "--btn-border": g.status === "completed" ? "var(--status-completed-border-active)" : "var(--status-completed-border)",
-                    "--btn-color": "var(--status-completed)",
-                  } as React.CSSProperties}
-                >
-                  <CheckCircle2 size={15} />
-                  <span>{t("status.completed")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "in_progress")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "in_progress"}
-                  style={{
-                    "--btn-bg": g.status === "in_progress" ? "var(--status-in-progress-bg-active)" : "var(--status-in-progress-bg)",
-                    "--btn-border": g.status === "in_progress" ? "var(--status-in-progress-border-active)" : "var(--status-in-progress-border)",
-                    "--btn-color": "var(--status-in-progress)",
-                  } as React.CSSProperties}
-                >
-                  <Settings2 size={15} />
-                  <span>{t("today.inProgressAction")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "blocked")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "blocked"}
-                  style={{
-                    "--btn-bg": g.status === "blocked" ? "var(--status-blocked-bg-active)" : "var(--status-blocked-bg)",
-                    "--btn-border": g.status === "blocked" ? "var(--status-blocked-border-active)" : "var(--status-blocked-border)",
-                    "--btn-color": "var(--status-blocked)",
-                  } as React.CSSProperties}
-                >
-                  <Ban size={15} />
-                  <span>{t("status.blocked")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "canceled")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "canceled"}
-                  style={{
-                    "--btn-bg": g.status === "canceled" ? "var(--status-canceled-bg-active)" : "var(--status-canceled-bg)",
-                    "--btn-border": g.status === "canceled" ? "var(--status-canceled-border-active)" : "var(--status-canceled-border)",
-                    "--btn-color": "var(--status-canceled)",
-                  } as React.CSSProperties}
-                >
-                  <XCircle size={15} />
-                  <span>{t("status.canceled")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "missed")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={g.status === "missed"}
-                  style={{
-                    "--btn-bg": g.status === "missed" ? "var(--status-missed-bg-active)" : "var(--status-missed-bg)",
-                    "--btn-border": g.status === "missed" ? "var(--status-missed-border-active)" : "var(--status-missed-border)",
-                    "--btn-color": "var(--status-missed)",
-                  } as React.CSSProperties}
-                >
-                  <MinusCircle size={15} />
-                  <span>{t("status.missed")}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => selectQuickAction(g, "reschedule")}
-                  disabled={locked || isBusy}
-                  className="action-btn"
-                  data-current={!!g.rescheduled_to}
-                  style={{
-                    "--btn-bg": g.rescheduled_to ? "var(--status-postponed-bg-active)" : "var(--status-postponed-bg)",
-                    "--btn-border": g.rescheduled_to ? "var(--status-postponed-border-active)" : "var(--status-postponed-border)",
-                    "--btn-color": "var(--status-postponed)",
-                  } as React.CSSProperties}
-                >
-                  <CalendarClock size={15} />
-                  <span>{g.rescheduled_to ? t("today.rescheduledTo", { date: formatDateDisplay(g.rescheduled_to) }) : t("status.rescheduled")}</span>
-                </button>
-              </div>
+              <StatusSelector
+                status={g.status}
+                rescheduledLabel={g.rescheduled_to ? formatDateDisplay(g.rescheduled_to) : null}
+                disabled={locked || isBusy}
+                onSelect={(action) => selectQuickAction(g, action)}
+                onClose={() => setShowActions((prev) => ({ ...prev, [g.id]: false }))}
+              />
             )}
           </div>
         </div>

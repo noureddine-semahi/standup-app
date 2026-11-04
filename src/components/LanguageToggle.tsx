@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import SwitchLed from "@/components/SwitchLed";
 
 // English/Spanish switch — same slider mechanic and flanking-label layout
 // as ThemeToggle (which it's always placed next to), just "EN"/"ES" instead
@@ -54,11 +55,16 @@ export default function LanguageToggle({ size = "md" }: { size?: "sm" | "md" }) 
             height: `${knob}px`,
             top: "2px",
             left: "2px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             background: "radial-gradient(circle at 32% 28%, #ffffff 0%, #e4e9f0 45%, #a8b2c0 100%)",
             boxShadow: "0 1px 2px rgba(0,0,0,0.45), inset 0 1px 1px 0 rgba(255,255,255,0.9), inset 0 -1px 1px 0 rgba(0,0,0,0.12)",
             transform: language === "es" ? `translateX(${width - knob - 4}px)` : "translateX(0)",
           }}
-        />
+        >
+          <SwitchLed color={language === "es" ? "#ec4899" : "#3b82f6"} size={size === "sm" ? 8 : 11} />
+        </span>
       </button>
       <span aria-hidden="true" style={{ fontSize: labelSize, lineHeight: 1, fontWeight: 700, opacity: language === "es" ? 1 : 0.5 }}>
         ES

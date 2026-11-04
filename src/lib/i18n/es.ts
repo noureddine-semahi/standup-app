@@ -25,8 +25,12 @@ export const es: Record<keyof typeof en, string> = {
   "nav.viewAllNotifications": "Ver todas",
   "nav.openMenu": "Abrir menú",
   "nav.closeMenu": "Cerrar menú",
+  "nav.profileSettings": "Perfil y ajustes",
   "nav.logout": "Cerrar Sesión",
   "nav.loggingOut": "Cerrando sesión…",
+  "nav.logoutSlideHint": "Desliza para cerrar sesión",
+  "nav.logoutConfirmTitle": "¿Cerrar sesión en StandUp?",
+  "nav.logoutConfirmBody": "Se cerrará tu sesión en este dispositivo.",
   "common.user": "Usuario",
 
   // Goal status labels (goalStatus.ts)

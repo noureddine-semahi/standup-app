@@ -31,6 +31,7 @@ import { getStoredTheme, setTheme } from "@/lib/theme";
 import { hexToRgbTriple } from "@/lib/color";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
+import LogoutSwitch, { LogoutConfirmModal } from "@/components/LogoutSwitch";
 import Avatar from "@/components/Avatar";
 import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, TrendingUp, Info, HelpCircle, Mail } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -131,6 +132,9 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  // Lives here (not inside the avatar dropdown) so the confirmation survives
+  // the dropdown's outside-click close.
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   // Raw data behind notificationCount -- kept around (not just the
   // tally) so the bell's own dropdown can render actual rows instead of
@@ -1014,15 +1018,19 @@ export default function Header() {
         {profileOpen && (
           <div className="nav-more-panel">
             <Link href="/standup/profile" className="nav-link" onClick={() => setProfileOpen(false)}>
-              {t("nav.profileAriaLabel")}
+              {t("nav.profileSettings")}
             </Link>
             <div className="flex items-center gap-2 px-3 py-1.5">
               <ThemeToggle size="sm" />
               <LanguageToggle size="sm" />
             </div>
-            <button type="button" onClick={handleLogout} disabled={loggingOut} className="nav-link nav-link-logout">
-              {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
-            </button>
+            <div className="px-3 py-1.5">
+              <LogoutSwitch
+                active={logoutConfirmOpen || loggingOut}
+                disabled={loggingOut}
+                onRequest={() => setLogoutConfirmOpen(true)}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -1224,6 +1232,13 @@ export default function Header() {
 
   return (
     <header className="app-header">
+      {logoutConfirmOpen && user && (
+        <LogoutConfirmModal
+          busy={loggingOut}
+          onCancel={() => setLogoutConfirmOpen(false)}
+          onConfirm={handleLogout}
+        />
+      )}
       <div className="app-header-inner">
         {/* Desktop/tablet: the logo is a real navigation Link (home/
             dashboard), unchanged. Hidden on mobile (see .brand-desktop-

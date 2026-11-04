@@ -18,6 +18,7 @@ import { getLevelInfo } from "@/lib/levels";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
+import LogoutSwitch, { LogoutConfirmModal } from "@/components/LogoutSwitch";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { hexToRgba } from "@/lib/color";
 import PageLoadingState from "@/components/PageLoadingState";
@@ -28,6 +29,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [lifetimeStats, setLifetimeStats] = useState<LifetimeStats | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
 
@@ -161,43 +163,51 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex-1 grid grid-cols-1 gap-3 w-full" style={{ boxSizing: "border-box" }}>
-          <Link
-            href="/standup/settings"
-            className="btn standup-metal-btn flex items-center justify-between"
-            style={{ boxSizing: "border-box", width: "100%" }}
-          >
-            <span className="flex-1 text-left">Profile &amp; Settings</span>
-            <span className="flex items-center gap-2">
-              <ThemeToggle size="sm" />
-              <LanguageToggle size="sm" />
-            </span>
-          </Link>
-          <Link
-            href="/standup/history"
-            className="btn standup-metal-btn text-center"
-            style={{ boxSizing: "border-box", width: "100%" }}
-          >
-            {t("profile.dataMetrics")}
-          </Link>
-          {profile?.is_admin && (
+          {/* Profile & Settings and Admin Panel share one row (side by side
+              from sm up, stacked on phones); without admin rights the single
+              button simply fills the row. */}
+          <div className={`grid grid-cols-1 gap-3 ${profile?.is_admin ? "sm:grid-cols-2" : ""}`}>
             <Link
-              href="/standup/admin"
+              href="/standup/settings"
               className="btn standup-metal-btn text-center"
               style={{ boxSizing: "border-box", width: "100%" }}
             >
-              {t("profile.adminPanel")}
+              {t("nav.profileSettings")}
             </Link>
-          )}
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="btn standup-metal-btn"
-            style={{ boxSizing: "border-box", width: "100%" }}
+            {profile?.is_admin && (
+              <Link
+                href="/standup/admin"
+                className="btn standup-metal-btn text-center"
+                style={{ boxSizing: "border-box", width: "100%" }}
+              >
+                {t("profile.adminPanel")}
+              </Link>
+            )}
+          </div>
+          {/* One housing for the three switches: Dark/Light, EN/ES and the
+              slide-to-logout switch (same control the avatar dropdown uses).
+              A plain div wearing the metal look, with the hover/press lift
+              switched off since nothing here is a button itself. */}
+          <div
+            className="btn standup-metal-btn flex flex-wrap items-center justify-between gap-x-5 gap-y-3"
+            style={{ boxSizing: "border-box", width: "100%", transform: "none", cursor: "default" }}
           >
-            {loggingOut ? t("nav.loggingOut") : t("nav.logout")}
-          </button>
+            <span className="flex items-center gap-3">
+              <ThemeToggle size="sm" />
+              <LanguageToggle size="sm" />
+            </span>
+            <LogoutSwitch
+              active={logoutConfirmOpen || loggingOut}
+              disabled={loggingOut}
+              onRequest={() => setLogoutConfirmOpen(true)}
+            />
+          </div>
         </div>
       </div>
+
+      {logoutConfirmOpen && (
+        <LogoutConfirmModal busy={loggingOut} onCancel={() => setLogoutConfirmOpen(false)} onConfirm={handleLogout} />
+      )}
 
       {profile && (
         <div

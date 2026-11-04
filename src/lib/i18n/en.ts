@@ -25,8 +25,12 @@ export const en = {
   "nav.viewAllNotifications": "View all",
   "nav.openMenu": "Open menu",
   "nav.closeMenu": "Close menu",
+  "nav.profileSettings": "Profile & Settings",
   "nav.logout": "Logout",
   "nav.loggingOut": "Logging out…",
+  "nav.logoutSlideHint": "Slide to log out",
+  "nav.logoutConfirmTitle": "Log out of StandUp?",
+  "nav.logoutConfirmBody": "You’ll be signed out on this device.",
   "common.user": "User",
 
   // Goal status labels (goalStatus.ts)

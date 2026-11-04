@@ -5,6 +5,7 @@ import { Moon, Sun } from "lucide-react";
 import { getStoredTheme, setTheme, onThemeChange, type Theme } from "@/lib/theme";
 import { updateThemePreference } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import SwitchLed from "@/components/SwitchLed";
 
 // Dark/light switch — same slider look as the Settings page's Appearance
 // toggle, but flanked by static moon/sun icons instead of a trailing text
@@ -68,11 +69,16 @@ export default function ThemeToggle({ size = "md" }: { size?: "sm" | "md" }) {
             height: `${knob}px`,
             top: "2px",
             left: "2px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             background: "radial-gradient(circle at 32% 28%, #ffffff 0%, #e4e9f0 45%, #a8b2c0 100%)",
             boxShadow: "0 1px 2px rgba(0,0,0,0.45), inset 0 1px 1px 0 rgba(255,255,255,0.9), inset 0 -1px 1px 0 rgba(0,0,0,0.12)",
             transform: theme === "light" ? `translateX(${width - knob - 4}px)` : "translateX(0)",
           }}
-        />
+        >
+          <SwitchLed color={theme === "light" ? "#f97316" : "#8b5cf6"} size={size === "sm" ? 8 : 11} />
+        </span>
       </button>
       <span aria-hidden="true" className="inline-flex text-amber-300/80" style={{ lineHeight: 1 }}>
         <Sun size={iconSize} />

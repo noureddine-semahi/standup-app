@@ -57,6 +57,8 @@ import {
   type ArchivedGoal,
   type ConceptualTask,
 } from "@/lib/supabase/db";
+import { addGoalFromBill, billGoalTitle, getSuggestedBillReminders } from "@/lib/supabase/bills";
+import { billSuggestionKey, type BillSuggestion } from "@/lib/bills";
 import type { RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -301,6 +303,9 @@ export default function TomorrowGoalsPage() {
   }, [fullScreenKey]);
   const [suggestedTemplates, setSuggestedTemplates] = useState<RecurringGoalTemplate[]>([]);
   const [addingTemplateId, setAddingTemplateId] = useState<string | null>(null);
+  // Bill reminders: tap-to-add suggestions only (see getSuggestedBillReminders).
+  const [suggestedBills, setSuggestedBills] = useState<BillSuggestion[]>([]);
+  const [addingBillKey, setAddingBillKey] = useState<string | null>(null);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
@@ -948,6 +953,10 @@ export default function TomorrowGoalsPage() {
     getSuggestedTemplatesForDate(tomorrowISO)
       .then(setSuggestedTemplates)
       .catch(() => {});
+    // Silent if the bills tables don't exist yet -- no suggestions, no error.
+    getSuggestedBillReminders(tomorrowISO)
+      .then(setSuggestedBills)
+      .catch(() => {});
     // Payment reminders are auto-created (not a tap-to-add suggestion like
     // templates) -- explicit user call. Silently creates whatever's due,
     // then refreshes so it shows up in the goal list, with a one-line
@@ -961,6 +970,22 @@ export default function TomorrowGoalsPage() {
       })
       .catch(() => {});
   }, [tomorrowISO]);
+
+  async function handleAddSuggestedBill(s: BillSuggestion) {
+    const key = billSuggestionKey(s.bill.id, s.dueDate);
+    if (addingBillKey) return;
+    setAddingBillKey(key);
+    try {
+      await addGoalFromBill(s, tomorrowISO);
+      setSuggestedBills((prev) => prev.filter((x) => billSuggestionKey(x.bill.id, x.dueDate) !== key));
+      await refresh({ silent: true });
+    } catch (e) {
+      const message = (e as { message?: unknown } | null)?.message;
+      setMsg(typeof message === "string" && message ? message : t("tomorrow.failedAddSuggestedTask"));
+    } finally {
+      setAddingBillKey(null);
+    }
+  }
 
   async function handleAddSuggestedTemplate(template: RecurringGoalTemplate) {
     if (addingTemplateId) return;
@@ -2418,7 +2443,7 @@ export default function TomorrowGoalsPage() {
               all, giving the actual planning content more room. */}
         </div>
 
-        {suggestedTemplates.length > 0 && (
+        {(suggestedTemplates.length > 0 || suggestedBills.length > 0) && (
           <div className="mb-6">
             <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
               {t("tomorrow.suggestedTitle")}
@@ -2436,6 +2461,21 @@ export default function TomorrowGoalsPage() {
                   {addingTemplateId === template.id ? t("tomorrow.addingSuggested") : `+ ${template.title}`}
                 </button>
               ))}
+              {suggestedBills.map((s) => {
+                const key = billSuggestionKey(s.bill.id, s.dueDate);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handleAddSuggestedBill(s)}
+                    disabled={addingBillKey === key}
+                    className="btn standup-metal-btn"
+                    style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+                  >
+                    {addingBillKey === key ? t("tomorrow.addingSuggested") : `+ ${billGoalTitle(s)}`}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -42,10 +42,10 @@ export type PaymentsDashboardProps = {
   onToggleHistory: (account: PaymentAccount) => void;
 };
 
-const FIELD_CLASS =
+export const FIELD_CLASS =
   "pay-input w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40";
 
-function newClientKey(): string {
+export function newClientKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
   // Fallback for very old webviews: still unique enough for an idempotency key.
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -55,7 +55,7 @@ function newClientKey(): string {
 }
 
 /** Shared dialog behaviour: Escape closes, Tab stays inside, focus returns to the opener. */
-function useDialog(dialogRef: React.RefObject<HTMLDivElement | null>, onClose: () => void, locked: boolean) {
+export function useDialog(dialogRef: React.RefObject<HTMLDivElement | null>, onClose: () => void, locked: boolean) {
   const closeRef = useRef(onClose);
   const lockedRef = useRef(locked);
   // Keep the latest callbacks without re-binding the key listener.
@@ -389,7 +389,7 @@ function RecordPaymentModal({
 }
 
 /** Destructive-style confirmation used for Remove account and Reverse payment. */
-function ConfirmActionModal({
+export function ConfirmActionModal({
   title,
   body,
   confirmLabel,

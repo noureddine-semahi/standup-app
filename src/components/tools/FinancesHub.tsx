@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { formatCurrency } from "@/lib/salary";
 import { summarizeFinances } from "@/lib/paymentSummary";
+import { summarizeBills } from "@/lib/bills";
 import PaymentsDashboard, { type PaymentsDashboardProps } from "./PaymentsDashboard";
+import BillsTracker from "./BillsTracker";
+import type { BillsController } from "./useBills";
+
+export type FinancesHubProps = PaymentsDashboardProps & { bills: BillsController };
 
 type FinanceTab = "bills" | "payments" | "subscriptions";
 
@@ -20,14 +25,23 @@ const FIN_TABS: { key: FinanceTab; labelKey: "fin.tabBills" | "fin.tabPayments" 
  * existing accounts experience; Bills and Subscriptions arrive in later
  * phases and show an honest placeholder until then.
  */
-export default function FinancesHub(props: PaymentsDashboardProps) {
+export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
   const { t } = useLanguage();
   const [tab, setTab] = useState<FinanceTab>("payments");
-  const overview = summarizeFinances(props.accounts, props.todayISO);
+  // Real bills data only once it has actually loaded; otherwise the overview
+  // stays on accounts alone rather than showing anything fabricated.
+  const billsSummary = bills.state === "ready" ? summarizeBills(bills.bills, bills.occurrences, props.todayISO) : null;
+  const overview = summarizeFinances(props.accounts, props.todayISO, billsSummary);
 
-  const panels: { key: string; label: string; value: string; kind: string }[] = [
+  const panels: { key: string; label: string; value: string; kind: string; note?: string }[] = [
     { key: "balances", label: t("fin.totalBalances"), value: formatCurrency(overview.totalBalances), kind: "balance" },
-    { key: "due", label: t("fin.monthlyDue"), value: formatCurrency(overview.monthlyDue), kind: "minimums" },
+    {
+      key: "due",
+      label: t("fin.monthlyDue"),
+      value: formatCurrency(overview.monthlyDue),
+      kind: "minimums",
+      note: overview.monthlyDueUnknown > 0 ? t("bills.unknownAmounts", { count: overview.monthlyDueUnknown }) : undefined,
+    },
     { key: "subs", label: t("fin.subscriptions"), value: formatCurrency(overview.subscriptionsMonthly), kind: "subs" },
     { key: "upcoming", label: t("fin.upcoming"), value: String(overview.upcomingCount), kind: "upcoming" },
   ];
@@ -49,6 +63,7 @@ export default function FinancesHub(props: PaymentsDashboardProps) {
             <div className="pay-stat-value" data-long={longValues} data-testid={`fin-${p.key}`}>
               {p.value}
             </div>
+            {p.note && <div className="bill-stat-note">{p.note}</div>}
           </div>
         ))}
       </section>
@@ -72,7 +87,7 @@ export default function FinancesHub(props: PaymentsDashboardProps) {
 
       <div role="tabpanel" className="fin-panel">
         {tab === "payments" && <PaymentsDashboard {...props} />}
-        {tab === "bills" && <p className="text-sm text-white/60 italic">{t("fin.comingBills")}</p>}
+        {tab === "bills" && <BillsTracker controller={bills} todayISO={props.todayISO} />}
         {tab === "subscriptions" && <p className="text-sm text-white/60 italic">{t("fin.comingSubs")}</p>}
       </div>
     </div>

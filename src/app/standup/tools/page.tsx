@@ -8,6 +8,7 @@ import GoalNumberOrb from "@/components/GoalNumberOrb";
 import CalculatorTool from "@/components/tools/CalculatorTool";
 import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
 import FinancesHub from "@/components/tools/FinancesHub";
+import { useBills } from "@/components/tools/useBills";
 import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
@@ -169,6 +170,8 @@ export default function ToolsPage() {
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paymentsMsg, setPaymentsMsg] = useState<string | null>(null);
   const [busyPaymentIds, setBusyPaymentIds] = useState<Set<string>>(new Set());
+  // Finances > Bills (separate tables/ledger from payment accounts above).
+  const bills = useBills(toISODate(new Date()), t("bills.failed"));
 
   // Payment history — collapsed by default per account, fetched lazily on
   // first expand rather than loading every account's whole ledger up
@@ -1337,6 +1340,7 @@ export default function ToolsPage() {
     {activeTab === "payments" && (
       <div className="mt-6">
         <FinancesHub
+          bills={bills}
           accounts={paymentAccounts}
           loading={paymentsLoading}
           message={paymentsMsg}

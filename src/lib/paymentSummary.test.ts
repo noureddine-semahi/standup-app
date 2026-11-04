@@ -186,7 +186,7 @@ describe("parsePaymentEntry", () => {
 describe("summarizeFinances", () => {
   const today = "2026-11-03";
   it("is all zeros with no accounts", () => {
-    expect(summarizeFinances([], today)).toEqual({ totalBalances: 0, monthlyDue: 0, subscriptionsMonthly: 0, upcomingCount: 0 });
+    expect(summarizeFinances([], today)).toEqual({ totalBalances: 0, monthlyDue: 0, monthlyDueUnknown: 0, subscriptionsMonthly: 0, upcomingCount: 0 });
   });
 
   it("keeps balances and monthly due as separate figures, and counts only obligations inside their window", () => {
@@ -202,6 +202,17 @@ describe("summarizeFinances", () => {
     expect(o.monthlyDue).toBe(70);
     expect(o.upcomingCount).toBe(2);
     // No combined grand total exists on the result.
-    expect(Object.keys(o).sort()).toEqual(["monthlyDue", "subscriptionsMonthly", "totalBalances", "upcomingCount"]);
+    expect(Object.keys(o).sort()).toEqual(["monthlyDue", "monthlyDueUnknown", "subscriptionsMonthly", "totalBalances", "upcomingCount"]);
+  });
+
+  it("adds real bills to monthly due and upcoming, never to balances, and carries the unknown-amount count", () => {
+    const accounts = [acct({ id: "1", balance: 1000, minimumPayment: 35, dueDay: 3 })];
+    const without = summarizeFinances(accounts, today);
+    const withBills = summarizeFinances(accounts, today, { outstandingThisMonth: 600.25, unknownThisMonth: 2, upcoming: 3 });
+    expect(withBills.totalBalances).toBe(without.totalBalances); // balances untouched by bills
+    expect(withBills.monthlyDue).toBe(635.25);
+    expect(withBills.monthlyDueUnknown).toBe(2);
+    expect(withBills.upcomingCount).toBe(without.upcomingCount + 3);
+    expect(withBills.subscriptionsMonthly).toBe(0);
   });
 });

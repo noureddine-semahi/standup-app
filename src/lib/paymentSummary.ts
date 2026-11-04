@@ -1,4 +1,5 @@
 import { computeNextDueDate, type PaymentAccount } from "@/lib/supabase/db";
+import type { BillsSummary } from "@/lib/bills";
 
 // Presentation helpers for the Payments dashboard. Nothing here changes how
 // reminders are scheduled: due dates still come from computeNextDueDate, and
@@ -187,8 +188,15 @@ export function parsePaymentEntry(
 export type FinancesOverview = {
   /** Sum of tracked account balances (credit-card style outstanding balances). */
   totalBalances: number;
-  /** Known monthly obligations. Phase 1: account minimum payments only; bills join in a later phase. */
+  /**
+   * Known amounts still to pay this month: account minimum payments PLUS the
+   * unpaid remainder of this month's bills. Bills are separate records from
+   * accounts (nothing is linked), so nothing is counted twice, and balances
+   * are never part of this figure.
+   */
   monthlyDue: number;
+  /** This month's bill cycles whose amount isn't known yet (not counted as $0). */
+  monthlyDueUnknown: number;
   /** Monthly equivalent of active subscriptions (none tracked yet). */
   subscriptionsMonthly: number;
   /** Obligations due today or inside their own reminder window. */
@@ -202,8 +210,18 @@ export type FinancesOverview = {
  * overlap by design), subscriptions are a recurring cost and upcoming is a
  * count.
  */
-export function summarizeFinances(accounts: readonly PaymentAccount[], todayISO: string): FinancesOverview {
+export function summarizeFinances(
+  accounts: readonly PaymentAccount[],
+  todayISO: string,
+  bills?: Pick<BillsSummary, "outstandingThisMonth" | "unknownThisMonth" | "upcoming"> | null
+): FinancesOverview {
   const s = summarizePayments(accounts);
-  const upcomingCount = accounts.filter((a) => getPaymentDueInfo(a, todayISO).tier !== "later").length;
-  return { totalBalances: s.totalBalance, monthlyDue: s.monthlyMinimums, subscriptionsMonthly: 0, upcomingCount };
+  const accountsUpcoming = accounts.filter((a) => getPaymentDueInfo(a, todayISO).tier !== "later").length;
+  return {
+    totalBalances: s.totalBalance,
+    monthlyDue: fromCents(toCents(s.monthlyMinimums) + toCents(bills?.outstandingThisMonth ?? 0)),
+    monthlyDueUnknown: bills?.unknownThisMonth ?? 0,
+    subscriptionsMonthly: 0,
+    upcomingCount: accountsUpcoming + (bills?.upcoming ?? 0),
+  };
 }

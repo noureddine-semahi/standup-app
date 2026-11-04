@@ -1135,7 +1135,7 @@ export const en = {
   "unsub.manualBody": "Record a cancellation you’ve completed with the provider. StandUp will mark it as user-reported and preserve your payment history.",
   "unsub.dateLabel": "Date you canceled",
   "unsub.noteLabel": "Note (optional)",
-  "unsub.reportConfirm": "Confirm Cancellation",
+  "unsub.reportConfirm": "Confirm",
   "unsub.failTitle": "It didn’t work",
   "unsub.failBody": "Keep a note of what went wrong. The subscription stays as it is.",
   "unsub.errorLabel": "What happened?",

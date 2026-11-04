@@ -1130,7 +1130,7 @@ export const es: Record<keyof typeof en, string> = {
   "unsub.manualBody": "Registra una cancelación que ya completaste con el proveedor. StandUp la marcará como informada por ti y conservará tu historial de pagos.",
   "unsub.dateLabel": "Fecha en que cancelaste",
   "unsub.noteLabel": "Nota (opcional)",
-  "unsub.reportConfirm": "Confirmar cancelación",
+  "unsub.reportConfirm": "Confirmar",
   "unsub.failTitle": "No funcionó",
   "unsub.failBody": "Anota qué salió mal. La suscripción se queda como está.",
   "unsub.errorLabel": "¿Qué pasó?",

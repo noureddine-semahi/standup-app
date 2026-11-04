@@ -242,7 +242,7 @@ describe("I've already canceled (user-reported)", () => {
     expect(screen.getByText(/mark it as user-reported and preserve your payment history/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Date you canceled"), { target: { value: "2026-11-02" } });
     fireEvent.change(screen.getByLabelText(/Note/), { target: { value: "Emailed support" } });
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Cancellation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() =>
       expect(c.reportCancellation).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), { completedOn: "2026-11-02", note: "Emailed support" }, null)
     );
@@ -254,21 +254,21 @@ describe("I've already canceled (user-reported)", () => {
     const c = setup();
     openDone();
     fireEvent.change(screen.getByLabelText("Date you canceled"), { target: { value: "2026-12-01" } });
-    expect((screen.getByRole("button", { name: "Confirm Cancellation" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Confirm" }) as HTMLButtonElement).disabled).toBe(true);
     expect(c.reportCancellation).not.toHaveBeenCalled();
   });
 
   it("resolves the open guided request when one exists", async () => {
     const c = setup({ cancellations: { s1: [cancellation({ id: "req-9", status: "in_progress", mode: "assisted", completedOn: null })] } });
     openDone();
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Cancellation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(c.reportCancellation).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ completedOn: TODAY }), "req-9"));
   });
 
   it("shows the error and stays open when saving fails (nothing is marked canceled)", async () => {
     setup({ reportCancellation: vi.fn().mockResolvedValue("Network down") });
     openDone();
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Cancellation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Network down");
     expect(screen.getByTestId("unsub-modal")).toBeTruthy();
   });
@@ -297,7 +297,7 @@ describe("recording that it didn't work", () => {
     openUnsubscribe();
     fireEvent.click(screen.getByTestId("unsub-choose-help"));
     fireEvent.click(screen.getByRole("button", { name: "I canceled it" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Cancellation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(c.reportCancellation).toHaveBeenCalledWith(expect.anything(), expect.anything(), "req-9"));
   });
   it("isn't offered when nothing was started", () => {

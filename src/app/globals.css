@@ -14853,7 +14853,7 @@ button.status-chip-trigger[aria-expanded="true"] {
 }
 
 /* Unsubscribe Me > I've already canceled: lead-in spacing and a compact, centered, equal-size button pair.
-   The pair is sized from the Confirm Cancellation text (its longest word), never from the modal width:
+   The pair is sized from the Confirm label, never from the modal width:
    the grid is max-content wide with two equal columns, so both buttons share one width and one height. */
 .unsub-lead {
   margin: 0 0 1rem;
@@ -14878,16 +14878,7 @@ button.status-chip-trigger[aria-expanded="true"] {
   align-items: center;
   white-space: normal;
 }
-/* The confirm label wraps at its space ("Confirm" / "Cancellation") and sets the shared width. */
+/* The confirm label sets the shared width of the pair. */
 .pay-modal-actions.unsub-actions-row .standup-metal-btn--accent.pay-modal-btn {
   width: min-content;
-}
-@media (max-width: 359px) {
-  /* Only when the compact pair genuinely can't fit: stack, still compact and centered, equal size. */
-  .pay-modal-actions.unsub-actions-row {
-    grid-template-columns: 1fr;
-  }
-  .unsub-actions-row .standup-metal-btn--accent {
-    order: -1;
-  }
 }

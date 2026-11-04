@@ -807,6 +807,27 @@ export const en = {
   "backlog.paymentHistoryEmpty": "No payments logged yet.",
   "backlog.failedLoadPaymentHistory": "Failed to load payment history",
 
+  // Payments dashboard (Tools -> Payments)
+  "pay.title": "Payments",
+  "pay.subtitle": "Your accounts and upcoming bills",
+  "pay.summary": "Payments summary",
+  "pay.totalBalance": "Total balance",
+  "pay.monthlyMinimums": "Monthly minimums",
+  "pay.upcoming": "Upcoming payments",
+  "pay.edit": "Edit",
+  "pay.more": "More",
+  "pay.remove": "Remove account",
+  "pay.addTitle": "Add account",
+  "pay.editTitle": "Edit account",
+  "pay.fieldName": "Account name",
+  "pay.save": "Save",
+  "pay.saving": "Saving…",
+  "pay.cancel": "Cancel",
+  "pay.removeTitle": "Remove account?",
+  "pay.removeBody": "Remove “{name}”? This can’t be undone.",
+  "pay.removeConfirm": "Remove Account",
+  "pay.removing": "Removing…",
+
   // History (Progress & Insights)
   "history.loading": "Loading your progress…",
   "history.title": "Progress & Insights",

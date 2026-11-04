@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, History, Target, Calculator as CalculatorIcon, Banknote } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, Target, Calculator as CalculatorIcon, Banknote } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import CalculatorTool from "@/components/tools/CalculatorTool";
 import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
+import PaymentsDashboard from "@/components/tools/PaymentsDashboard";
+import type { PaymentFormPayload } from "@/lib/paymentSummary";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
   addBacklogGoal,
@@ -32,9 +34,7 @@ import {
   createPaymentAccount,
   updatePaymentAccount,
   deletePaymentAccount,
-  computeNextDueDate,
   getPaymentTransactions,
-  formatDateTimeDisplay,
   type BacklogGoal,
   type RecurringGoalTemplate,
   type ShoppingList,
@@ -160,12 +160,6 @@ export default function ToolsPage() {
   const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paymentsMsg, setPaymentsMsg] = useState<string | null>(null);
-  const [newPaymentName, setNewPaymentName] = useState("");
-  const [newPaymentBalance, setNewPaymentBalance] = useState("");
-  const [newPaymentMinimum, setNewPaymentMinimum] = useState("");
-  const [newPaymentDueDay, setNewPaymentDueDay] = useState("");
-  const [newPaymentRemindDays, setNewPaymentRemindDays] = useState("3");
-  const [addingPayment, setAddingPayment] = useState(false);
   const [busyPaymentIds, setBusyPaymentIds] = useState<Set<string>>(new Set());
 
   // Payment history — collapsed by default per account, fetched lazily on
@@ -527,66 +521,47 @@ export default function ToolsPage() {
     });
   }
 
-  async function handleAddPayment() {
-    const name = newPaymentName.trim();
-    const dueDay = Number(newPaymentDueDay);
-    if (!name || !dueDay || dueDay < 1 || dueDay > 31 || addingPayment) return;
-    setAddingPayment(true);
+  // The dashboard's modals own the form values; these handlers keep the
+  // original db calls and resolve to an error message (null on success) so a
+  // failed save leaves the modal open with the message visible.
+  async function handleAddPayment(payload: PaymentFormPayload): Promise<string | null> {
     setPaymentsMsg(null);
     try {
-      const created = await createPaymentAccount({
-        name,
-        balance: Number(newPaymentBalance) || 0,
-        minimumPayment: Number(newPaymentMinimum) || 0,
-        dueDay,
-        remindDaysBefore: Number(newPaymentRemindDays) || 0,
-      });
+      const created = await createPaymentAccount(payload);
       setPaymentAccounts((prev) => [...prev, created]);
-      setNewPaymentName("");
-      setNewPaymentBalance("");
-      setNewPaymentMinimum("");
-      setNewPaymentDueDay("");
-      setNewPaymentRemindDays("3");
+      return null;
     } catch (e: any) {
-      setPaymentsMsg(e?.message ?? t("backlog.failedAddPayment"));
-    } finally {
-      setAddingPayment(false);
+      return e?.message ?? t("backlog.failedAddPayment");
     }
   }
 
-  async function handleUpdatePaymentField(
-    account: PaymentAccount,
-    field: "name" | "balance" | "minimumPayment" | "dueDay" | "remindDaysBefore",
-    rawValue: string
-  ) {
-    let value: string | number = rawValue;
-    if (field !== "name") {
-      value = Number(rawValue);
-      if (!Number.isFinite(value)) return;
-      if (field === "dueDay" && (value < 1 || value > 31)) return;
-    }
-    if (busyPaymentIds.has(account.id)) return;
+  async function handleUpdatePayment(account: PaymentAccount, patch: Partial<PaymentFormPayload>): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
     setPaymentsMsg(null);
     try {
-      const updated = await updatePaymentAccount(account.id, { [field]: value } as Partial<PaymentAccount>);
+      const updated = await updatePaymentAccount(account.id, patch);
       setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? updated : a)));
+      return null;
     } catch (e: any) {
-      setPaymentsMsg(e?.message ?? t("backlog.failedUpdatePayment"));
+      return e?.message ?? t("backlog.failedUpdatePayment");
     } finally {
       setPaymentBusy(account.id, false);
     }
   }
 
-  async function handleDeletePayment(account: PaymentAccount) {
-    if (busyPaymentIds.has(account.id)) return;
+  async function handleDeletePayment(account: PaymentAccount): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
     setPaymentsMsg(null);
     try {
       await deletePaymentAccount(account.id);
       setPaymentAccounts((prev) => prev.filter((a) => a.id !== account.id));
+      setExpandedPaymentHistoryId((cur) => (cur === account.id ? null : cur));
+      return null;
     } catch (e: any) {
-      setPaymentsMsg(e?.message ?? t("backlog.failedDeletePayment"));
+      return e?.message ?? t("backlog.failedDeletePayment");
+    } finally {
       setPaymentBusy(account.id, false);
     }
   }
@@ -1298,244 +1273,22 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "payments" && (
-    <div className="card card-highlight mt-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-1">{t("backlog.paymentsTitle")}</h2>
-        <p className="text-sm text-white/70">{t("backlog.paymentsSubtitle")}</p>
+      <div className="mt-6">
+        <PaymentsDashboard
+          accounts={paymentAccounts}
+          loading={paymentsLoading}
+          message={paymentsMsg}
+          todayISO={todayISO}
+          busyIds={busyPaymentIds}
+          onCreate={handleAddPayment}
+          onUpdate={handleUpdatePayment}
+          onDelete={handleDeletePayment}
+          historyOpenId={expandedPaymentHistoryId}
+          historyLoadingId={paymentHistoryLoadingId}
+          historyByAccount={paymentHistoryByAccount}
+          onToggleHistory={toggleHistory}
+        />
       </div>
-
-      {paymentsMsg && (
-        <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
-          {paymentsMsg}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-end gap-2 mb-6">
-        <input
-          type="text"
-          value={newPaymentName}
-          onChange={(e) => setNewPaymentName(e.target.value)}
-          placeholder={t("backlog.paymentNamePlaceholder")}
-          disabled={addingPayment}
-          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ minWidth: "130px" }}
-        />
-        <input
-          type="number"
-          value={newPaymentBalance}
-          onChange={(e) => setNewPaymentBalance(e.target.value)}
-          placeholder={t("backlog.paymentBalancePlaceholder")}
-          disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "92px" }}
-        />
-        <input
-          type="number"
-          value={newPaymentMinimum}
-          onChange={(e) => setNewPaymentMinimum(e.target.value)}
-          placeholder={t("backlog.paymentMinimumPlaceholder")}
-          disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "92px" }}
-        />
-        <input
-          type="number"
-          min={1}
-          max={31}
-          value={newPaymentDueDay}
-          onChange={(e) => setNewPaymentDueDay(e.target.value)}
-          placeholder={t("backlog.paymentDueDayPlaceholder")}
-          disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "76px" }}
-        />
-        <input
-          type="number"
-          min={0}
-          value={newPaymentRemindDays}
-          onChange={(e) => setNewPaymentRemindDays(e.target.value)}
-          placeholder={t("backlog.paymentRemindPlaceholder")}
-          disabled={addingPayment}
-          className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          style={{ width: "76px" }}
-        />
-        <button
-          type="button"
-          onClick={handleAddPayment}
-          disabled={addingPayment || !newPaymentName.trim() || !newPaymentDueDay}
-          className="btn standup-metal-btn standup-metal-btn--accent"
-          style={{ padding: "0.5rem 0.9rem", fontSize: "0.85rem" }}
-        >
-          {addingPayment ? t("backlog.adding") : t("backlog.addPayment")}
-        </button>
-      </div>
-
-      {paymentsLoading ? (
-        <div className="text-white/60 text-center py-6">{t("backlog.loading")}</div>
-      ) : paymentAccounts.length === 0 ? (
-        <p className="text-sm text-white/50 italic">{t("backlog.noPaymentsYet")}</p>
-      ) : (
-        <div className="space-y-3">
-          {paymentAccounts.map((account, idx) => {
-            const dueDate = computeNextDueDate(account.dueDay, todayISO);
-            const daysUntilDue = Math.round(
-              (new Date(`${dueDate}T00:00:00`).getTime() - new Date(`${todayISO}T00:00:00`).getTime()) / 86400000
-            );
-            const isDueToday = daysUntilDue === 0;
-            const isDueSoon = !isDueToday && daysUntilDue <= account.remindDaysBefore;
-            const chipStyle = isDueToday
-              ? { "--chip-bg": "rgba(239, 68, 68, 0.12)", "--chip-border": "rgba(239, 68, 68, 0.35)", "--chip-color": "#fca5a5" }
-              : isDueSoon
-              ? { "--chip-bg": "rgba(245, 158, 11, 0.1)", "--chip-border": "rgba(245, 158, 11, 0.35)", "--chip-color": "#fcd34d" }
-              : { "--chip-bg": "rgba(var(--tint-rgb),0.06)", "--chip-border": "rgba(var(--tint-rgb),0.15)", "--chip-color": "rgba(var(--tint-rgb),0.7)" };
-            const busy = busyPaymentIds.has(account.id);
-            return (
-              <div key={account.id} className="rounded-xl border border-white/10 bg-white/5 pt-6 px-4 pb-4" style={{ position: "relative" }}>
-                <GoalNumberOrb number={idx + 1} />
-                <button
-                  type="button"
-                  onClick={() => handleDeletePayment(account)}
-                  disabled={busy}
-                  className="goal-delete-corner-btn"
-                  title={t("backlog.deletePayment")}
-                >
-                  <X size={12} />
-                </button>
-                {/* Due-date chip + History toggle share this row evenly now
-                    that delete moved to the corner. */}
-                <div className="flex items-stretch gap-1.5 mb-2">
-                  <span className="status-chip-sm" style={{ ...chipStyle, flex: 1, width: "auto" } as React.CSSProperties}>
-                    {isDueToday ? t("backlog.paymentDueToday") : t("backlog.paymentDueOn", { date: formatDateDisplay(dueDate) })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => toggleHistory(account)}
-                    className="flex items-center justify-center text-white/50 hover:text-white/90"
-                    style={{
-                      flex: 1,
-                      borderRadius: "8px",
-                      background: expandedPaymentHistoryId === account.id ? "rgba(245, 158, 11, 0.15)" : "rgba(var(--tint-rgb), 0.06)",
-                      border: "1px solid rgba(var(--tint-rgb), 0.15)",
-                    }}
-                    title={t("backlog.paymentHistoryToggle")}
-                  >
-                    <History size={13} />
-                  </button>
-                </div>
-
-                <textarea
-                  rows={1}
-                  defaultValue={account.name}
-                  key={`${account.id}-name-${account.name}`}
-                  ref={(el) => {
-                    if (!el) return;
-                    el.style.height = "auto";
-                    el.style.height = `${el.scrollHeight}px`;
-                  }}
-                  onInput={(e) => {
-                    const el = e.currentTarget;
-                    el.style.height = "auto";
-                    el.style.height = `${el.scrollHeight}px`;
-                  }}
-                  onBlur={(e) => handleUpdatePaymentField(account, "name", e.target.value)}
-                  disabled={busy}
-                  className="w-full mb-3 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-white font-medium outline-none focus:border-white/25 focus:bg-white/5 disabled:opacity-50 resize-none"
-                  style={{ overflow: "hidden", lineHeight: 1.3 }}
-                />
-
-                {/* Balance+Minimum on their own row; Due Day+Remind paired
-                    on a second row with a vertical rule BETWEEN the two of
-                    them specifically. Each Due Day/Remind label is capped
-                    at a narrow max-width (wrapping its own text onto a
-                    second line if needed) so the pair reliably fits on one
-                    line regardless of how wide the label text renders. */}
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <label className="text-xs text-white/50">
-                      {t("backlog.paymentBalanceLabel")}
-                      <input
-                        type="number"
-                        defaultValue={account.balance}
-                        key={`${account.id}-balance-${account.balance}`}
-                        onBlur={(e) => handleUpdatePaymentField(account, "balance", e.target.value)}
-                        disabled={busy}
-                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                        style={{ width: "92px" }}
-                      />
-                    </label>
-                    <label className="text-xs text-white/50">
-                      {t("backlog.paymentMinimumLabel")}
-                      <input
-                        type="number"
-                        defaultValue={account.minimumPayment}
-                        key={`${account.id}-min-${account.minimumPayment}`}
-                        onBlur={(e) => handleUpdatePaymentField(account, "minimumPayment", e.target.value)}
-                        disabled={busy}
-                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                        style={{ width: "92px" }}
-                      />
-                    </label>
-                  </div>
-                  {/* No maxWidth cap here — "Due day of month"/"Remind
-                      (days before)" render on one line each at their
-                      natural width, instead of wrapping into a cramped
-                      column. flex-wrap stays as a fallback for a viewport
-                      too narrow for both on one line. */}
-                  <div className="flex flex-wrap items-start gap-3">
-                    <label className="text-xs text-white/50 whitespace-nowrap">
-                      {t("backlog.paymentDueDayLabel")}
-                      <input
-                        type="number"
-                        min={1}
-                        max={31}
-                        defaultValue={account.dueDay}
-                        key={`${account.id}-due-${account.dueDay}`}
-                        onBlur={(e) => handleUpdatePaymentField(account, "dueDay", e.target.value)}
-                        disabled={busy}
-                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                        style={{ width: "68px" }}
-                      />
-                    </label>
-                    <label className="text-xs text-white/50 whitespace-nowrap">
-                      {t("backlog.paymentRemindLabel")}
-                      <input
-                        type="number"
-                        min={0}
-                        defaultValue={account.remindDaysBefore}
-                        key={`${account.id}-remind-${account.remindDaysBefore}`}
-                        onBlur={(e) => handleUpdatePaymentField(account, "remindDaysBefore", e.target.value)}
-                        disabled={busy}
-                        className="block mt-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/25 disabled:opacity-50"
-                        style={{ width: "68px" }}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {expandedPaymentHistoryId === account.id && (
-                  <div className="mt-3 pt-3 border-t border-white/10">
-                    {paymentHistoryLoadingId === account.id ? (
-                      <p className="text-xs text-white/50">{t("backlog.paymentHistoryLoading")}</p>
-                    ) : (paymentHistoryByAccount[account.id]?.length ?? 0) === 0 ? (
-                      <p className="text-xs text-white/50 italic">{t("backlog.paymentHistoryEmpty")}</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {paymentHistoryByAccount[account.id].map((txn) => (
-                          <div key={txn.id} className="flex items-center justify-between text-xs text-white/70">
-                            <span>{formatDateTimeDisplay(txn.paidAt)}</span>
-                            <span className="font-medium">${txn.amount.toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
     )}
 
     {activeTab === "calculator" && (

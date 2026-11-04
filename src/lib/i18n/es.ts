@@ -802,6 +802,27 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.paymentHistoryEmpty": "Aún no hay pagos registrados.",
   "backlog.failedLoadPaymentHistory": "Error al cargar el historial de pagos",
 
+  // Payments dashboard (Tools -> Payments)
+  "pay.title": "Pagos",
+  "pay.subtitle": "Tus cuentas y próximas facturas",
+  "pay.summary": "Resumen de pagos",
+  "pay.totalBalance": "Saldo total",
+  "pay.monthlyMinimums": "Mínimos mensuales",
+  "pay.upcoming": "Próximos pagos",
+  "pay.edit": "Editar",
+  "pay.more": "Más",
+  "pay.remove": "Eliminar cuenta",
+  "pay.addTitle": "Agregar cuenta",
+  "pay.editTitle": "Editar cuenta",
+  "pay.fieldName": "Nombre de la cuenta",
+  "pay.save": "Guardar",
+  "pay.saving": "Guardando…",
+  "pay.cancel": "Cancelar",
+  "pay.removeTitle": "¿Eliminar cuenta?",
+  "pay.removeBody": "¿Eliminar “{name}”? Esta acción no se puede deshacer.",
+  "pay.removeConfirm": "Eliminar cuenta",
+  "pay.removing": "Eliminando…",
+
   // History (Data & Metrics)
   "history.loading": "Cargando tu progreso…",
   "history.title": "Progreso y Perspectivas",

@@ -135,7 +135,7 @@ describe("FinancesHub tabs", () => {
 });
 
 describe("FinancesHub with bills", () => {
-  it("adds this month's unpaid bills to Monthly due and Upcoming, leaves balances alone, and flags unknown amounts", () => {
+  it("adds this month's remaining bills (estimates included, and labelled) to Monthly due and Upcoming, leaving balances alone", () => {
     const rent = bill({ id: "r", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-01-12" });
     const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-05" });
     const pay = (id: string, amount: number) => ({ id, amount, paidAt: "x", note: null, reversedAt: null });
@@ -153,19 +153,40 @@ describe("FinancesHub with bills", () => {
       })
     );
     expect(screen.getByTestId("fin-balances").textContent).toBe("$394.00");
-    expect(screen.getByTestId("fin-due").textContent).toBe("$625.00"); // 25 minimum + 600 left on rent; electricity amount unknown
-    expect(screen.getByText("Known amounts only")).toBeTruthy();
-    expect(screen.getByText("1 bill awaiting amount")).toBeTruthy();
+    expect(screen.getByTestId("fin-due").textContent).toBe("$770.00"); // 25 minimum + 600 left on rent + 145 electricity estimate
+    expect(screen.getByText("Includes estimates")).toBeTruthy();
+    expect(screen.queryByText(/awaiting/)).toBeNull();
     expect(screen.getByTestId("fin-upcoming").textContent).toBe("1"); // electricity Nov 5 is inside its window
   });
 
-  it("shows 'Amount pending' instead of $0.00 when nothing is known yet but bills await amounts", () => {
-    const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" });
+  it("shows 'Amount pending' instead of $0.00 when no bill has an actual or estimated amount (and no minimums)", () => {
+    const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-12" });
     const water = bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" });
     setup([], billsController({ bills: [power, water] }));
     expect(screen.getByTestId("fin-due").textContent).toBe("Amount pending");
     expect(screen.getByText("2 bills awaiting amounts")).toBeTruthy();
     expect(screen.queryByText("Known amounts only")).toBeNull();
+    expect(screen.queryByText("Includes estimates")).toBeNull();
+  });
+
+  it("estimates are real numbers in the overview, labelled 'Includes estimates', with no-amount bills counted as awaiting", () => {
+    const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" });
+    const water = bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" });
+    setup([], billsController({ bills: [power, water] }));
+    expect(screen.getByTestId("fin-due").textContent).toBe("$145.00");
+    expect(screen.getByText("Includes estimates")).toBeTruthy();
+    expect(screen.getByText("1 bill awaiting amount")).toBeTruthy();
+    expect(screen.queryByText("Known amounts only")).toBeNull();
+  });
+
+  it("actual amounts only plus a no-amount bill: 'Known amounts only'", () => {
+    const rent = bill({ id: "r", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once" });
+    const water = bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-11-20", recurrence: "once" });
+    setup([], billsController({ bills: [rent, water] }));
+    expect(screen.getByTestId("fin-due").textContent).toBe("$1,000.00");
+    expect(screen.getByText("Known amounts only")).toBeTruthy();
+    expect(screen.getByText("1 bill awaiting amount")).toBeTruthy();
+    expect(screen.queryByText("Includes estimates")).toBeNull();
   });
 
   it("keeps the account-only overview when Bills is unavailable, loading or errored", () => {

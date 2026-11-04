@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeNextDueDate, type PaymentAccount } from "@/lib/supabase/db";
+import { summarizeBills, type Bill } from "@/lib/bills";
 import {
   diffPaymentPayload,
   getPaymentDueInfo,
@@ -10,6 +11,21 @@ import {
   summarizeFinances,
   summarizePayments,
 } from "./paymentSummary";
+
+const bill = (over: Partial<Bill> = {}): Bill => ({
+  id: "b1",
+  name: "Rent",
+  amountType: "fixed",
+  expectedAmount: 1000,
+  recurrence: "monthly",
+  firstDueDate: "2026-01-12",
+  remindDaysBefore: 3,
+  category: null,
+  notes: null,
+  archivedAt: null,
+  createdAt: "2026-01-01T00:00:00Z",
+  ...over,
+});
 
 const acct = (over: Partial<PaymentAccount> = {}): PaymentAccount => ({
   id: "a1",
@@ -185,8 +201,25 @@ describe("parsePaymentEntry", () => {
 
 describe("summarizeFinances", () => {
   const today = "2026-11-03";
+  const billsIn = (over: Partial<Parameters<typeof summarizeFinances>[2] & object> = {}) => ({
+    remainingThisMonth: 0,
+    unknownThisMonth: 0,
+    knownThisMonth: 0,
+    includesEstimates: false,
+    upcoming: 0,
+    ...over,
+  });
+
   it("is all zeros with no accounts", () => {
-    expect(summarizeFinances([], today)).toEqual({ totalBalances: 0, monthlyDue: 0, monthlyDueUnknown: 0, monthlyDuePending: false, subscriptionsMonthly: 0, upcomingCount: 0 });
+    expect(summarizeFinances([], today)).toEqual({
+      totalBalances: 0,
+      monthlyDue: 0,
+      monthlyDueUnknown: 0,
+      monthlyDueIncludesEstimates: false,
+      monthlyDuePending: false,
+      subscriptionsMonthly: 0,
+      upcomingCount: 0,
+    });
   });
 
   it("keeps balances and monthly due as separate figures, and counts only obligations inside their window", () => {
@@ -202,25 +235,58 @@ describe("summarizeFinances", () => {
     expect(o.monthlyDue).toBe(70);
     expect(o.upcomingCount).toBe(2);
     // No combined grand total exists on the result.
-    expect(Object.keys(o).sort()).toEqual(["monthlyDue", "monthlyDuePending", "monthlyDueUnknown", "subscriptionsMonthly", "totalBalances", "upcomingCount"]);
+    expect(Object.keys(o).sort()).toEqual([
+      "monthlyDue",
+      "monthlyDueIncludesEstimates",
+      "monthlyDuePending",
+      "monthlyDueUnknown",
+      "subscriptionsMonthly",
+      "totalBalances",
+      "upcomingCount",
+    ]);
   });
 
-  it("monthly due reads 'pending' only when nothing is known yet but bills await amounts", () => {
-    const none = summarizeFinances([], today, { outstandingThisMonth: 0, unknownThisMonth: 2, upcoming: 0 });
-    expect(none).toMatchObject({ monthlyDue: 0, monthlyDueUnknown: 2, monthlyDuePending: true });
-    const withMin = summarizeFinances([acct({ minimumPayment: 35, dueDay: 25 })], today, { outstandingThisMonth: 0, unknownThisMonth: 2, upcoming: 0 });
-    expect(withMin).toMatchObject({ monthlyDue: 35, monthlyDuePending: false });
-    expect(summarizeFinances([], today, { outstandingThisMonth: 0, unknownThisMonth: 0, upcoming: 0 }).monthlyDuePending).toBe(false);
-  });
-
-  it("adds real bills to monthly due and upcoming, never to balances, and carries the unknown-amount count", () => {
+  it("monthly due = account minimums + bills' remaining (which already includes estimates); balances are never touched by bills", () => {
     const accounts = [acct({ id: "1", balance: 1000, minimumPayment: 35, dueDay: 3 })];
     const without = summarizeFinances(accounts, today);
-    const withBills = summarizeFinances(accounts, today, { outstandingThisMonth: 600.25, unknownThisMonth: 2, upcoming: 3 });
-    expect(withBills.totalBalances).toBe(without.totalBalances); // balances untouched by bills
+    const withBills = summarizeFinances(accounts, today, billsIn({ remainingThisMonth: 600.25, knownThisMonth: 3, includesEstimates: true, upcoming: 3 }));
+    expect(withBills.totalBalances).toBe(without.totalBalances);
     expect(withBills.monthlyDue).toBe(635.25);
-    expect(withBills.monthlyDueUnknown).toBe(2);
+    expect(withBills.monthlyDueIncludesEstimates).toBe(true);
     expect(withBills.upcomingCount).toBe(without.upcomingCount + 3);
     expect(withBills.subscriptionsMonthly).toBe(0);
+  });
+
+  it("'pending' only when there's nothing to show: no minimums and no bill with an actual OR estimated amount", () => {
+    expect(summarizeFinances([], today, billsIn({ unknownThisMonth: 2 }))).toMatchObject({ monthlyDue: 0, monthlyDueUnknown: 2, monthlyDuePending: true });
+    // an estimate counts as something to show -> not pending, labelled as estimates
+    const est = summarizeFinances([], today, billsIn({ unknownThisMonth: 1, knownThisMonth: 1, remainingThisMonth: 145, includesEstimates: true }));
+    expect(est).toMatchObject({ monthlyDue: 145, monthlyDuePending: false, monthlyDueIncludesEstimates: true, monthlyDueUnknown: 1 });
+    // a minimum payment is something to show too
+    expect(summarizeFinances([acct({ minimumPayment: 35, dueDay: 25 })], today, billsIn({ unknownThisMonth: 2 }))).toMatchObject({ monthlyDue: 35, monthlyDuePending: false });
+    expect(summarizeFinances([], today, billsIn()).monthlyDuePending).toBe(false);
+  });
+
+  it("is consistent with the Bills tab: hub monthly due minus minimums equals the Bills 'remaining'", () => {
+    const rent = bill({ id: "r", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once" });
+    const power = bill({ id: "p", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-11-15", recurrence: "once" });
+    const water = bill({ id: "w", amountType: "variable", expectedAmount: null, firstDueDate: "2026-11-20", recurrence: "once" });
+    const map = { r: { "2026-11-12": { id: "o1", billId: "r", dueDate: "2026-11-12", amountDue: 1000, payments: [{ id: "x", amount: 400, paidAt: "x", note: null, reversedAt: null }] } } };
+    const b = summarizeBills([rent, power, water], map, today);
+    const accounts = [acct({ id: "1", balance: 900, minimumPayment: 35, dueDay: 25 })];
+    const o = summarizeFinances(accounts, today, b);
+    expect(b).toMatchObject({ expectedThisMonth: 1145, paidThisMonth: 400, remainingThisMonth: 745, includesEstimates: true, unknownThisMonth: 1 });
+    expect(o.monthlyDue).toBe(35 + b.remainingThisMonth);
+    expect(o.monthlyDueUnknown).toBe(b.unknownThisMonth);
+    // Nothing is double-counted: payments are not added to monthly due, and the account balance is independent of bills.
+    expect(o.monthlyDue).toBe(780);
+    expect(o.totalBalances).toBe(900);
+  });
+
+  it("an overpaid bill never produces a negative monthly due", () => {
+    const rent = bill({ id: "r", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once" });
+    const map = { r: { "2026-11-12": { id: "o1", billId: "r", dueDate: "2026-11-12", amountDue: 1000, payments: [{ id: "x", amount: 5000, paidAt: "x", note: null, reversedAt: null }] } } };
+    const o = summarizeFinances([], today, summarizeBills([rent], map, today));
+    expect(o.monthlyDue).toBe(0);
   });
 });

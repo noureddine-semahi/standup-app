@@ -969,6 +969,9 @@ export const en = {
   "bills.paidSoFar": "Paid {paid}",
   "bills.paidLeft": "Paid {paid} · {left} left",
   "bills.paidOver": "Paid {paid} · {over} over",
+  "bills.expectedThisMonth": "Expected this month",
+  "bills.remainingThisMonth": "Remaining this month",
+  "bills.includesEstimates": "Includes estimates",
 
   "history.overviewTitle": "Overview",
   "history.overviewSubtitle": "Your key numbers, from today's streak to lifetime follow-through.",

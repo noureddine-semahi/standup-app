@@ -964,6 +964,9 @@ export const es: Record<keyof typeof en, string> = {
   "bills.paidSoFar": "Pagado {paid}",
   "bills.paidLeft": "Pagado {paid} · faltan {left}",
   "bills.paidOver": "Pagado {paid} · {over} de más",
+  "bills.expectedThisMonth": "Esperado este mes",
+  "bills.remainingThisMonth": "Pendiente este mes",
+  "bills.includesEstimates": "Incluye estimados",
 
   "history.overviewTitle": "Resumen",
   "history.overviewSubtitle": "Tus números clave, desde la racha de hoy hasta el cumplimiento de por vida.",

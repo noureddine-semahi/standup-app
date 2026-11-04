@@ -81,21 +81,21 @@ describe("availability and empty states", () => {
     setup({ state: "unavailable" });
     expect(screen.getByTestId("bills-unavailable").textContent).toContain("database update");
     expect((screen.getByRole("button", { name: /Add Bill/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.queryByTestId("bills-due")).toBeNull();
+    expect(screen.queryByTestId("bills-expected")).toBeNull();
     expect(screen.queryByTestId("bill-card")).toBeNull();
   });
 
   it("shows a load error without fabricating data", () => {
     setup({ state: "error", loadError: "boom" });
     expect(screen.getByRole("alert").textContent).toBe("boom");
-    expect(screen.queryByTestId("bills-due")).toBeNull();
+    expect(screen.queryByTestId("bills-expected")).toBeNull();
   });
 
   it("empty: 'No bills added yet.' with an Add action and zeroed summary", () => {
     setup();
     expect(screen.getByText("No bills added yet.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Add Bill/ })).toBeTruthy();
-    expect(screen.getByTestId("bills-due").textContent).toBe("$0.00");
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$0.00");
     expect(screen.getByTestId("bills-overdue").textContent).toBe("0");
   });
 });
@@ -208,12 +208,14 @@ describe("bill cards", () => {
   });
 });
 
-describe("summary panels", () => {
-  it("derives due / paid / upcoming / overdue from real records and flags unknown amounts separately", () => {
+describe("summary panels: Expected / Paid / Remaining", () => {
+  const power = (over: Partial<Bill> = {}) => bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12", ...over });
+
+  it("expected uses actual where known, otherwise the estimate, and says it includes estimates", () => {
     setup({
       bills: [
         bill({ id: "r", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-01-12" }),
-        bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" }),
+        power(),
         bill({ id: "i", name: "Internet", expectedAmount: 60, firstDueDate: "2026-01-05" }),
       ],
       occurrences: mapOf(
@@ -223,32 +225,113 @@ describe("summary panels", () => {
         rec("i", "2026-10-05", 60, [pay("d", 60)])
       ),
     });
-    expect(screen.getByTestId("bills-due").textContent).toBe("$1,060.00"); // rent 1000 + internet 60; electricity unknown
-    expect(screen.getByTestId("bills-unknown").textContent).toBe("1 bill awaiting amount");
-    expect(screen.getByText("Known amounts only")).toBeTruthy();
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$1,205.00"); // rent 1000 + electricity estimate 145 + internet 60
     expect(screen.getByTestId("bills-paid").textContent).toBe("$250.00");
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("$955.00"); // 750 + 145 + 60
+    expect(screen.getAllByText("Includes estimates")).toHaveLength(2); // on both Expected and Remaining
+    expect(screen.queryByTestId("bills-unknown")).toBeNull();
     expect(screen.getByTestId("bills-upcoming").textContent).toBe("1"); // internet Nov 5 is within its window
     expect(screen.getByTestId("bills-overdue").textContent).toBe("0");
   });
+
+  it("an actual amount replaces the estimate and the 'includes estimates' label goes away", () => {
+    setup({
+      bills: [power({ firstDueDate: "2026-11-12", recurrence: "once" })],
+      occurrences: mapOf(rec("e", "2026-11-12", 130.5, [pay("a", 30.5)])),
+    });
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$130.50");
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("$100.00");
+    expect(screen.queryByText("Includes estimates")).toBeNull();
+  });
+
+  it("paying exactly the estimate lowers remaining to $0.00 but the card still isn't 'Paid'", () => {
+    setup({
+      bills: [power({ firstDueDate: "2026-11-12", recurrence: "once", expectedAmount: 129.15 })],
+      occurrences: mapOf(rec("e", "2026-11-12", null, [pay("a", 129.15)])),
+    });
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("$0.00");
+    expect(screen.getByTestId("bills-paid").textContent).toBe("$129.15");
+    const card = screen.getByTestId("bill-card");
+    expect(card.querySelector(".pay-due")!.textContent).toBe("Amount pending confirmation");
+  });
+
+  it("overpaying a fixed bill shows the paid amount and a $0.00 (never negative) remaining", () => {
+    setup({
+      bills: [bill({ id: "f", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once" })],
+      occurrences: mapOf(rec("f", "2026-11-12", 1000, [pay("a", 1500)])),
+    });
+    expect(screen.getByTestId("bills-paid").textContent).toBe("$1,500.00");
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("$0.00");
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$1,000.00");
+  });
+
+  it("fixed bills only: no estimate wording anywhere", () => {
+    setup({ bills: [bill({ id: "f", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once" })] });
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$1,000.00");
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("$1,000.00");
+    expect(screen.queryByText("Includes estimates")).toBeNull();
+    expect(screen.queryByTestId("bills-unknown")).toBeNull();
+  });
 });
 
-describe("summary clarity", () => {
-  it("all amounts unknown: 'Amount pending' instead of $0.00, with the awaiting count", () => {
+describe("summary clarity (unknown amounts)", () => {
+  it("every cycle has no amount at all: 'Amount pending' instead of $0.00, with the awaiting count", () => {
     setup({
       bills: [
-        bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" }),
+        bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-12" }),
         bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" }),
       ],
     });
-    expect(screen.getByTestId("bills-due").textContent).toBe("Amount pending");
+    expect(screen.getByTestId("bills-expected").textContent).toBe("Amount pending");
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("Amount pending");
     expect(screen.getByTestId("bills-unknown").textContent).toBe("2 bills awaiting amounts");
+    expect(screen.queryByText("Known amounts only")).toBeNull();
+    expect(screen.queryByText("Includes estimates")).toBeNull();
+  });
+
+  it("estimates alone are real numbers, not 'pending'", () => {
+    setup({
+      bills: [
+        bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" }),
+        bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: 60, firstDueDate: "2026-01-20" }),
+      ],
+    });
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$205.00");
+    expect(screen.getAllByText("Includes estimates")).toHaveLength(2);
+    expect(screen.queryByTestId("bills-unknown")).toBeNull();
+  });
+
+  it("actual amounts plus a no-amount bill: 'Known amounts only' + the awaiting count", () => {
+    setup({
+      bills: [
+        bill({ id: "f", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once" }),
+        bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-11-20", recurrence: "once" }),
+      ],
+    });
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$1,000.00");
+    expect(screen.getByText("Known amounts only")).toBeTruthy();
+    expect(screen.getByTestId("bills-unknown").textContent).toBe("1 bill awaiting amount");
+  });
+
+  it("estimates plus a no-amount bill: includes estimates AND the awaiting count (no misleading 'known only')", () => {
+    setup({
+      bills: [
+        bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-11-12", recurrence: "once" }),
+        bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-11-20", recurrence: "once" }),
+      ],
+    });
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$145.00");
+    expect(screen.getAllByText("Includes estimates").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("bills-unknown").textContent).toBe("1 bill awaiting amount");
     expect(screen.queryByText("Known amounts only")).toBeNull();
   });
 
-  it("no bills at all is a plain $0.00 with no pending wording", () => {
+  it("no bills at all is a plain $0.00 with no pending or estimate wording", () => {
     setup();
-    expect(screen.getByTestId("bills-due").textContent).toBe("$0.00");
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$0.00");
+    expect(screen.getByTestId("bills-remaining").textContent).toBe("$0.00");
     expect(screen.queryByTestId("bills-unknown")).toBeNull();
+    expect(screen.queryByText("Includes estimates")).toBeNull();
   });
 });
 

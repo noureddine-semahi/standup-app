@@ -13,6 +13,7 @@ import {
   parseBillPaymentEntry,
   parseMoney,
   resolveOccurrence,
+  selectedAmount,
   suggestBillGoals,
   summarizeBills,
   emptyBillForm,
@@ -191,47 +192,146 @@ describe("bounded window and current occurrence", () => {
   });
 });
 
-describe("summarizeBills", () => {
+describe("selectedAmount: actual, then estimate, then unknown", () => {
+  const variable = bill({ amountType: "variable", expectedAmount: 145 });
+  const view = (b: Bill, record?: ReturnType<typeof occ>) => resolveOccurrence(b, "2026-11-12", record, "2026-11-03");
+
+  it("fixed bills always use their (snapshotted) amount", () => {
+    expect(selectedAmount(view(bill()))).toEqual({ amount: 1000, estimated: false });
+    expect(selectedAmount(view(bill({ expectedAmount: 1200 }), occ("2026-11-12", 1000)))).toEqual({ amount: 1000, estimated: false });
+  });
+  it("variable: the actual amount wins over the estimate", () => {
+    expect(selectedAmount(view(variable, occ("2026-11-12", 130.5)))).toEqual({ amount: 130.5, estimated: false });
+  });
+  it("variable with no actual falls back to the estimate and says so", () => {
+    expect(selectedAmount(view(variable))).toEqual({ amount: 145, estimated: true });
+    expect(selectedAmount(view(variable, occ("2026-11-12", null, [pay(145)])))).toEqual({ amount: 145, estimated: true });
+  });
+  it("neither actual nor estimate is unknown, never 0", () => {
+    expect(selectedAmount(view(bill({ amountType: "variable", expectedAmount: null })))).toEqual({ amount: null, estimated: false });
+  });
+  it("an actual amount of 0 is a real amount, not 'unknown'", () => {
+    expect(selectedAmount(view(variable, occ("2026-11-12", 0)))).toEqual({ amount: 0, estimated: false });
+  });
+});
+
+describe("summarizeBills (Expected / Paid / Remaining this month)", () => {
   const today = "2026-11-03";
+  const fixed = (over: Partial<Bill> = {}) => bill({ id: "f", name: "Rent", expectedAmount: 1000, firstDueDate: "2026-11-12", recurrence: "once", ...over });
+  const variable = (over: Partial<Bill> = {}) => bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-11-12", recurrence: "once", ...over });
+  const sum = (bills: Bill[], map: OccurrenceMap = {}) => summarizeBills(bills, map, today);
+
   it("is all zero with no bills", () => {
-    expect(summarizeBills([], {}, today)).toEqual({ dueThisMonth: 0, unknownThisMonth: 0, knownThisMonth: 0, paidThisMonth: 0, upcoming: 0, overdue: 0, outstandingThisMonth: 0 });
+    expect(sum([])).toEqual({
+      expectedThisMonth: 0, includesEstimates: false, estimatedThisMonth: 0, unknownThisMonth: 0, knownThisMonth: 0,
+      paidThisMonth: 0, remainingThisMonth: 0, upcoming: 0, overdue: 0,
+    });
   });
 
-  it("totals this month's due/paid/outstanding from real records", () => {
-    const rent = bill({ id: "b1", expectedAmount: 1000, firstDueDate: "2026-01-12" });
-    const net = bill({ id: "b2", name: "Internet", expectedAmount: 60, firstDueDate: "2026-01-05" });
-    const m = mapOf(occ("2026-11-12", 1000, [pay(400)], "b1"), occ("2026-11-05", 60, [pay(60)], "b2"), occ("2026-10-12", 1000, [pay(1000)], "b1"), occ("2026-10-05", 60, [pay(60)], "b2"));
-    const s = summarizeBills([rent, net], m, today);
-    expect(s.dueThisMonth).toBe(1060);
-    expect(s.paidThisMonth).toBe(460);
-    expect(s.outstandingThisMonth).toBe(600);
-    expect(s.unknownThisMonth).toBe(0);
-    expect(s.overdue).toBe(0);
+  it("fixed, unpaid: expected = remaining = the amount, nothing estimated", () => {
+    expect(sum([fixed()])).toMatchObject({ expectedThisMonth: 1000, paidThisMonth: 0, remainingThisMonth: 1000, includesEstimates: false, unknownThisMonth: 0 });
   });
 
-  it("never counts an unknown variable amount as $0 -- it's reported separately", () => {
-    const power = bill({ id: "b3", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" });
-    const rent = bill({ id: "b1", expectedAmount: 1000, firstDueDate: "2026-01-12" });
-    const s = summarizeBills([power, rent], mapOf(occ("2026-10-12", 1000, [pay(1000)], "b1"), occ("2026-10-12", 130, [pay(130)], "b3")), today);
-    expect(s.dueThisMonth).toBe(1000);
-    expect(s.unknownThisMonth).toBe(1);
+  it("fixed, partially paid and fully paid", () => {
+    expect(sum([fixed()], mapOf(occ("2026-11-12", 1000, [pay(400)], "f")))).toMatchObject({ expectedThisMonth: 1000, paidThisMonth: 400, remainingThisMonth: 600 });
+    expect(sum([fixed()], mapOf(occ("2026-11-12", 1000, [pay(1000)], "f")))).toMatchObject({ expectedThisMonth: 1000, paidThisMonth: 1000, remainingThisMonth: 0 });
   });
 
-  it("counts overdue and upcoming (reminder window) separately and excludes paid and archived", () => {
-    const a = bill({ id: "a", firstDueDate: "2026-01-02" }); // Nov 2 is overdue (and Dec 2 later)
-    const b = bill({ id: "b", firstDueDate: "2026-01-05", remindDaysBefore: 3 }); // Nov 5 within window
-    const c = bill({ id: "c", firstDueDate: "2026-01-05" }); // Nov 5, paid
-    const d = bill({ id: "d", firstDueDate: "2026-01-02", archivedAt: "2026-02-01T00:00:00Z" });
-    const m = mapOf(occ("2026-10-02", 1000, [pay(1000)], "a"), occ("2026-10-05", 1000, [pay(1000)], "b"), occ("2026-10-05", 1000, [pay(1000)], "c"), occ("2026-11-05", 1000, [pay(1000)], "c"));
-    const s = summarizeBills([a, b, c, d], m, today);
-    expect(s.overdue).toBe(1);
-    expect(s.upcoming).toBe(1);
+  it("variable with a known actual amount uses the ACTUAL, not the estimate, and isn't flagged as estimated", () => {
+    const s = sum([variable()], mapOf(occ("2026-11-12", 130.5, [pay(30.5)], "v")));
+    expect(s).toMatchObject({ expectedThisMonth: 130.5, paidThisMonth: 30.5, remainingThisMonth: 100, includesEstimates: false, estimatedThisMonth: 0 });
   });
 
-  it("doesn't count unpaid cycles older than the lookback as overdue", () => {
-    const old = bill({ firstDueDate: "2025-01-12" });
-    const s = summarizeBills([old], {}, today);
-    expect(s.overdue).toBe(1); // only Oct 12 (within 45 days), not the 10 older months
+  it("variable with only an estimate: expected/remaining use it and are labelled as including estimates", () => {
+    const s = sum([variable()]);
+    expect(s).toMatchObject({ expectedThisMonth: 145, remainingThisMonth: 145, includesEstimates: true, estimatedThisMonth: 1, knownThisMonth: 1, unknownThisMonth: 0 });
+  });
+
+  it("variable estimate: payments reduce remaining, but paying the estimate never makes the bill 'paid'", () => {
+    const m = mapOf(occ("2026-11-12", null, [pay(145)], "v"));
+    const s = sum([variable()], m);
+    expect(s).toMatchObject({ expectedThisMonth: 145, paidThisMonth: 145, remainingThisMonth: 0, includesEstimates: true });
+    const v = resolveOccurrence(variable(), "2026-11-12", m.v["2026-11-12"], today);
+    expect(v.status).not.toBe("paid");
+    expect(statusLabel(v)).toBe("pending");
+    // ...and it still counts as unresolved for upcoming/overdue purposes.
+    expect(sum([variable({ firstDueDate: "2026-11-05" })], mapOf(occ("2026-11-05", null, [pay(145)], "v"))).upcoming).toBe(1);
+  });
+
+  it("variable with neither actual nor estimate is unknown: flagged, left out of expected/remaining, never $0", () => {
+    const s = sum([variable({ expectedAmount: null })]);
+    expect(s).toMatchObject({ expectedThisMonth: 0, remainingThisMonth: 0, unknownThisMonth: 1, knownThisMonth: 0, includesEstimates: false });
+  });
+
+  it("payments on an unknown-amount cycle still count as paid, but don't invent a remaining amount", () => {
+    const s = sum([variable({ expectedAmount: null })], mapOf(occ("2026-11-12", null, [pay(60)], "v")));
+    expect(s).toMatchObject({ paidThisMonth: 60, remainingThisMonth: 0, expectedThisMonth: 0, unknownThisMonth: 1 });
+  });
+
+  it("overpayment never goes negative and never reduces another bill's remaining", () => {
+    const other = fixed({ id: "g", name: "Water", expectedAmount: 80 });
+    const s = sum([fixed(), other], mapOf(occ("2026-11-12", 1000, [pay(1500)], "f")));
+    expect(s.paidThisMonth).toBe(1500);
+    expect(s.remainingThisMonth).toBe(80); // the overpaid bill contributes 0, Water's 80 is untouched
+    expect(s.remainingThisMonth).toBeGreaterThanOrEqual(0);
+    const only = sum([fixed()], mapOf(occ("2026-11-12", 1000, [pay(1500)], "f")));
+    expect(only.remainingThisMonth).toBe(0);
+  });
+
+  it("a reversed payment doesn't count as paid and restores the remaining amount", () => {
+    const s = sum([fixed()], mapOf(occ("2026-11-12", 1000, [pay(400), pay(600, { id: "x", reversedAt: "2026-11-02T00:00:00Z" })], "f")));
+    expect(s).toMatchObject({ paidThisMonth: 400, remainingThisMonth: 600 });
+  });
+
+  it("mixed fixed + actual + estimated + unknown: totals combine correctly and are labelled", () => {
+    const bills = [
+      fixed(),                                                                  // 1000 fixed
+      variable({ id: "a", name: "Gas" }),                                       // actual 130.50
+      variable({ id: "e", name: "Water", expectedAmount: 60 }),                 // estimate 60 (no actual)
+      variable({ id: "u", name: "Phone", expectedAmount: null }),               // unknown
+    ];
+    const m = mapOf(occ("2026-11-12", 1000, [pay(250)], "f"), occ("2026-11-12", 130.5, [pay(130.5)], "a"), occ("2026-11-12", null, [pay(20)], "e"));
+    const s = sum(bills, m);
+    expect(s.expectedThisMonth).toBe(1190.5); // 1000 + 130.50 + 60
+    expect(s.paidThisMonth).toBe(400.5); // 250 + 130.50 + 20
+    expect(s.remainingThisMonth).toBe(40 + 750); // Gas 0, Water 60-20=40, Rent 1000-250=750
+    expect(s).toMatchObject({ includesEstimates: true, estimatedThisMonth: 1, unknownThisMonth: 1, knownThisMonth: 3 });
+  });
+
+  it("entering the actual amount replaces the estimate in the totals and drops the estimate label", () => {
+    const before = sum([variable()]);
+    expect(before).toMatchObject({ expectedThisMonth: 145, includesEstimates: true });
+    const after = sum([variable()], mapOf(occ("2026-11-12", 152.1, [], "v")));
+    expect(after).toMatchObject({ expectedThisMonth: 152.1, remainingThisMonth: 152.1, includesEstimates: false });
+  });
+
+  it("sums cents exactly (no float drift) across many cycles", () => {
+    const weekly = fixed({ recurrence: "weekly", firstDueDate: "2026-11-02", expectedAmount: 0.1 });
+    const s = sum([weekly], mapOf(occ("2026-11-02", 0.1, [pay(0.1)], "f")));
+    expect(s.expectedThisMonth).toBe(0.5); // Nov 2, 9, 16, 23, 30
+    expect(s.paidThisMonth).toBe(0.1);
+    expect(s.remainingThisMonth).toBe(0.4);
+  });
+
+  it("only this calendar month's cycles count; archived bills are excluded", () => {
+    const next = fixed({ id: "n", name: "Next", firstDueDate: "2026-12-05" });
+    const prev = fixed({ id: "p", name: "Prev", firstDueDate: "2026-10-30" });
+    const gone = fixed({ id: "g", name: "Gone", archivedAt: "2026-02-01T00:00:00Z" });
+    expect(sum([next, prev, gone]).expectedThisMonth).toBe(0);
+    expect(sum([next, prev, gone, fixed()]).expectedThisMonth).toBe(1000);
+  });
+
+  it("monthly recurring: only the current month's cycle (a paid earlier cycle isn't counted)", () => {
+    const rent = bill({ id: "r", expectedAmount: 1000, firstDueDate: "2026-01-12" });
+    const s = sum([rent], mapOf(occ("2026-10-12", 1000, [pay(1000)], "r")));
+    expect(s).toMatchObject({ expectedThisMonth: 1000, paidThisMonth: 0, remainingThisMonth: 1000 });
+  });
+
+  it("upcoming / overdue are unchanged by the estimate rules", () => {
+    const a = fixed({ id: "a", firstDueDate: "2026-10-20" }); // overdue once
+    const b = fixed({ id: "b", firstDueDate: "2026-11-05" }); // inside window
+    const c = variable({ id: "c", firstDueDate: "2026-11-05" });
+    expect(sum([a, b, c])).toMatchObject({ overdue: 1, upcoming: 2 });
   });
 });
 
@@ -368,32 +468,27 @@ describe("status labels (presentation only)", () => {
   });
 });
 
-describe("describeDueSummary / known counts", () => {
-  const today = "2026-11-03";
-  const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" });
-  const water = bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" });
-  const rent = bill({ id: "r", firstDueDate: "2026-01-12" });
+describe("describeDueSummary labels", () => {
+  const summary = (over: Partial<Parameters<typeof describeDueSummary>[0]> = {}) =>
+    describeDueSummary({ knownThisMonth: 0, unknownThisMonth: 0, includesEstimates: false, ...over });
 
-  it("all amounts unknown -> allPending (never a misleading $0.00)", () => {
-    const s = summarizeBills([power, water], {}, today);
-    expect(s).toMatchObject({ dueThisMonth: 0, knownThisMonth: 0, unknownThisMonth: 2 });
-    expect(describeDueSummary(s)).toEqual({ allPending: true, knownOnly: false, awaiting: 2 });
+  it("nothing at all: no flags", () => {
+    expect(summary()).toEqual({ allPending: false, includesEstimates: false, knownOnly: false, awaiting: 0 });
   });
 
-  it("mixed known and unknown -> known-only total plus the awaiting count", () => {
-    const s = summarizeBills([power, rent], {}, today);
-    expect(s).toMatchObject({ dueThisMonth: 1000, knownThisMonth: 1, unknownThisMonth: 1 });
-    expect(describeDueSummary(s)).toEqual({ allPending: false, knownOnly: true, awaiting: 1 });
+  it("every cycle has no amount -> allPending (never a misleading $0.00)", () => {
+    expect(summary({ unknownThisMonth: 2 })).toEqual({ allPending: true, includesEstimates: false, knownOnly: false, awaiting: 2 });
   });
 
-  it("everything known -> neither flag", () => {
-    expect(describeDueSummary(summarizeBills([rent], {}, today))).toEqual({ allPending: false, knownOnly: false, awaiting: 0 });
-    expect(describeDueSummary(summarizeBills([], {}, today))).toEqual({ allPending: false, knownOnly: false, awaiting: 0 });
+  it("estimates only -> labelled 'includes estimates', not pending", () => {
+    expect(summary({ knownThisMonth: 2, includesEstimates: true })).toEqual({ allPending: false, includesEstimates: true, knownOnly: false, awaiting: 0 });
   });
 
-  it("a finalized actual amount moves a bill from awaiting to known, with totals unchanged otherwise", () => {
-    const m = mapOf(occ("2026-11-12", 152.1, [], "e"));
-    const s = summarizeBills([power, rent], m, today);
-    expect(s).toMatchObject({ dueThisMonth: 1152.1, knownThisMonth: 2, unknownThisMonth: 0 });
+  it("estimates plus no-amount cycles -> includes estimates AND awaiting; 'known only' is dropped (it would be misleading)", () => {
+    expect(summary({ knownThisMonth: 1, unknownThisMonth: 1, includesEstimates: true })).toEqual({ allPending: false, includesEstimates: true, knownOnly: false, awaiting: 1 });
+  });
+
+  it("actual amounts plus no-amount cycles -> 'known amounts only'", () => {
+    expect(summary({ knownThisMonth: 1, unknownThisMonth: 1 })).toEqual({ allPending: false, includesEstimates: false, knownOnly: true, awaiting: 1 });
   });
 });

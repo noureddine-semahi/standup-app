@@ -41,13 +41,14 @@ export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
       value: overview.monthlyDuePending ? t("bills.amountPendingShort") : formatCurrency(overview.monthlyDue),
       kind: "minimums",
       pending: overview.monthlyDuePending,
-      notes:
-        overview.monthlyDueUnknown > 0
-          ? [
-              ...(overview.monthlyDuePending ? [] : [t("bills.knownOnly")]),
-              overview.monthlyDueUnknown === 1 ? t("bills.awaitingOne") : t("bills.awaitingMany", { count: overview.monthlyDueUnknown }),
-            ]
-          : undefined,
+      notes: [
+        // Estimates are labelled; "known only" is the caveat only when no estimate is mixed in.
+        ...(overview.monthlyDueIncludesEstimates ? [t("bills.includesEstimates")] : []),
+        ...(overview.monthlyDueUnknown > 0 && !overview.monthlyDuePending && !overview.monthlyDueIncludesEstimates ? [t("bills.knownOnly")] : []),
+        ...(overview.monthlyDueUnknown > 0
+          ? [overview.monthlyDueUnknown === 1 ? t("bills.awaitingOne") : t("bills.awaitingMany", { count: overview.monthlyDueUnknown })]
+          : []),
+      ],
     },
     { key: "subs", label: t("fin.subscriptions"), value: formatCurrency(overview.subscriptionsMonthly), kind: "subs" },
     { key: "upcoming", label: t("fin.upcoming"), value: String(overview.upcomingCount), kind: "upcoming" },
@@ -70,7 +71,7 @@ export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
             <div className="pay-stat-value" data-long={longValues} data-pending={p.pending ? "true" : undefined} data-testid={`fin-${p.key}`}>
               {p.value}
             </div>
-            {p.notes?.map((n) => (
+            {p.notes?.filter(Boolean).map((n) => (
               <div key={n} className="bill-stat-note">
                 {n}
               </div>

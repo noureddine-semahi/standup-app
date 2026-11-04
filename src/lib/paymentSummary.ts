@@ -189,15 +189,18 @@ export type FinancesOverview = {
   /** Sum of tracked account balances (credit-card style outstanding balances). */
   totalBalances: number;
   /**
-   * Known amounts still to pay this month: account minimum payments PLUS the
-   * unpaid remainder of this month's bills. Bills are separate records from
+   * Still to pay this month: account minimum payments PLUS this month's bills'
+   * remaining amounts (actual where known, otherwise estimated -- see
+   * monthlyDueIncludesEstimates). Bills are separate records from
    * accounts (nothing is linked), so nothing is counted twice, and balances
    * are never part of this figure.
    */
   monthlyDue: number;
-  /** This month's bill cycles whose amount isn't known yet (not counted as $0). */
+  /** This month's bill cycles with no amount at all (no actual, no estimate) -- left out, never counted as $0. */
   monthlyDueUnknown: number;
-  /** Nothing known to show yet (no minimums, no known bill amounts) but bills await amounts: show "Amount pending", not $0.00. */
+  /** Monthly due contains at least one bill ESTIMATE (a variable bill with no actual amount yet). */
+  monthlyDueIncludesEstimates: boolean;
+  /** Nothing to show yet (no minimums, no bill with an actual or estimated amount) but bills have no amount: "Amount pending", not $0.00. */
   monthlyDuePending: boolean;
   /** Monthly equivalent of active subscriptions (none tracked yet). */
   subscriptionsMonthly: number;
@@ -215,16 +218,18 @@ export type FinancesOverview = {
 export function summarizeFinances(
   accounts: readonly PaymentAccount[],
   todayISO: string,
-  bills?: Pick<BillsSummary, "outstandingThisMonth" | "unknownThisMonth" | "upcoming"> | null
+  bills?: Pick<BillsSummary, "remainingThisMonth" | "unknownThisMonth" | "knownThisMonth" | "includesEstimates" | "upcoming"> | null
 ): FinancesOverview {
   const s = summarizePayments(accounts);
   const accountsUpcoming = accounts.filter((a) => getPaymentDueInfo(a, todayISO).tier !== "later").length;
-  const monthlyDueCents = toCents(s.monthlyMinimums) + toCents(bills?.outstandingThisMonth ?? 0);
+  const minimumsCents = toCents(s.monthlyMinimums);
+  const monthlyDueCents = minimumsCents + toCents(bills?.remainingThisMonth ?? 0);
   return {
     totalBalances: s.totalBalance,
     monthlyDue: fromCents(monthlyDueCents),
     monthlyDueUnknown: bills?.unknownThisMonth ?? 0,
-    monthlyDuePending: (bills?.unknownThisMonth ?? 0) > 0 && monthlyDueCents === 0,
+    monthlyDueIncludesEstimates: bills?.includesEstimates ?? false,
+    monthlyDuePending: (bills?.unknownThisMonth ?? 0) > 0 && (bills?.knownThisMonth ?? 0) === 0 && minimumsCents === 0,
     subscriptionsMonthly: 0,
     upcomingCount: accountsUpcoming + (bills?.upcoming ?? 0),
   };

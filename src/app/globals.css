@@ -14581,3 +14581,26 @@ button.status-chip-trigger[aria-expanded="true"] {
 [data-theme="light"] .pay-stat-value[data-pending="true"] {
   color: #8a4b05;
 }
+
+/* Bills summary: Expected / Paid / Remaining / Upcoming / Overdue.
+   Phones: Expected spans the first row, the rest pair up; wide: one row of five. */
+.bill-summary > .pay-stat:first-child {
+  grid-column: 1 / -1;
+}
+
+.fin-overview .pay-stat[data-kind="remaining"] {
+  --pay-accent: rgba(245, 158, 11, 0.7);
+}
+
+[data-theme="light"] .fin-overview .pay-stat[data-kind="remaining"] {
+  --pay-accent: rgba(180, 83, 9, 0.65);
+}
+
+@media (min-width: 720px) {
+  .bill-summary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .bill-summary > .pay-stat:first-child {
+    grid-column: auto;
+  }
+}

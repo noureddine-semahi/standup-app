@@ -273,30 +273,54 @@ export function currentOccurrence(bill: Bill, map: OccurrenceMap, todayISO: stri
 
 // ── Summaries ────────────────────────────────────────────────────────────
 
+/**
+ * The amount a cycle is planned/measured against:
+ *   1. the ACTUAL amount due when it is known (fixed bills always have one);
+ *   2. otherwise the bill's ESTIMATE (variable bills only);
+ *   3. otherwise unknown (null) -- never silently 0.
+ * `estimated` marks case 2 so every total built from it can say so. This is
+ * for totals/planning only: an estimate is never treated as a confirmed amount
+ * (a variable cycle's *status* still ignores it -- see computeStatus).
+ */
+export function selectedAmount(v: Pick<OccurrenceView, "amountDue" | "estimate">): { amount: number | null; estimated: boolean } {
+  if (v.amountDue !== null) return { amount: v.amountDue, estimated: false };
+  if (v.estimate !== null) return { amount: v.estimate, estimated: true };
+  return { amount: null, estimated: false };
+}
+
 export type BillsSummary = {
-  /** Sum of KNOWN amounts for this calendar month's occurrences. */
-  dueThisMonth: number;
-  /** This month's occurrences whose amount isn't known yet (never counted as $0). */
+  /** Expected this month: actual amounts where available, otherwise estimates (cycles with neither are excluded and counted in unknownThisMonth). */
+  expectedThisMonth: number;
+  /** True when expectedThisMonth / remainingThisMonth include at least one estimate. */
+  includesEstimates: boolean;
+  /** How many of this month's cycles are using an estimate instead of an actual amount. */
+  estimatedThisMonth: number;
+  /** This month's cycles with NO amount at all (no actual, no estimate) -- never counted as $0. */
   unknownThisMonth: number;
-  /** This month's occurrences whose amount IS known (distinguishes "all pending" from "$0 known"). */
+  /** This month's cycles that have an amount to measure against (actual or estimate). */
   knownThisMonth: number;
-  /** Non-reversed payments recorded against this month's occurrences. */
+  /** Non-reversed payments recorded against this month's cycles. */
   paidThisMonth: number;
+  /**
+   * Still to pay this month: the sum, per cycle, of max(0, selected amount - non-reversed payments)
+   * over cycles that have an amount. An overpayment contributes 0 (never negative, and never
+   * reduces another cycle's remaining).
+   */
+  remainingThisMonth: number;
   /** Unpaid occurrences due from today through each bill's own reminder window. */
   upcoming: number;
   /** Unpaid occurrences whose due date has passed (within the lookback window). */
   overdue: number;
-  /** Still-to-pay known amount for this month's not-yet-paid occurrences. */
-  outstandingThisMonth: number;
 };
 
 export function summarizeBills(bills: readonly Bill[], map: OccurrenceMap, todayISO: string): BillsSummary {
   const { start, end } = monthBounds(todayISO);
-  let due = 0;
+  let expected = 0;
   let paidTotal = 0;
-  let outstanding = 0;
+  let remaining = 0;
   let unknown = 0;
   let known = 0;
+  let estimated = 0;
   let upcoming = 0;
   let overdue = 0;
 
@@ -308,13 +332,18 @@ export function summarizeBills(bills: readonly Bill[], map: OccurrenceMap, today
       : occurrenceDates(bill, start, end);
     for (const d of monthDates) {
       const v = resolveOccurrence(bill, d, map[bill.id]?.[d], todayISO);
-      paidTotal += toCents(v.paid);
-      if (v.amountDue === null) unknown += 1;
-      else {
-        known += 1;
-        due += toCents(v.amountDue);
-        if (v.status !== "paid") outstanding += toCents(v.outstanding ?? 0);
+      const paidC = toCents(v.paid);
+      paidTotal += paidC;
+      const sel = selectedAmount(v);
+      if (sel.amount === null) {
+        unknown += 1;
+        continue;
       }
+      known += 1;
+      if (sel.estimated) estimated += 1;
+      const selC = toCents(sel.amount);
+      expected += selC;
+      remaining += Math.max(0, selC - paidC);
     }
     // Reminder window / overdue (bounded).
     for (const v of billOccurrenceViews(bill, map, todayISO)) {
@@ -324,13 +353,15 @@ export function summarizeBills(bills: readonly Bill[], map: OccurrenceMap, today
     }
   }
   return {
-    dueThisMonth: due / 100,
+    expectedThisMonth: expected / 100,
+    includesEstimates: estimated > 0,
+    estimatedThisMonth: estimated,
     unknownThisMonth: unknown,
     knownThisMonth: known,
     paidThisMonth: paidTotal / 100,
+    remainingThisMonth: remaining / 100,
     upcoming,
     overdue,
-    outstandingThisMonth: outstanding / 100,
   };
 }
 
@@ -352,18 +383,24 @@ export function statusLabel(v: Pick<OccurrenceView, "amountDue" | "status" | "ov
 }
 
 export type DueSummaryDisplay = {
-  /** True when this month has bills but none with a known amount: show "Amount pending", not $0.00. */
+  /** This month has bills but not one amount (actual or estimate): show "Amount pending", not $0.00. */
   allPending: boolean;
-  /** Some amounts known, some not: the figure is a known-amounts-only total. */
+  /** The totals include at least one estimate: label them "Includes estimates". */
+  includesEstimates: boolean;
+  /** Some cycles have no amount at all and are left out of the totals. */
   knownOnly: boolean;
-  /** Bills awaiting an actual amount. */
+  /** Bills with no amount at all. */
   awaiting: number;
 };
 
-export function describeDueSummary(s: Pick<BillsSummary, "knownThisMonth" | "unknownThisMonth">): DueSummaryDisplay {
+export function describeDueSummary(
+  s: Pick<BillsSummary, "knownThisMonth" | "unknownThisMonth" | "includesEstimates">
+): DueSummaryDisplay {
   return {
     allPending: s.unknownThisMonth > 0 && s.knownThisMonth === 0,
-    knownOnly: s.unknownThisMonth > 0 && s.knownThisMonth > 0,
+    includesEstimates: s.includesEstimates,
+    // "Known amounts only" is only the right caveat when no estimate is mixed in.
+    knownOnly: s.unknownThisMonth > 0 && s.knownThisMonth > 0 && !s.includesEstimates,
     awaiting: s.unknownThisMonth,
   };
 }

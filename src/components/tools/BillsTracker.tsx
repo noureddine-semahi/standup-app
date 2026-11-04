@@ -425,10 +425,13 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
 
   const available = c.state === "ready";
   const summary = summarizeBills(c.bills, c.occurrences, todayISO);
-  const dueText = formatCurrency(summary.dueThisMonth);
+  const expectedText = formatCurrency(summary.expectedThisMonth);
+  const remainingText = formatCurrency(summary.remainingThisMonth);
   const paidText = formatCurrency(summary.paidThisMonth);
   const dueDisplay = describeDueSummary(summary);
-  const longValues = (!dueDisplay.allPending && dueText.length > 10) || paidText.length > 10;
+  const longValues = (!dueDisplay.allPending && (expectedText.length > 10 || remainingText.length > 10)) || paidText.length > 10;
+  // Caveats shared by the Expected and Remaining panels (both are built from estimates when no actual exists).
+  const estimateNote = dueDisplay.includesEstimates ? <div className="bill-stat-note">{t("bills.includesEstimates")}</div> : null;
 
   // Cards: each bill's current occurrence, unpaid ones first in due-date order.
   const cards = c.bills
@@ -527,12 +530,13 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
       )}
 
       {available && (
-        <section className="pay-summary fin-overview" aria-label={t("bills.summary")}>
+        <section className="pay-summary fin-overview bill-summary" aria-label={t("bills.summary")}>
           <div className="pay-stat" data-kind="balance">
-            <div className="pay-stat-label">{t("bills.dueThisMonth")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-due">
-              {dueDisplay.allPending ? t("bills.amountPendingShort") : dueText}
+            <div className="pay-stat-label">{t("bills.expectedThisMonth")}</div>
+            <div className="pay-stat-value" data-long={longValues} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-expected">
+              {dueDisplay.allPending ? t("bills.amountPendingShort") : expectedText}
             </div>
+            {estimateNote}
             {dueDisplay.knownOnly && <div className="bill-stat-note">{t("bills.knownOnly")}</div>}
             {dueDisplay.awaiting > 0 && (
               <div className="bill-stat-note" data-testid="bills-unknown">
@@ -545,6 +549,13 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
             <div className="pay-stat-value" data-long={longValues} data-testid="bills-paid">
               {paidText}
             </div>
+          </div>
+          <div className="pay-stat" data-kind="remaining">
+            <div className="pay-stat-label">{t("bills.remainingThisMonth")}</div>
+            <div className="pay-stat-value" data-long={longValues} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-remaining">
+              {dueDisplay.allPending ? t("bills.amountPendingShort") : remainingText}
+            </div>
+            {estimateNote}
           </div>
           <div className="pay-stat" data-kind="minimums">
             <div className="pay-stat-label">{t("bills.upcoming")}</div>

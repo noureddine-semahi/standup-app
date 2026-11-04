@@ -54,12 +54,15 @@ export function getPaymentDueInfo(
   return { dueDate, daysUntilDue, tier };
 }
 
+export type BalanceMode = "auto" | "manual";
+
 export type PaymentFormValues = {
   name: string;
   balance: string;
   minimumPayment: string;
   dueDay: string;
   remindDaysBefore: string;
+  balanceMode: BalanceMode;
 };
 
 export type PaymentFormPayload = {
@@ -68,14 +71,17 @@ export type PaymentFormPayload = {
   minimumPayment: number;
   dueDay: number;
   remindDaysBefore: number;
+  balanceMode: BalanceMode;
 };
 
+/** New accounts start in manual mode: nothing touches the balance unless the user opts in. */
 export const EMPTY_PAYMENT_FORM: PaymentFormValues = {
   name: "",
   balance: "",
   minimumPayment: "",
   dueDay: "",
   remindDaysBefore: "3",
+  balanceMode: "manual",
 };
 
 export function paymentToFormValues(a: PaymentAccount): PaymentFormValues {
@@ -85,6 +91,7 @@ export function paymentToFormValues(a: PaymentAccount): PaymentFormValues {
     minimumPayment: String(a.minimumPayment),
     dueDay: String(a.dueDay),
     remindDaysBefore: String(a.remindDaysBefore),
+    balanceMode: a.balanceMode,
   };
 }
 
@@ -103,7 +110,7 @@ export function parsePaymentForm(v: PaymentFormValues): PaymentFormPayload | nul
   const minimumPayment = num(v.minimumPayment);
   const remindDaysBefore = num(v.remindDaysBefore);
   if (![balance, minimumPayment, remindDaysBefore].every(Number.isFinite)) return null;
-  return { name, balance, minimumPayment, dueDay, remindDaysBefore };
+  return { name, balance, minimumPayment, dueDay, remindDaysBefore, balanceMode: v.balanceMode === "auto" ? "auto" : "manual" };
 }
 
 /** Only the fields that actually differ, so an untouched edit never writes. */
@@ -114,5 +121,89 @@ export function diffPaymentPayload(a: PaymentAccount, p: PaymentFormPayload): Pa
   if (p.minimumPayment !== a.minimumPayment) patch.minimumPayment = p.minimumPayment;
   if (p.dueDay !== a.dueDay) patch.dueDay = p.dueDay;
   if (p.remindDaysBefore !== a.remindDaysBefore) patch.remindDaysBefore = p.remindDaysBefore;
+  if (p.balanceMode !== a.balanceMode) patch.balanceMode = p.balanceMode;
   return patch;
+}
+
+// ── Money helpers ────────────────────────────────────────────────────────
+// Amounts are handled in integer cents whenever they're combined, so
+// repeated adds/subtracts can't accumulate floating-point error.
+
+export const toCents = (n: number): number => Math.round(n * 100);
+export const fromCents = (c: number): number => c / 100;
+
+/** The balance a payment would leave behind (cents-exact). Negative = credit, as in the ledger. */
+export function previewBalanceAfter(balance: number, amount: number): number {
+  return fromCents(toCents(balance) - toCents(amount));
+}
+
+export type PaymentEntryValues = {
+  amount: string;
+  date: string; // YYYY-MM-DD
+  note: string;
+  applyBalance: boolean;
+};
+
+export type PaymentEntryPayload = {
+  amount: number;
+  paidAt: string; // ISO timestamp (local noon of the chosen day, so no timezone can flip the date)
+  note: string | null;
+  applyBalance: boolean;
+};
+
+export type PaymentEntryError = "amount" | "amountPrecision" | "date" | "dateFuture" | "note";
+
+export const MAX_PAYMENT_AMOUNT = 99_999_999.99;
+export const MAX_PAYMENT_NOTE = 500;
+
+/**
+ * Strict validation for Record Payment. The amount must be a plain positive
+ * number with at most 2 decimals -- nothing is silently rounded -- and the
+ * date a real calendar day that isn't in the future.
+ */
+export function parsePaymentEntry(
+  v: PaymentEntryValues,
+  todayISO: string
+): { ok: true; payload: PaymentEntryPayload } | { ok: false; error: PaymentEntryError } {
+  const raw = v.amount.trim();
+  if (!/^\d+(\.\d*)?$/.test(raw)) return { ok: false, error: "amount" };
+  if (!/^\d+(\.\d{1,2})?$/.test(raw)) return { ok: false, error: "amountPrecision" };
+  const amount = Number(raw);
+  if (!(amount > 0) || amount > MAX_PAYMENT_AMOUNT) return { ok: false, error: "amount" };
+
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.date.trim());
+  if (!m) return { ok: false, error: "date" };
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const probe = new Date(y, mo - 1, d, 12, 0, 0);
+  if (probe.getFullYear() !== y || probe.getMonth() !== mo - 1 || probe.getDate() !== d) return { ok: false, error: "date" };
+  if (v.date.trim() > todayISO) return { ok: false, error: "dateFuture" };
+
+  const note = v.note.trim();
+  if (note.length > MAX_PAYMENT_NOTE) return { ok: false, error: "note" };
+
+  return { ok: true, payload: { amount, paidAt: probe.toISOString(), note: note || null, applyBalance: v.applyBalance } };
+}
+
+export type FinancesOverview = {
+  /** Sum of tracked account balances (credit-card style outstanding balances). */
+  totalBalances: number;
+  /** Known monthly obligations. Phase 1: account minimum payments only; bills join in a later phase. */
+  monthlyDue: number;
+  /** Monthly equivalent of active subscriptions (none tracked yet). */
+  subscriptionsMonthly: number;
+  /** Obligations due today or inside their own reminder window. */
+  upcomingCount: number;
+};
+
+/**
+ * The hub's four headline figures. They are deliberately separate concepts
+ * and are never added together: balances are what is owed, monthly due is
+ * what must be paid this cycle (a payment toward a balance, so the two
+ * overlap by design), subscriptions are a recurring cost and upcoming is a
+ * count.
+ */
+export function summarizeFinances(accounts: readonly PaymentAccount[], todayISO: string): FinancesOverview {
+  const s = summarizePayments(accounts);
+  const upcomingCount = accounts.filter((a) => getPaymentDueInfo(a, todayISO).tier !== "later").length;
+  return { totalBalances: s.totalBalance, monthlyDue: s.monthlyMinimums, subscriptionsMonthly: 0, upcomingCount };
 }

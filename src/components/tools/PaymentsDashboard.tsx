@@ -2,25 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, History, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, History, MoreHorizontal, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { formatDateDisplay, formatDateTimeDisplay, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
+import { formatDateDisplay, toISODate, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
 import { formatCurrency } from "@/lib/salary";
 import {
   EMPTY_PAYMENT_FORM,
   diffPaymentPayload,
   getPaymentDueInfo,
+  parsePaymentEntry,
   parsePaymentForm,
   paymentToFormValues,
-  summarizePayments,
+  previewBalanceAfter,
+  type BalanceMode,
+  type PaymentEntryPayload,
+  type PaymentEntryValues,
   type PaymentFormPayload,
   type PaymentFormValues,
 } from "@/lib/paymentSummary";
 
-// Presentation layer for Tools -> Payments. All data work stays in the page's
-// existing handlers (createPaymentAccount / updatePaymentAccount /
-// deletePaymentAccount); each callback resolves to an error message, or null
-// on success, so a failed save keeps its modal open with the message shown.
+// Presentation + form layer for Finances -> Payments. All data work stays in
+// the page's handlers; each callback resolves to an error message, or null on
+// success, so a failed save keeps its modal open with the message shown.
 export type PaymentsDashboardProps = {
   accounts: PaymentAccount[];
   loading: boolean;
@@ -30,6 +33,9 @@ export type PaymentsDashboardProps = {
   onCreate: (payload: PaymentFormPayload) => Promise<string | null>;
   onUpdate: (account: PaymentAccount, patch: Partial<PaymentFormPayload>) => Promise<string | null>;
   onDelete: (account: PaymentAccount) => Promise<string | null>;
+  /** `clientKey` is stable for one open modal, so a repeated tap or retry can never pay twice. */
+  onRecordPayment: (account: PaymentAccount, payload: PaymentEntryPayload, clientKey: string) => Promise<string | null>;
+  onReversePayment: (account: PaymentAccount, txn: PaymentTransaction) => Promise<string | null>;
   historyOpenId: string | null;
   historyLoadingId: string | null;
   historyByAccount: Record<string, PaymentTransaction[]>;
@@ -38,6 +44,15 @@ export type PaymentsDashboardProps = {
 
 const FIELD_CLASS =
   "pay-input w-full min-w-0 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40";
+
+function newClientKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  // Fallback for very old webviews: still unique enough for an idempotency key.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 
 /** Shared dialog behaviour: Escape closes, Tab stays inside, focus returns to the opener. */
 function useDialog(dialogRef: React.RefObject<HTMLDivElement | null>, onClose: () => void, locked: boolean) {
@@ -61,7 +76,7 @@ function useDialog(dialogRef: React.RefObject<HTMLDivElement | null>, onClose: (
       }
       if (e.key !== "Tab" || !dialogRef.current) return;
       const focusables = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>("button, input, [href], select, textarea, [tabindex]:not([tabindex='-1'])")
+        dialogRef.current.querySelectorAll<HTMLElement>("button, input, textarea, [href], select, [tabindex]:not([tabindex='-1'])")
       ).filter((el) => !(el as HTMLButtonElement).disabled);
       if (focusables.length === 0) return;
       const first = focusables[0];
@@ -100,8 +115,9 @@ function PaymentFormModal({
   useDialog(dialogRef, onCancel, saving);
 
   const payload = parsePaymentForm(values);
-  const set = (k: keyof PaymentFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (k: Exclude<keyof PaymentFormValues, "balanceMode">) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((v) => ({ ...v, [k]: e.target.value }));
+  const setMode = (m: BalanceMode) => setValues((v) => ({ ...v, balanceMode: m }));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -189,6 +205,24 @@ function PaymentFormModal({
                 className={FIELD_CLASS}
               />
             </label>
+            <div className="pay-field pay-field-wide">
+              <span className="pay-label" id="pay-mode-label">{t("pay.balanceTracking")}</span>
+              <div className="pay-seg" role="group" aria-labelledby="pay-mode-label">
+                {(["manual", "auto"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className="btn goal-toolbar-btn salary-basis-btn pay-seg-btn"
+                    aria-pressed={values.balanceMode === m}
+                    disabled={saving}
+                    onClick={() => setMode(m)}
+                  >
+                    {m === "auto" ? t("pay.modeAuto") : t("pay.modeManual")}
+                  </button>
+                ))}
+              </div>
+              <p className="pay-help">{values.balanceMode === "auto" ? t("pay.modeAutoHelp") : t("pay.modeManualHelp")}</p>
+            </div>
           </div>
 
           {error && (
@@ -212,17 +246,167 @@ function PaymentFormModal({
   );
 }
 
-function RemoveAccountModal({
+const ENTRY_ERROR_KEY = {
+  amount: "pay.errAmount",
+  amountPrecision: "pay.errAmountPrecision",
+  date: "pay.errDate",
+  dateFuture: "pay.errDateFuture",
+  note: "pay.errNote",
+} as const;
+
+function RecordPaymentModal({
   account,
+  todayISO,
+  onCancel,
+  onSubmit,
+}: {
+  account: PaymentAccount;
+  todayISO: string;
+  onCancel: () => void;
+  onSubmit: (payload: PaymentEntryPayload, clientKey: string) => Promise<string | null>;
+}) {
+  const { t } = useLanguage();
+  const [values, setValues] = useState<PaymentEntryValues>({ amount: "", date: todayISO, note: "", applyBalance: false });
+  const [touched, setTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  // One key per open modal: every submit from this modal is the same intent.
+  const [clientKey] = useState(newClientKey);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef, onCancel, saving);
+
+  const isAuto = account.balanceMode === "auto";
+  const parsed = parsePaymentEntry({ ...values, applyBalance: isAuto || values.applyBalance }, todayISO);
+  const fieldError = !parsed.ok && (touched || values.amount.trim() !== "" || values.date !== todayISO) ? parsed.error : null;
+  const willReduce = isAuto || values.applyBalance;
+  const preview = parsed.ok && willReduce ? previewBalanceAfter(account.balance, parsed.payload.amount) : null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setTouched(true);
+    // The ref blocks a second tap in the same tick, before `saving` re-renders.
+    if (!parsed.ok || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    const err = await onSubmit(parsed.payload, clientKey);
+    if (err) {
+      setError(err);
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  return createPortal(
+    <div className="pay-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onCancel(); }}>
+      <div ref={dialogRef} className="pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-record-title">
+        <h2 id="pay-record-title" className="pay-modal-title">
+          {t("pay.recordTitle")}
+        </h2>
+        <p className="pay-modal-sub">{account.name}</p>
+        <form onSubmit={submit} noValidate>
+          <div className="pay-form-grid">
+            <label className="pay-field">
+              <span className="pay-label">{t("pay.amount")}</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                autoComplete="off"
+                value={values.amount}
+                onChange={(e) => setValues((v) => ({ ...v, amount: e.target.value }))}
+                placeholder="0.00"
+                disabled={saving}
+                aria-invalid={fieldError === "amount" || fieldError === "amountPrecision"}
+                className={FIELD_CLASS}
+              />
+            </label>
+            <label className="pay-field">
+              <span className="pay-label">{t("pay.date")}</span>
+              <input
+                type="date"
+                max={todayISO}
+                value={values.date}
+                onChange={(e) => setValues((v) => ({ ...v, date: e.target.value }))}
+                disabled={saving}
+                aria-invalid={fieldError === "date" || fieldError === "dateFuture"}
+                className={FIELD_CLASS}
+              />
+            </label>
+            <label className="pay-field pay-field-wide">
+              <span className="pay-label">{t("pay.note")}</span>
+              <input
+                type="text"
+                autoComplete="off"
+                value={values.note}
+                onChange={(e) => setValues((v) => ({ ...v, note: e.target.value }))}
+                disabled={saving}
+                className={FIELD_CLASS}
+              />
+            </label>
+          </div>
+
+          {fieldError && <p className="pay-field-error" role="alert">{t(ENTRY_ERROR_KEY[fieldError])}</p>}
+
+          {isAuto ? (
+            <p className="pay-help">{t("pay.autoBalanceNote")}</p>
+          ) : (
+            <>
+              <label className="pay-check">
+                <input
+                  type="checkbox"
+                  checked={values.applyBalance}
+                  onChange={(e) => setValues((v) => ({ ...v, applyBalance: e.target.checked }))}
+                  disabled={saving}
+                />
+                <span>{t("pay.applyBalance")}</span>
+              </label>
+              {!values.applyBalance && <p className="pay-help">{t("pay.manualBalanceNote")}</p>}
+            </>
+          )}
+          {preview !== null && <p className="pay-preview">{t("pay.balanceAfter", { amount: formatCurrency(preview) })}</p>}
+
+          {error && (
+            <div role="alert" className="pay-error">
+              {error}
+            </div>
+          )}
+
+          <div className="pay-modal-actions">
+            <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={onCancel} disabled={saving}>
+              {t("pay.cancel")}
+            </button>
+            <button type="submit" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" disabled={saving || !parsed.ok}>
+              {saving ? t("pay.recording") : t("pay.recordSave")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/** Destructive-style confirmation used for Remove account and Reverse payment. */
+function ConfirmActionModal({
+  title,
+  body,
+  confirmLabel,
+  busyLabel,
   onCancel,
   onConfirm,
 }: {
-  account: PaymentAccount;
+  title: string;
+  body: string;
+  confirmLabel: string;
+  busyLabel: string;
   onCancel: () => void;
   onConfirm: () => Promise<string | null>;
 }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -230,12 +414,14 @@ function RemoveAccountModal({
   useEffect(() => cancelRef.current?.focus(), []);
 
   async function confirm() {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     const err = await onConfirm();
     if (err) {
       setError(err);
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -247,17 +433,17 @@ function RemoveAccountModal({
         className="confirm-modal"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="pay-remove-title"
-        aria-describedby="pay-remove-body"
+        aria-labelledby="pay-confirm-title"
+        aria-describedby="pay-confirm-body"
       >
         <div className="confirm-modal-icon" aria-hidden="true">
           <AlertTriangle size={22} strokeWidth={2.4} />
         </div>
-        <h2 id="pay-remove-title" className="confirm-modal-title">
-          {t("pay.removeTitle")}
+        <h2 id="pay-confirm-title" className="confirm-modal-title">
+          {title}
         </h2>
-        <p id="pay-remove-body" className="confirm-modal-body">
-          {t("pay.removeBody", { name: account.name })}
+        <p id="pay-confirm-body" className="confirm-modal-body">
+          {body}
         </p>
         {error && (
           <div role="alert" className="pay-error">
@@ -274,7 +460,7 @@ function RemoveAccountModal({
             onClick={confirm}
             disabled={busy}
           >
-            {busy ? t("pay.removing") : t("pay.removeConfirm")}
+            {busy ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>
@@ -292,6 +478,8 @@ export default function PaymentsDashboard({
   onCreate,
   onUpdate,
   onDelete,
+  onRecordPayment,
+  onReversePayment,
   historyOpenId,
   historyLoadingId,
   historyByAccount,
@@ -300,13 +488,10 @@ export default function PaymentsDashboard({
   const { t } = useLanguage();
   const [formFor, setFormFor] = useState<"new" | PaymentAccount | null>(null);
   const [removing, setRemoving] = useState<PaymentAccount | null>(null);
+  const [recordingFor, setRecordingFor] = useState<PaymentAccount | null>(null);
+  const [reversing, setReversing] = useState<{ account: PaymentAccount; txn: PaymentTransaction } | null>(null);
   const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
-
-  const summary = summarizePayments(accounts);
-  const balanceText = formatCurrency(summary.totalBalance);
-  const minimumsText = formatCurrency(summary.monthlyMinimums);
-  // Both panels step down together so the two figures stay visually matched.
-  const longValues = balanceText.length > 10 || minimumsText.length > 10;
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function submitForm(payload: PaymentFormPayload): Promise<string | null> {
     if (formFor === "new") {
@@ -327,19 +512,17 @@ export default function PaymentsDashboard({
     return null;
   }
 
-  return (
-    <div className="card card-highlight pay-root">
-      <div className="pay-head">
-        <div>
-          <h2 className="text-xl font-bold mb-1">{t("pay.title")}</h2>
-          <p className="text-sm text-white/70">{t("pay.subtitle")}</p>
-        </div>
-      </div>
+  const txnDate = (txn: PaymentTransaction) => formatDateDisplay(toISODate(new Date(txn.paidAt)));
 
+  return (
+    <div className="pay-panel">
       <button
         type="button"
         className="btn standup-metal-btn standup-metal-btn--accent pay-add-btn"
-        onClick={() => setFormFor("new")}
+        onClick={() => {
+          setNotice(null);
+          setFormFor("new");
+        }}
       >
         <Plus size={16} aria-hidden="true" />
         {t("backlog.addPayment").replace(/^\+\s*/, "")}
@@ -350,21 +533,11 @@ export default function PaymentsDashboard({
           {message}
         </div>
       )}
-
-      <section className="pay-summary" aria-label={t("pay.summary")}>
-        <div className="pay-stat" data-kind="balance">
-          <div className="pay-stat-label">{t("pay.totalBalance")}</div>
-          <div className="pay-stat-value" data-long={longValues} data-testid="pay-total-balance">
-            {balanceText}
-          </div>
+      {notice && (
+        <div role="status" className="pay-notice">
+          {notice}
         </div>
-        <div className="pay-stat" data-kind="minimums">
-          <div className="pay-stat-label">{t("pay.monthlyMinimums")}</div>
-          <div className="pay-stat-value" data-long={longValues} data-testid="pay-monthly-minimums">
-            {minimumsText}
-          </div>
-        </div>
-      </section>
+      )}
 
       <h3 className="pay-section-title">{t("pay.upcoming")}</h3>
 
@@ -379,6 +552,7 @@ export default function PaymentsDashboard({
             const busy = busyIds.has(account.id);
             const moreOpen = moreOpenId === account.id;
             const historyOpen = historyOpenId === account.id;
+            const history = historyByAccount[account.id] ?? [];
             return (
               <li key={account.id} className="pay-card" data-testid="pay-card">
                 <div className="pay-card-head">
@@ -398,8 +572,34 @@ export default function PaymentsDashboard({
                     <dd>{formatCurrency(account.minimumPayment)}</dd>
                   </div>
                 </dl>
+                <p className="pay-tag" data-mode={account.balanceMode}>
+                  {account.balanceMode === "auto" ? t("pay.tagAuto") : t("pay.tagManual")}
+                </p>
 
                 <div className="pay-card-actions">
+                  <button
+                    type="button"
+                    className="btn standup-metal-btn standup-metal-btn--accent pay-action-btn pay-action-wide"
+                    onClick={() => {
+                      setNotice(null);
+                      setRecordingFor(account);
+                    }}
+                    disabled={busy}
+                    aria-label={`${t("pay.recordPayment")} ${account.name}`}
+                  >
+                    <Receipt size={14} aria-hidden="true" />
+                    {t("pay.recordPayment")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn standup-metal-btn pay-action-btn"
+                    onClick={() => onToggleHistory(account)}
+                    aria-expanded={historyOpen}
+                    aria-label={`${t("pay.history")} ${account.name}`}
+                  >
+                    <History size={14} aria-hidden="true" />
+                    {t("pay.history")}
+                  </button>
                   <button
                     type="button"
                     className="btn standup-metal-btn pay-action-btn"
@@ -426,15 +626,6 @@ export default function PaymentsDashboard({
                   <div className="pay-more" role="group" aria-label={`${t("pay.more")} ${account.name}`}>
                     <button
                       type="button"
-                      className="btn standup-metal-btn pay-action-btn"
-                      onClick={() => onToggleHistory(account)}
-                      aria-pressed={historyOpen}
-                    >
-                      <History size={14} aria-hidden="true" />
-                      {t("backlog.paymentHistoryToggle")}
-                    </button>
-                    <button
-                      type="button"
                       className="btn standup-metal-btn standup-metal-btn--danger pay-action-btn"
                       onClick={() => setRemoving(account)}
                       disabled={busy}
@@ -446,20 +637,34 @@ export default function PaymentsDashboard({
                 )}
 
                 {historyOpen && (
-                  <div className="pay-history">
+                  <div className="pay-history" data-testid="pay-history">
                     {historyLoadingId === account.id ? (
                       <p className="text-xs text-white/50">{t("backlog.paymentHistoryLoading")}</p>
-                    ) : (historyByAccount[account.id]?.length ?? 0) === 0 ? (
+                    ) : history.length === 0 ? (
                       <p className="text-xs text-white/50 italic">{t("backlog.paymentHistoryEmpty")}</p>
                     ) : (
-                      <div className="space-y-1">
-                        {historyByAccount[account.id].map((txn) => (
-                          <div key={txn.id} className="flex items-center justify-between gap-3 text-xs text-white/70">
-                            <span>{formatDateTimeDisplay(txn.paidAt)}</span>
-                            <span className="font-medium">{formatCurrency(txn.amount)}</span>
-                          </div>
+                      <ul className="pay-history-list">
+                        {history.map((txn) => (
+                          <li key={txn.id} className="pay-txn" data-reversed={!!txn.reversedAt}>
+                            <div className="pay-txn-main">
+                              <span className="pay-txn-amount">{formatCurrency(txn.amount)}</span>
+                              <span className="pay-txn-date">{txnDate(txn)}</span>
+                              {txn.reversedAt && <span className="pay-txn-badge">{t("pay.reversedBadge")}</span>}
+                            </div>
+                            {txn.note && <p className="pay-txn-note">{txn.note}</p>}
+                            {!txn.reversedAt && (
+                              <button
+                                type="button"
+                                className="btn standup-metal-btn pay-txn-reverse"
+                                onClick={() => setReversing({ account, txn })}
+                                aria-label={`${t("pay.reverse")} ${formatCurrency(txn.amount)} ${txnDate(txn)}`}
+                              >
+                                {t("pay.reverse")}
+                              </button>
+                            )}
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     )}
                   </div>
                 )}
@@ -479,15 +684,55 @@ export default function PaymentsDashboard({
           onSubmit={submitForm}
         />
       )}
+      {recordingFor && (
+        <RecordPaymentModal
+          key={recordingFor.id}
+          // Always the live record, so the balance preview reflects the latest value.
+          account={accounts.find((a) => a.id === recordingFor.id) ?? recordingFor}
+          todayISO={todayISO}
+          onCancel={() => setRecordingFor(null)}
+          onSubmit={async (payload, clientKey) => {
+            const err = await onRecordPayment(recordingFor, payload, clientKey);
+            if (!err) {
+              setRecordingFor(null);
+              setNotice(t("pay.recorded"));
+            }
+            return err;
+          }}
+        />
+      )}
       {removing && (
-        <RemoveAccountModal
-          account={removing}
+        <ConfirmActionModal
+          title={t("pay.removeTitle")}
+          body={t("pay.removeBody", { name: removing.name })}
+          confirmLabel={t("pay.removeConfirm")}
+          busyLabel={t("pay.removing")}
           onCancel={() => setRemoving(null)}
           onConfirm={async () => {
             const err = await onDelete(removing);
             if (!err) {
               setRemoving(null);
               setMoreOpenId(null);
+            }
+            return err;
+          }}
+        />
+      )}
+      {reversing && (
+        <ConfirmActionModal
+          title={t("pay.reverseTitle")}
+          body={t(reversing.txn.balanceApplied ? "pay.reverseBodyApplied" : "pay.reverseBodyNotApplied", {
+            amount: formatCurrency(reversing.txn.amount),
+            date: txnDate(reversing.txn),
+          })}
+          confirmLabel={t("pay.reverseConfirm")}
+          busyLabel={t("pay.reversing")}
+          onCancel={() => setReversing(null)}
+          onConfirm={async () => {
+            const err = await onReversePayment(reversing.account, reversing.txn);
+            if (!err) {
+              setReversing(null);
+              setNotice(t("pay.reversedDone"));
             }
             return err;
           }}

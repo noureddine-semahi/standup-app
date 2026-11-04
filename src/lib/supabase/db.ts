@@ -2311,6 +2311,14 @@ export type PaymentAccount = {
   remindDaysBefore: number;
   lastReminderDueDate: string | null;
   createdAt: string;
+  /**
+   * 'auto': recorded payments / confirmed payment goals subtract from
+   * `balance` (what every account did before this field existed).
+   * 'manual': `balance` is only ever changed by the user, or by a payment
+   * they explicitly flag "also reduce balance". A missing column (migration
+   * not applied yet) reads as 'auto' -- the pre-existing behavior.
+   */
+  balanceMode: "auto" | "manual";
 };
 
 function rowToPaymentAccount(r: any): PaymentAccount {
@@ -2323,6 +2331,7 @@ function rowToPaymentAccount(r: any): PaymentAccount {
     remindDaysBefore: r.remind_days_before,
     lastReminderDueDate: r.last_reminder_due_date,
     createdAt: r.created_at,
+    balanceMode: r.balance_mode === "manual" ? "manual" : "auto",
   };
 }
 
@@ -2343,6 +2352,7 @@ export async function createPaymentAccount(params: {
   minimumPayment: number;
   dueDay: number;
   remindDaysBefore: number;
+  balanceMode?: "auto" | "manual";
 }): Promise<PaymentAccount> {
   const userId = await getCurrentUserId();
   const { data, error } = await supabase
@@ -2354,6 +2364,10 @@ export async function createPaymentAccount(params: {
       minimum_payment: params.minimumPayment,
       due_day: params.dueDay,
       remind_days_before: params.remindDaysBefore,
+      // New accounts default to 'manual' in the database; only an explicit
+      // opt-in to 'auto' is sent, so Add Account keeps working even before
+      // the balance_mode migration has been applied.
+      ...(params.balanceMode === "auto" ? { balance_mode: "auto" } : {}),
     })
     .select()
     .single();
@@ -2363,7 +2377,7 @@ export async function createPaymentAccount(params: {
 
 export async function updatePaymentAccount(
   id: string,
-  params: Partial<{ name: string; balance: number; minimumPayment: number; dueDay: number; remindDaysBefore: number }>
+  params: Partial<{ name: string; balance: number; minimumPayment: number; dueDay: number; remindDaysBefore: number; balanceMode: "auto" | "manual" }>
 ): Promise<PaymentAccount> {
   const patch: Record<string, unknown> = {};
   if (params.name !== undefined) patch.name = params.name.trim();
@@ -2371,6 +2385,7 @@ export async function updatePaymentAccount(
   if (params.minimumPayment !== undefined) patch.minimum_payment = params.minimumPayment;
   if (params.dueDay !== undefined) patch.due_day = params.dueDay;
   if (params.remindDaysBefore !== undefined) patch.remind_days_before = params.remindDaysBefore;
+  if (params.balanceMode !== undefined) patch.balance_mode = params.balanceMode;
 
   const { data, error } = await supabase.from("payment_accounts").update(patch).eq("id", id).select().single();
   if (error) throw error;
@@ -2457,10 +2472,59 @@ export type PaymentTransaction = {
   goalId: string | null;
   amount: number;
   paidAt: string;
+  note: string | null;
+  /** Whether this payment actually reduced the account balance (false for payments on manual accounts that weren't flagged). */
+  balanceApplied: boolean;
+  /** Set when the payment was reversed. The row is never deleted. */
+  reversedAt: string | null;
 };
 
 function rowToPaymentTransaction(r: any): PaymentTransaction {
-  return { id: r.id, accountId: r.account_id, goalId: r.goal_id, amount: Number(r.amount), paidAt: r.paid_at };
+  return {
+    id: r.id,
+    accountId: r.account_id,
+    goalId: r.goal_id,
+    amount: Number(r.amount),
+    paidAt: r.paid_at,
+    note: r.note ?? null,
+    balanceApplied: r.balance_applied ?? true,
+    reversedAt: r.reversed_at ?? null,
+  };
+}
+
+/**
+ * Records one payment through record_payment(): the ledger row and (when the
+ * account's balance policy says so) the balance change commit together
+ * server-side. `clientKey` makes the call idempotent -- a repeated tap or a
+ * retry with the same key returns the original result instead of paying
+ * twice. Returns the account's resulting balance.
+ */
+export async function recordPayment(params: {
+  accountId: string;
+  amount: number;
+  paidAt: string;
+  note: string | null;
+  applyBalance: boolean;
+  clientKey: string;
+}): Promise<{ transactionId: string; newBalance: number; wasDuplicate: boolean }> {
+  const { data, error } = await supabase.rpc("record_payment", {
+    p_account_id: params.accountId,
+    p_amount: params.amount,
+    p_paid_at: params.paidAt,
+    p_note: params.note,
+    p_apply_balance: params.applyBalance,
+    p_client_key: params.clientKey,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { transactionId: row.transaction_id, newBalance: Number(row.new_balance), wasDuplicate: !!row.was_duplicate };
+}
+
+/** Reverses a payment (row kept, stamped reversed; balance restored only if it was applied). Returns the account's resulting balance. */
+export async function reversePayment(transactionId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("reverse_payment", { p_transaction_id: transactionId });
+  if (error) throw error;
+  return Number(data);
 }
 
 /** One account's payment history, newest first — powers the "History" expand on the Payments tab. */

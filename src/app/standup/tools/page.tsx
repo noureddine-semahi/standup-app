@@ -7,8 +7,8 @@ import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import CalculatorTool from "@/components/tools/CalculatorTool";
 import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
-import PaymentsDashboard from "@/components/tools/PaymentsDashboard";
-import type { PaymentFormPayload } from "@/lib/paymentSummary";
+import FinancesHub from "@/components/tools/FinancesHub";
+import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
   addBacklogGoal,
@@ -33,6 +33,8 @@ import {
   getPaymentAccounts,
   createPaymentAccount,
   updatePaymentAccount,
+  recordPayment,
+  reversePayment,
   deletePaymentAccount,
   getPaymentTransactions,
   type BacklogGoal,
@@ -69,6 +71,12 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   if (sorted.length === 5 && sorted.every((d, i) => d === i + 1)) return t("backlog.recurringWeekdays");
   if (sorted.length === 2 && sorted[0] === 0 && sorted[1] === 6) return t("backlog.recurringWeekends");
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
+}
+
+function errorMessage(e: unknown, fallback: string): string {
+  // Supabase/PostgREST errors are plain objects with a message, not Error instances.
+  const message = (e as { message?: unknown } | null)?.message;
+  return typeof message === "string" && message ? message : fallback;
 }
 
 type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "calculator" | "salary";
@@ -561,6 +569,60 @@ export default function ToolsPage() {
       return null;
     } catch (e: any) {
       return e?.message ?? t("backlog.failedDeletePayment");
+    } finally {
+      setPaymentBusy(account.id, false);
+    }
+  }
+
+  /** Re-reads one account's ledger after a record/reverse -- only if it has been loaded, so a never-opened history isn't fetched for nothing. */
+  async function refreshHistoryIfLoaded(accountId: string) {
+    if (!paymentHistoryByAccount[accountId]) return;
+    try {
+      const rows = await getPaymentTransactions(accountId);
+      setPaymentHistoryByAccount((prev) => ({ ...prev, [accountId]: rows }));
+    } catch (e) {
+      setPaymentsMsg(errorMessage(e, t("backlog.failedLoadPaymentHistory")));
+    }
+  }
+
+  // Record Payment goes through record_payment(): ledger row + (policy-driven)
+  // balance change commit together server-side, and clientKey makes a
+  // repeated tap or retry a no-op. The returned balance is applied locally so
+  // the card updates without a refetch.
+  async function handleRecordPayment(account: PaymentAccount, payload: PaymentEntryPayload, clientKey: string): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return null;
+    setPaymentBusy(account.id, true);
+    setPaymentsMsg(null);
+    try {
+      const result = await recordPayment({
+        accountId: account.id,
+        amount: payload.amount,
+        paidAt: payload.paidAt,
+        note: payload.note,
+        applyBalance: payload.applyBalance,
+        clientKey,
+      });
+      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: result.newBalance } : a)));
+      await refreshHistoryIfLoaded(account.id);
+      return null;
+    } catch (e) {
+      return errorMessage(e, t("pay.failedRecord"));
+    } finally {
+      setPaymentBusy(account.id, false);
+    }
+  }
+
+  async function handleReversePayment(account: PaymentAccount, txn: PaymentTransaction): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return null;
+    setPaymentBusy(account.id, true);
+    setPaymentsMsg(null);
+    try {
+      const newBalance = await reversePayment(txn.id);
+      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: newBalance } : a)));
+      await refreshHistoryIfLoaded(account.id);
+      return null;
+    } catch (e) {
+      return errorMessage(e, t("pay.failedReverse"));
     } finally {
       setPaymentBusy(account.id, false);
     }
@@ -1274,7 +1336,7 @@ export default function ToolsPage() {
 
     {activeTab === "payments" && (
       <div className="mt-6">
-        <PaymentsDashboard
+        <FinancesHub
           accounts={paymentAccounts}
           loading={paymentsLoading}
           message={paymentsMsg}
@@ -1283,6 +1345,8 @@ export default function ToolsPage() {
           onCreate={handleAddPayment}
           onUpdate={handleUpdatePayment}
           onDelete={handleDeletePayment}
+          onRecordPayment={handleRecordPayment}
+          onReversePayment={handleReversePayment}
           historyOpenId={expandedPaymentHistoryId}
           historyLoadingId={paymentHistoryLoadingId}
           historyByAccount={paymentHistoryByAccount}

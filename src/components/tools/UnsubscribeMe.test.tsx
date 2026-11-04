@@ -104,28 +104,71 @@ describe("Unsubscribe Me entry point", () => {
   });
 });
 
+describe("compact choice screen", () => {
+  it("opens on just two choices, with nothing from either workflow showing yet", () => {
+    setup();
+    openUnsubscribe();
+    expect(screen.getByTestId("unsub-choose-help").textContent).toContain("Help me cancel");
+    expect(screen.getByTestId("unsub-choose-done").textContent).toContain("I’ve already canceled");
+    expect(screen.queryByTestId("unsub-help")).toBeNull();
+    expect(screen.queryByLabelText(/Cancellation page link/)).toBeNull();
+    expect(screen.queryByLabelText("Date you canceled")).toBeNull();
+    expect(screen.queryByTestId("unsub-open")).toBeNull();
+  });
+  it("shows only the selected workflow, and Back returns to the choice", () => {
+    setup();
+    openUnsubscribe();
+    fireEvent.click(screen.getByTestId("unsub-choose-done"));
+    expect(screen.getByLabelText("Date you canceled")).toBeTruthy();
+    expect(screen.queryByTestId("unsub-help")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByTestId("unsub-choose-help")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("unsub-choose-help"));
+    expect(screen.getByTestId("unsub-help")).toBeTruthy();
+    expect(screen.queryByLabelText("Date you canceled")).toBeNull();
+  });
+  it("closing changes nothing", () => {
+    const c = setup();
+    openUnsubscribe();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByTestId("unsub-modal")).toBeNull();
+    expect(c.startAssistedCancellation).not.toHaveBeenCalled();
+    expect(c.reportCancellation).not.toHaveBeenCalled();
+  });
+});
+
 describe("automatic cancellation is never offered or simulated", () => {
-  it("shows it as unavailable with the reason, and there is no button that could 'cancel for you'", () => {
+  it("is stated as unavailable with the reason; there is no automatic button", () => {
     const c = setup();
     openUnsubscribe();
     const auto = within(screen.getByTestId("unsub-auto"));
+    expect(auto.getByText(/Automatic cancellation isn’t available for Netflix/)).toBeTruthy();
     expect(auto.getByText(/no authorized integration/)).toBeTruthy();
-    expect(auto.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: /automatic/i })).toBeNull();
     expect(c.reportCancellation).not.toHaveBeenCalled();
     expect(c.startAssistedCancellation).not.toHaveBeenCalled();
   });
   it("never asks for a provider password", () => {
     setup();
     openUnsubscribe();
-    expect(document.querySelector('input[type="password"]')).toBeNull();
     expect(screen.getByText(/never asks for your provider password/)).toBeTruthy();
+    fireEvent.click(screen.getByTestId("unsub-choose-help"));
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByTestId("unsub-choose-done"));
+    expect(document.querySelector('input[type="password"]')).toBeNull();
   });
 });
 
-describe("guided (assisted) cancellation", () => {
-  it("without a link: explains, and saves only a valid https link", async () => {
-    const c = setup();
+describe("Help me cancel (guided)", () => {
+  const openHelp = () => {
     openUnsubscribe();
+    fireEvent.click(screen.getByTestId("unsub-choose-help"));
+  };
+
+  it("without a link: shows the link field (only here), and saves only a valid https link", async () => {
+    const c = setup();
+    openHelp();
     expect(screen.queryByTestId("unsub-open")).toBeNull();
     const input = screen.getByLabelText(/Cancellation page link/);
     fireEvent.change(input, { target: { value: "http://example.com/cancel" } });
@@ -140,40 +183,62 @@ describe("guided (assisted) cancellation", () => {
     await waitFor(() => expect(c.saveCancelUrl).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), "https://example.com/account/cancel"));
   });
 
-  it("with a saved link: opens it safely, labels it as the user's, logs a request, and never claims it was canceled", async () => {
+  it("with a saved link: no link field, labeled unverified, opens safely, logs a request and never claims it was canceled", async () => {
     const c = setup({ subscriptions: [sub({ cancelUrl: "https://example.com/cancel" })] });
-    openUnsubscribe();
+    openHelp();
+    expect(screen.queryByLabelText(/Cancellation page link/)).toBeNull();
     const link = screen.getByTestId("unsub-open") as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe("https://example.com/cancel");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
-    expect(screen.getByText(/StandUp hasn’t verified it/)).toBeTruthy();
+    expect(screen.getByText(/Unverified link you saved/)).toBeTruthy();
     expect(screen.getByText(/Opening the page doesn’t cancel anything/)).toBeTruthy();
     fireEvent.click(link);
     await waitFor(() => expect(c.startAssistedCancellation).toHaveBeenCalledWith(expect.objectContaining({ id: "s1" }), "https://example.com/cancel"));
     expect(await screen.findByText(/StandUp can’t tell whether you finished/)).toBeTruthy();
-    // opening the page changed nothing about the subscription
     expect(c.reportCancellation).not.toHaveBeenCalled();
     expect(c.changeStatus).not.toHaveBeenCalled();
   });
 
-  it("doesn't log a second request while one is already open", () => {
+  it("a saved link can be replaced via Change link", async () => {
+    const c = setup({ subscriptions: [sub({ cancelUrl: "https://example.com/old" })] });
+    openHelp();
+    fireEvent.click(screen.getByRole("button", { name: "Change link" }));
+    expect(screen.queryByTestId("unsub-open")).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Cancellation page link/), { target: { value: "https://example.com/new" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save link" }));
+    await waitFor(() => expect(c.saveCancelUrl).toHaveBeenCalledWith(expect.anything(), "https://example.com/new"));
+  });
+
+  it("doesn't log a second request while one is already open, and says nothing is confirmed", () => {
     const c = setup({
       subscriptions: [sub({ cancelUrl: "https://example.com/cancel" })],
       cancellations: { s1: [cancellation({ status: "in_progress", mode: "assisted", completedOn: null })] },
     });
     openUnsubscribe();
     expect(screen.getByTestId("unsub-pending").textContent).toContain("StandUp hasn’t confirmed anything");
+    fireEvent.click(screen.getByTestId("unsub-choose-help"));
     fireEvent.click(screen.getByTestId("unsub-open"));
     expect(c.startAssistedCancellation).not.toHaveBeenCalled();
   });
+
+  it("report-back buttons appear only once a request exists", () => {
+    setup({ subscriptions: [sub({ cancelUrl: "https://example.com/cancel" })] });
+    openHelp();
+    expect(screen.queryByRole("button", { name: "I canceled it" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "It didn’t work" })).toBeNull();
+  });
 });
 
-describe("manual cancellation (user-reported)", () => {
+describe("I've already canceled (user-reported)", () => {
+  const openDone = () => {
+    openUnsubscribe();
+    fireEvent.click(screen.getByTestId("unsub-choose-done"));
+  };
+
   it("records the date and note as a user report, and says it isn't provider-confirmed", async () => {
     const c = setup();
-    openUnsubscribe();
-    fireEvent.click(within(screen.getByTestId("unsub-manual")).getByRole("button", { name: "I canceled it myself" }));
+    openDone();
     expect(screen.getByText(/not confirmed by the provider/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Date you canceled"), { target: { value: "2026-11-02" } });
     fireEvent.change(screen.getByLabelText(/Note/), { target: { value: "Emailed support" } });
@@ -187,8 +252,7 @@ describe("manual cancellation (user-reported)", () => {
 
   it("rejects a future date and doesn't call the controller", () => {
     const c = setup();
-    openUnsubscribe();
-    fireEvent.click(within(screen.getByTestId("unsub-manual")).getByRole("button", { name: "I canceled it myself" }));
+    openDone();
     fireEvent.change(screen.getByLabelText("Date you canceled"), { target: { value: "2026-12-01" } });
     expect((screen.getByRole("button", { name: "Record cancellation" }) as HTMLButtonElement).disabled).toBe(true);
     expect(c.reportCancellation).not.toHaveBeenCalled();
@@ -196,16 +260,14 @@ describe("manual cancellation (user-reported)", () => {
 
   it("resolves the open guided request when one exists", async () => {
     const c = setup({ cancellations: { s1: [cancellation({ id: "req-9", status: "in_progress", mode: "assisted", completedOn: null })] } });
-    openUnsubscribe();
-    fireEvent.click(within(screen.getByTestId("unsub-manual")).getByRole("button", { name: "I canceled it myself" }));
+    openDone();
     fireEvent.click(screen.getByRole("button", { name: "Record cancellation" }));
     await waitFor(() => expect(c.reportCancellation).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ completedOn: TODAY }), "req-9"));
   });
 
   it("shows the error and stays open when saving fails (nothing is marked canceled)", async () => {
     setup({ reportCancellation: vi.fn().mockResolvedValue("Network down") });
-    openUnsubscribe();
-    fireEvent.click(within(screen.getByTestId("unsub-manual")).getByRole("button", { name: "I canceled it myself" }));
+    openDone();
     fireEvent.click(screen.getByRole("button", { name: "Record cancellation" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Network down");
     expect(screen.getByTestId("unsub-modal")).toBeTruthy();
@@ -213,15 +275,30 @@ describe("manual cancellation (user-reported)", () => {
 });
 
 describe("recording that it didn't work", () => {
-  it("is offered once a guided request is open, requires a description, and keeps the error", async () => {
-    const c = setup({ cancellations: { s1: [cancellation({ id: "req-9", status: "in_progress", mode: "assisted", completedOn: null })] } });
+  it("is reachable from Help me cancel once a request is open, requires a description, and keeps the error", async () => {
+    const c = setup({
+      subscriptions: [sub({ cancelUrl: "https://example.com/cancel" })],
+      cancellations: { s1: [cancellation({ id: "req-9", status: "in_progress", mode: "assisted", completedOn: null })] },
+    });
     openUnsubscribe();
+    fireEvent.click(screen.getByTestId("unsub-choose-help"));
     fireEvent.click(screen.getByRole("button", { name: "It didn’t work" }));
     expect((screen.getByRole("button", { name: "Save problem" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("What happened?"), { target: { value: "CAPTCHA kept failing" } });
     fireEvent.click(screen.getByRole("button", { name: "Save problem" }));
     await waitFor(() => expect(c.reportCancellationFailure).toHaveBeenCalledWith(expect.anything(), "CAPTCHA kept failing", "req-9"));
     expect(c.reportCancellation).not.toHaveBeenCalled();
+  });
+  it("'I canceled it' from Help me cancel goes to the report form and resolves that request", async () => {
+    const c = setup({
+      subscriptions: [sub({ cancelUrl: "https://example.com/cancel" })],
+      cancellations: { s1: [cancellation({ id: "req-9", status: "in_progress", mode: "assisted", completedOn: null })] },
+    });
+    openUnsubscribe();
+    fireEvent.click(screen.getByTestId("unsub-choose-help"));
+    fireEvent.click(screen.getByRole("button", { name: "I canceled it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Record cancellation" }));
+    await waitFor(() => expect(c.reportCancellation).toHaveBeenCalledWith(expect.anything(), expect.anything(), "req-9"));
   });
   it("isn't offered when nothing was started", () => {
     setup();

@@ -14788,3 +14788,67 @@ button.status-chip-trigger[aria-expanded="true"] {
   color: #b91c1c;
 }
 
+/* Unsubscribe Me: compact choice screen */
+.unsub-choice {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: 56px;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+}
+.unsub-choice:hover,
+.unsub-choice:focus-visible {
+  border-color: rgba(245, 158, 11, 0.55);
+}
+.unsub-choice-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.unsub-choice-sub {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.65);
+  overflow-wrap: anywhere;
+}
+.unsub-auto-note,
+.unsub-pending {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.unsub-auto-note {
+  color: rgba(255, 255, 255, 0.6);
+}
+.unsub-pending {
+  color: #fcd34d;
+}
+.unsub-link-btn {
+  justify-self: start;
+  background: none;
+  border: 0;
+  padding: 0.5rem 0;
+  min-height: 44px;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  color: inherit;
+  cursor: pointer;
+}
+[data-theme="light"] .unsub-choice {
+  border-color: rgba(0, 0, 0, 0.16);
+  background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .unsub-choice-sub,
+[data-theme="light"] .unsub-auto-note {
+  color: rgba(31, 33, 37, 0.7);
+}
+[data-theme="light"] .unsub-pending {
+  color: #8a4b05;
+}
+

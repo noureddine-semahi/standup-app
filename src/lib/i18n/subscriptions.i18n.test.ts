@@ -18,7 +18,7 @@ describe("subscription strings (English / Spanish)", () => {
       expect((en as Record<string, string>)[k].trim().length, "en " + k).toBeGreaterThan(0);
       expect((es as Record<string, string>)[k].trim().length, "es " + k).toBeGreaterThan(0);
     }
-    for (const k of ["subs.title", "subs.subtitle", "subs.add", "subs.monthlyCost", "subs.statusActive", "subs.cancelBody", "subs.empty"]) {
+    for (const k of ["subs.title", "subs.subtitle", "subs.add", "subs.monthlyCost", "subs.statusActive", "unsub.intro", "unsub.chooseHelp", "unsub.chooseDone", "subs.empty"]) {
       expect((es as Record<string, string>)[k]).not.toBe((en as Record<string, string>)[k]);
     }
   });
@@ -36,7 +36,7 @@ describe("subscription strings (English / Spanish)", () => {
       "subs.monthlyCost", "subs.yearlyEstimate", "subs.activeCount", "subs.upcomingRenewals",
       "subs.fieldName", "subs.fieldAmount", "subs.fieldNextBilling", "subs.fieldTrialEnds", "subs.fieldRemind",
       "subs.errFirstCharge", "subs.errStartAfter", "subs.errInterval",
-      "subs.cancelBody", "subs.deleteBody", "subs.reverseBody",
+      "unsub.chooseHelp", "unsub.chooseDone", "subs.deleteBody", "subs.reverseBody",
       "subs.renewsInDays", "subs.trialEndsInDays", "subs.projectedNote",
       "subs.empty", "subs.unavailable",
     ];
@@ -57,8 +57,17 @@ describe("subscription strings (English / Spanish)", () => {
     expect((es as Record<string, string>)["unsub.savingsNote"]).toMatch(/No es dinero ya ahorrado/);
   });
 
-  it("the cancel confirmation makes clear it only updates StandUp's tracking, in both languages", () => {
-    expect((en as Record<string, string>)["subs.cancelBody"]).toMatch(/does not cancel the subscription with the provider/);
-    expect((es as Record<string, string>)["subs.cancelBody"]).toMatch(/No cancela la suscripción con el proveedor/);
+  it("the retired Mark canceled strings are gone, and the compact Unsubscribe Me choices exist in both languages", () => {
+    for (const dict of [en, es] as Record<string, string>[]) {
+      for (const k of ["subs.cancel", "subs.cancelTitle", "subs.cancelBody", "subs.cancelConfirm"]) expect(dict[k], k).toBeUndefined();
+      for (const k of ["unsub.chooseHelp", "unsub.chooseHelpSub", "unsub.chooseDone", "unsub.chooseDoneSub", "unsub.linkChange"]) expect(dict[k], k).toBeTruthy();
+    }
+  });
+
+  it("the report step says it is saved as reported by you, not confirmed by the provider, in both languages", () => {
+    expect((en as Record<string, string>)["unsub.manualBody"]).toMatch(/not confirmed by the provider/);
+    expect((es as Record<string, string>)["unsub.manualBody"]).toMatch(/no confirmada por el proveedor/);
+    expect((en as Record<string, string>)["unsub.assistSaved"]).toMatch(/Unverified/);
+    expect((es as Record<string, string>)["unsub.assistSaved"]).toMatch(/sin verificar/);
   });
 });

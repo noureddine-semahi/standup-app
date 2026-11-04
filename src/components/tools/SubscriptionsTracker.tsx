@@ -236,7 +236,7 @@ function SubscriptionFormModal({
 
             <label className="pay-field">
               <span className="pay-label">{t("subs.fieldStatus")}</span>
-              {select("sub-status", values.status, set("status"), SUB_STATUSES.map((s) => (
+              {select("sub-status", values.status, set("status"), SUB_STATUSES.filter((s) => s !== "canceled" || subscription?.status === "canceled").map((s) => (
                 <option key={s} value={s}>
                   {t(STATUS_KEY[s])}
                 </option>
@@ -450,7 +450,7 @@ export default function SubscriptionsTracker({
   const [formFor, setFormFor] = useState<"new" | Subscription | null>(null);
   const [recordFor, setRecordFor] = useState<Subscription | null>(null);
   const [unsubId, setUnsubId] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<{ kind: "cancel" | "delete"; sub: Subscription } | null>(null);
+  const [confirm, setConfirm] = useState<Subscription | null>(null);
   const [reversing, setReversing] = useState<{ sub: Subscription; payment: SubscriptionPayment } | null>(null);
   const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
@@ -802,16 +802,12 @@ export default function SubscriptionsTracker({
                           {t("unsub.action")}
                         </button>
                       )}
-                      {s.status === "canceled" ? (
+                      {s.status === "canceled" && (
                         <button type="button" className="btn standup-metal-btn pay-action-btn" onClick={() => runStatus(s, "reactivate")}>
                           {t("subs.reactivate")}
                         </button>
-                      ) : (
-                        <button type="button" className="btn standup-metal-btn pay-action-btn" onClick={() => setConfirm({ kind: "cancel", sub: s })}>
-                          {t("subs.cancel")}
-                        </button>
                       )}
-                      <button type="button" className="btn standup-metal-btn standup-metal-btn--danger pay-action-btn" onClick={() => setConfirm({ kind: "delete", sub: s })}>
+                      <button type="button" className="btn standup-metal-btn standup-metal-btn--danger pay-action-btn" onClick={() => setConfirm(s)}>
                         <Trash2 size={14} aria-hidden="true" />
                         {t("subs.delete")}
                       </button>
@@ -923,17 +919,17 @@ export default function SubscriptionsTracker({
       )}
       {confirm && (
         <ConfirmActionModal
-          title={confirm.kind === "cancel" ? t("subs.cancelTitle", { name: confirm.sub.name }) : t("subs.deleteTitle")}
-          body={confirm.kind === "cancel" ? t("subs.cancelBody") : t("subs.deleteBody", { name: confirm.sub.name })}
-          confirmLabel={confirm.kind === "cancel" ? t("subs.cancelConfirm") : t("subs.deleteConfirm")}
-          busyLabel={confirm.kind === "cancel" ? t("subs.saving") : t("subs.deleting")}
+          title={t("subs.deleteTitle")}
+          body={t("subs.deleteBody", { name: confirm.name })}
+          confirmLabel={t("subs.deleteConfirm")}
+          busyLabel={t("subs.deleting")}
           onCancel={() => setConfirm(null)}
           onConfirm={async () => {
-            const msg = confirm.kind === "cancel" ? await c.changeStatus(confirm.sub, "cancel", todayISO) : await c.remove(confirm.sub);
+            const msg = await c.remove(confirm);
             if (!msg) {
               setConfirm(null);
               setMoreOpenId(null);
-              if (confirm.kind === "delete") setHistoryOpenId((cur) => (cur === confirm.sub.id ? null : cur));
+              setHistoryOpenId((cur) => (cur === confirm.id ? null : cur));
             }
             return msg;
           }}

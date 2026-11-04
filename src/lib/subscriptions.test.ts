@@ -520,3 +520,111 @@ describe("parseSubscriptionPaymentEntry", () => {
     expect(r.ok && r.payload.billingDate).toBeNull();
   });
 });
+
+// ── Renewal dates advance correctly, cycle after cycle ───────────────────
+// An independent reference (plain Date arithmetic, written separately from shiftMonths /
+// renewalDates) is compared with the app's schedule for every day across several years.
+describe("renewal dates advance correctly after each cycle", () => {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
+  const lastDay = (y: number, m0: number) => utc(y, m0 + 1, 0).getUTCDate();
+
+  /** k-th renewal after the anchor, independently computed. */
+  function ref(anchor: string, kind: "days" | "months", n: number, k: number): string {
+    const [y, m, d] = anchor.split("-").map(Number);
+    if (kind === "days") return iso(utc(y, m - 1, d + n * k));
+    const total = m - 1 + n * k;
+    const yy = y + Math.floor(total / 12);
+    const mm = ((total % 12) + 12) % 12;
+    return iso(utc(yy, mm, Math.min(d, lastDay(yy, mm))));
+  }
+
+  type Case = { label: string; anchor: string; frequency: Subscription["frequency"]; kind: "days" | "months"; n: number; customInterval?: number; customUnit?: Subscription["customUnit"] };
+  const cases: Case[] = [
+    { label: "monthly, Jan 31 (month-end)", anchor: "2026-01-31", frequency: "monthly", kind: "months", n: 1 },
+    { label: "monthly, Jan 30", anchor: "2026-01-30", frequency: "monthly", kind: "months", n: 1 },
+    { label: "monthly, Jan 29 (Feb in leap 2028)", anchor: "2026-01-29", frequency: "monthly", kind: "months", n: 1 },
+    { label: "monthly, mid-month", anchor: "2026-03-15", frequency: "monthly", kind: "months", n: 1 },
+    { label: "quarterly, Nov 30", anchor: "2026-11-30", frequency: "quarterly", kind: "months", n: 3 },
+    { label: "quarterly, Aug 31", anchor: "2026-08-31", frequency: "quarterly", kind: "months", n: 3 },
+    { label: "yearly, Feb 29 (leap day)", anchor: "2024-02-29", frequency: "yearly", kind: "months", n: 12 },
+    { label: "yearly, Mar 1", anchor: "2026-03-01", frequency: "yearly", kind: "months", n: 12 },
+    { label: "weekly", anchor: "2026-02-27", frequency: "weekly", kind: "days", n: 7 },
+    { label: "custom 45 days", anchor: "2026-01-15", frequency: "custom", kind: "days", n: 45, customInterval: 45, customUnit: "days" },
+    { label: "custom 6 weeks", anchor: "2026-02-10", frequency: "custom", kind: "days", n: 42, customInterval: 6, customUnit: "weeks" },
+    { label: "custom 2 months, Dec 31", anchor: "2026-12-31", frequency: "custom", kind: "months", n: 2, customInterval: 2, customUnit: "months" },
+    { label: "custom 5 months, Jan 31", anchor: "2026-01-31", frequency: "custom", kind: "months", n: 5, customInterval: 5, customUnit: "months" },
+  ];
+
+  for (const c of cases) {
+    it(`${c.label}: the next charge is the earliest scheduled date on/after each day for 4 years, never skipping or repeating`, () => {
+      const s = sub({ nextBillingDate: c.anchor, frequency: c.frequency, customInterval: c.customInterval ?? null, customUnit: c.customUnit ?? null });
+      // Reference schedule covering well past the sweep.
+      const schedule: string[] = [];
+      for (let k = 0; k < 400; k++) schedule.push(ref(c.anchor, c.kind, c.n, k));
+      expect(schedule).toEqual([...schedule].sort()); // strictly ascending
+      expect(new Set(schedule).size).toBe(schedule.length);
+
+      let day = c.anchor;
+      const end = iso(utc(Number(c.anchor.slice(0, 4)) + 4, 0, 1));
+      let seen: string | null = null;
+      let changes = 0;
+      while (day < end) {
+        const expected = schedule.find((d) => d >= day)!;
+        const got = nextCharge(s, day);
+        expect(got, `${c.label} on ${day}`).toBe(expected);
+        if (got !== seen) {
+          changes++;
+          seen = got;
+        }
+        day = iso(utc(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10)) + 1));
+      }
+      expect(changes).toBeGreaterThan(3); // it really did advance through several cycles
+    });
+  }
+
+  it("the day after a renewal the next charge is the following cycle, whether or not anything was paid", () => {
+    const s = sub({ nextBillingDate: "2026-01-31", frequency: "monthly" });
+    const withPayment: SubscriptionPayment[] = [pay({ billingDate: "2026-01-31" })];
+    expect(nextCharge(s, "2026-01-31")).toBe("2026-01-31");
+    expect(nextCharge(s, "2026-02-01")).toBe("2026-02-28");
+    expect(nextCharge(s, "2026-03-01")).toBe("2026-03-31"); // no drift to the 28th
+    expect(nextCharge(s, "2028-02-01")).toBe("2028-02-29"); // leap year
+    // Recording (or not recording) a payment is not an input to the schedule.
+    expect(withPayment).toHaveLength(1);
+    expect(nextCharge(s, "2026-02-01")).toBe(nextCharge(sub({ nextBillingDate: "2026-01-31", frequency: "monthly" }), "2026-02-01"));
+  });
+
+  it("a passed renewal with no recorded payment stays unpaid: it is offered as the latest renewal to record, and the schedule still moves on", () => {
+    const s = sub({ nextBillingDate: "2026-10-12", frequency: "monthly" });
+    expect(previousRenewal(s, TODAY)).toBe("2026-10-12");
+    expect(nextCharge(s, TODAY)).toBe("2026-11-12");
+    expect(lastPayment([])).toBeNull();
+    // the summary doesn't pretend it was paid either
+    expect(totalPaid([])).toBe(0);
+  });
+
+  it("quarterly month-end keeps its anchor day: Nov 30 -> Feb 28/29 -> May 30 -> Aug 30", () => {
+    const q = (d: string) => nextCharge(sub({ nextBillingDate: "2026-11-30", frequency: "quarterly" }), d);
+    expect(q("2026-12-01")).toBe("2027-02-28");
+    expect(q("2027-03-01")).toBe("2027-05-30");
+    expect(q("2027-06-01")).toBe("2027-08-30");
+    expect(nextCharge(sub({ nextBillingDate: "2027-11-30", frequency: "quarterly" }), "2027-12-01")).toBe("2028-02-29"); // leap year
+  });
+
+  it("yearly Feb 29: Feb 28 in common years and Feb 29 again in the next leap year", () => {
+    const y = (d: string) => nextCharge(sub({ nextBillingDate: "2024-02-29", frequency: "yearly" }), d);
+    expect(y("2024-03-01")).toBe("2025-02-28");
+    expect(y("2025-03-01")).toBe("2026-02-28");
+    expect(y("2027-03-01")).toBe("2028-02-29");
+  });
+
+  it("recorded payment history is untouched by cycles: totals depend only on the payments", () => {
+    const pays = [pay({ id: "a", amount: 10, paidAt: "2026-01-31T12:00:00Z" }), pay({ id: "b", amount: 10, paidAt: "2026-02-28T12:00:00Z" })];
+    const before = totalPaid(pays);
+    nextCharge(sub({ nextBillingDate: "2026-01-31" }), "2026-06-01");
+    expect(totalPaid(pays)).toBe(before);
+    expect(pays).toHaveLength(2);
+  });
+});
+

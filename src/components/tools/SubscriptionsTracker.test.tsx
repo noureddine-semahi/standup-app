@@ -464,40 +464,50 @@ describe("Edit subscription", () => {
     expect(c.update).not.toHaveBeenCalled();
   });
 
-  it("changing the status in the form stamps or clears the canceled time", async () => {
-    const s = sub();
+  it("the form can't mark a subscription canceled (that goes through Unsubscribe Me), so history can't be skipped", () => {
+    setup({ subscriptions: [sub()] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Netflix" }));
+    const options = [...(screen.getByLabelText(/^Status/) as HTMLSelectElement).options].map((o) => o.value);
+    expect(options).toEqual(["active", "trial", "paused"]);
+  });
+
+  it("an already-canceled subscription keeps its status in the form and clears the canceled time when set back to active", async () => {
+    const s = sub({ status: "canceled", canceledAt: "2026-11-01T00:00:00Z" });
     const c = setup({ subscriptions: [s] });
     fireEvent.click(screen.getByRole("button", { name: "Edit Netflix" }));
-    typeInto(/^Status/, "canceled");
+    expect((screen.getByLabelText(/^Status/) as HTMLSelectElement).value).toBe("canceled");
+    typeInto(/^Status/, "active");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(c.update).toHaveBeenCalled());
     const patch = (c.update as unknown as Mock).mock.calls[0][1];
-    expect(patch.status).toBe("canceled");
-    expect(typeof patch.canceledAt).toBe("string");
+    expect(patch.status).toBe("active");
+    expect(patch.canceledAt).toBeNull();
   });
 });
 
 describe("status actions (More menu) and destructive confirmations", () => {
   const openMore = (name: string) => fireEvent.click(screen.getByRole("button", { name: `More ${name}` }));
 
-  it("offers Pause/Cancel/Delete for an active subscription, Resume for paused, Reactivate for canceled", () => {
+  it("offers Pause, Unsubscribe Me and Delete for an active subscription, Resume for paused, Reactivate for canceled -- and no separate Mark canceled", () => {
     setup({
       subscriptions: [sub({ id: "a", name: "Act" }), sub({ id: "p", name: "Pau", status: "paused" }), sub({ id: "c", name: "Can", status: "canceled" })],
     });
     openMore("Act");
     const act = within(screen.getByRole("group", { name: "More Act" }));
     expect(act.getByRole("button", { name: "Pause" })).toBeTruthy();
-    expect(act.getByRole("button", { name: "Mark canceled" })).toBeTruthy();
+    expect(act.getByRole("button", { name: "Unsubscribe Me" })).toBeTruthy();
     expect(act.getByRole("button", { name: "Delete subscription" })).toBeTruthy();
     expect(act.queryByRole("button", { name: "Resume" })).toBeNull();
     openMore("Pau");
     const pau = within(screen.getByRole("group", { name: "More Pau" }));
     expect(pau.getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(pau.getByRole("button", { name: "Unsubscribe Me" })).toBeTruthy();
     expect(pau.queryByRole("button", { name: "Pause" })).toBeNull();
     openMore("Can");
     const can = within(screen.getByRole("group", { name: "More Can" }));
     expect(can.getByRole("button", { name: "Reactivate" })).toBeTruthy();
-    expect(can.queryByRole("button", { name: "Mark canceled" })).toBeNull();
+    expect(can.queryByRole("button", { name: "Unsubscribe Me" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Mark canceled/i })).toBeNull();
   });
 
   it("Pause and Resume apply immediately (reversible) through changeStatus", async () => {
@@ -508,27 +518,14 @@ describe("status actions (More menu) and destructive confirmations", () => {
     await waitFor(() => expect(c.changeStatus).toHaveBeenCalledWith(act, "pause", TODAY));
   });
 
-  it("Mark canceled asks first, says it only updates StandUp's tracking, and keeps history", async () => {
+  it("canceling is only reachable through Unsubscribe Me: opening it changes nothing, and the status action 'cancel' is never used", () => {
     const act = sub({ id: "a", name: "Act" });
     const c = setup({ subscriptions: [act] });
     openMore("Act");
-    fireEvent.click(screen.getByRole("button", { name: "Mark canceled" }));
-    const dialog = screen.getByRole("alertdialog");
+    fireEvent.click(screen.getByRole("button", { name: "Unsubscribe Me" }));
+    expect(screen.getByTestId("unsub-modal")).toBeTruthy();
     expect(c.changeStatus).not.toHaveBeenCalled();
-    expect(dialog.textContent).toContain("Act");
-    expect(dialog.textContent).toContain("does not cancel the subscription with the provider");
-    expect(dialog.textContent).toContain("payment history is kept");
-    fireEvent.click(screen.getByRole("button", { name: "Mark Canceled" }));
-    await waitFor(() => expect(c.changeStatus).toHaveBeenCalledWith(act, "cancel", TODAY));
-  });
-
-  it("declining the cancel confirmation changes nothing", () => {
-    const c = setup({ subscriptions: [sub({ id: "a", name: "Act" })] });
-    openMore("Act");
-    fireEvent.click(screen.getByRole("button", { name: "Mark canceled" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(c.changeStatus).not.toHaveBeenCalled();
+    expect(c.reportCancellation).not.toHaveBeenCalled();
   });
 
   it("Delete never happens without confirmation, names the subscription and warns that history goes too", async () => {

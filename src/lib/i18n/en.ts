@@ -874,6 +874,8 @@ export const en = {
   "pay.tagAuto": "Auto balance",
   "pay.failedRecord": "Failed to record payment",
   "pay.failedReverse": "Failed to reverse payment",
+  "pay.sectionTitle": "Payments",
+  "pay.sectionSubtitle": "Track your accounts, balances and minimum payments.",
 
   // History (Progress & Insights)
   "history.loading": "Loading your progress…",

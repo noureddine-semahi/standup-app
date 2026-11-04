@@ -7,6 +7,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 import { formatDateDisplay } from "@/lib/supabase/db";
 import { formatCurrency } from "@/lib/salary";
+import { valueLenStyle } from "@/lib/toolsLayout";
 import {
   BILL_CATEGORIES,
   OTHER_CATEGORY,
@@ -477,7 +478,6 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
   const remainingText = formatCurrency(summary.remainingThisMonth);
   const paidText = formatCurrency(summary.paidThisMonth);
   const dueDisplay = describeDueSummary(summary);
-  const longValues = (!dueDisplay.allPending && (expectedText.length > 10 || remainingText.length > 10)) || paidText.length > 10;
   // Caveats shared by the Expected and Remaining panels (both are built from estimates when no actual exists).
   const estimateNote = dueDisplay.includesEstimates ? <div className="bill-stat-note">{t("bills.includesEstimates")}</div> : null;
 
@@ -545,7 +545,7 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
 
   return (
     <div className="pay-panel bills-panel">
-      <div className="bills-head">
+      <div className="fin-section-head">
         <h3 className="text-lg font-bold">{t("bills.title")}</h3>
         <p className="text-sm text-white/70">{t("bills.subtitle")}</p>
       </div>
@@ -583,7 +583,7 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
         <section className="pay-summary fin-overview bill-summary" aria-label={t("bills.summary")}>
           <div className="pay-stat" data-kind="balance">
             <div className="pay-stat-label">{t("bills.expectedThisMonth")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-expected">
+            <div className="pay-stat-value" style={valueLenStyle(dueDisplay.allPending ? "" : expectedText) as React.CSSProperties} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-expected">
               {dueDisplay.allPending ? t("bills.amountPendingShort") : expectedText}
             </div>
             {estimateNote}
@@ -596,26 +596,26 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
           </div>
           <div className="pay-stat" data-kind="paid">
             <div className="pay-stat-label">{t("bills.paidThisMonth")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-testid="bills-paid">
+            <div className="pay-stat-value" style={valueLenStyle(paidText) as React.CSSProperties} data-testid="bills-paid">
               {paidText}
             </div>
           </div>
           <div className="pay-stat" data-kind="remaining">
             <div className="pay-stat-label">{t("bills.remainingThisMonth")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-remaining">
+            <div className="pay-stat-value" style={valueLenStyle(dueDisplay.allPending ? "" : remainingText) as React.CSSProperties} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-remaining">
               {dueDisplay.allPending ? t("bills.amountPendingShort") : remainingText}
             </div>
             {estimateNote}
           </div>
           <div className="pay-stat" data-kind="minimums">
             <div className="pay-stat-label">{t("bills.upcoming")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-testid="bills-upcoming">
+            <div className="pay-stat-value" style={valueLenStyle(String(summary.upcoming)) as React.CSSProperties} data-testid="bills-upcoming">
               {summary.upcoming}
             </div>
           </div>
           <div className="pay-stat" data-kind="overdue">
             <div className="pay-stat-label">{t("bills.overdue")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-testid="bills-overdue">
+            <div className="pay-stat-value" style={valueLenStyle(String(summary.overdue)) as React.CSSProperties} data-testid="bills-overdue">
               {summary.overdue}
             </div>
           </div>

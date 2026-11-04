@@ -9,6 +9,7 @@ import CalculatorTool from "@/components/tools/CalculatorTool";
 import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
 import FinancesHub from "@/components/tools/FinancesHub";
 import { useBills } from "@/components/tools/useBills";
+import { showToolsIntro } from "@/lib/toolsLayout";
 import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
@@ -709,10 +710,18 @@ export default function ToolsPage() {
       {/* contentRef: the landmark useFixedSubNav scrolls to the top of on
           a tab switch while the bar is pinned -- always present
           regardless of which sub-tab is active. */}
-      <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
-        <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
-      </div>
+      {/* On Finances the intro card is replaced by a zero-height landmark: the
+          Finances panel carries its own heading + description, so repeating
+          "Tools" and the description above it is redundant. The element itself
+          stays (contentRef is what the sticky tab bar scrolls to on a tab switch). */}
+      {showToolsIntro(activeTab) ? (
+        <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
+          <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
+        </div>
+      ) : (
+        <div ref={contentRef} aria-hidden="true" style={{ height: 0, overflow: "hidden" }} />
+      )}
 
       {/* This outer wrapper (opened above, around the tab bar) now
           extends down to enclose all tab content too, instead of
@@ -1338,7 +1347,7 @@ export default function ToolsPage() {
     )}
 
     {activeTab === "payments" && (
-      <div className="mt-6">
+      <div>
         <FinancesHub
           bills={bills}
           accounts={paymentAccounts}

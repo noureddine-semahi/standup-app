@@ -740,3 +740,16 @@ describe("Remove and set amount", () => {
     await waitFor(() => expect(c.setAmount).toHaveBeenCalledWith(v, "2026-10-12", 88.4));
   });
 });
+
+describe("summary tile sizing hook", () => {
+  it("each Bills value carries its length (currency stays on one line at any width)", () => {
+    setup({
+      bills: [bill({ id: "f", name: "Rent", expectedAmount: 63354, firstDueDate: "2026-11-12", recurrence: "once" })],
+    });
+    for (const id of ["bills-expected", "bills-paid", "bills-remaining", "bills-upcoming", "bills-overdue"]) {
+      const el = screen.getByTestId(id);
+      expect(el.style.getPropertyValue("--len"), id).toBe(String(el.textContent!.length));
+    }
+    expect(screen.getByTestId("bills-expected").textContent).toBe("$63,354.00");
+  });
+});

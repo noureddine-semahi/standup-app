@@ -204,3 +204,33 @@ describe("FinancesHub with bills", () => {
     expect(screen.getByTestId("bills-unavailable")).toBeTruthy();
   });
 });
+
+describe("FinancesHub layout hooks", () => {
+  it("every overview value carries its length so the tile can size it to stay on one line", () => {
+    setup([acct({ id: "1", balance: 63354, minimumPayment: 25, dueDay: 13 })]);
+    const balances = screen.getByTestId("fin-balances");
+    expect(balances.textContent).toBe("$63,354.00");
+    expect(balances.style.getPropertyValue("--len")).toBe("10");
+    expect(screen.getByTestId("fin-subs").style.getPropertyValue("--len")).toBe("5"); // "$0.00"
+    expect(screen.getByTestId("fin-upcoming").style.getPropertyValue("--len")).toBe("1");
+  });
+
+  it("keeps the Finances heading and description, with the section header for the Payments tab", () => {
+    setup([acct()]);
+    expect(screen.getByRole("heading", { name: "Finances" })).toBeTruthy();
+    expect(screen.getByText("Stay ahead of your financial commitments.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Payments" })).toBeTruthy();
+    expect(screen.getByText("Track your accounts, balances and minimum payments.")).toBeTruthy();
+  });
+
+  it("Bills and Payments share the same section-head and add-button structure", () => {
+    setup([acct()], billsController());
+    const payments = document.querySelector(".pay-panel")!;
+    expect(payments.querySelector(".fin-section-head")).toBeTruthy();
+    expect(payments.querySelector(".pay-add-btn")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Bills" }));
+    const bills = document.querySelector(".pay-panel")!;
+    expect(bills.querySelector(".fin-section-head")).toBeTruthy();
+    expect(bills.querySelector(".pay-add-btn")).toBeTruthy();
+  });
+});

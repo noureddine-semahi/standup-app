@@ -516,6 +516,11 @@ export default function PaymentsDashboard({
 
   return (
     <div className="pay-panel">
+      <div className="fin-section-head">
+        <h3 className="text-lg font-bold">{t("pay.sectionTitle")}</h3>
+        <p className="text-sm text-white/70">{t("pay.sectionSubtitle")}</p>
+      </div>
+
       <button
         type="button"
         className="btn standup-metal-btn standup-metal-btn--accent pay-add-btn"

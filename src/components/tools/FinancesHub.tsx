@@ -5,6 +5,7 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { formatCurrency } from "@/lib/salary";
 import { summarizeFinances } from "@/lib/paymentSummary";
 import { summarizeBills } from "@/lib/bills";
+import { valueLenStyle } from "@/lib/toolsLayout";
 import PaymentsDashboard, { type PaymentsDashboardProps } from "./PaymentsDashboard";
 import BillsTracker from "./BillsTracker";
 import type { BillsController } from "./useBills";
@@ -53,7 +54,6 @@ export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
     { key: "subs", label: t("fin.subscriptions"), value: formatCurrency(overview.subscriptionsMonthly), kind: "subs" },
     { key: "upcoming", label: t("fin.upcoming"), value: String(overview.upcomingCount), kind: "upcoming" },
   ];
-  const longValues = panels.some((p) => !p.pending && p.value.length > 10);
 
   return (
     <div className="card card-highlight pay-root">
@@ -68,7 +68,7 @@ export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
         {panels.map((p) => (
           <div key={p.key} className="pay-stat" data-kind={p.kind}>
             <div className="pay-stat-label">{p.label}</div>
-            <div className="pay-stat-value" data-long={longValues} data-pending={p.pending ? "true" : undefined} data-testid={`fin-${p.key}`}>
+            <div className="pay-stat-value" style={valueLenStyle(p.value) as React.CSSProperties} data-pending={p.pending ? "true" : undefined} data-testid={`fin-${p.key}`}>
               {p.value}
             </div>
             {p.notes?.filter(Boolean).map((n) => (

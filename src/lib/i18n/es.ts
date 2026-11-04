@@ -869,6 +869,8 @@ export const es: Record<keyof typeof en, string> = {
   "pay.tagAuto": "Saldo automático",
   "pay.failedRecord": "Error al registrar el pago",
   "pay.failedReverse": "Error al revertir el pago",
+  "pay.sectionTitle": "Pagos",
+  "pay.sectionSubtitle": "Da seguimiento a tus cuentas, saldos y pagos mínimos.",
 
   // History (Data & Metrics)
   "history.loading": "Cargando tu progreso…",

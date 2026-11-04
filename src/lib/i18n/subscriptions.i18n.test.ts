@@ -64,9 +64,9 @@ describe("subscription strings (English / Spanish)", () => {
     }
   });
 
-  it("the report step says it is saved as reported by you, not confirmed by the provider, in both languages", () => {
-    expect((en as Record<string, string>)["unsub.manualBody"]).toMatch(/not confirmed by the provider/);
-    expect((es as Record<string, string>)["unsub.manualBody"]).toMatch(/no confirmada por el proveedor/);
+  it("the report step says it will be marked user-reported and keep payment history, in both languages", () => {
+    expect((en as Record<string, string>)["unsub.manualBody"]).toMatch(/mark it as user-reported and preserve your payment history/);
+    expect((es as Record<string, string>)["unsub.manualBody"]).toMatch(/marcará como informada por ti y conservará tu historial de pagos/);
     expect((en as Record<string, string>)["unsub.assistSaved"]).toMatch(/Unverified/);
     expect((es as Record<string, string>)["unsub.assistSaved"]).toMatch(/sin verificar/);
   });

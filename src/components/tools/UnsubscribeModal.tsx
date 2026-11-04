@@ -256,7 +256,7 @@ export default function UnsubscribeModal({
             }}
           >
             <h3 className="unsub-h">{t("unsub.chooseDone")}</h3>
-            <p className="pay-help">{t("unsub.manualBody")}</p>
+            <p className="pay-help unsub-lead">{t("unsub.manualBody")}</p>
             <div className="pay-form-grid">
               <label className="pay-field">
                 <span className="pay-label">{t("unsub.dateLabel")}</span>
@@ -269,7 +269,7 @@ export default function UnsubscribeModal({
             </div>
             {reportError && <p className="pay-field-error" role="alert">{errText[reportError]}</p>}
             {error && <div role="alert" className="pay-error">{error}</div>}
-            <div className="pay-modal-actions">
+            <div className="pay-modal-actions unsub-actions-row">
               {backButton}
               <button type="submit" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" disabled={busy || !reportParsed.ok}>
                 {busy ? t("unsub.saving") : t("unsub.reportConfirm")}

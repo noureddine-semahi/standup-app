@@ -60,7 +60,9 @@ export function useFixedSubNav(activeKey: string, zIndex = 40): FixedSubNavResul
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(false);
-  const [metrics, setMetrics] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  // gap = the bar's own bottom margin: it takes part in the layout the bar leaves when it goes
+  // fixed, so the wrapper's compensation has to include it or the content jumps at the pin point.
+  const [metrics, setMetrics] = useState<{ top: number; left: number; width: number; height: number; gap: number } | null>(null);
 
   const evaluate = useCallback(() => {
     const sentinel = sentinelRef.current;
@@ -72,8 +74,11 @@ export function useFixedSubNav(activeKey: string, zIndex = 40): FixedSubNavResul
     // header's own measured bottom) decides pin/release; there is no
     // width check here on purpose.
     const headerBottom = header.getBoundingClientRect().bottom;
-    const sentinelTop = sentinel.getBoundingClientRect().top;
-    const shouldPin = sentinelTop <= headerBottom;
+    // The wrapper's top is the bar's natural in-flow position and does not move when the wrapper
+    // gets its pinned paddingTop. The sentinel DOES (it sits inside the padded wrapper), so testing
+    // it made the bar un-pin the moment it pinned and flicker for a bar-height of scrolling.
+    const anchorTop = (wrapperRef.current ?? sentinel).getBoundingClientRect().top;
+    const shouldPin = anchorTop <= headerBottom;
 
     setPinned((prevPinned) => {
       if (shouldPin && !prevPinned) {
@@ -83,7 +88,8 @@ export function useFixedSubNav(activeKey: string, zIndex = 40): FixedSubNavResul
         const bar = barRef.current;
         if (bar) {
           const r = bar.getBoundingClientRect();
-          setMetrics({ top: headerBottom, left: r.left, width: r.width, height: r.height });
+          const gap = parseFloat(getComputedStyle(bar).marginBottom) || 0;
+          setMetrics({ top: headerBottom, left: r.left, width: r.width, height: r.height, gap });
         }
       } else if (shouldPin && prevPinned) {
         // Already pinned -- keep `top` in sync in case the header's
@@ -199,7 +205,7 @@ export function useFixedSubNav(activeKey: string, zIndex = 40): FixedSubNavResul
         }
       : undefined;
 
-  const wrapperStyle: CSSProperties | undefined = pinned && metrics ? { paddingTop: metrics.height } : undefined;
+  const wrapperStyle: CSSProperties | undefined = pinned && metrics ? { paddingTop: metrics.height + metrics.gap } : undefined;
 
   return { sentinelRef, barRef, wrapperRef, contentRef, pinned, barStyle, wrapperStyle };
 }

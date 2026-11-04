@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, Target, Calculator as CalculatorIcon, Banknote } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
@@ -11,6 +11,7 @@ import FinancesHub from "@/components/tools/FinancesHub";
 import { useBills } from "@/components/tools/useBills";
 import { useSubscriptions } from "@/components/tools/useSubscriptions";
 import { showToolsIntro } from "@/lib/toolsLayout";
+import { readStoredTab, writeStoredTab } from "@/lib/toolsTabStorage";
 import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
@@ -105,7 +106,17 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
 
 export default function ToolsPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<ToolsTab>("goals");
+  const [activeTab, setActiveTabState] = useState<ToolsTab>("goals");
+  // Restore the tab that was open before a refresh. This runs before the first paint, and only
+  // the click handler writes the choice back, so the default can never overwrite the saved tab.
+  useLayoutEffect(() => {
+    const saved = readStoredTab(TABS.map((tab) => tab.key));
+    if (saved) setActiveTabState(saved);
+  }, []);
+  const setActiveTab = (next: ToolsTab) => {
+    setActiveTabState(next);
+    writeStoredTab(next);
+  };
   // Fixed-on-scroll for the Tools sub-tab bar -- active at every
   // viewport width, not just mobile (see useFixedSubNav's own comment).
   // activeTab is passed through so the hook can correct scroll position

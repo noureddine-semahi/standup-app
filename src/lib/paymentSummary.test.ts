@@ -186,7 +186,7 @@ describe("parsePaymentEntry", () => {
 describe("summarizeFinances", () => {
   const today = "2026-11-03";
   it("is all zeros with no accounts", () => {
-    expect(summarizeFinances([], today)).toEqual({ totalBalances: 0, monthlyDue: 0, monthlyDueUnknown: 0, subscriptionsMonthly: 0, upcomingCount: 0 });
+    expect(summarizeFinances([], today)).toEqual({ totalBalances: 0, monthlyDue: 0, monthlyDueUnknown: 0, monthlyDuePending: false, subscriptionsMonthly: 0, upcomingCount: 0 });
   });
 
   it("keeps balances and monthly due as separate figures, and counts only obligations inside their window", () => {
@@ -202,7 +202,15 @@ describe("summarizeFinances", () => {
     expect(o.monthlyDue).toBe(70);
     expect(o.upcomingCount).toBe(2);
     // No combined grand total exists on the result.
-    expect(Object.keys(o).sort()).toEqual(["monthlyDue", "monthlyDueUnknown", "subscriptionsMonthly", "totalBalances", "upcomingCount"]);
+    expect(Object.keys(o).sort()).toEqual(["monthlyDue", "monthlyDuePending", "monthlyDueUnknown", "subscriptionsMonthly", "totalBalances", "upcomingCount"]);
+  });
+
+  it("monthly due reads 'pending' only when nothing is known yet but bills await amounts", () => {
+    const none = summarizeFinances([], today, { outstandingThisMonth: 0, unknownThisMonth: 2, upcoming: 0 });
+    expect(none).toMatchObject({ monthlyDue: 0, monthlyDueUnknown: 2, monthlyDuePending: true });
+    const withMin = summarizeFinances([acct({ minimumPayment: 35, dueDay: 25 })], today, { outstandingThisMonth: 0, unknownThisMonth: 2, upcoming: 0 });
+    expect(withMin).toMatchObject({ monthlyDue: 35, monthlyDuePending: false });
+    expect(summarizeFinances([], today, { outstandingThisMonth: 0, unknownThisMonth: 0, upcoming: 0 }).monthlyDuePending).toBe(false);
   });
 
   it("adds real bills to monthly due and upcoming, never to balances, and carries the unknown-amount count", () => {

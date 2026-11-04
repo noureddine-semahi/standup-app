@@ -10,11 +10,13 @@ import { formatCurrency } from "@/lib/salary";
 import {
   billToFormValues,
   currentOccurrence,
+  describeDueSummary,
   emptyBillForm,
   parseBillForm,
   parseBillPaymentEntry,
   parseMoney,
   resolveOccurrence,
+  statusLabel,
   summarizeBills,
   type Bill,
   type BillAmountType,
@@ -230,6 +232,10 @@ function RecordBillPaymentModal({
     note: "",
     amountDue: view.amountDue === null ? "" : String(view.amountDue),
   });
+  // A variable bill whose amount isn't known yet and has no payments so far:
+  // paying it is most often paying it in full, so offer that as an explicit,
+  // visible choice (on by default, one tap to turn off for a partial payment).
+  const [fullPay, setFullPay] = useState(needsActual && view.amountDue === null && view.paid === 0);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -239,7 +245,9 @@ function RecordBillPaymentModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialog(dialogRef, onCancel, saving);
 
-  const parsed = parseBillPaymentEntry(values, todayISO);
+  const showFullPay = needsActual && (view.amountDue === null || view.paid === 0);
+  const useFullPay = showFullPay && fullPay;
+  const parsed = parseBillPaymentEntry(useFullPay ? { ...values, amountDue: "" } : values, todayISO);
   const fieldError = !parsed.ok && (touched || values.amount.trim() !== "" || values.amountDue !== (view.amountDue === null ? "" : String(view.amountDue))) ? parsed.error : null;
 
   async function submit(e: React.FormEvent) {
@@ -250,7 +258,9 @@ function RecordBillPaymentModal({
     setSaving(true);
     setError(null);
     // A fixed bill's amount due is the snapshot already on the cycle -- never resend it.
-    const err = await onSubmit({ ...parsed.payload, amountDue: needsActual ? parsed.payload.amountDue : null }, clientKey);
+    // "Full amount" sets the cycle's actual amount due to exactly what was paid.
+    const amountDue = !needsActual ? null : useFullPay ? parsed.payload.amount : parsed.payload.amountDue;
+    const err = await onSubmit({ ...parsed.payload, amountDue }, clientKey);
     if (err) {
       setError(err);
       savingRef.current = false;
@@ -275,7 +285,14 @@ function RecordBillPaymentModal({
               <span className="pay-label">{t("bills.payDate")}</span>
               <input type="date" max={todayISO} value={values.date} onChange={(e) => setValues((v) => ({ ...v, date: e.target.value }))} disabled={saving} className={FIELD_CLASS} aria-invalid={fieldError === "date" || fieldError === "dateFuture"} />
             </label>
-            {needsActual && (
+            {showFullPay && (
+              <label className="pay-check pay-field-wide">
+                <input type="checkbox" checked={fullPay} onChange={(e) => setFullPay(e.target.checked)} disabled={saving} />
+                <span>{t("bills.fullPay")}</span>
+              </label>
+            )}
+            {useFullPay && <p className="pay-help pay-field-wide" style={{ marginTop: 0 }}>{t("bills.fullPayHelp")}</p>}
+            {needsActual && !useFullPay && (
               <label className="pay-field pay-field-wide">
                 <span className="pay-label">{t("bills.actualDue")}</span>
                 <input type="text" inputMode="decimal" autoComplete="off" placeholder="0.00" value={values.amountDue} onChange={(e) => setValues((v) => ({ ...v, amountDue: e.target.value }))} disabled={saving} className={FIELD_CLASS} aria-invalid={fieldError === "amountDue"} />
@@ -410,7 +427,8 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
   const summary = summarizeBills(c.bills, c.occurrences, todayISO);
   const dueText = formatCurrency(summary.dueThisMonth);
   const paidText = formatCurrency(summary.paidThisMonth);
-  const longValues = dueText.length > 10 || paidText.length > 10;
+  const dueDisplay = describeDueSummary(summary);
+  const longValues = (!dueDisplay.allPending && dueText.length > 10) || paidText.length > 10;
 
   // Cards: each bill's current occurrence, unpaid ones first in due-date order.
   const cards = c.bills
@@ -444,14 +462,33 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
     return null;
   }
 
-  const statusChip = (v: OccurrenceView) =>
-    v.status === "paid"
-      ? t("bills.statusPaid")
-      : v.overdue
-      ? t("bills.statusOverdue")
-      : v.status === "partial"
-      ? t("bills.statusPartial")
-      : t("bills.dueOn", { date: formatDateDisplay(v.dueDate) });
+  const statusChip = (v: OccurrenceView) => {
+    switch (statusLabel(v)) {
+      case "paid":
+        return t("bills.statusPaid");
+      case "overdue":
+        return t("bills.statusOverdue");
+      case "pending":
+        return t("bills.amountPending");
+      case "partial":
+        return t("bills.statusPartial");
+      default:
+        return t("bills.dueOn", { date: formatDateDisplay(v.dueDate) });
+    }
+  };
+  /** Chip colour: pending needs attention (amber), overdue red, paid teal, otherwise by how soon. */
+  const chipTier = (v: OccurrenceView) => {
+    const l = statusLabel(v);
+    return l === "overdue" ? "today" : l === "paid" ? "paid" : l === "pending" ? "soon" : v.tier;
+  };
+  /** Recorded payments, kept separate from the amount due. */
+  const paymentsLine = (v: OccurrenceView): string | null => {
+    if (v.paid <= 0) return null;
+    if (v.amountDue === null) return t("bills.recordedPayments", { paid: formatCurrency(v.paid) });
+    if (v.paid > v.amountDue) return t("bills.paidOver", { paid: formatCurrency(v.paid), over: formatCurrency(v.paid - v.amountDue) });
+    if (v.outstanding !== null && v.outstanding > 0) return t("bills.paidLeft", { paid: formatCurrency(v.paid), left: formatCurrency(v.outstanding) });
+    return t("bills.paidSoFar", { paid: formatCurrency(v.paid) });
+  };
 
   return (
     <div className="pay-panel bills-panel">
@@ -493,12 +530,13 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
         <section className="pay-summary fin-overview" aria-label={t("bills.summary")}>
           <div className="pay-stat" data-kind="balance">
             <div className="pay-stat-label">{t("bills.dueThisMonth")}</div>
-            <div className="pay-stat-value" data-long={longValues} data-testid="bills-due">
-              {dueText}
+            <div className="pay-stat-value" data-long={longValues} data-pending={dueDisplay.allPending ? "true" : undefined} data-testid="bills-due">
+              {dueDisplay.allPending ? t("bills.amountPendingShort") : dueText}
             </div>
-            {summary.unknownThisMonth > 0 && (
+            {dueDisplay.knownOnly && <div className="bill-stat-note">{t("bills.knownOnly")}</div>}
+            {dueDisplay.awaiting > 0 && (
               <div className="bill-stat-note" data-testid="bills-unknown">
-                {t("bills.unknownAmounts", { count: summary.unknownThisMonth })}
+                {dueDisplay.awaiting === 1 ? t("bills.awaitingOne") : t("bills.awaitingMany", { count: dueDisplay.awaiting })}
               </div>
             )}
           </div>
@@ -531,7 +569,7 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
         <p className="text-sm text-white/50 italic">{t("bills.empty")}</p>
       ) : (
         available && (
-          <ul className="pay-list">
+          <ul className="pay-list bill-list">
             {cards.map(({ bill, view }) => {
               const moreOpen = moreOpenId === bill.id;
               const historyOpen = c.historyOpenId === bill.id;
@@ -546,29 +584,30 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
                 <li key={bill.id} className="pay-card bill-card" data-testid="bill-card" data-tier={view.tier}>
                   <div className="pay-card-head">
                     <h3 className="pay-card-name">{bill.name}</h3>
-                    <span className="pay-due" data-tier={view.tier === "overdue" ? "today" : view.tier === "paid" ? "paid" : view.tier}>
+                    <span className="pay-due bill-chip" data-tier={chipTier(view)}>
                       {statusChip(view)}
                     </span>
                   </div>
 
-                  <dl className="pay-rows">
-                    <div className="pay-row">
-                      <dt>{amountLine}</dt>
+                  <div className="bill-info">
+                    <div className="bill-info-row">
+                      <span className="bill-amount">{amountLine}</span>
+                      <span className="bill-recur">{t(RECUR_KEY[bill.recurrence])}</span>
                     </div>
-                    <div className="pay-row">
-                      <dt>{formatDateDisplay(view.dueDate)}</dt>
-                      <dd className="bill-recur">{t(RECUR_KEY[bill.recurrence])}</dd>
+                    <div className="bill-info-row">
+                      <span className="bill-due">{t("bills.dueOn", { date: formatDateDisplay(view.dueDate) })}</span>
+                      {view.amountDue === null && bill.amountType === "variable" && (
+                        <button type="button" className="bill-link-btn" onClick={() => setAmountFor({ bill, view })} aria-label={`${t("bills.setAmount")} ${bill.name}`}>
+                          {t("bills.setAmount")}
+                        </button>
+                      )}
                     </div>
-                    {view.paid > 0 && (
-                      <div className="pay-row">
-                        <dt>
-                          {view.outstanding !== null
-                            ? t("bills.paidOutstanding", { paid: formatCurrency(view.paid), outstanding: formatCurrency(view.outstanding) })
-                            : t("bills.paidNoTotal", { paid: formatCurrency(view.paid) })}
-                        </dt>
+                    {paymentsLine(view) && (
+                      <div className="bill-info-row">
+                        <span className="bill-paid">{paymentsLine(view)}</span>
                       </div>
                     )}
-                  </dl>
+                  </div>
                   {view.amountDue !== null && view.amountDue > 0 && <Segments paid={view.paid} due={view.amountDue} />}
 
                   <div className="pay-card-actions">
@@ -600,7 +639,7 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
 
                   {moreOpen && (
                     <div className="pay-more" role="group" aria-label={`${t("bills.more")} ${bill.name}`}>
-                      {bill.amountType === "variable" && (
+                      {bill.amountType === "variable" && view.amountDue !== null && (
                         <button type="button" className="btn standup-metal-btn pay-action-btn" onClick={() => setAmountFor({ bill, view })}>
                           {t("bills.setAmount")}
                         </button>
@@ -626,10 +665,10 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
                               <li key={rec.id} className="bill-cycle" data-status={v.status}>
                                 <div className="bill-cycle-head">
                                   <span className="pay-txn-amount">{formatDateDisplay(rec.dueDate)}</span>
-                                  <span className="pay-txn-badge">{v.status === "paid" ? t("bills.statusPaid") : v.overdue ? t("bills.statusOverdue") : v.status === "partial" ? t("bills.statusPartial") : t("bills.dueOn", { date: formatDateDisplay(rec.dueDate) })}</span>
+                                  <span className="pay-txn-badge">{statusChip(v)}</span>
                                 </div>
                                 <div className="pay-txn-date">
-                                  {v.amountDue === null ? t("bills.amountNotEntered") : t("bills.amountDue", { amount: formatCurrency(v.amountDue) })}
+                                  {v.amountDue === null ? t("bills.amountPending") : t("bills.amountDue", { amount: formatCurrency(v.amountDue) })}
                                   {" · "}
                                   {t("bills.historyPaid")} {formatCurrency(v.paid)}
                                   {v.outstanding !== null && (

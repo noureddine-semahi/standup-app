@@ -33,19 +33,26 @@ export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
   const billsSummary = bills.state === "ready" ? summarizeBills(bills.bills, bills.occurrences, props.todayISO) : null;
   const overview = summarizeFinances(props.accounts, props.todayISO, billsSummary);
 
-  const panels: { key: string; label: string; value: string; kind: string; note?: string }[] = [
+  const panels: { key: string; label: string; value: string; kind: string; notes?: string[]; pending?: boolean }[] = [
     { key: "balances", label: t("fin.totalBalances"), value: formatCurrency(overview.totalBalances), kind: "balance" },
     {
       key: "due",
       label: t("fin.monthlyDue"),
-      value: formatCurrency(overview.monthlyDue),
+      value: overview.monthlyDuePending ? t("bills.amountPendingShort") : formatCurrency(overview.monthlyDue),
       kind: "minimums",
-      note: overview.monthlyDueUnknown > 0 ? t("bills.unknownAmounts", { count: overview.monthlyDueUnknown }) : undefined,
+      pending: overview.monthlyDuePending,
+      notes:
+        overview.monthlyDueUnknown > 0
+          ? [
+              ...(overview.monthlyDuePending ? [] : [t("bills.knownOnly")]),
+              overview.monthlyDueUnknown === 1 ? t("bills.awaitingOne") : t("bills.awaitingMany", { count: overview.monthlyDueUnknown }),
+            ]
+          : undefined,
     },
     { key: "subs", label: t("fin.subscriptions"), value: formatCurrency(overview.subscriptionsMonthly), kind: "subs" },
     { key: "upcoming", label: t("fin.upcoming"), value: String(overview.upcomingCount), kind: "upcoming" },
   ];
-  const longValues = panels.some((p) => p.value.length > 10);
+  const longValues = panels.some((p) => !p.pending && p.value.length > 10);
 
   return (
     <div className="card card-highlight pay-root">
@@ -60,10 +67,14 @@ export default function FinancesHub({ bills, ...props }: FinancesHubProps) {
         {panels.map((p) => (
           <div key={p.key} className="pay-stat" data-kind={p.kind}>
             <div className="pay-stat-label">{p.label}</div>
-            <div className="pay-stat-value" data-long={longValues} data-testid={`fin-${p.key}`}>
+            <div className="pay-stat-value" data-long={longValues} data-pending={p.pending ? "true" : undefined} data-testid={`fin-${p.key}`}>
               {p.value}
             </div>
-            {p.note && <div className="bill-stat-note">{p.note}</div>}
+            {p.notes?.map((n) => (
+              <div key={n} className="bill-stat-note">
+                {n}
+              </div>
+            ))}
           </div>
         ))}
       </section>

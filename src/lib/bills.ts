@@ -278,6 +278,8 @@ export type BillsSummary = {
   dueThisMonth: number;
   /** This month's occurrences whose amount isn't known yet (never counted as $0). */
   unknownThisMonth: number;
+  /** This month's occurrences whose amount IS known (distinguishes "all pending" from "$0 known"). */
+  knownThisMonth: number;
   /** Non-reversed payments recorded against this month's occurrences. */
   paidThisMonth: number;
   /** Unpaid occurrences due from today through each bill's own reminder window. */
@@ -294,6 +296,7 @@ export function summarizeBills(bills: readonly Bill[], map: OccurrenceMap, today
   let paidTotal = 0;
   let outstanding = 0;
   let unknown = 0;
+  let known = 0;
   let upcoming = 0;
   let overdue = 0;
 
@@ -308,6 +311,7 @@ export function summarizeBills(bills: readonly Bill[], map: OccurrenceMap, today
       paidTotal += toCents(v.paid);
       if (v.amountDue === null) unknown += 1;
       else {
+        known += 1;
         due += toCents(v.amountDue);
         if (v.status !== "paid") outstanding += toCents(v.outstanding ?? 0);
       }
@@ -322,10 +326,45 @@ export function summarizeBills(bills: readonly Bill[], map: OccurrenceMap, today
   return {
     dueThisMonth: due / 100,
     unknownThisMonth: unknown,
+    knownThisMonth: known,
     paidThisMonth: paidTotal / 100,
     upcoming,
     overdue,
     outstandingThisMonth: outstanding / 100,
+  };
+}
+
+// ── Presentation helpers (labels only -- no financial calculation) ────────
+
+export type StatusLabel = "paid" | "overdue" | "pending" | "partial" | "due";
+
+/**
+ * What a card/cycle should SAY. Whenever the actual amount due is unknown the
+ * bill is "pending" (never "partially paid" or "paid" -- an estimate decides
+ * nothing); once it is known the label follows the real status. Overdue still
+ * wins so a late bill is never hidden behind a "pending" tag.
+ */
+export function statusLabel(v: Pick<OccurrenceView, "amountDue" | "status" | "overdue">): StatusLabel {
+  if (v.amountDue === null) return v.overdue ? "overdue" : "pending";
+  if (v.status === "paid") return "paid";
+  if (v.overdue) return "overdue";
+  return v.status === "partial" ? "partial" : "due";
+}
+
+export type DueSummaryDisplay = {
+  /** True when this month has bills but none with a known amount: show "Amount pending", not $0.00. */
+  allPending: boolean;
+  /** Some amounts known, some not: the figure is a known-amounts-only total. */
+  knownOnly: boolean;
+  /** Bills awaiting an actual amount. */
+  awaiting: number;
+};
+
+export function describeDueSummary(s: Pick<BillsSummary, "knownThisMonth" | "unknownThisMonth">): DueSummaryDisplay {
+  return {
+    allPending: s.unknownThisMonth > 0 && s.knownThisMonth === 0,
+    knownOnly: s.unknownThisMonth > 0 && s.knownThisMonth > 0,
+    awaiting: s.unknownThisMonth,
   };
 }
 

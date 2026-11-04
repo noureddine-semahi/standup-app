@@ -197,6 +197,8 @@ export type FinancesOverview = {
   monthlyDue: number;
   /** This month's bill cycles whose amount isn't known yet (not counted as $0). */
   monthlyDueUnknown: number;
+  /** Nothing known to show yet (no minimums, no known bill amounts) but bills await amounts: show "Amount pending", not $0.00. */
+  monthlyDuePending: boolean;
   /** Monthly equivalent of active subscriptions (none tracked yet). */
   subscriptionsMonthly: number;
   /** Obligations due today or inside their own reminder window. */
@@ -217,10 +219,12 @@ export function summarizeFinances(
 ): FinancesOverview {
   const s = summarizePayments(accounts);
   const accountsUpcoming = accounts.filter((a) => getPaymentDueInfo(a, todayISO).tier !== "later").length;
+  const monthlyDueCents = toCents(s.monthlyMinimums) + toCents(bills?.outstandingThisMonth ?? 0);
   return {
     totalBalances: s.totalBalance,
-    monthlyDue: fromCents(toCents(s.monthlyMinimums) + toCents(bills?.outstandingThisMonth ?? 0)),
+    monthlyDue: fromCents(monthlyDueCents),
     monthlyDueUnknown: bills?.unknownThisMonth ?? 0,
+    monthlyDuePending: (bills?.unknownThisMonth ?? 0) > 0 && monthlyDueCents === 0,
     subscriptionsMonthly: 0,
     upcomingCount: accountsUpcoming + (bills?.upcoming ?? 0),
   };

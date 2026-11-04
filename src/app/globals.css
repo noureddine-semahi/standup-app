@@ -14461,3 +14461,123 @@ button.status-chip-trigger[aria-expanded="true"] {
   background: rgba(60, 48, 36, 0.06);
   box-shadow: inset 0 2px 4px -1px rgba(60, 48, 36, 0.22);
 }
+
+/* ===== Bills: compact cards + clearer summary (presentation refinement) ===== */
+.bill-card {
+  padding: 0.6rem 0.75rem 0.65rem;
+}
+
+/* The status chip can carry a longer label ("Amount pending confirmation"). */
+.bill-chip.pay-due {
+  max-width: 62%;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.bill-info {
+  margin: 0.4rem 0 0.55rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 2px 5px -1px rgba(0, 0, 0, 0.6);
+}
+
+.bill-info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.12rem 0;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.bill-info-row > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bill-amount {
+  font-weight: 700;
+  color: #f4f5f7;
+}
+
+.bill-due {
+  color: rgba(229, 231, 235, 0.7);
+}
+
+.bill-paid {
+  font-weight: 600;
+  color: #5eead4;
+}
+
+/* Quiet inline action (e.g. "Set amount due"); padded for touch, margins pull
+   the extra height back so the row stays compact. */
+.bill-link-btn {
+  flex: 0 0 auto;
+  margin: -0.35rem -0.2rem;
+  padding: 0.35rem 0.2rem;
+  min-height: 36px;
+  background: none;
+  border: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fcd34d;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.bill-card .bill-seg {
+  margin: -0.15rem 0 0.55rem;
+}
+
+/* "Amount pending" replaces a misleading $0.00 -- smaller, but still readable. */
+.pay-stat-value[data-pending="true"] {
+  font-size: clamp(1rem, 4.4vw, 1.25rem);
+  line-height: 1.25;
+  color: #fcd34d;
+}
+
+/* Desktop: all four actions on one row; two-column card grid when wide. */
+@media (min-width: 600px) {
+  .bill-card .pay-card-actions {
+    grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  }
+  .bill-card .pay-card-actions .pay-action-wide {
+    grid-column: auto;
+  }
+  .bill-card .pay-action-btn.standup-metal-btn {
+    min-height: 40px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .bills-panel .bill-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+[data-theme="light"] .bill-info {
+  background: rgba(60, 48, 36, 0.07);
+  box-shadow: inset 0 2px 5px -1px rgba(60, 48, 36, 0.28);
+}
+
+[data-theme="light"] .bill-amount {
+  color: #1f2125;
+}
+
+[data-theme="light"] .bill-due {
+  color: rgba(38, 40, 45, 0.7);
+}
+
+[data-theme="light"] .bill-paid {
+  color: #0f766e;
+}
+
+[data-theme="light"] .bill-link-btn,
+[data-theme="light"] .pay-stat-value[data-pending="true"] {
+  color: #8a4b05;
+}

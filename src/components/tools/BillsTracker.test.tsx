@@ -145,7 +145,7 @@ describe("bill cards", () => {
     });
     const card = screen.getByTestId("bill-card");
     expect(within(card).getByText("Partially paid")).toBeTruthy();
-    expect(within(card).getByText("Paid $400.00 · Outstanding $600.00")).toBeTruthy();
+    expect(within(card).getByText("Paid $400.00 · $600.00 left")).toBeTruthy();
   });
 
   it("a variable bill with a payment but no actual amount is not marked paid", () => {
@@ -154,9 +154,57 @@ describe("bill cards", () => {
       occurrences: mapOf(rec("v", "2026-10-12", 130, [pay("a", 130)]), rec("v", "2026-11-12", null, [pay("p", 150)])),
     });
     const card = screen.getByTestId("bill-card");
-    expect(within(card).getByText("Partially paid")).toBeTruthy();
+    expect(card.querySelector(".pay-due")!.textContent).toBe("Amount pending confirmation");
+    expect(within(card).queryByText("Partially paid")).toBeNull();
     expect(within(card).queryByText("Paid")).toBeNull();
-    expect(within(card).getByText("Paid $150.00 · amount due not entered")).toBeTruthy();
+    expect(within(card).getByText("Recorded payments: $150.00")).toBeTruthy();
+    expect(within(card).getByText("Estimated: $145.00")).toBeTruthy();
+  });
+
+  it("variable bill with no payments and no actual amount: pending, estimate shown, nothing recorded", () => {
+    setup({ bills: [bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-11-12" })] });
+    const card = screen.getByTestId("bill-card");
+    expect(card.querySelector(".pay-due")!.textContent).toBe("Amount pending confirmation");
+    expect(within(card).getByText("Estimated: $145.00")).toBeTruthy();
+    expect(card.textContent).not.toContain("Recorded payments");
+  });
+
+  it("a payment equal to the estimate does not make the bill paid while the actual amount is unknown", () => {
+    setup({
+      bills: [bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 129.15 })],
+      occurrences: mapOf(rec("v", "2026-10-12", 100, [pay("a", 100)]), rec("v", "2026-11-12", null, [pay("p", 129.15)])),
+    });
+    const card = screen.getByTestId("bill-card");
+    expect(card.querySelector(".pay-due")!.textContent).toBe("Amount pending confirmation");
+    expect(within(card).getByText("Recorded payments: $129.15")).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Set amount due Electricity" })).toBeTruthy();
+  });
+
+  it("once the actual amount is finalized, status follows it: paid, partial, or overpaid", () => {
+    // one-time bill so the card shows exactly this cycle
+    const v = bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 129.15, recurrence: "once", firstDueDate: "2026-11-12" });
+    const cases: [number, string, string][] = [
+      [129.15, "Paid", "Paid $129.15"],
+      [60, "Partially paid", "Paid $60.00 · $69.15 left"],
+      [150, "Paid", "Paid $150.00 · $20.85 over"],
+    ];
+    for (const [paid, chip, line] of cases) {
+      cleanup();
+      setup({ bills: [v], occurrences: mapOf(rec("v", "2026-11-12", 129.15, [pay("p", paid)])) });
+      const card = screen.getByTestId("bill-card");
+      expect(card.querySelector(".pay-due")!.textContent, String(paid)).toBe(chip);
+      expect(within(card).getByText(line)).toBeTruthy();
+      expect(within(card).getByText("Amount due: $129.15")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Set amount due Electricity/ })).toBeNull(); // amount known: lives under More
+    }
+  });
+
+  it("fixed bills keep their familiar presentation", () => {
+    setup({ bills: [bill({ id: "f", name: "Internet", expectedAmount: 60, firstDueDate: "2026-11-20" })] });
+    const card = screen.getByTestId("bill-card");
+    expect(card.querySelector(".pay-due")!.textContent).toBe("Due 11/20/2026");
+    expect(within(card).getByText("Amount due: $60.00")).toBeTruthy();
+    expect(within(card).queryByText(/pending/i)).toBeNull();
   });
 });
 
@@ -176,10 +224,31 @@ describe("summary panels", () => {
       ),
     });
     expect(screen.getByTestId("bills-due").textContent).toBe("$1,060.00"); // rent 1000 + internet 60; electricity unknown
-    expect(screen.getByTestId("bills-unknown").textContent).toBe("+1 amount not entered");
+    expect(screen.getByTestId("bills-unknown").textContent).toBe("1 bill awaiting amount");
+    expect(screen.getByText("Known amounts only")).toBeTruthy();
     expect(screen.getByTestId("bills-paid").textContent).toBe("$250.00");
     expect(screen.getByTestId("bills-upcoming").textContent).toBe("1"); // internet Nov 5 is within its window
     expect(screen.getByTestId("bills-overdue").textContent).toBe("0");
+  });
+});
+
+describe("summary clarity", () => {
+  it("all amounts unknown: 'Amount pending' instead of $0.00, with the awaiting count", () => {
+    setup({
+      bills: [
+        bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" }),
+        bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" }),
+      ],
+    });
+    expect(screen.getByTestId("bills-due").textContent).toBe("Amount pending");
+    expect(screen.getByTestId("bills-unknown").textContent).toBe("2 bills awaiting amounts");
+    expect(screen.queryByText("Known amounts only")).toBeNull();
+  });
+
+  it("no bills at all is a plain $0.00 with no pending wording", () => {
+    setup();
+    expect(screen.getByTestId("bills-due").textContent).toBe("$0.00");
+    expect(screen.queryByTestId("bills-unknown")).toBeNull();
   });
 });
 
@@ -319,12 +388,45 @@ describe("Record bill payment", () => {
   it("variable bill: asks for the actual amount due and sends it with the payment", async () => {
     const v = bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 145 });
     const c = open(v, mapOf(rec("v", "2026-10-12", 130, [pay("a", 130)])));
+    // untick "full amount" to enter a different actual amount due
+    fireEvent.click(screen.getByLabelText("This payment is the full amount due"));
     expect((screen.getByLabelText(/Actual amount due this cycle/) as HTMLInputElement).value).toBe("");
     typeInto("Amount paid", "152.10");
     typeInto(/Actual amount due this cycle/, "152.10");
     fireEvent.click(screen.getByRole("button", { name: "Record" }));
     await waitFor(() => expect(c.recordPayment).toHaveBeenCalled());
     expect((c.recordPayment as any).mock.calls[0][2]).toMatchObject({ amount: 152.1, amountDue: 152.1 });
+  });
+
+  it("variable bill with no amount yet: 'full amount' is on by default and sets the amount due to what was paid", async () => {
+    const v = bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 145 });
+    const c = open(v, mapOf(rec("v", "2026-10-12", 130, [pay("a", 130)])));
+    const box = screen.getByLabelText("This payment is the full amount due") as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(screen.queryByLabelText(/Actual amount due this cycle/)).toBeNull();
+    typeInto("Amount paid", "129.15");
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+    await waitFor(() => expect(c.recordPayment).toHaveBeenCalled());
+    expect((c.recordPayment as any).mock.calls[0][2]).toMatchObject({ amount: 129.15, amountDue: 129.15 });
+  });
+
+  it("unticking 'full amount' makes it a partial payment that leaves the amount due unset", async () => {
+    const v = bill({ id: "v", name: "Electricity", amountType: "variable", expectedAmount: 145 });
+    const c = open(v, mapOf(rec("v", "2026-10-12", 130, [pay("a", 130)])));
+    fireEvent.click(screen.getByLabelText("This payment is the full amount due"));
+    typeInto("Amount paid", "50");
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+    await waitFor(() => expect(c.recordPayment).toHaveBeenCalled());
+    expect((c.recordPayment as any).mock.calls[0][2]).toMatchObject({ amount: 50, amountDue: null });
+  });
+
+  it("no 'full amount' option for fixed bills, or when the cycle already has an amount and payments", () => {
+    open(bill());
+    expect(screen.queryByLabelText("This payment is the full amount due")).toBeNull();
+    cleanup();
+    const v = bill({ id: "v", name: "Water", amountType: "variable", expectedAmount: null });
+    open(v, mapOf(rec("v", "2026-10-12", 50, [pay("a", 50)]), rec("v", "2026-11-12", 100, [pay("b", 40)])));
+    expect(screen.queryByLabelText("This payment is the full amount due")).toBeNull();
   });
 
   it("repeated taps submit once; a retry after failure reuses the same idempotency key", async () => {
@@ -433,9 +535,10 @@ describe("Remove and set amount", () => {
     const v = bill({ id: "v", name: "Water", amountType: "variable", expectedAmount: null });
     const c = setup({ bills: [v, bill({ id: "f", name: "Rent" })] });
     fireEvent.click(screen.getByRole("button", { name: "More Rent" }));
-    expect(screen.queryByRole("button", { name: "Set amount due" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "More Water" }));
-    fireEvent.click(screen.getByRole("button", { name: "Set amount due" }));
+    const rentCard = screen.getAllByTestId("bill-card").find((c) => within(c).queryByRole("heading", { name: "Rent" }))!;
+    expect(within(rentCard).queryByRole("button", { name: /Set amount due/ })).toBeNull(); // fixed bills never offer it
+    // unknown amount: the action is right on the card
+    fireEvent.click(screen.getByRole("button", { name: "Set amount due Water" }));
     typeInto("Amount due", "88.40");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(c.setAmount).toHaveBeenCalledWith(v, "2026-10-12", 88.4));

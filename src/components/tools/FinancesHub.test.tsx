@@ -154,8 +154,18 @@ describe("FinancesHub with bills", () => {
     );
     expect(screen.getByTestId("fin-balances").textContent).toBe("$394.00");
     expect(screen.getByTestId("fin-due").textContent).toBe("$625.00"); // 25 minimum + 600 left on rent; electricity amount unknown
-    expect(screen.getByText("+1 amount not entered")).toBeTruthy();
+    expect(screen.getByText("Known amounts only")).toBeTruthy();
+    expect(screen.getByText("1 bill awaiting amount")).toBeTruthy();
     expect(screen.getByTestId("fin-upcoming").textContent).toBe("1"); // electricity Nov 5 is inside its window
+  });
+
+  it("shows 'Amount pending' instead of $0.00 when nothing is known yet but bills await amounts", () => {
+    const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" });
+    const water = bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" });
+    setup([], billsController({ bills: [power, water] }));
+    expect(screen.getByTestId("fin-due").textContent).toBe("Amount pending");
+    expect(screen.getByText("2 bills awaiting amounts")).toBeTruthy();
+    expect(screen.queryByText("Known amounts only")).toBeNull();
   });
 
   it("keeps the account-only overview when Bills is unavailable, loading or errored", () => {

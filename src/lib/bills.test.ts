@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  describeDueSummary,
+  statusLabel,
   billOccurrenceViews,
   billSuggestionKey,
   computeStatus,
@@ -192,7 +194,7 @@ describe("bounded window and current occurrence", () => {
 describe("summarizeBills", () => {
   const today = "2026-11-03";
   it("is all zero with no bills", () => {
-    expect(summarizeBills([], {}, today)).toEqual({ dueThisMonth: 0, unknownThisMonth: 0, paidThisMonth: 0, upcoming: 0, overdue: 0, outstandingThisMonth: 0 });
+    expect(summarizeBills([], {}, today)).toEqual({ dueThisMonth: 0, unknownThisMonth: 0, knownThisMonth: 0, paidThisMonth: 0, upcoming: 0, overdue: 0, outstandingThisMonth: 0 });
   });
 
   it("totals this month's due/paid/outstanding from real records", () => {
@@ -328,5 +330,70 @@ describe("parseBillPaymentEntry", () => {
   });
   it("allows historical payments", () => {
     expect(parseBillPaymentEntry({ ...base, date: "2025-01-15" }, today).ok).toBe(true);
+  });
+});
+
+describe("status labels (presentation only)", () => {
+  const b = bill({ amountType: "variable", expectedAmount: 145 });
+  const view = (record: ReturnType<typeof occ> | undefined, dueDate = "2026-11-12") => resolveOccurrence(b, dueDate, record, "2026-11-03");
+
+  it("unknown actual amount is 'pending' -- with no payments, with a payment equal to the estimate, with a partial one", () => {
+    expect(statusLabel(view(undefined))).toBe("pending");
+    expect(statusLabel(view(occ("2026-11-12", null, [pay(145)])))).toBe("pending"); // equals the estimate: still nothing confirmed
+    expect(statusLabel(view(occ("2026-11-12", null, [pay(50)])))).toBe("pending");
+  });
+
+  it("an overdue bill is still labelled overdue even while its amount is unknown", () => {
+    expect(statusLabel(view(undefined, "2026-10-20"))).toBe("overdue");
+  });
+
+  it("once the actual amount is known the label follows the real status", () => {
+    expect(statusLabel(view(occ("2026-11-12", 130, [pay(130)])))).toBe("paid");
+    expect(statusLabel(view(occ("2026-11-12", 130, [pay(50)])))).toBe("partial");
+    expect(statusLabel(view(occ("2026-11-12", 130, [])))).toBe("due");
+    expect(statusLabel(view(occ("2026-11-12", 130, [pay(200)])))).toBe("paid"); // overpayment
+    expect(statusLabel(view(occ("2026-10-12", 130, [pay(50)]), "2026-10-12"))).toBe("overdue");
+  });
+
+  it("fixed bills are unaffected: always have an amount, so they never read 'pending'", () => {
+    const f = bill();
+    expect(statusLabel(resolveOccurrence(f, "2026-11-12", undefined, "2026-11-03"))).toBe("due");
+    expect(statusLabel(resolveOccurrence(f, "2026-11-12", occ("2026-11-12", 1000, [pay(400)]), "2026-11-03"))).toBe("partial");
+  });
+
+  it("the underlying status is unchanged (estimate never decides it)", () => {
+    const v = view(occ("2026-11-12", null, [pay(145)]));
+    expect(v.status).toBe("partial");
+    expect(v.outstanding).toBeNull();
+  });
+});
+
+describe("describeDueSummary / known counts", () => {
+  const today = "2026-11-03";
+  const power = bill({ id: "e", name: "Electricity", amountType: "variable", expectedAmount: 145, firstDueDate: "2026-01-12" });
+  const water = bill({ id: "w", name: "Water", amountType: "variable", expectedAmount: null, firstDueDate: "2026-01-20" });
+  const rent = bill({ id: "r", firstDueDate: "2026-01-12" });
+
+  it("all amounts unknown -> allPending (never a misleading $0.00)", () => {
+    const s = summarizeBills([power, water], {}, today);
+    expect(s).toMatchObject({ dueThisMonth: 0, knownThisMonth: 0, unknownThisMonth: 2 });
+    expect(describeDueSummary(s)).toEqual({ allPending: true, knownOnly: false, awaiting: 2 });
+  });
+
+  it("mixed known and unknown -> known-only total plus the awaiting count", () => {
+    const s = summarizeBills([power, rent], {}, today);
+    expect(s).toMatchObject({ dueThisMonth: 1000, knownThisMonth: 1, unknownThisMonth: 1 });
+    expect(describeDueSummary(s)).toEqual({ allPending: false, knownOnly: true, awaiting: 1 });
+  });
+
+  it("everything known -> neither flag", () => {
+    expect(describeDueSummary(summarizeBills([rent], {}, today))).toEqual({ allPending: false, knownOnly: false, awaiting: 0 });
+    expect(describeDueSummary(summarizeBills([], {}, today))).toEqual({ allPending: false, knownOnly: false, awaiting: 0 });
+  });
+
+  it("a finalized actual amount moves a bill from awaiting to known, with totals unchanged otherwise", () => {
+    const m = mapOf(occ("2026-11-12", 152.1, [], "e"));
+    const s = summarizeBills([power, rent], m, today);
+    expect(s).toMatchObject({ dueThisMonth: 1152.1, knownThisMonth: 2, unknownThisMonth: 0 });
   });
 });

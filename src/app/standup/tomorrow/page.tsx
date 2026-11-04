@@ -59,6 +59,8 @@ import {
 } from "@/lib/supabase/db";
 import { addGoalFromBill, billGoalTitle, getSuggestedBillReminders } from "@/lib/supabase/bills";
 import { billSuggestionKey, type BillSuggestion } from "@/lib/bills";
+import { addGoalFromSubscription, getSuggestedSubscriptionReminders, subscriptionGoalTitle } from "@/lib/supabase/subscriptions";
+import { subscriptionSuggestionKey, type SubscriptionSuggestion } from "@/lib/subscriptions";
 import type { RecurrenceFrequency } from "@/lib/recurringGoalCycle";
 import { supabase } from "@/lib/supabase/client";
 import { notifyPointsUpdated } from "@/lib/pointsBus";
@@ -306,6 +308,9 @@ export default function TomorrowGoalsPage() {
   // Bill reminders: tap-to-add suggestions only (see getSuggestedBillReminders).
   const [suggestedBills, setSuggestedBills] = useState<BillSuggestion[]>([]);
   const [addingBillKey, setAddingBillKey] = useState<string | null>(null);
+  // Subscription renewals / trial endings: tap-to-add suggestions only (see getSuggestedSubscriptionReminders).
+  const [suggestedSubs, setSuggestedSubs] = useState<SubscriptionSuggestion[]>([]);
+  const [addingSubKey, setAddingSubKey] = useState<string | null>(null);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [goalComments, setGoalComments] = useState<Record<string, any[]>>({});
   const [checklistItems, setChecklistItems] = useState<Record<string, ChecklistItem[]>>({});
@@ -957,6 +962,10 @@ export default function TomorrowGoalsPage() {
     getSuggestedBillReminders(tomorrowISO)
       .then(setSuggestedBills)
       .catch(() => {});
+    // Same: silent if the subscriptions tables don't exist yet.
+    getSuggestedSubscriptionReminders(tomorrowISO)
+      .then(setSuggestedSubs)
+      .catch(() => {});
     // Payment reminders are auto-created (not a tap-to-add suggestion like
     // templates) -- explicit user call. Silently creates whatever's due,
     // then refreshes so it shows up in the goal list, with a one-line
@@ -984,6 +993,22 @@ export default function TomorrowGoalsPage() {
       setMsg(typeof message === "string" && message ? message : t("tomorrow.failedAddSuggestedTask"));
     } finally {
       setAddingBillKey(null);
+    }
+  }
+
+  async function handleAddSuggestedSubscription(s: SubscriptionSuggestion) {
+    const key = subscriptionSuggestionKey(s.subscription.id, s.event, s.date);
+    if (addingSubKey) return;
+    setAddingSubKey(key);
+    try {
+      await addGoalFromSubscription(s, tomorrowISO);
+      setSuggestedSubs((prev) => prev.filter((x) => subscriptionSuggestionKey(x.subscription.id, x.event, x.date) !== key));
+      await refresh({ silent: true });
+    } catch (e) {
+      const message = (e as { message?: unknown } | null)?.message;
+      setMsg(typeof message === "string" && message ? message : t("tomorrow.failedAddSuggestedTask"));
+    } finally {
+      setAddingSubKey(null);
     }
   }
 
@@ -2443,7 +2468,7 @@ export default function TomorrowGoalsPage() {
               all, giving the actual planning content more room. */}
         </div>
 
-        {(suggestedTemplates.length > 0 || suggestedBills.length > 0) && (
+        {(suggestedTemplates.length > 0 || suggestedBills.length > 0 || suggestedSubs.length > 0) && (
           <div className="mb-6">
             <div className="text-xs uppercase tracking-wide text-white/40 font-semibold mb-2">
               {t("tomorrow.suggestedTitle")}
@@ -2473,6 +2498,21 @@ export default function TomorrowGoalsPage() {
                     style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
                   >
                     {addingBillKey === key ? t("tomorrow.addingSuggested") : `+ ${billGoalTitle(s)}`}
+                  </button>
+                );
+              })}
+              {suggestedSubs.map((s) => {
+                const key = subscriptionSuggestionKey(s.subscription.id, s.event, s.date);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handleAddSuggestedSubscription(s)}
+                    disabled={addingSubKey === key}
+                    className="btn standup-metal-btn"
+                    style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+                  >
+                    {addingSubKey === key ? t("tomorrow.addingSuggested") : `+ ${subscriptionGoalTitle(s)}`}
                   </button>
                 );
               })}

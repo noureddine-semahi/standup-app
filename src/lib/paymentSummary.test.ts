@@ -218,6 +218,8 @@ describe("summarizeFinances", () => {
       monthlyDueIncludesEstimates: false,
       monthlyDuePending: false,
       subscriptionsMonthly: 0,
+      subscriptionsAwaitingPrice: 0,
+      subscriptionsOtherCurrency: 0,
       upcomingCount: 0,
     });
   });
@@ -240,7 +242,9 @@ describe("summarizeFinances", () => {
       "monthlyDueIncludesEstimates",
       "monthlyDuePending",
       "monthlyDueUnknown",
+      "subscriptionsAwaitingPrice",
       "subscriptionsMonthly",
+      "subscriptionsOtherCurrency",
       "totalBalances",
       "upcomingCount",
     ]);
@@ -288,5 +292,41 @@ describe("summarizeFinances", () => {
     const map = { r: { "2026-11-12": { id: "o1", billId: "r", dueDate: "2026-11-12", amountDue: 1000, payments: [{ id: "x", amount: 5000, paidAt: "x", note: null, reversedAt: null }] } } };
     const o = summarizeFinances([], today, summarizeBills([rent], map, today));
     expect(o.monthlyDue).toBe(0);
+  });
+});
+
+describe("summarizeFinances with subscriptions", () => {
+  const today = "2026-11-03";
+  const subs = (over: Partial<{ monthlyCost: number; upcomingUnlinked: number; awaitingPrice: number; otherCurrency: number }> = {}) => ({
+    monthlyCost: 0,
+    upcomingUnlinked: 0,
+    awaitingPrice: 0,
+    otherCurrency: 0,
+    ...over,
+  });
+
+  it("the Subscriptions figure is the real monthly-equivalent total (it was a $0.00 placeholder)", () => {
+    expect(summarizeFinances([], today, null, subs({ monthlyCost: 78.82 })).subscriptionsMonthly).toBe(78.82);
+    expect(summarizeFinances([], today).subscriptionsMonthly).toBe(0);
+  });
+
+  it("subscriptions are never added into monthly due or balances (separate concepts, no double counting)", () => {
+    const accounts = [acct({ id: "1", balance: 900, minimumPayment: 35, dueDay: 25 })];
+    const without = summarizeFinances(accounts, today);
+    const withSubs = summarizeFinances(accounts, today, null, subs({ monthlyCost: 500 }));
+    expect(withSubs.monthlyDue).toBe(without.monthlyDue);
+    expect(withSubs.totalBalances).toBe(without.totalBalances);
+  });
+
+  it("upcoming adds only subscriptions NOT linked to a bill (a linked one is already counted through its bill)", () => {
+    const base = summarizeFinances([], today, { remainingThisMonth: 0, unknownThisMonth: 0, knownThisMonth: 1, includesEstimates: false, upcoming: 2 }, null);
+    const withSubs = summarizeFinances([], today, { remainingThisMonth: 0, unknownThisMonth: 0, knownThisMonth: 1, includesEstimates: false, upcoming: 2 }, subs({ upcomingUnlinked: 3 }));
+    expect(base.upcomingCount).toBe(2);
+    expect(withSubs.upcomingCount).toBe(5);
+  });
+
+  it("carries the awaiting-price and other-currency counts so the tile can say what it left out", () => {
+    const o = summarizeFinances([], today, null, subs({ monthlyCost: 10, awaitingPrice: 2, otherCurrency: 1 }));
+    expect(o).toMatchObject({ subscriptionsAwaitingPrice: 2, subscriptionsOtherCurrency: 1 });
   });
 });

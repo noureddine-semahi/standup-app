@@ -5,6 +5,8 @@ import type { PaymentAccount } from "@/lib/supabase/db";
 import type { PaymentsDashboardProps } from "./PaymentsDashboard";
 import type { Bill } from "@/lib/bills";
 import type { BillsController } from "./useBills";
+import type { SubscriptionsController } from "./useSubscriptions";
+import type { Subscription } from "@/lib/subscriptions";
 import FinancesHub from "./FinancesHub";
 
 beforeEach(() => {
@@ -61,7 +63,52 @@ const bill = (over: Partial<Bill> = {}): Bill => ({
   ...over,
 });
 
-function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsController()) {
+const subscriptionsController = (over: Partial<SubscriptionsController> = {}): SubscriptionsController => ({
+  state: "ready",
+  loadError: null,
+  subscriptions: [],
+  payments: {},
+  create: vi.fn(),
+  update: vi.fn(),
+  changeStatus: vi.fn(),
+  remove: vi.fn(),
+  recordPayment: vi.fn(),
+  reversePayment: vi.fn(),
+  cancellationsState: "ready",
+  cancellations: {},
+  saveCancelUrl: vi.fn(),
+  startAssistedCancellation: vi.fn(),
+  reportCancellation: vi.fn(),
+  reportCancellationFailure: vi.fn(),
+  ...over,
+});
+
+const subscription = (over: Partial<Subscription> = {}): Subscription => ({
+  id: "s1",
+  name: "Netflix",
+  provider: null,
+  category: null,
+  planName: null,
+  amount: 15.49,
+  currency: "USD",
+  frequency: "monthly",
+  customInterval: null,
+  customUnit: null,
+  nextBillingDate: "2026-11-20",
+  startDate: null,
+  status: "active",
+  trialEndsOn: null,
+  remindDaysBefore: 3,
+  notes: null,
+  billId: null,
+  canceledAt: null,
+  cancelUrl: null,
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
+  ...over,
+});
+
+function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsController(), subs: SubscriptionsController = subscriptionsController()) {
   const props: PaymentsDashboardProps = {
     accounts,
     loading: false,
@@ -80,7 +127,7 @@ function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsCo
   };
   render(
     <LanguageProvider>
-      <FinancesHub {...props} bills={bills} />
+      <FinancesHub {...props} bills={bills} subscriptions={subs} />
     </LanguageProvider>
   );
 }
@@ -126,7 +173,7 @@ describe("FinancesHub tabs", () => {
     expect(screen.queryByTestId("pay-card")).toBeNull();
     expect(screen.getByText("No bills added yet.")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "Subscriptions" }));
-    expect(screen.getByText(/Subscription tracking is coming/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Subscriptions" })).toBeTruthy(); // the real tracker, not a placeholder
     fireEvent.click(screen.getByRole("tab", { name: "Payments" }));
     expect(screen.getByText("Bank of America")).toBeTruthy();
     // Overview is unaffected by which tab is open.
@@ -232,5 +279,74 @@ describe("FinancesHub layout hooks", () => {
     const bills = document.querySelector(".pay-panel")!;
     expect(bills.querySelector(".fin-section-head")).toBeTruthy();
     expect(bills.querySelector(".pay-add-btn")).toBeTruthy();
+  });
+});
+
+describe("FinancesHub with subscriptions", () => {
+  const monthly = (id: string, amount: number, over: Partial<Subscription> = {}) => subscription({ id, name: "Svc " + id, amount, ...over });
+
+  it("the Subscriptions tile shows the real monthly-equivalent total of active paying subscriptions", () => {
+    setup(
+      [],
+      billsController(),
+      subscriptionsController({
+        subscriptions: [
+          monthly("a", 15.49),
+          monthly("b", 120, { frequency: "yearly" }), // 10 / month
+          monthly("t", 99, { status: "trial", trialEndsOn: "2026-11-30", nextBillingDate: "2026-11-30" }), // not charged yet
+          monthly("p", 99, { status: "paused" }),
+          monthly("c", 99, { status: "canceled" }),
+        ],
+      })
+    );
+    expect(screen.getByTestId("fin-subs").textContent).toBe("$25.49");
+  });
+
+  it("is $0.00 with nothing tracked, and while the tables aren't available", () => {
+    setup();
+    expect(screen.getByTestId("fin-subs").textContent).toBe("$0.00");
+    cleanup();
+    setup([], billsController(), subscriptionsController({ state: "unavailable" }));
+    expect(screen.getByTestId("fin-subs").textContent).toBe("$0.00");
+  });
+
+  it("says what the total leaves out: no-price subscriptions and other currencies", () => {
+    setup(
+      [],
+      billsController(),
+      subscriptionsController({ subscriptions: [monthly("a", 10), monthly("n", 0, { amount: null }), monthly("e", 8, { currency: "EUR" })] })
+    );
+    expect(screen.getByTestId("fin-subs").textContent).toBe("$10.00");
+    expect(screen.getByText("1 awaiting price")).toBeTruthy();
+    expect(screen.getByText("Excludes 1 in other currencies")).toBeTruthy();
+  });
+
+  it("subscriptions are not added to Monthly due", () => {
+    setup([acct({ id: "1", balance: 100, minimumPayment: 10, dueDay: 25 })], billsController(), subscriptionsController({ subscriptions: [monthly("a", 500)] }));
+    expect(screen.getByTestId("fin-due").textContent).toBe("$10.00");
+  });
+
+  it("surfaces (never merges) a possible overlap with a bill, and a linked subscription isn't flagged", () => {
+    const netflixBill = bill({ id: "nb", name: "Netflix", firstDueDate: "2026-11-25", recurrence: "once" });
+    setup([], billsController({ bills: [netflixBill] }), subscriptionsController({ subscriptions: [monthly("a", 15.49, { name: "Netflix" })] }));
+    expect(screen.getByText("1 may overlap Bills")).toBeTruthy();
+    cleanup();
+    setup([], billsController({ bills: [netflixBill] }), subscriptionsController({ subscriptions: [monthly("a", 15.49, { name: "Netflix", billId: "nb" })] }));
+    expect(screen.queryByText(/may overlap Bills/)).toBeNull();
+  });
+
+  it("a linked subscription's upcoming renewal isn't counted twice in Upcoming; an unlinked one is", () => {
+    const soon = { nextBillingDate: "2026-11-05" }; // inside its 3-day window on 2026-11-03
+    setup([], billsController(), subscriptionsController({ subscriptions: [monthly("a", 10, soon)] }));
+    expect(screen.getByTestId("fin-upcoming").textContent).toBe("1");
+    cleanup();
+    setup([], billsController(), subscriptionsController({ subscriptions: [monthly("a", 10, { ...soon, billId: "b1" })] }));
+    expect(screen.getByTestId("fin-upcoming").textContent).toBe("0");
+  });
+
+  it("the Subscriptions tab shows the unavailable message when the migration isn't applied", () => {
+    setup([], billsController(), subscriptionsController({ state: "unavailable" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Subscriptions" }));
+    expect(screen.getByTestId("subs-unavailable")).toBeTruthy();
   });
 });

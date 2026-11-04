@@ -14666,3 +14666,125 @@ button.status-chip-trigger[aria-expanded="true"] {
 .fin-section-head {
   margin-bottom: 0.85rem;
 }
+
+/* ===== Finances > Subscriptions =====
+   Reuses the Bills/Payments tiles, cards, action rows, modals and history rows;
+   only the extras below are new. */
+.sub-notice {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+  overflow-wrap: anywhere;
+}
+
+.sub-link-note {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #fcd34d;
+  overflow-wrap: anywhere;
+}
+
+.sub-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #f4f5f7;
+}
+
+/* Pause / Mark canceled / Delete: as many columns as fit, never cramped. */
+.sub-more {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+
+[data-theme="light"] .sub-notice,
+[data-theme="light"] .sub-link-note {
+  color: #8a4b05;
+}
+
+[data-theme="light"] .sub-totals {
+  color: #1f2125;
+}
+
+/* Unsubscribe Me */
+.sub-savings {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  display: grid;
+  gap: 0.3rem;
+  overflow-wrap: anywhere;
+}
+.sub-savings-title,
+.sub-history-h,
+.unsub-h {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0;
+}
+.sub-history-h {
+  margin-top: 0.6rem;
+}
+.sub-savings-note {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem;
+}
+.sub-cancel-note[data-kind="confirmed"] {
+  color: #86efac;
+}
+.sub-cancel-note[data-kind="failed"] {
+  color: #fca5a5;
+}
+.unsub-body {
+  display: grid;
+  gap: 0.6rem;
+}
+.unsub-section {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  min-width: 0;
+}
+.unsub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.unsub-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  min-height: 44px;
+}
+[data-theme="light"] .sub-savings,
+[data-theme="light"] .unsub-section {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .sub-savings-note {
+  color: rgba(31, 33, 37, 0.7);
+}
+[data-theme="light"] .sub-cancel-note[data-kind="confirmed"] {
+  color: #166534;
+}
+[data-theme="light"] .sub-cancel-note[data-kind="failed"] {
+  color: #b91c1c;
+}
+

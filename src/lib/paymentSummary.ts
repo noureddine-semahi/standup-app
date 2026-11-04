@@ -1,5 +1,6 @@
 import { computeNextDueDate, type PaymentAccount } from "@/lib/supabase/db";
 import type { BillsSummary } from "@/lib/bills";
+import type { SubscriptionsSummary } from "@/lib/subscriptions";
 
 // Presentation helpers for the Payments dashboard. Nothing here changes how
 // reminders are scheduled: due dates still come from computeNextDueDate, and
@@ -202,8 +203,12 @@ export type FinancesOverview = {
   monthlyDueIncludesEstimates: boolean;
   /** Nothing to show yet (no minimums, no bill with an actual or estimated amount) but bills have no amount: "Amount pending", not $0.00. */
   monthlyDuePending: boolean;
-  /** Monthly equivalent of active subscriptions (none tracked yet). */
+  /** Monthly-equivalent total of ACTIVE paying subscriptions in USD (trials, paused and canceled ones are excluded). */
   subscriptionsMonthly: number;
+  /** Active subscriptions with no price yet (left out, never counted as $0). */
+  subscriptionsAwaitingPrice: number;
+  /** Active subscriptions in another currency (left out; they can't be added to USD). */
+  subscriptionsOtherCurrency: number;
   /** Obligations due today or inside their own reminder window. */
   upcomingCount: number;
 };
@@ -218,7 +223,8 @@ export type FinancesOverview = {
 export function summarizeFinances(
   accounts: readonly PaymentAccount[],
   todayISO: string,
-  bills?: Pick<BillsSummary, "remainingThisMonth" | "unknownThisMonth" | "knownThisMonth" | "includesEstimates" | "upcoming"> | null
+  bills?: Pick<BillsSummary, "remainingThisMonth" | "unknownThisMonth" | "knownThisMonth" | "includesEstimates" | "upcoming"> | null,
+  subscriptions?: Pick<SubscriptionsSummary, "monthlyCost" | "upcomingUnlinked" | "awaitingPrice" | "otherCurrency"> | null
 ): FinancesOverview {
   const s = summarizePayments(accounts);
   const accountsUpcoming = accounts.filter((a) => getPaymentDueInfo(a, todayISO).tier !== "later").length;
@@ -230,7 +236,13 @@ export function summarizeFinances(
     monthlyDueUnknown: bills?.unknownThisMonth ?? 0,
     monthlyDueIncludesEstimates: bills?.includesEstimates ?? false,
     monthlyDuePending: (bills?.unknownThisMonth ?? 0) > 0 && (bills?.knownThisMonth ?? 0) === 0 && minimumsCents === 0,
-    subscriptionsMonthly: 0,
-    upcomingCount: accountsUpcoming + (bills?.upcoming ?? 0),
+    // Subscriptions are a recurring COST, a separate concept from this month's obligations above, so
+    // their monthly total is shown on its own tile and never added into monthlyDue (no double counting).
+    subscriptionsMonthly: subscriptions?.monthlyCost ?? 0,
+    subscriptionsAwaitingPrice: subscriptions?.awaitingPrice ?? 0,
+    subscriptionsOtherCurrency: subscriptions?.otherCurrency ?? 0,
+    // Upcoming counts a subscription renewal / trial end only when it is NOT linked to a bill: a linked
+    // subscription's charge is already counted through its bill.
+    upcomingCount: accountsUpcoming + (bills?.upcoming ?? 0) + (subscriptions?.upcomingUnlinked ?? 0),
   };
 }

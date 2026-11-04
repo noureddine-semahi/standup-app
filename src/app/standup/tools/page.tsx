@@ -9,6 +9,7 @@ import CalculatorTool from "@/components/tools/CalculatorTool";
 import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
 import FinancesHub from "@/components/tools/FinancesHub";
 import { useBills } from "@/components/tools/useBills";
+import { useSubscriptions } from "@/components/tools/useSubscriptions";
 import { showToolsIntro } from "@/lib/toolsLayout";
 import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
@@ -173,6 +174,8 @@ export default function ToolsPage() {
   const [busyPaymentIds, setBusyPaymentIds] = useState<Set<string>>(new Set());
   // Finances > Bills (separate tables/ledger from payment accounts above).
   const bills = useBills(toISODate(new Date()), t("bills.failed"));
+  // Finances > Subscriptions (its own tables and payment ledger).
+  const subscriptions = useSubscriptions(t("subs.failed"));
 
   // Payment history — collapsed by default per account, fetched lazily on
   // first expand rather than loading every account's whole ledger up
@@ -1350,6 +1353,7 @@ export default function ToolsPage() {
       <div>
         <FinancesHub
           bills={bills}
+          subscriptions={subscriptions}
           accounts={paymentAccounts}
           loading={paymentsLoading}
           message={paymentsMsg}

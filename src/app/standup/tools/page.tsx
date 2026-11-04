@@ -2,12 +2,15 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, Target, Calculator as CalculatorIcon, Banknote } from "lucide-react";
+import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, Target, Calculator as CalculatorIcon, Banknote, PiggyBank } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import CalculatorTool from "@/components/tools/CalculatorTool";
 import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
 import FinancesHub from "@/components/tools/FinancesHub";
+import PlannerHome from "@/components/tools/PlannerHome";
+import { useFinancialProfile } from "@/components/tools/useFinancialProfile";
+import { useHousehold } from "@/components/tools/useHousehold";
 import { useBills } from "@/components/tools/useBills";
 import { useSubscriptions } from "@/components/tools/useSubscriptions";
 import { showToolsIntro } from "@/lib/toolsLayout";
@@ -83,7 +86,7 @@ function errorMessage(e: unknown, fallback: string): string {
   return typeof message === "string" && message ? message : fallback;
 }
 
-type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "calculator" | "salary";
+type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "planner" | "calculator" | "salary";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
@@ -100,6 +103,7 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
   { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
   { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
   { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e", descriptionKey: "tools.descPayments" },
+  { key: "planner", labelKey: "backlog.tabPlanner", icon: PiggyBank, color: "#2dd4bf", descriptionKey: "tools.descPlanner" },
   { key: "calculator", labelKey: "backlog.tabCalculator", icon: CalculatorIcon, color: "#fb923c", descriptionKey: "tools.descCalculator" },
   { key: "salary", labelKey: "backlog.tabSalary", icon: Banknote, color: "#facc15", descriptionKey: "tools.descSalary" },
 ];
@@ -187,6 +191,10 @@ export default function ToolsPage() {
   const bills = useBills(toISODate(new Date()), t("bills.failed"));
   // Finances > Subscriptions (its own tables and payment ledger).
   const subscriptions = useSubscriptions(t("subs.failed"));
+  // Tools > Planner: the user's own financial profile (saved per user; read-only toward the records above).
+  const financialProfile = useFinancialProfile(t("plan.failed"));
+  // The household's one optional partner (a separate profile the signed-in user manages).
+  const household = useHousehold(t("plan.failed"));
 
   // Payment history — collapsed by default per account, fetched lazily on
   // first expand rather than loading every account's whole ledger up
@@ -1379,6 +1387,19 @@ export default function ToolsPage() {
           historyLoadingId={paymentHistoryLoadingId}
           historyByAccount={paymentHistoryByAccount}
           onToggleHistory={toggleHistory}
+        />
+      </div>
+    )}
+
+    {activeTab === "planner" && (
+      <div>
+        <PlannerHome
+          me={financialProfile}
+          household={household}
+          bills={bills.bills}
+          accounts={paymentAccounts}
+          subscriptions={subscriptions.subscriptions}
+          todayISO={todayISO}
         />
       </div>
     )}

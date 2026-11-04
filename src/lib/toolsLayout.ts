@@ -1,13 +1,13 @@
 // Small layout decisions for the Tools page, kept out of the page file so they can be tested.
 
 /**
- * The Tools heading + per-tab description card is hidden on Finances, whose own
- * panel already carries its heading and description (the card above it would
- * just repeat them). Every other tool keeps it. The Finances tab's key is
+ * The Tools heading + per-tab description card is hidden on Finances and the Planner,
+ * whose own panels already carry their heading and description (the card above them
+ * would just repeat it). Every other tool keeps it. The Finances tab's key is
  * "payments" for historical reasons (its route/state never changed).
  */
 export function showToolsIntro(activeTab: string): boolean {
-  return activeTab !== "payments";
+  return activeTab !== "payments" && activeTab !== "planner";
 }
 
 /** CSS custom property used by the summary tiles to size a value to its tile (see .pay-stat-value). */

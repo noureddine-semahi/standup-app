@@ -352,7 +352,7 @@ describe("Add and edit bill", () => {
     typeInto("First due date", "2026-11-30");
     typeInto("Repeats", "quarterly");
     typeInto("Remind (days before)", "5");
-    typeInto("Category (optional)", "Housing");
+    typeInto("Category (optional)", "Utilities");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(c.create).toHaveBeenCalledTimes(1));
     expect(c.create).toHaveBeenCalledWith({
@@ -362,7 +362,7 @@ describe("Add and edit bill", () => {
       firstDueDate: "2026-11-30",
       recurrence: "quarterly",
       remindDaysBefore: 5,
-      category: "Housing",
+      category: "Utilities",
       notes: null,
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -424,6 +424,119 @@ describe("Add and edit bill", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(c.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("category selector", () => {
+  const category = () => screen.getByLabelText("Category (optional)") as HTMLSelectElement;
+
+  it("is a dropdown of the predefined categories with an optional 'No category'", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /Add Bill/ }));
+    expect(category().tagName).toBe("SELECT");
+    expect(Array.from(category().options).map((o) => o.textContent)).toEqual([
+      "No category", "Utilities", "Internet", "Mobile / Phone", "Rent / Mortgage", "Insurance", "Auto / Transportation",
+      "Groceries", "Healthcare", "Education / Childcare", "Home Maintenance", "Taxes / Government", "Memberships", "Entertainment", "Other",
+    ]);
+    expect(category().value).toBe("");
+    expect(screen.queryByLabelText("Custom category")).toBeNull();
+  });
+
+  it("no category selected saves null (optional)", async () => {
+    const c = setup();
+    fireEvent.click(screen.getByRole("button", { name: /Add Bill/ }));
+    typeInto(/^Bill name/, "Rent");
+    typeInto(/^Amount(?! type)/, "10");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(c.create).toHaveBeenCalledWith(expect.objectContaining({ category: null })));
+  });
+
+  it("'Other' reveals a custom input and saves the custom name; selecting another category hides it again", async () => {
+    const c = setup();
+    fireEvent.click(screen.getByRole("button", { name: /Add Bill/ }));
+    typeInto(/^Bill name/, "Vet");
+    typeInto(/^Amount(?! type)/, "10");
+    typeInto("Category (optional)", "Other");
+    const custom = screen.getByLabelText("Custom category") as HTMLInputElement;
+    expect(custom.value).toBe("");
+    typeInto("Category (optional)", "Healthcare");
+    expect(screen.queryByLabelText("Custom category")).toBeNull();
+    typeInto("Category (optional)", "Other");
+    typeInto("Custom category", "  Pet care ");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(c.create).toHaveBeenCalledWith(expect.objectContaining({ category: "Pet care" })));
+  });
+
+  it("'Other' with no custom text saves 'Other'", async () => {
+    const c = setup();
+    fireEvent.click(screen.getByRole("button", { name: /Add Bill/ }));
+    typeInto(/^Bill name/, "Misc");
+    typeInto(/^Amount(?! type)/, "10");
+    typeInto("Category (optional)", "Other");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(c.create).toHaveBeenCalledWith(expect.objectContaining({ category: "Other" })));
+  });
+
+  it("rejects a custom category over 60 characters with a message", () => {
+    const c = setup();
+    fireEvent.click(screen.getByRole("button", { name: /Add Bill/ }));
+    typeInto(/^Bill name/, "Vet");
+    typeInto(/^Amount(?! type)/, "10");
+    typeInto("Category (optional)", "Other");
+    typeInto("Custom category", "z".repeat(61));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(c.create).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toBe("That’s too long.");
+  });
+
+  it("the card shows the category, predefined or custom", () => {
+    setup({
+      bills: [
+        bill({ id: "a", name: "Power", category: "Utilities" }),
+        bill({ id: "b", name: "Vet", category: "Pet care" }),
+        bill({ id: "c", name: "Plain", category: null }),
+      ],
+    });
+    const cards = screen.getAllByTestId("bill-card");
+    const byName = (n: string) => cards.find((x) => within(x).queryByRole("heading", { name: n }))!;
+    expect(byName("Power").querySelector(".bill-category")!.textContent).toBe("Utilities");
+    expect(byName("Vet").querySelector(".bill-category")!.textContent).toBe("Pet care");
+    expect(byName("Plain").querySelector(".bill-category")).toBeNull();
+  });
+
+  it("Edit restores a predefined category", () => {
+    setup({ bills: [bill({ category: "Insurance" })] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Rent" }));
+    expect(category().value).toBe("Insurance");
+    expect(screen.queryByLabelText("Custom category")).toBeNull();
+  });
+
+  it("Edit restores a custom or legacy category as 'Other' + its text, and saving unchanged writes nothing", async () => {
+    const c = setup({ bills: [bill({ category: "Housing" })] }); // a free-text value from before the dropdown
+    fireEvent.click(screen.getByRole("button", { name: "Edit Rent" }));
+    expect(category().value).toBe("Other");
+    expect((screen.getByLabelText("Custom category") as HTMLInputElement).value).toBe("Housing");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(c.update).not.toHaveBeenCalled(); // not reclassified, not rewritten
+  });
+
+  it("changing the category on an existing bill sends only the category", async () => {
+    const b = bill({ category: "Housing" });
+    const c = setup({ bills: [b] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Rent" }));
+    typeInto("Category (optional)", "Rent / Mortgage");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(c.update).toHaveBeenCalledWith(b, { category: "Rent / Mortgage" }));
+  });
+
+  it("clearing the category on an existing bill saves null", async () => {
+    const b = bill({ category: "Utilities" });
+    const c = setup({ bills: [b] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Rent" }));
+    typeInto("Category (optional)", "");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(c.update).toHaveBeenCalledWith(b, { category: null }));
   });
 });
 

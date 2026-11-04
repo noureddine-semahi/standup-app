@@ -14604,3 +14604,45 @@ button.status-chip-trigger[aria-expanded="true"] {
     grid-column: auto;
   }
 }
+
+/* Bills: category dropdown (and the Repeats dropdown) share the form-field
+   look with a chevron, native picker kept for phones; category tag on cards. */
+.pay-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.25rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%2394a3b8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 12px 8px;
+}
+
+[data-theme="light"] .pay-select {
+  /* the light .pay-input background shorthand resets repeat/position, so restate them */
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 12px 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%2338404a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.bill-title {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.bill-category {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  color: rgba(229, 231, 235, 0.55);
+}
+
+[data-theme="light"] .bill-category {
+  color: rgba(38, 40, 45, 0.62);
+}

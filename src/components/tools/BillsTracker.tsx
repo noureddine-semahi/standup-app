@@ -8,8 +8,11 @@ import type { TranslationKey } from "@/lib/i18n/en";
 import { formatDateDisplay } from "@/lib/supabase/db";
 import { formatCurrency } from "@/lib/salary";
 import {
+  BILL_CATEGORIES,
+  OTHER_CATEGORY,
   billToFormValues,
   currentOccurrence,
+  isPredefinedCategory,
   describeDueSummary,
   emptyBillForm,
   parseBillForm,
@@ -40,6 +43,23 @@ const RECUR_KEY: Record<BillRecurrence, TranslationKey> = {
   monthly: "bills.recurMonthly",
   quarterly: "bills.recurQuarterly",
   annually: "bills.recurAnnually",
+};
+
+const CATEGORY_KEY: Record<(typeof BILL_CATEGORIES)[number], TranslationKey> = {
+  Utilities: "bills.catUtilities",
+  Internet: "bills.catInternet",
+  "Mobile / Phone": "bills.catMobile",
+  "Rent / Mortgage": "bills.catRent",
+  Insurance: "bills.catInsurance",
+  "Auto / Transportation": "bills.catAuto",
+  Groceries: "bills.catGroceries",
+  Healthcare: "bills.catHealthcare",
+  "Education / Childcare": "bills.catEducation",
+  "Home Maintenance": "bills.catHome",
+  "Taxes / Government": "bills.catTaxes",
+  Memberships: "bills.catMemberships",
+  Entertainment: "bills.catEntertainment",
+  Other: "bills.catOther",
 };
 
 const ERR_KEY: Record<BillFormError["code"], TranslationKey> = {
@@ -161,7 +181,7 @@ function BillFormModal({
             </label>
             <label className="pay-field">
               <span className="pay-label">{t("bills.fieldRecurrence")}</span>
-              <select value={values.recurrence} onChange={set("recurrence")} disabled={saving} className={FIELD_CLASS}>
+              <select value={values.recurrence} onChange={set("recurrence")} disabled={saving} className={`${FIELD_CLASS} pay-select`}>
                 {BILL_RECURRENCES.map((r) => (
                   <option key={r} value={r}>
                     {t(RECUR_KEY[r])}
@@ -176,11 +196,39 @@ function BillFormModal({
               <input type="number" inputMode="numeric" min={0} max={60} value={values.remindDaysBefore} onChange={set("remindDaysBefore")} disabled={saving} className={FIELD_CLASS} aria-invalid={!!fieldError("remindDaysBefore")} />
               {err("remindDaysBefore")}
             </label>
-            <label className="pay-field">
+            <label className="pay-field pay-field-wide">
               <span className="pay-label">{t("bills.fieldCategory")}</span>
-              <input type="text" autoComplete="off" value={values.category} onChange={set("category")} disabled={saving} className={FIELD_CLASS} aria-invalid={!!fieldError("category")} />
-              {err("category")}
+              <select
+                value={values.categoryChoice}
+                onChange={(e) => setValues((v) => ({ ...v, categoryChoice: e.target.value }))}
+                disabled={saving}
+                className={`${FIELD_CLASS} pay-select`}
+              >
+                <option value="">{t("bills.catNone")}</option>
+                {BILL_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {t(CATEGORY_KEY[c])}
+                  </option>
+                ))}
+              </select>
             </label>
+            {values.categoryChoice === OTHER_CATEGORY && (
+              <label className="pay-field pay-field-wide">
+                <span className="pay-label">{t("bills.fieldCustomCategory")}</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  maxLength={80}
+                  placeholder={t("bills.customCategoryPlaceholder")}
+                  value={values.categoryCustom}
+                  onChange={(e) => setValues((v) => ({ ...v, categoryCustom: e.target.value }))}
+                  disabled={saving}
+                  className={FIELD_CLASS}
+                  aria-invalid={!!fieldError("category")}
+                />
+                {err("category")}
+              </label>
+            )}
             <label className="pay-field pay-field-wide">
               <span className="pay-label">{t("bills.fieldNotes")}</span>
               <textarea rows={2} value={values.notes} onChange={set("notes")} disabled={saving} className={FIELD_CLASS} aria-invalid={!!fieldError("notes")} />
@@ -479,6 +527,8 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
         return t("bills.dueOn", { date: formatDateDisplay(v.dueDate) });
     }
   };
+  /** A predefined category is shown in the current language; anything else (custom or legacy text) exactly as saved. */
+  const categoryLabel = (stored: string): string => (isPredefinedCategory(stored) ? t(CATEGORY_KEY[stored]) : stored);
   /** Chip colour: pending needs attention (amber), overdue red, paid teal, otherwise by how soon. */
   const chipTier = (v: OccurrenceView) => {
     const l = statusLabel(v);
@@ -594,7 +644,10 @@ export default function BillsTracker({ controller, todayISO }: { controller: Bil
               return (
                 <li key={bill.id} className="pay-card bill-card" data-testid="bill-card" data-tier={view.tier}>
                   <div className="pay-card-head">
-                    <h3 className="pay-card-name">{bill.name}</h3>
+                    <div className="bill-title">
+                      <h3 className="pay-card-name">{bill.name}</h3>
+                      {bill.category && <span className="bill-category">{categoryLabel(bill.category)}</span>}
+                    </div>
                     <span className="pay-due bill-chip" data-tier={chipTier(view)}>
                       {statusChip(view)}
                     </span>

@@ -447,6 +447,55 @@ export function suggestBillGoals(
 
 // ── Form validation ──────────────────────────────────────────────────────
 
+/**
+ * Predefined categories. The stored value is always this canonical English
+ * label (or the user's own text for "Other"), so what's saved never depends on
+ * the UI language; the label shown is translated by the component.
+ */
+export const BILL_CATEGORIES = [
+  "Utilities",
+  "Internet",
+  "Mobile / Phone",
+  "Rent / Mortgage",
+  "Insurance",
+  "Auto / Transportation",
+  "Groceries",
+  "Healthcare",
+  "Education / Childcare",
+  "Home Maintenance",
+  "Taxes / Government",
+  "Memberships",
+  "Entertainment",
+  "Other",
+] as const;
+export type BillCategory = (typeof BILL_CATEGORIES)[number];
+export const OTHER_CATEGORY: BillCategory = "Other";
+export const MAX_CATEGORY_LENGTH = 60;
+
+export function isPredefinedCategory(value: string | null | undefined): value is BillCategory {
+  return !!value && (BILL_CATEGORIES as readonly string[]).includes(value);
+}
+
+/**
+ * Stored category -> the two form fields. A saved value that isn't on the list
+ * (anything typed before the dropdown existed, or a custom "Other") is restored
+ * as "Other" + that text, so it is shown and kept exactly as saved -- never
+ * dropped or reclassified.
+ */
+export function categoryToFormFields(stored: string | null | undefined): { choice: string; custom: string } {
+  const value = (stored ?? "").trim();
+  if (!value) return { choice: "", custom: "" };
+  if (isPredefinedCategory(value)) return { choice: value, custom: "" };
+  return { choice: OTHER_CATEGORY, custom: value };
+}
+
+/** Form fields -> the value to store: none, a predefined label, or the custom text ("Other" if left blank). */
+export function resolveCategory(choice: string, custom: string): string | null {
+  if (!choice) return null;
+  if (choice !== OTHER_CATEGORY) return isPredefinedCategory(choice) ? choice : null;
+  return custom.trim() || OTHER_CATEGORY;
+}
+
 export type BillFormValues = {
   name: string;
   amountType: BillAmountType;
@@ -454,7 +503,10 @@ export type BillFormValues = {
   firstDueDate: string;
   recurrence: BillRecurrence;
   remindDaysBefore: string;
-  category: string;
+  /** "" (none), a predefined label, or "Other". */
+  categoryChoice: string;
+  /** Only used when categoryChoice is "Other". */
+  categoryCustom: string;
   notes: string;
 };
 
@@ -473,7 +525,7 @@ export type BillFormField = "name" | "amount" | "firstDueDate" | "remindDaysBefo
 export type BillFormError = { field: BillFormField; code: "required" | "invalid" | "precision" | "negative" | "range" | "tooLong" };
 
 export function emptyBillForm(todayISO: string): BillFormValues {
-  return { name: "", amountType: "fixed", amount: "", firstDueDate: todayISO, recurrence: "monthly", remindDaysBefore: "3", category: "", notes: "" };
+  return { name: "", amountType: "fixed", amount: "", firstDueDate: todayISO, recurrence: "monthly", remindDaysBefore: "3", categoryChoice: "", categoryCustom: "", notes: "" };
 }
 
 export function billToFormValues(b: Bill): BillFormValues {
@@ -484,7 +536,8 @@ export function billToFormValues(b: Bill): BillFormValues {
     firstDueDate: b.firstDueDate,
     recurrence: b.recurrence,
     remindDaysBefore: String(b.remindDaysBefore),
-    category: b.category ?? "",
+    categoryChoice: categoryToFormFields(b.category).choice,
+    categoryCustom: categoryToFormFields(b.category).custom,
     notes: b.notes ?? "",
   };
 }
@@ -510,8 +563,8 @@ export function parseBillForm(v: BillFormValues): { ok: true; payload: BillFormP
   const remind = rd === "" ? 0 : Number(rd);
   if (!/^\d*$/.test(rd) || !Number.isInteger(remind) || remind < 0 || remind > 60) errors.push({ field: "remindDaysBefore", code: "invalid" });
 
-  const category = v.category.trim();
-  if (category.length > 60) errors.push({ field: "category", code: "tooLong" });
+  if (v.categoryChoice === OTHER_CATEGORY && v.categoryCustom.trim().length > MAX_CATEGORY_LENGTH) errors.push({ field: "category", code: "tooLong" });
+  const category = resolveCategory(v.categoryChoice, v.categoryCustom) ?? "";
   const notes = v.notes.trim();
   if (notes.length > 1000) errors.push({ field: "notes", code: "tooLong" });
 

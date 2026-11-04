@@ -17,6 +17,11 @@ import {
   suggestBillGoals,
   summarizeBills,
   emptyBillForm,
+  billToFormValues,
+  BILL_CATEGORIES,
+  categoryToFormFields,
+  resolveCategory,
+  isPredefinedCategory,
   type Bill,
   type OccurrenceMap,
 } from "./bills";
@@ -401,7 +406,7 @@ describe("parseBillForm", () => {
   });
 
   it("validates every field", () => {
-    const r = parseBillForm({ ...ok, name: "  ", amount: "-1", firstDueDate: "2026-02-30", remindDaysBefore: "99", category: "x".repeat(61), notes: "y".repeat(1001) });
+    const r = parseBillForm({ ...ok, name: "  ", amount: "-1", firstDueDate: "2026-02-30", remindDaysBefore: "99", categoryChoice: "Other", categoryCustom: "x".repeat(61), notes: "y".repeat(1001) });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.map((e) => e.field).sort()).toEqual(["amount", "category", "firstDueDate", "name", "notes", "remindDaysBefore"]);
   });
@@ -490,5 +495,72 @@ describe("describeDueSummary labels", () => {
 
   it("actual amounts plus no-amount cycles -> 'known amounts only'", () => {
     expect(summary({ knownThisMonth: 1, unknownThisMonth: 1 })).toEqual({ allPending: false, includesEstimates: false, knownOnly: true, awaiting: 1 });
+  });
+});
+
+describe("bill categories", () => {
+  it("offers the predefined list, ending with Other", () => {
+    expect([...BILL_CATEGORIES]).toEqual([
+      "Utilities", "Internet", "Mobile / Phone", "Rent / Mortgage", "Insurance", "Auto / Transportation", "Groceries",
+      "Healthcare", "Education / Childcare", "Home Maintenance", "Taxes / Government", "Memberships", "Entertainment", "Other",
+    ]);
+  });
+
+  it("category is optional: no choice stores nothing", () => {
+    expect(resolveCategory("", "ignored")).toBeNull();
+    const r = parseBillForm({ ...emptyBillForm("2026-11-03"), name: "Rent", amount: "10" });
+    expect(r.ok && r.payload.category).toBeNull();
+  });
+
+  it("a predefined choice stores that canonical label", () => {
+    expect(resolveCategory("Utilities", "")).toBe("Utilities");
+    const r = parseBillForm({ ...emptyBillForm("2026-11-03"), name: "Power", amount: "10", categoryChoice: "Mobile / Phone", categoryCustom: "stale text" });
+    expect(r.ok && r.payload.category).toBe("Mobile / Phone"); // leftover custom text is ignored
+  });
+
+  it("'Other' stores the custom text, trimmed; blank custom stores 'Other'", () => {
+    expect(resolveCategory("Other", "  Pet care ")).toBe("Pet care");
+    expect(resolveCategory("Other", "   ")).toBe("Other");
+    const r = parseBillForm({ ...emptyBillForm("2026-11-03"), name: "Vet", amount: "10", categoryChoice: "Other", categoryCustom: " Pet care " });
+    expect(r.ok && r.payload.category).toBe("Pet care");
+  });
+
+  it("an unknown choice value can't be stored", () => {
+    expect(resolveCategory("Hacking", "")).toBeNull();
+  });
+
+  it("custom text is limited to 60 characters (and only validated when 'Other' is chosen)", () => {
+    const base = { ...emptyBillForm("2026-11-03"), name: "X", amount: "1" };
+    expect(parseBillForm({ ...base, categoryChoice: "Other", categoryCustom: "y".repeat(60) }).ok).toBe(true);
+    const bad = parseBillForm({ ...base, categoryChoice: "Other", categoryCustom: "y".repeat(61) });
+    expect(bad.ok).toBe(false);
+    expect(parseBillForm({ ...base, categoryChoice: "Utilities", categoryCustom: "y".repeat(500) }).ok).toBe(true);
+  });
+
+  it("restores a stored category into the form: predefined -> selected, none -> empty", () => {
+    expect(categoryToFormFields("Insurance")).toEqual({ choice: "Insurance", custom: "" });
+    expect(categoryToFormFields("Other")).toEqual({ choice: "Other", custom: "" });
+    expect(categoryToFormFields(null)).toEqual({ choice: "", custom: "" });
+    expect(categoryToFormFields("  ")).toEqual({ choice: "", custom: "" });
+  });
+
+  it("restores a custom or legacy free-text category as 'Other' + that text, unchanged", () => {
+    expect(categoryToFormFields("Pet care")).toEqual({ choice: "Other", custom: "Pet care" });
+    expect(categoryToFormFields("Housing")).toEqual({ choice: "Other", custom: "Housing" }); // pre-dropdown value not on the list
+    expect(categoryToFormFields("utilities")).toEqual({ choice: "Other", custom: "utilities" }); // case differs: kept as typed
+  });
+
+  it("round-trips: re-saving an unedited bill reproduces its stored category exactly (nothing reclassified)", () => {
+    for (const stored of ["Utilities", "Other", "Housing", "Pet care", "utilities", "Mobile / Phone", null]) {
+      const b = bill({ category: stored });
+      const r = parseBillForm(billToFormValues(b));
+      expect(r.ok && r.payload.category, String(stored)).toBe(stored);
+    }
+  });
+
+  it("isPredefinedCategory", () => {
+    expect(isPredefinedCategory("Groceries")).toBe(true);
+    expect(isPredefinedCategory("groceries")).toBe(false);
+    expect(isPredefinedCategory(null)).toBe(false);
   });
 });

@@ -16698,3 +16698,59 @@ button.status-chip-trigger[aria-expanded="true"] {
     padding: 0.45rem 0.4rem;
   }
 }
+
+/* Eight destinations: below ~1100px the full labels no longer fit beside each other, so the row uses the same compact
+   icon-only form as phones (active tab shows its label) from 761px up to there. The menu list keeps full labels. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .app-header .folder-tab-hanging:not(.nav-menu-item) {
+    gap: 0;
+    padding: 0.45rem 0.6rem;
+  }
+  .app-header .folder-tab-hanging-active:not(.nav-menu-item) {
+    padding: 0.45rem 0.75rem;
+  }
+  .app-header .folder-tab-hanging:not(.nav-menu-item) span {
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .app-header .folder-tab-hanging-active:not(.nav-menu-item) span {
+    max-width: 200px;
+    margin-left: 0.35rem;
+    opacity: 1;
+  }
+  .app-header .folder-tabbar-hanging {
+    gap: 2px;
+  }
+}
+
+/* 320px-class phones, eight tabs: tighter again */
+@media (max-width: 340px) {
+  .app-header .folder-tabbar-hanging {
+    padding-left: 4px;
+    padding-right: 4px;
+    gap: 1.5px;
+  }
+  .app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
+    padding: 0.45rem 0.27rem;
+  }
+  .app-header .folder-tab-hanging-active {
+    padding: 0.45rem 0.34rem;
+  }
+}
+
+/* the longest translated active label ("Herramientas") on 320-400px phones */
+@media (max-width: 400px) {
+  .app-header .folder-tab-hanging-active {
+    font-size: 0.74rem;
+  }
+}
+
+@media (min-width: 341px) and (max-width: 400px) {
+  .app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
+    padding: 0.45rem 0.37rem;
+  }
+}

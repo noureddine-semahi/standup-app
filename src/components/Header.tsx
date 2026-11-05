@@ -86,6 +86,9 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; shortLabelKey?: Transl
   { href: "/standup/calendar", labelKey: "nav.calendar", icon: Calendar, color: "#22d3ee" },
   { href: "/standup/history", labelKey: "nav.progressInsights", shortLabelKey: "nav.insightsShort", icon: TrendingUp, color: "#818cf8" },
   { href: "/standup/tools", labelKey: "nav.tools", icon: Wrench, color: "#f43f5e" },
+  // Finances is its own section (it used to be four Tools tabs), the eighth destination, right after Tools. Its six tabs
+  // all live on this one path (/standup/finances), so the tab stays lit anywhere inside the module.
+  { href: "/standup/finances", labelKey: "nav.finances", icon: Wallet, color: "#fbbf24" },
   // Goal Assignments removed from here per explicit follow-up — still
   // reachable via Social's Goals tab and Tools' Assignments tab, same as
   // before this whole nav restructure ever started.
@@ -95,15 +98,6 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; shortLabelKey?: Transl
   // 7 destinations. INFO_ROTATION/INFO_PAGES/infoLinks() below are
   // untouched -- still used by logged-out visitors' own nav.
 ];
-
-// Finances is a section of its own (it used to be four Tools tabs). It lives in the signed-in menu panel only, right
-// after Tools, and is deliberately NOT part of NAV_TABS: the hanging icon row stays at its existing 7 destinations.
-const FINANCES_NAV_ITEM: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string } = {
-  href: "/standup/finances",
-  labelKey: "nav.finances",
-  icon: Wallet,
-  color: "#2dd4bf",
-};
 
 // Re-added to the signed-in DROPDOWN/menu panel only (hamburgerNavLinks()
 // below, shared by the desktop hamburger's floating panel and the mobile
@@ -952,7 +946,7 @@ export default function Header() {
   function hamburgerNavLinks() {
     return (
       <>
-        {[...NAV_TABS, FINANCES_NAV_ITEM].map((tab) => {
+        {NAV_TABS.map((tab) => {
           const isActive = pathname === tab.href;
           return (
             <Link

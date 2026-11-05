@@ -46,10 +46,11 @@ describe("Tools / Finances split", () => {
     expect(finances).toContain("CalculatorTool");
     expect(finances).toContain("SalaryCalculatorTool");
   });
-  it("the menu and the Dashboard link to Finances, and the hanging header row gains no icon", () => {
-    expect(header).toContain('href: "/standup/finances"');
-    expect(header).toContain("[...NAV_TABS, FINANCES_NAV_ITEM]");
-    expect(header.match(/href: "\/standup\/[a-z]+", labelKey: "nav\./g)?.length).toBe(7); // NAV_TABS stays at its 7 destinations
+  it("Finances is the eighth header destination right after Tools (also in the menu), and the Dashboard links to it", () => {
+    const hrefs = [...header.matchAll(/\{ href: "(\/standup\/[a-z]+)", labelKey: "nav\./g)].map((m) => m[1]);
+    expect(hrefs).toEqual(["/standup/dashboard", "/standup/social", "/standup/today", "/standup/tomorrow", "/standup/calendar", "/standup/history", "/standup/tools", "/standup/finances"]);
+    expect(header).toContain('{ href: "/standup/finances", labelKey: "nav.finances", icon: Wallet, color: "#fbbf24" }');
+    expect(header).not.toContain("FINANCES_NAV_ITEM"); // one list feeds the tab row and the menu, so it appears once in each
     expect(dashboard).toContain('href="/standup/finances"');
   });
   it("an old remembered Finances tab on Tools is redirected, not lost", () => {

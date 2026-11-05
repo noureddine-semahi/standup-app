@@ -33,7 +33,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import LogoutSwitch, { LogoutConfirmModal } from "@/components/LogoutSwitch";
 import Avatar from "@/components/Avatar";
-import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, TrendingUp, Info, HelpCircle, Mail } from "lucide-react";
+import { MoreHorizontal, Bell, LayoutDashboard, Users, CheckCircle2, Sun, Calendar, Wrench, TrendingUp, Info, HelpCircle, Mail, Wallet } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
 
@@ -93,6 +93,15 @@ const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDas
   // 7 destinations. INFO_ROTATION/INFO_PAGES/infoLinks() below are
   // untouched -- still used by logged-out visitors' own nav.
 ];
+
+// Finances is a section of its own (it used to be four Tools tabs). It lives in the signed-in menu panel only, right
+// after Tools, and is deliberately NOT part of NAV_TABS: the hanging icon row stays at its existing 7 destinations.
+const FINANCES_NAV_ITEM: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string } = {
+  href: "/standup/finances",
+  labelKey: "nav.finances",
+  icon: Wallet,
+  color: "#2dd4bf",
+};
 
 // Re-added to the signed-in DROPDOWN/menu panel only (hamburgerNavLinks()
 // below, shared by the desktop hamburger's floating panel and the mobile
@@ -926,7 +935,7 @@ export default function Header() {
   function hamburgerNavLinks() {
     return (
       <>
-        {NAV_TABS.map((tab) => {
+        {[...NAV_TABS, FINANCES_NAV_ITEM].map((tab) => {
           const isActive = pathname === tab.href;
           return (
             <Link

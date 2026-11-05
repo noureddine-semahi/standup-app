@@ -108,7 +108,7 @@ const subscription = (over: Partial<Subscription> = {}): Subscription => ({
   ...over,
 });
 
-function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsController(), subs: SubscriptionsController = subscriptionsController()) {
+function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsController(), subs: SubscriptionsController = subscriptionsController(), section?: React.ComponentProps<typeof FinancesHub>["section"]) {
   const props: PaymentsDashboardProps = {
     accounts,
     loading: false,
@@ -127,7 +127,7 @@ function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsCo
   };
   render(
     <LanguageProvider>
-      <FinancesHub {...props} bills={bills} subscriptions={subs} />
+      <FinancesHub {...props} bills={bills} subscriptions={subs} section={section} />
     </LanguageProvider>
   );
 }
@@ -348,5 +348,24 @@ describe("FinancesHub with subscriptions", () => {
     setup([], billsController(), subscriptionsController({ state: "unavailable" }));
     fireEvent.click(screen.getByRole("tab", { name: "Subscriptions" }));
     expect(screen.getByTestId("subs-unavailable")).toBeTruthy();
+  });
+});
+
+describe("FinancesHub driven by the Finances page (section prop)", () => {
+  it("overview: the four figures and the heading, with no tab row of its own", () => {
+    setup([], billsController(), subscriptionsController(), "overview");
+    expect(screen.getByTestId("fin-balances")).toBeTruthy();
+    expect(screen.getByText("Finances")).toBeTruthy();
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  });
+  it("a single section: just that panel, no overview figures and no tab row", () => {
+    setup([], billsController(), subscriptionsController(), "bills");
+    expect(screen.queryByTestId("fin-balances")).toBeNull();
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  });
+  it("without a section it behaves as before: overview plus its own three tabs", () => {
+    setup();
+    expect(screen.getByTestId("fin-balances")).toBeTruthy();
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
   });
 });

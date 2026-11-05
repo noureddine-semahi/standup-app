@@ -22,3 +22,39 @@ export function writeStoredTab(tab: string): void {
     // storage blocked or full: the tab simply isn't remembered
   }
 }
+
+/** The raw saved value, whatever it is (used to spot a tab that has since moved to another section). */
+export function readStoredTabRaw(): string | null {
+  try {
+    return window.localStorage.getItem(TOOLS_TAB_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Former Tools tabs that now live in Finances, mapped to their Finances tab key. */
+export const FINANCE_TAB_REDIRECT: Readonly<Record<string, string>> = {
+  payments: "tab=payments",
+  planner: "tab=planner",
+  calculator: "tab=calculators",
+  salary: "tab=calculators&calc=salary",
+};
+
+// The Finances section remembers its own tab the same way (separate key, so the two sections never overwrite each other).
+export const FINANCES_TAB_STORAGE_KEY = "standup-finances-active-tab";
+
+export function readFinancesTab<T extends string>(allowed: readonly T[]): T | null {
+  try {
+    return parseStoredTab(window.localStorage.getItem(FINANCES_TAB_STORAGE_KEY), allowed);
+  } catch {
+    return null;
+  }
+}
+
+export function writeFinancesTab(tab: string): void {
+  try {
+    window.localStorage.setItem(FINANCES_TAB_STORAGE_KEY, tab);
+  } catch {
+    // storage blocked or full: the tab simply isn't remembered
+  }
+}

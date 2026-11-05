@@ -1,15 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { showToolsIntro, valueLenStyle } from "./toolsLayout";
-
-describe("showToolsIntro", () => {
-  it("hides the redundant Tools intro on Finances and the Planner only (Finances' tab key is 'payments')", () => {
-    expect(showToolsIntro("payments")).toBe(false);
-    expect(showToolsIntro("planner")).toBe(false);
-    for (const tab of ["goals", "backlog", "longTerm", "recurring", "lists", "calculator", "salary"]) {
-      expect(showToolsIntro(tab), tab).toBe(true);
-    }
-  });
-});
+import { valueLenStyle } from "./toolsLayout";
 
 describe("valueLenStyle", () => {
   it("exposes the character count so a summary tile can size its value to fit on one line", () => {

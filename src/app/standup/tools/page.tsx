@@ -1,20 +1,11 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, Target, Calculator as CalculatorIcon, Banknote, PiggyBank } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Archive, X, CalendarClock, Repeat, ListChecks, Target } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
-import CalculatorTool from "@/components/tools/CalculatorTool";
-import SalaryCalculatorTool from "@/components/tools/SalaryCalculatorTool";
-import FinancesHub from "@/components/tools/FinancesHub";
-import PlannerHome from "@/components/tools/PlannerHome";
-import { useFinancialProfile } from "@/components/tools/useFinancialProfile";
-import { useHousehold } from "@/components/tools/useHousehold";
-import { useBills } from "@/components/tools/useBills";
-import { useSubscriptions } from "@/components/tools/useSubscriptions";
-import { showToolsIntro } from "@/lib/toolsLayout";
-import { readStoredTab, writeStoredTab } from "@/lib/toolsTabStorage";
-import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
+import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT } from "@/lib/toolsTabStorage";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
   addBacklogGoal,
@@ -36,19 +27,10 @@ import {
   addListItem,
   deleteListItem,
   pushListToGoal,
-  getPaymentAccounts,
-  createPaymentAccount,
-  updatePaymentAccount,
-  recordPayment,
-  reversePayment,
-  deletePaymentAccount,
-  getPaymentTransactions,
   type BacklogGoal,
   type RecurringGoalTemplate,
   type ShoppingList,
   type ShoppingListItem,
-  type PaymentAccount,
-  type PaymentTransaction,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { hexToRgbTriple } from "@/lib/color";
@@ -79,13 +61,7 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
 }
 
-function errorMessage(e: unknown, fallback: string): string {
-  // Supabase/PostgREST errors are plain objects with a message, not Error instances.
-  const message = (e as { message?: unknown } | null)?.message;
-  return typeof message === "string" && message ? message : fallback;
-}
-
-type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists" | "payments" | "planner" | "calculator" | "salary";
+type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
@@ -101,20 +77,27 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; col
   { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock, color: "#a78bfa", descriptionKey: "tools.descLongTerm" },
   { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
   { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
-  { key: "payments", labelKey: "backlog.tabPayments", icon: CreditCard, color: "#f43f5e", descriptionKey: "tools.descPayments" },
-  { key: "planner", labelKey: "backlog.tabPlanner", icon: PiggyBank, color: "#2dd4bf", descriptionKey: "tools.descPlanner" },
-  { key: "calculator", labelKey: "backlog.tabCalculator", icon: CalculatorIcon, color: "#fb923c", descriptionKey: "tools.descCalculator" },
-  { key: "salary", labelKey: "backlog.tabSalary", icon: Banknote, color: "#facc15", descriptionKey: "tools.descSalary" },
 ];
 
 export default function ToolsPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [activeTab, setActiveTabState] = useState<ToolsTab>("goals");
   // Restore the tab that was open before a refresh. This runs before the first paint, and only
   // the click handler writes the choice back, so the default can never overwrite the saved tab.
+  // Finances used to be four tabs here (payments / planner / calculator / salary). A remembered
+  // one, or a ?tab= link to one, now lands on the same tab of the Finances section instead.
   useLayoutEffect(() => {
+    const linked = new URLSearchParams(window.location.search).get("tab");
+    const moved = FINANCE_TAB_REDIRECT[linked ?? readStoredTabRaw() ?? ""];
+    if (moved) {
+      writeStoredTab("goals");
+      router.replace(`/standup/finances?${moved}`);
+      return;
+    }
     const saved = readStoredTab(TABS.map((tab) => tab.key));
     if (saved) setActiveTabState(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const setActiveTab = (next: ToolsTab) => {
     setActiveTabState(next);
@@ -179,29 +162,6 @@ export default function ToolsPage() {
   const [busyListItemIds, setBusyListItemIds] = useState<Set<string>>(new Set());
   const [listPushDate, setListPushDate] = useState<Record<string, string>>({});
 
-  // Payment reminders (credit cards, bills) — balance/minimum/due-day per
-  // account, no date of its own; the next due date is computed on read
-  // (computeNextDueDate), never stored.
-  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>([]);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
-  const [paymentsMsg, setPaymentsMsg] = useState<string | null>(null);
-  const [busyPaymentIds, setBusyPaymentIds] = useState<Set<string>>(new Set());
-  // Finances > Bills (separate tables/ledger from payment accounts above).
-  const bills = useBills(toISODate(new Date()), t("bills.failed"));
-  // Finances > Subscriptions (its own tables and payment ledger).
-  const subscriptions = useSubscriptions(t("subs.failed"));
-  // Tools > Planner: the user's own financial profile (saved per user; read-only toward the records above).
-  const financialProfile = useFinancialProfile(t("plan.failed"));
-  // The household's one optional partner (a separate profile the signed-in user manages).
-  const household = useHousehold(t("plan.failed"));
-
-  // Payment history — collapsed by default per account, fetched lazily on
-  // first expand rather than loading every account's whole ledger up
-  // front (most accounts will never be expanded in a given visit).
-  const [expandedPaymentHistoryId, setExpandedPaymentHistoryId] = useState<string | null>(null);
-  const [paymentHistoryByAccount, setPaymentHistoryByAccount] = useState<Record<string, PaymentTransaction[]>>({});
-  const [paymentHistoryLoadingId, setPaymentHistoryLoadingId] = useState<string | null>(null);
-
   const todayISO = toISODate(new Date());
   const tomorrowISO = toISODate(addDays(new Date(), 1));
 
@@ -209,7 +169,6 @@ export default function ToolsPage() {
     refresh();
     refreshTemplates();
     refreshLists();
-    refreshPayments();
   }, []);
 
   async function refreshTemplates() {
@@ -533,140 +492,6 @@ export default function ToolsPage() {
     }
   }
 
-  async function refreshPayments() {
-    setPaymentsLoading(true);
-    setPaymentsMsg(null);
-    try {
-      setPaymentAccounts(await getPaymentAccounts());
-    } catch (e: any) {
-      setPaymentsMsg(e?.message ?? t("backlog.failedLoadPayments"));
-    } finally {
-      setPaymentsLoading(false);
-    }
-  }
-
-  function setPaymentBusy(id: string, busy: boolean) {
-    setBusyPaymentIds((prev) => {
-      const next = new Set(prev);
-      if (busy) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  // The dashboard's modals own the form values; these handlers keep the
-  // original db calls and resolve to an error message (null on success) so a
-  // failed save leaves the modal open with the message visible.
-  async function handleAddPayment(payload: PaymentFormPayload): Promise<string | null> {
-    setPaymentsMsg(null);
-    try {
-      const created = await createPaymentAccount(payload);
-      setPaymentAccounts((prev) => [...prev, created]);
-      return null;
-    } catch (e: any) {
-      return e?.message ?? t("backlog.failedAddPayment");
-    }
-  }
-
-  async function handleUpdatePayment(account: PaymentAccount, patch: Partial<PaymentFormPayload>): Promise<string | null> {
-    if (busyPaymentIds.has(account.id)) return null;
-    setPaymentBusy(account.id, true);
-    setPaymentsMsg(null);
-    try {
-      const updated = await updatePaymentAccount(account.id, patch);
-      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? updated : a)));
-      return null;
-    } catch (e: any) {
-      return e?.message ?? t("backlog.failedUpdatePayment");
-    } finally {
-      setPaymentBusy(account.id, false);
-    }
-  }
-
-  async function handleDeletePayment(account: PaymentAccount): Promise<string | null> {
-    if (busyPaymentIds.has(account.id)) return null;
-    setPaymentBusy(account.id, true);
-    setPaymentsMsg(null);
-    try {
-      await deletePaymentAccount(account.id);
-      setPaymentAccounts((prev) => prev.filter((a) => a.id !== account.id));
-      setExpandedPaymentHistoryId((cur) => (cur === account.id ? null : cur));
-      return null;
-    } catch (e: any) {
-      return e?.message ?? t("backlog.failedDeletePayment");
-    } finally {
-      setPaymentBusy(account.id, false);
-    }
-  }
-
-  /** Re-reads one account's ledger after a record/reverse -- only if it has been loaded, so a never-opened history isn't fetched for nothing. */
-  async function refreshHistoryIfLoaded(accountId: string) {
-    if (!paymentHistoryByAccount[accountId]) return;
-    try {
-      const rows = await getPaymentTransactions(accountId);
-      setPaymentHistoryByAccount((prev) => ({ ...prev, [accountId]: rows }));
-    } catch (e) {
-      setPaymentsMsg(errorMessage(e, t("backlog.failedLoadPaymentHistory")));
-    }
-  }
-
-  // Record Payment goes through record_payment(): ledger row + (policy-driven)
-  // balance change commit together server-side, and clientKey makes a
-  // repeated tap or retry a no-op. The returned balance is applied locally so
-  // the card updates without a refetch.
-  async function handleRecordPayment(account: PaymentAccount, payload: PaymentEntryPayload, clientKey: string): Promise<string | null> {
-    if (busyPaymentIds.has(account.id)) return null;
-    setPaymentBusy(account.id, true);
-    setPaymentsMsg(null);
-    try {
-      const result = await recordPayment({
-        accountId: account.id,
-        amount: payload.amount,
-        paidAt: payload.paidAt,
-        note: payload.note,
-        applyBalance: payload.applyBalance,
-        clientKey,
-      });
-      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: result.newBalance } : a)));
-      await refreshHistoryIfLoaded(account.id);
-      return null;
-    } catch (e) {
-      return errorMessage(e, t("pay.failedRecord"));
-    } finally {
-      setPaymentBusy(account.id, false);
-    }
-  }
-
-  async function handleReversePayment(account: PaymentAccount, txn: PaymentTransaction): Promise<string | null> {
-    if (busyPaymentIds.has(account.id)) return null;
-    setPaymentBusy(account.id, true);
-    setPaymentsMsg(null);
-    try {
-      const newBalance = await reversePayment(txn.id);
-      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: newBalance } : a)));
-      await refreshHistoryIfLoaded(account.id);
-      return null;
-    } catch (e) {
-      return errorMessage(e, t("pay.failedReverse"));
-    } finally {
-      setPaymentBusy(account.id, false);
-    }
-  }
-
-  function toggleHistory(account: PaymentAccount) {
-    if (expandedPaymentHistoryId === account.id) {
-      setExpandedPaymentHistoryId(null);
-      return;
-    }
-    setExpandedPaymentHistoryId(account.id);
-    if (paymentHistoryByAccount[account.id]) return; // already fetched once this visit
-    setPaymentHistoryLoadingId(account.id);
-    getPaymentTransactions(account.id)
-      .then((rows) => setPaymentHistoryByAccount((prev) => ({ ...prev, [account.id]: rows })))
-      .catch((e: any) => setPaymentsMsg(e?.message ?? t("backlog.failedLoadPaymentHistory")))
-      .finally(() => setPaymentHistoryLoadingId((cur) => (cur === account.id ? null : cur)));
-  }
-
   const plainItems = items.filter((i) => !i.target_date);
   const longTermItems = items.filter((i) => !!i.target_date);
 
@@ -731,18 +556,10 @@ export default function ToolsPage() {
       {/* contentRef: the landmark useFixedSubNav scrolls to the top of on
           a tab switch while the bar is pinned -- always present
           regardless of which sub-tab is active. */}
-      {/* On Finances the intro card is replaced by a zero-height landmark: the
-          Finances panel carries its own heading + description, so repeating
-          "Tools" and the description above it is redundant. The element itself
-          stays (contentRef is what the sticky tab bar scrolls to on a tab switch). */}
-      {showToolsIntro(activeTab) ? (
-        <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
-          <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
-        </div>
-      ) : (
-        <div ref={contentRef} aria-hidden="true" style={{ height: 0, overflow: "hidden" }} />
-      )}
+      <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
+        <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
+      </div>
 
       {/* This outer wrapper (opened above, around the tab bar) now
           extends down to enclose all tab content too, instead of
@@ -1364,53 +1181,6 @@ export default function ToolsPage() {
     </div>
     )}
 
-    {activeTab === "payments" && (
-      <div>
-        <FinancesHub
-          bills={bills}
-          subscriptions={subscriptions}
-          accounts={paymentAccounts}
-          loading={paymentsLoading}
-          message={paymentsMsg}
-          todayISO={todayISO}
-          busyIds={busyPaymentIds}
-          onCreate={handleAddPayment}
-          onUpdate={handleUpdatePayment}
-          onDelete={handleDeletePayment}
-          onRecordPayment={handleRecordPayment}
-          onReversePayment={handleReversePayment}
-          historyOpenId={expandedPaymentHistoryId}
-          historyLoadingId={paymentHistoryLoadingId}
-          historyByAccount={paymentHistoryByAccount}
-          onToggleHistory={toggleHistory}
-        />
-      </div>
-    )}
-
-    {activeTab === "planner" && (
-      <div>
-        <PlannerHome
-          me={financialProfile}
-          household={household}
-          bills={bills.bills}
-          accounts={paymentAccounts}
-          subscriptions={subscriptions.subscriptions}
-          todayISO={todayISO}
-        />
-      </div>
-    )}
-
-    {activeTab === "calculator" && (
-      <div className="mt-6">
-        <CalculatorTool />
-      </div>
-    )}
-
-    {activeTab === "salary" && (
-      <div className="mt-6">
-        <SalaryCalculatorTool />
-      </div>
-    )}
     </div>
     </div>
   );

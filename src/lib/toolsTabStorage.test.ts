@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { TOOLS_TAB_STORAGE_KEY, parseStoredTab, readStoredTab, writeStoredTab } from "./toolsTabStorage";
+import { TOOLS_TAB_STORAGE_KEY, parseStoredTab, readStoredTab, writeStoredTab, FINANCE_TAB_REDIRECT, FINANCES_TAB_STORAGE_KEY } from "./toolsTabStorage";
 
 const TABS = ["goals", "backlog", "longTerm", "recurring", "lists", "payments", "calculator", "salary"] as const;
 
@@ -43,5 +43,20 @@ describe("remembering the tab", () => {
     });
     expect(readStoredTab(TABS)).toBeNull();
     expect(() => writeStoredTab("lists")).not.toThrow();
+  });
+});
+
+describe("former Finances tabs", () => {
+  it("each old Tools tab maps to a Finances destination, so a remembered tab or old link still lands somewhere sensible", () => {
+    expect(FINANCE_TAB_REDIRECT).toEqual({
+      payments: "tab=payments",
+      planner: "tab=planner",
+      calculator: "tab=calculators",
+      salary: "tab=calculators&calc=salary",
+    });
+  });
+  it("none of the moved tabs is still a Tools tab, and the two sections remember their tab under different keys", () => {
+    expect(FINANCES_TAB_STORAGE_KEY).not.toBe(TOOLS_TAB_STORAGE_KEY);
+    for (const k of Object.keys(FINANCE_TAB_REDIRECT)) expect(["goals", "backlog", "longTerm", "recurring", "lists"]).not.toContain(k);
   });
 });

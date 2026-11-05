@@ -23,3 +23,32 @@ describe("Tools page bottom navigation", () => {
     expect("today.planTomorrowArrow" in en).toBe(true);
   });
 });
+
+describe("Tools / Finances split", () => {
+  const finances = readFileSync(join(__dirname, "..", "finances", "page.tsx"), "utf8");
+  const header = readFileSync(join(__dirname, "..", "..", "..", "components", "Header.tsx"), "utf8");
+  const dashboard = readFileSync(join(__dirname, "..", "dashboard", "page.tsx"), "utf8");
+
+  it("Tools keeps only the productivity tabs", () => {
+    for (const k of ["payments", "planner", "calculator", "salary"]) expect(source).not.toContain(`key: "${k}"`);
+    for (const k of ["goals", "backlog", "longTerm", "recurring", "lists"]) expect(source).toContain(`key: "${k}"`);
+    expect(source).not.toContain("FinancesHub");
+    expect(source).not.toContain("PlannerHome");
+  });
+  it("Finances hosts Overview, Bills, Payments, Subscriptions, Planner and Calculators", () => {
+    for (const k of ["overview", "bills", "payments", "subscriptions", "planner", "calculators"]) expect(finances).toContain(`key: "${k}"`);
+    expect(finances).toContain("PlannerHome");
+    expect(finances).toContain("CalculatorTool");
+    expect(finances).toContain("SalaryCalculatorTool");
+  });
+  it("the menu and the Dashboard link to Finances, and the hanging header row gains no icon", () => {
+    expect(header).toContain('href: "/standup/finances"');
+    expect(header).toContain("[...NAV_TABS, FINANCES_NAV_ITEM]");
+    expect(header.match(/href: "\/standup\/[a-z]+", labelKey: "nav\./g)?.length).toBe(7); // NAV_TABS stays at its 7 destinations
+    expect(dashboard).toContain('href="/standup/finances"');
+  });
+  it("an old remembered Finances tab on Tools is redirected, not lost", () => {
+    expect(source).toContain("FINANCE_TAB_REDIRECT");
+    expect(source).toContain("/standup/finances?");
+  });
+});

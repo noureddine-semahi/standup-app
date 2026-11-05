@@ -13,7 +13,10 @@ import SubscriptionsTracker from "./SubscriptionsTracker";
 import type { BillsController } from "./useBills";
 import type { SubscriptionsController } from "./useSubscriptions";
 
-export type FinancesHubProps = PaymentsDashboardProps & { bills: BillsController; subscriptions: SubscriptionsController };
+/** The Finances page drives one section at a time itself; without `section` the hub shows its own overview and tab row. */
+export type FinancesSection = "overview" | "bills" | "payments" | "subscriptions";
+
+export type FinancesHubProps = PaymentsDashboardProps & { bills: BillsController; subscriptions: SubscriptionsController; section?: FinancesSection };
 
 type FinanceTab = "bills" | "payments" | "subscriptions";
 
@@ -28,9 +31,11 @@ const FIN_TABS: { key: FinanceTab; labelKey: "fin.tabBills" | "fin.tabPayments" 
  * summed into one grand total) above three internal tabs: Bills, Payments
  * (accounts) and Subscriptions.
  */
-export default function FinancesHub({ bills, subscriptions, ...props }: FinancesHubProps) {
+export default function FinancesHub({ bills, subscriptions, section, ...props }: FinancesHubProps) {
   const { t } = useLanguage();
-  const [tab, setTab] = useState<FinanceTab>("payments");
+  const [ownTab, setTab] = useState<FinanceTab>("payments");
+  const controlled = section !== undefined;
+  const tab: FinanceTab = section === "bills" || section === "subscriptions" || section === "payments" ? section : ownTab;
   // Real bills data only once it has actually loaded; otherwise the overview
   // stays on accounts alone rather than showing anything fabricated.
   const billsSummary = bills.state === "ready" ? summarizeBills(bills.bills, bills.occurrences, props.todayISO) : null;
@@ -75,13 +80,16 @@ export default function FinancesHub({ bills, subscriptions, ...props }: Finances
 
   return (
     <div className="card card-highlight pay-root">
-      <div className="pay-head">
-        <div>
-          <h2 className="text-xl font-bold mb-1">{t("fin.title")}</h2>
-          <p className="text-sm text-white/70">{t("fin.subtitle")}</p>
+      {(!controlled || section === "overview") && (
+        <div className="pay-head">
+          <div>
+            <h2 className="text-xl font-bold mb-1">{t("fin.title")}</h2>
+            <p className="text-sm text-white/70">{t("fin.subtitle")}</p>
+          </div>
         </div>
-      </div>
+      )}
 
+      {(!controlled || section === "overview") && (
       <section className="pay-summary fin-overview" aria-label={t("fin.overview")}>
         {panels.map((p) => (
           <div key={p.key} className="pay-stat" data-kind={p.kind}>
@@ -97,7 +105,9 @@ export default function FinancesHub({ bills, subscriptions, ...props }: Finances
           </div>
         ))}
       </section>
+      )}
 
+      {!controlled && (
       <div className="goal-toolbar fin-tabs" role="tablist" aria-label={t("fin.sections")}>
         {FIN_TABS.map((ft) => (
           <button
@@ -114,12 +124,15 @@ export default function FinancesHub({ bills, subscriptions, ...props }: Finances
           </button>
         ))}
       </div>
+      )}
 
+      {section !== "overview" && (
       <div role="tabpanel" className="fin-panel">
         {tab === "payments" && <PaymentsDashboard {...props} />}
         {tab === "bills" && <BillsTracker controller={bills} todayISO={props.todayISO} />}
         {tab === "subscriptions" && <SubscriptionsTracker controller={subscriptions} todayISO={props.todayISO} bills={activeBills} />}
       </div>
+      )}
     </div>
   );
 }

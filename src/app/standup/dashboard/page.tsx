@@ -58,7 +58,7 @@ import StatusIcon from "@/components/StatusIcon";
 import {
   Hourglass, Bot, Hand, PartyPopper, TriangleAlert, AlarmClock, Sparkles, Flame,
   MessageCircle, Zap, CheckCircle2, Target, ClipboardList, FileEdit, Ticket, Lock, Unlock,
-  Sunrise, ChevronRight, ChevronDown, ChevronUp,
+  Sunrise, ChevronRight, ChevronDown, ChevronUp, Wallet,
 } from "lucide-react";
 import { onPointsUpdated } from "@/lib/pointsBus";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -2075,6 +2075,12 @@ export default function DashboardPage() {
               >
                 {tomorrowSubmitted ? <CheckCircle2 size={15} /> : <FileEdit size={15} />}
                 {tomorrowSubmitted ? t("dashboard.planReadyState") : t("dashboard.stat.tomorrowPlan")}
+              </Link>
+            </div>
+
+            <div className="quick-actions-primary">
+              <Link href="/standup/finances" className="btn btn-tint btn-blue inline-flex items-center justify-center gap-2" data-testid="dashboard-finances-link">
+                <Wallet size={15} /> {t("nav.finances")}
               </Link>
             </div>
           </div>

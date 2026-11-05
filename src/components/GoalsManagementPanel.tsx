@@ -48,7 +48,7 @@ export type TypeFilter = "all" | OutcomeGoalType;
 // reshaping assignments into Outcome Goals, no outcome_goal_id
 // requirement -- a standalone assigned Task keeps working exactly as it
 // already does inside GoalAssignmentsPanel.
-export type ManagementView = "myGoals" | "assigned";
+export type ManagementView = "myGoals" | "assigned" | "longTerm";
 export const DEFAULT_MANAGEMENT_VIEW: ManagementView = "myGoals";
 
 // Pure, exported for focused testing (see GoalsManagementPanel.test.ts)
@@ -152,9 +152,21 @@ function Chip({ label, bg, border, color, icon }: { label: string; bg: string; b
   );
 }
 
-export default function GoalsManagementPanel() {
+export default function GoalsManagementPanel({
+  longTermView,
+  initialView,
+}: {
+  /** The Long-Term goals screen (Tools owns its data and handlers). When given, it is offered as a third view here. */
+  longTermView?: React.ReactNode;
+  /** Open on this view instead of My Goals (a legacy Long-Term tab or link). */
+  initialView?: ManagementView;
+} = {}) {
   const { t } = useLanguage();
-  const [managementView, setManagementView] = useState<ManagementView>(DEFAULT_MANAGEMENT_VIEW);
+  const [managementView, setManagementView] = useState<ManagementView>(initialView ?? DEFAULT_MANAGEMENT_VIEW);
+  // A late-arriving initial view (restored after the first paint) is applied once.
+  useEffect(() => {
+    if (initialView) setManagementView(initialView);
+  }, [initialView]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
@@ -363,9 +375,28 @@ export default function GoalsManagementPanel() {
         >
           {t("tools.goalsViewAssigned")}
         </button>
+        {longTermView && (
+          <button
+            type="button"
+            onClick={() => setManagementView("longTerm")}
+            className="btn"
+            data-testid="goals-view-longterm"
+            aria-pressed={managementView === "longTerm"}
+            style={{
+              padding: "0.3rem 0.65rem",
+              fontSize: "0.78rem",
+              background: managementView === "longTerm" ? "rgba(244, 114, 182, 0.18)" : undefined,
+              borderColor: managementView === "longTerm" ? "rgba(244, 114, 182, 0.5)" : undefined,
+            }}
+          >
+            {t("backlog.tabLongTerm")}
+          </button>
+        )}
       </div>
 
-      {managementView === "assigned" ? (
+      {managementView === "longTerm" && longTermView ? (
+        longTermView
+      ) : managementView === "assigned" ? (
         <GoalAssignmentsPanel />
       ) : loading ? (
         <div className="text-white/60 text-center py-8">{t("tools.goalsLoading")}</div>

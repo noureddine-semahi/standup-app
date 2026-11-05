@@ -2,10 +2,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, X, CalendarClock, Repeat, ListChecks, Target } from "lucide-react";
-import GoalsManagementPanel from "@/components/GoalsManagementPanel";
+import { Archive, X, Repeat, ListChecks, Target } from "lucide-react";
+import GoalsManagementPanel, { type ManagementView } from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
-import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT } from "@/lib/toolsTabStorage";
+import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT, LEGACY_TOOLS_TAB } from "@/lib/toolsTabStorage";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
   addBacklogGoal,
@@ -61,7 +61,7 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
 }
 
-type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists";
+type ToolsTab = "goals" | "backlog" | "routines" | "lists";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
@@ -74,8 +74,7 @@ type ToolsTab = "goals" | "backlog" | "longTerm" | "recurring" | "lists";
 const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; color: string; descriptionKey: TranslationKey }[] = [
   { key: "goals", labelKey: "backlog.tabGoals", icon: Target, color: "#f472b6", descriptionKey: "tools.descGoals" },
   { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa", descriptionKey: "tools.descBacklog" },
-  { key: "longTerm", labelKey: "backlog.tabLongTerm", icon: CalendarClock, color: "#a78bfa", descriptionKey: "tools.descLongTerm" },
-  { key: "recurring", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
+  { key: "routines", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
   { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
 ];
 
@@ -83,19 +82,30 @@ export default function ToolsPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [activeTab, setActiveTabState] = useState<ToolsTab>("goals");
+  // Which view Goals opens on (a legacy Long-Term tab or link opens its Long-Term view).
+  const [goalsView, setGoalsView] = useState<ManagementView | undefined>(undefined);
   // Restore the tab that was open before a refresh. This runs before the first paint, and only
   // the click handler writes the choice back, so the default can never overwrite the saved tab.
   // Finances used to be four tabs here (payments / planner / calculator / salary). A remembered
   // one, or a ?tab= link to one, now lands on the same tab of the Finances section instead.
   useLayoutEffect(() => {
-    const linked = new URLSearchParams(window.location.search).get("tab");
-    const moved = FINANCE_TAB_REDIRECT[linked ?? readStoredTabRaw() ?? ""];
+    const raw = new URLSearchParams(window.location.search).get("tab") ?? readStoredTabRaw() ?? "";
+    const moved = FINANCE_TAB_REDIRECT[raw];
     if (moved) {
       writeStoredTab("goals");
       router.replace(`/standup/finances?${moved}`);
       return;
     }
-    const saved = readStoredTab(TABS.map((tab) => tab.key));
+    // Recurring is now Routines; Long-Term is a view inside Goals.
+    const legacy = LEGACY_TOOLS_TAB[raw];
+    if (legacy) {
+      writeStoredTab(legacy.tab);
+      setActiveTabState(legacy.tab as ToolsTab);
+      if (legacy.view) setGoalsView(legacy.view as ManagementView);
+      return;
+    }
+    const linked = readStoredTab(TABS.map((tab) => tab.key));
+    const saved = TABS.some((tab) => tab.key === raw) ? (raw as ToolsTab) : linked;
     if (saved) setActiveTabState(saved);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -495,239 +505,10 @@ export default function ToolsPage() {
   const plainItems = items.filter((i) => !i.target_date);
   const longTermItems = items.filter((i) => !!i.target_date);
 
-  return (
-    <div className="space-y-6">
-    {/* Browser-tab / hanging-folder navigation, now sitting directly on
-        top of (and visually merged with) the Tools heading card right
-        below it, instead of a separate heading card above a separate
-        tab bar — explicit user call, "tabs attached to the card like
-        file-folder tabs." This wrapper (not space-y-6) is what lets the
-        tab bar sit flush against the card that follows it — see
-        .folder-tabbar's negative margin-bottom in globals.css. */}
-    <div ref={wrapperRef} style={wrapperStyle}>
-      <div ref={sentinelRef} style={{ height: 0 }} />
-      <div ref={barRef} className="folder-tabbar folder-tabbar-tools" style={barStyle} role="tablist">
-        {(() => {
-          // CodePen-reference segmented nav: the tabs immediately LEFT
-          // and RIGHT of the active one each get their own transition
-          // shape (a glowing vertical line reaching into the gap toward
-          // the active tab), derived purely from index -- the exact
-          // "prev()/next() of whichever button was just clicked" rule
-          // the reference's own jQuery used, done here declaratively
-          // from React state instead. --active-glow-color carries the
-          // ACTIVE tab's own accent color onto its neighbors (who each
-          // have their OWN --tab-color already) -- the glow in the gap
-          // represents light leaking from whichever tab is lit, not the
-          // neighbor's own color, matching the reference's own render
-          // (its glow sits on the ADJACENT button but visually "belongs"
-          // to the active one next to it).
-          const activeIndex = TABS.findIndex((t) => t.key === activeTab);
-          const activeColor = TABS[activeIndex]?.color;
-          return TABS.map((tab, idx) => {
-            const isActive = idx === activeIndex;
-            const isLeftOfActive = idx === activeIndex - 1;
-            const isRightOfActive = idx === activeIndex + 1;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveTab(tab.key)}
-                className={`folder-tab folder-tab-tools${isActive ? " folder-tab-active" : ""}${
-                  isLeftOfActive ? " folder-tab-tools-left-of-active" : ""
-                }${isRightOfActive ? " folder-tab-tools-right-of-active" : ""}`}
-                style={
-                  {
-                    "--tab-color": tab.color,
-                    "--tab-color-rgb": hexToRgbTriple(tab.color),
-                    "--active-glow-color": activeColor,
-                  } as React.CSSProperties
-                }
-              >
-                <tab.icon size={15} />
-                <span>{t(tab.labelKey)}</span>
-              </button>
-            );
-          });
-        })()}
-      </div>
-
-      {/* contentRef: the landmark useFixedSubNav scrolls to the top of on
-          a tab switch while the bar is pinned -- always present
-          regardless of which sub-tab is active. */}
-      <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
-        <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
-      </div>
-
-      {/* This outer wrapper (opened above, around the tab bar) now
-          extends down to enclose all tab content too, instead of
-          closing right after the hero card -- required for
-          .folder-tabbar-tools' position:sticky (mobile) to work at
-          all. A sticky element can never remain visible past its OWN
-          DIRECT PARENT's bottom edge; when this div closed right after
-          the hero card, that parent was only ~150px tall, so the tab
-          bar stopped sticking almost immediately regardless of how
-          much content followed as its sibling. Each tab-content block
-          below gets an explicit mt-6 to replace the 1.5rem gap it used
-          to get for free from being a direct child of the ROOT
-          space-y-6 wrapper -- it's now a child of this plain
-          (non-space-y) div instead. */}
-    {activeTab === "goals" && (
-      <div className="mt-6">
-        <GoalsManagementPanel />
-      </div>
-    )}
-
-    {activeTab === "backlog" && (
-    <div className="card card-highlight mt-6">
-      {msg && (
-        <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
-          {msg}
-        </div>
-      )}
-
-      <div className="space-y-3 mb-8">
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={draftPriority}
-            onChange={(e) => setDraftPriority(Number(e.target.value))}
-            disabled={adding}
-            className="priority-select"
-            style={
-              {
-                "--p-bg": getPriorityMeta(draftPriority).bg,
-                "--p-border": getPriorityMeta(draftPriority).border,
-                "--p-color": getPriorityMeta(draftPriority).color,
-              } as React.CSSProperties
-            }
-          >
-            {[1, 2, 3, 4, 5].map((v) => (
-              <option key={v} value={v}>
-                P{v}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={draftTitle}
-            onChange={(e) => setDraftTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAdd();
-            }}
-            placeholder={t("backlog.newGoalPlaceholder")}
-            disabled={adding}
-            className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-          />
-        </div>
-        <input
-          type="text"
-          value={draftDetails}
-          onChange={(e) => setDraftDetails(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleAdd();
-          }}
-          placeholder={t("backlog.detailsPlaceholder")}
-          disabled={adding}
-          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
-        />
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={adding || !draftTitle.trim()}
-          className="btn standup-metal-btn standup-metal-btn--accent"
-        >
-          {adding ? t("backlog.adding") : t("backlog.addToBacklog")}
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="text-white/60 text-center py-8">{t("backlog.loading")}</div>
-      ) : plainItems.length === 0 ? (
-        <div className="text-white/70 text-center py-12">
-          <Archive className="mx-auto mb-4 text-white/40" size={40} strokeWidth={1.5} />
-          <p className="text-lg mb-2">{t("backlog.nothingInBacklog")}</p>
-          <p className="text-sm text-white/50">{t("backlog.staysPutMsg")}</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {plainItems.map((item, idx) => {
-            const meta = getPriorityMeta(item.priority);
-            const busy = busyIds.has(item.id);
-            return (
-              <div
-                key={item.id}
-                className="goal-row"
-                style={{ "--p-color": meta.color } as React.CSSProperties}
-              >
-                <GoalNumberOrb number={idx + 1} />
-                <button
-                  type="button"
-                  onClick={() => handleDelete(item)}
-                  disabled={busy}
-                  className="goal-delete-corner-btn"
-                  title={t("backlog.removeFromBacklog")}
-                >
-                  <X size={12} />
-                </button>
-                <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
-                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
-                  <div className="flex-1" style={{ minWidth: 0 }}>
-                    <div className="text-white text-lg font-medium mb-1">{item.title}</div>
-                    {item.details && <div className="text-sm text-white/60">{item.details}</div>}
-                  </div>
-                </div>
-
-                {/* Push to Tomorrow + date picker share a line; Push sits
-                    full-width below them (spanning the same combined width)
-                    and is the one colored (btn-primary) control in this
-                    card, since it's the actual commit action — the other
-                    two are just setting up what/when. */}
-                <div className="flex items-stretch gap-2 mb-2">
-                  <button
-                    type="button"
-                    onClick={() => handlePush(item, tomorrowISO)}
-                    disabled={busy}
-                    className="btn standup-metal-btn flex-1 min-w-0 flex items-center justify-center"
-                    style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem", minWidth: "130px" }}
-                    title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
-                  >
-                    <span className="tools-push-btn-label">{t("backlog.pushToTomorrow")}</span>
-                  </button>
-                  <input
-                    type="date"
-                    value={pushDate[item.id] ?? ""}
-                    min={todayISO}
-                    disabled={busy}
-                    onChange={(e) =>
-                      setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
-                    }
-                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
-                    style={{ height: "36px" }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handlePush(item)}
-                  disabled={busy || !pushDate[item.id]}
-                  className="btn standup-metal-btn standup-metal-btn--accent w-full"
-                  style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
-                >
-                  {t("backlog.push")}
-                </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-    </div>
-    )}
-
-    {activeTab === "longTerm" && (
-    <div className="card card-highlight mt-6">
+  // Long-Term goals now live inside Goals (its third view next to My Goals and Assigned). Same records, same handlers; only
+  // where it is shown changed.
+  const longTermView = (
+    <div data-testid="tools-longterm">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.longTermTitle")}</h2>
         <p className="text-sm text-white/70">{t("backlog.longTermSubtitle")}</p>
@@ -887,9 +668,240 @@ export default function ToolsPage() {
         </div>
       )}
     </div>
+  );
+
+  return (
+    <div className="space-y-6">
+    {/* Browser-tab / hanging-folder navigation, now sitting directly on
+        top of (and visually merged with) the Tools heading card right
+        below it, instead of a separate heading card above a separate
+        tab bar — explicit user call, "tabs attached to the card like
+        file-folder tabs." This wrapper (not space-y-6) is what lets the
+        tab bar sit flush against the card that follows it — see
+        .folder-tabbar's negative margin-bottom in globals.css. */}
+    <div ref={wrapperRef} style={wrapperStyle}>
+      <div ref={sentinelRef} style={{ height: 0 }} />
+      <div ref={barRef} className="folder-tabbar folder-tabbar-tools" style={barStyle} role="tablist">
+        {(() => {
+          // CodePen-reference segmented nav: the tabs immediately LEFT
+          // and RIGHT of the active one each get their own transition
+          // shape (a glowing vertical line reaching into the gap toward
+          // the active tab), derived purely from index -- the exact
+          // "prev()/next() of whichever button was just clicked" rule
+          // the reference's own jQuery used, done here declaratively
+          // from React state instead. --active-glow-color carries the
+          // ACTIVE tab's own accent color onto its neighbors (who each
+          // have their OWN --tab-color already) -- the glow in the gap
+          // represents light leaking from whichever tab is lit, not the
+          // neighbor's own color, matching the reference's own render
+          // (its glow sits on the ADJACENT button but visually "belongs"
+          // to the active one next to it).
+          const activeIndex = TABS.findIndex((t) => t.key === activeTab);
+          const activeColor = TABS[activeIndex]?.color;
+          return TABS.map((tab, idx) => {
+            const isActive = idx === activeIndex;
+            const isLeftOfActive = idx === activeIndex - 1;
+            const isRightOfActive = idx === activeIndex + 1;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.key)}
+                className={`folder-tab folder-tab-tools${isActive ? " folder-tab-active" : ""}${
+                  isLeftOfActive ? " folder-tab-tools-left-of-active" : ""
+                }${isRightOfActive ? " folder-tab-tools-right-of-active" : ""}`}
+                style={
+                  {
+                    "--tab-color": tab.color,
+                    "--tab-color-rgb": hexToRgbTriple(tab.color),
+                    "--active-glow-color": activeColor,
+                  } as React.CSSProperties
+                }
+              >
+                <tab.icon size={15} />
+                <span>{t(tab.labelKey)}</span>
+              </button>
+            );
+          });
+        })()}
+      </div>
+
+      {/* contentRef: the landmark useFixedSubNav scrolls to the top of on
+          a tab switch while the bar is pinned -- always present
+          regardless of which sub-tab is active. */}
+      <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
+        <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
+      </div>
+
+      {/* This outer wrapper (opened above, around the tab bar) now
+          extends down to enclose all tab content too, instead of
+          closing right after the hero card -- required for
+          .folder-tabbar-tools' position:sticky (mobile) to work at
+          all. A sticky element can never remain visible past its OWN
+          DIRECT PARENT's bottom edge; when this div closed right after
+          the hero card, that parent was only ~150px tall, so the tab
+          bar stopped sticking almost immediately regardless of how
+          much content followed as its sibling. Each tab-content block
+          below gets an explicit mt-6 to replace the 1.5rem gap it used
+          to get for free from being a direct child of the ROOT
+          space-y-6 wrapper -- it's now a child of this plain
+          (non-space-y) div instead. */}
+    {activeTab === "goals" && (
+      <div className="mt-6">
+        <GoalsManagementPanel longTermView={longTermView} initialView={goalsView} />
+      </div>
     )}
 
-    {activeTab === "recurring" && (
+    {activeTab === "backlog" && (
+    <div className="card card-highlight mt-6">
+      {msg && (
+        <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+          {msg}
+        </div>
+      )}
+
+      <div className="space-y-3 mb-8">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={draftPriority}
+            onChange={(e) => setDraftPriority(Number(e.target.value))}
+            disabled={adding}
+            className="priority-select"
+            style={
+              {
+                "--p-bg": getPriorityMeta(draftPriority).bg,
+                "--p-border": getPriorityMeta(draftPriority).border,
+                "--p-color": getPriorityMeta(draftPriority).color,
+              } as React.CSSProperties
+            }
+          >
+            {[1, 2, 3, 4, 5].map((v) => (
+              <option key={v} value={v}>
+                P{v}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+            }}
+            placeholder={t("backlog.newGoalPlaceholder")}
+            disabled={adding}
+            className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+          />
+        </div>
+        <input
+          type="text"
+          value={draftDetails}
+          onChange={(e) => setDraftDetails(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleAdd();
+          }}
+          placeholder={t("backlog.detailsPlaceholder")}
+          disabled={adding}
+          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={adding || !draftTitle.trim()}
+          className="btn standup-metal-btn standup-metal-btn--accent"
+        >
+          {adding ? t("backlog.adding") : t("backlog.addToBacklog")}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-white/60 text-center py-8">{t("backlog.loading")}</div>
+      ) : plainItems.length === 0 ? (
+        <div className="text-white/70 text-center py-12">
+          <Archive className="mx-auto mb-4 text-white/40" size={40} strokeWidth={1.5} />
+          <p className="text-lg mb-2">{t("backlog.nothingInBacklog")}</p>
+          <p className="text-sm text-white/50">{t("backlog.staysPutMsg")}</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {plainItems.map((item, idx) => {
+            const meta = getPriorityMeta(item.priority);
+            const busy = busyIds.has(item.id);
+            return (
+              <div
+                key={item.id}
+                className="goal-row"
+                style={{ "--p-color": meta.color } as React.CSSProperties}
+              >
+                <GoalNumberOrb number={idx + 1} />
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  disabled={busy}
+                  className="goal-delete-corner-btn"
+                  title={t("backlog.removeFromBacklog")}
+                >
+                  <X size={12} />
+                </button>
+                <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
+                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
+                  <div className="flex-1" style={{ minWidth: 0 }}>
+                    <div className="text-white text-lg font-medium mb-1">{item.title}</div>
+                    {item.details && <div className="text-sm text-white/60">{item.details}</div>}
+                  </div>
+                </div>
+
+                {/* Push to Tomorrow + date picker share a line; Push sits
+                    full-width below them (spanning the same combined width)
+                    and is the one colored (btn-primary) control in this
+                    card, since it's the actual commit action — the other
+                    two are just setting up what/when. */}
+                <div className="flex items-stretch gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePush(item, tomorrowISO)}
+                    disabled={busy}
+                    className="btn standup-metal-btn flex-1 min-w-0 flex items-center justify-center"
+                    style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem", minWidth: "130px" }}
+                    title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
+                  >
+                    <span className="tools-push-btn-label">{t("backlog.pushToTomorrow")}</span>
+                  </button>
+                  <input
+                    type="date"
+                    value={pushDate[item.id] ?? ""}
+                    min={todayISO}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
+                    }
+                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                    style={{ height: "36px" }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handlePush(item)}
+                  disabled={busy || !pushDate[item.id]}
+                  className="btn standup-metal-btn standup-metal-btn--accent w-full"
+                  style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
+                >
+                  {t("backlog.push")}
+                </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+    </div>
+    )}
+
+    {activeTab === "routines" && (
     <div className="card card-highlight mt-6">
       <div className="mb-6">
         <h2 className="text-xl font-bold mb-1">{t("backlog.recurringTitle")}</h2>

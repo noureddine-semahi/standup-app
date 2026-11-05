@@ -58,3 +58,12 @@ export function writeFinancesTab(tab: string): void {
     // storage blocked or full: the tab simply isn't remembered
   }
 }
+
+/**
+ * Tools tabs that were renamed or folded into another tab. A remembered tab or a ?tab= link using the old name lands on the
+ * new place: Recurring is now Routines, and Long-Term lives inside Goals (its own view there).
+ */
+export const LEGACY_TOOLS_TAB: Readonly<Record<string, { tab: string; view?: string }>> = {
+  recurring: { tab: "routines" },
+  longTerm: { tab: "goals", view: "longTerm" },
+};

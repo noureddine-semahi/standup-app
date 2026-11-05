@@ -31,7 +31,12 @@ describe("Tools / Finances split", () => {
 
   it("Tools keeps only the productivity tabs", () => {
     for (const k of ["payments", "planner", "calculator", "salary"]) expect(source).not.toContain(`key: "${k}"`);
-    for (const k of ["goals", "backlog", "longTerm", "recurring", "lists"]) expect(source).toContain(`key: "${k}"`);
+    for (const k of ["goals", "backlog", "routines", "lists"]) expect(source).toContain(`key: "${k}"`);
+    // Long-Term and Recurring are no longer tabs of their own
+    for (const k of ["longTerm", "recurring"]) expect(source).not.toContain(`key: "${k}"`);
+    // final order: Goals | Backlog | Routines | Lists
+    const order = [...source.matchAll(/{ key: "(goals|backlog|routines|lists)", labelKey/g)].map((m) => m[1]);
+    expect(order).toEqual(["goals", "backlog", "routines", "lists"]);
     expect(source).not.toContain("FinancesHub");
     expect(source).not.toContain("PlannerHome");
   });
@@ -50,5 +55,23 @@ describe("Tools / Finances split", () => {
   it("an old remembered Finances tab on Tools is redirected, not lost", () => {
     expect(source).toContain("FINANCE_TAB_REDIRECT");
     expect(source).toContain("/standup/finances?");
+  });
+});
+
+describe("Goals + Long-Term and Recurring -> Routines", () => {
+  const panel = readFileSync(join(__dirname, "..", "..", "..", "components", "GoalsManagementPanel.tsx"), "utf8");
+  it("Goals offers Long-Term as a third view next to My Goals and Assigned, and Tools passes the existing screen in", () => {
+    expect(panel).toContain(`"myGoals" | "assigned" | "longTerm"`);
+    expect(panel).toContain("goals-view-longterm");
+    expect(source).toContain("<GoalsManagementPanel longTermView={longTermView}");
+    // the Long-Term screen keeps its own handlers: it can still add, push and delete long-term goals
+    for (const fn of ["handleAddLongTerm", "handlePushLongTerm", "handleDeleteLongTerm"]) expect(source).toContain(fn);
+  });
+  it("shows the tab as Routines in both languages while the recurrence logic keeps its names", () => {
+    expect(en["backlog.tabRecurring"]).toBe("Routines");
+    expect(es["backlog.tabRecurring"]).toBe("Rutinas");
+    expect(en["backlog.recurringTitle"]).toBe("Routines");
+    expect(es["backlog.recurringTitle"]).toBe("Rutinas");
+    expect(en["goalType.recurring.chip"]).toBeTruthy(); // the Recurring goal TYPE is unchanged
   });
 });

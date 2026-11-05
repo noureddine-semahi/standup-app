@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { TOOLS_TAB_STORAGE_KEY, parseStoredTab, readStoredTab, writeStoredTab, FINANCE_TAB_REDIRECT, FINANCES_TAB_STORAGE_KEY } from "./toolsTabStorage";
+import { TOOLS_TAB_STORAGE_KEY, parseStoredTab, readStoredTab, writeStoredTab, FINANCE_TAB_REDIRECT, FINANCES_TAB_STORAGE_KEY, LEGACY_TOOLS_TAB } from "./toolsTabStorage";
 
-const TABS = ["goals", "backlog", "longTerm", "recurring", "lists", "payments", "calculator", "salary"] as const;
+const TABS = ["goals", "backlog", "routines", "lists", "payments", "calculator", "salary"] as const;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -57,6 +57,17 @@ describe("former Finances tabs", () => {
   });
   it("none of the moved tabs is still a Tools tab, and the two sections remember their tab under different keys", () => {
     expect(FINANCES_TAB_STORAGE_KEY).not.toBe(TOOLS_TAB_STORAGE_KEY);
-    for (const k of Object.keys(FINANCE_TAB_REDIRECT)) expect(["goals", "backlog", "longTerm", "recurring", "lists"]).not.toContain(k);
+    for (const k of Object.keys(FINANCE_TAB_REDIRECT)) expect(["goals", "backlog", "routines", "lists"]).not.toContain(k);
+  });
+});
+
+describe("renamed and folded Tools tabs", () => {
+  it("Recurring is now Routines, and Long-Term opens Goals on its Long-Term view", () => {
+    expect(LEGACY_TOOLS_TAB).toEqual({ recurring: { tab: "routines" }, longTerm: { tab: "goals", view: "longTerm" } });
+  });
+  it("the legacy names are no longer current tabs, so a remembered one is mapped rather than dropped", () => {
+    const current = ["goals", "backlog", "routines", "lists"];
+    for (const k of Object.keys(LEGACY_TOOLS_TAB)) expect(current).not.toContain(k);
+    for (const v of Object.values(LEGACY_TOOLS_TAB)) expect(current).toContain(v.tab);
   });
 });

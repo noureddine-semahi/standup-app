@@ -7,7 +7,8 @@ import type { OverviewModel } from "@/lib/householdOverview";
 import type { ChartSegment, ChartView, GoalRow, PlanView, SegmentKey } from "@/lib/householdPlanView";
 import type { ReadyState } from "@/lib/supabase/householdShared";
 import type { Figure } from "@/lib/householdOverview";
-import { ASSUME_KEY, DuplicatesCard, IntegrityAlert, Responsibility, Value, WarningsCard, fmt } from "./HouseholdParts";
+import { IntegrityAlert, PartialList, ProvisionalNotice, Responsibility, Value, WarningsCard, fmt } from "./HouseholdParts";
+import { percentText } from "@/lib/plannerView";
 import { hintFor, statusLabel } from "./SharedGoalsEditor";
 import type { TFn } from "./SharedEditorParts";
 
@@ -90,19 +91,8 @@ export default function HouseholdPlanDashboard({
       {!model.integrity.ok && state && <IntegrityAlert model={model} stored={state.stored} integrity={state.integrity} />}
 
       {view.provisional && (
-        <div role="status" className="plan-note" data-testid="hp-provisional">
-          <span className="plan-chip" data-status="partial">
-            {t("hh.availProvisional")}
-          </span>{" "}
-          <strong>{t("hp.provTitle")}</strong>
-          <div>{avail.kind === "unknown" ? t("hp.unknownBody") : t("hp.provBody")}</div>
-          {avail.kind === "provisional" && (
-            <ul className="hh-assume" data-testid="hp-assumptions">
-              {avail.assumptions.map((a) => (
-                <li key={a}>{t(ASSUME_KEY[a])}</li>
-              ))}
-            </ul>
-          )}
+        <div role="status" className="plan-note hh-prov-wrap" data-testid="hp-provisional">
+          {avail.kind === "provisional" ? <ProvisionalNotice model={model} assumptions={avail.assumptions} prefix="hp" /> : <div>{t("hp.unknownBody")}</div>}
         </div>
       )}
 
@@ -172,8 +162,9 @@ export default function HouseholdPlanDashboard({
       </section>
 
       {/* ── who covers what (assigned, excluded, unassigned) + distribution ── */}
-      <Responsibility model={model} />
+      {!view.distribution.shown && <Responsibility model={model} />}
       <ChartCard idp="resp" icon={<Coins size={16} aria-hidden="true" />} title={t("hp.respChartTitle")} note={t("hp.respChartNote")} chart={view.distribution} label={segLabel} partnerName={partnerName} t={t} />
+      {view.distribution.shown && <PartialList model={model} />}
 
       {/* ── spending breakdown ── */}
       <ChartCard idp="spend" icon={<Receipt size={16} aria-hidden="true" />} title={t("hp.spendChartTitle")} chart={view.breakdown} label={segLabel} partnerName={partnerName} t={t} />
@@ -274,15 +265,19 @@ export default function HouseholdPlanDashboard({
         )}
       </section>
 
-      <WarningsCard model={model} />
-      <DuplicatesCard model={model} />
+      <WarningsCard model={model} hideMissingInfo={view.provisional && avail.kind === "provisional"} />
+      {model.duplicates.length > 0 && (
+        <p className="plan-row-note" data-testid="hp-duplicates-pointer">
+          {t("hp.duplicatesPointer", { count: model.duplicates.length })}
+        </p>
+      )}
     </div>
   );
 }
 
 function ChartCard({ idp, icon, title, note, chart, label, partnerName, t }: { idp: string; icon: React.ReactNode; title: string; note?: string; chart: ChartView; label: (k: SegmentKey) => string; partnerName: string; t: TFn }) {
   const drawn = chart.segments.filter((s) => s.cents > 0);
-  const summary = chart.shown ? [...chart.segments.map((s) => `${label(s.key)} ${s.percent}%`), ...chart.omitted.map((k) => `${label(k)}: ${t("hp.legendNothing")}`)].join(", ") : "";
+  const summary = chart.shown ? [...chart.segments.map((s) => `${label(s.key)} ${percentText(s.cents, chart.totalCents ?? 0, s.percent)}`), ...chart.omitted.map((k) => `${label(k)}: ${t("hp.legendNothing")}`)].join(", ") : "";
   return (
     <section className="plan-glass" data-testid={`hp-${idp}-chart`} aria-label={title} data-shown={chart.shown}>
       <h4 className="plan-card-title">
@@ -305,7 +300,7 @@ function ChartCard({ idp, icon, title, note, chart, label, partnerName, t }: { i
                   {fmt(s.cents)}
                 </span>
                 <span className="hp-pct" data-testid={`hp-${idp}-pct-${s.key}`}>
-                  {t("hp.legendPct", { percent: s.percent })}
+                  {percentText(s.cents, chart.totalCents ?? 0, s.percent)}
                 </span>
               </li>
             ))}

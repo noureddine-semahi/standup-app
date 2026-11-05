@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Archive, X, CalendarClock, Repeat, ListChecks, CreditCard, Target, Calculator as CalculatorIcon, Banknote, PiggyBank } from "lucide-react";
 import GoalsManagementPanel from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
@@ -757,10 +756,7 @@ export default function ToolsPage() {
           below gets an explicit mt-6 to replace the 1.5rem gap it used
           to get for free from being a direct child of the ROOT
           space-y-6 wrapper -- it's now a child of this plain
-          (non-space-y) div instead. The trailing "Plan Tomorrow /
-          Dashboard" link row at the very end of this component is
-          NOT tab-specific content and stays outside this wrapper,
-          unchanged. */}
+          (non-space-y) div instead. */}
     {activeTab === "goals" && (
       <div className="mt-6">
         <GoalsManagementPanel />
@@ -1416,15 +1412,6 @@ export default function ToolsPage() {
       </div>
     )}
     </div>
-
-      <div className="flex flex-wrap gap-4 items-center justify-between">
-        <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/tomorrow">
-          {t("backlog.planTomorrowArrow")}
-        </Link>
-        <Link className="btn standup-metal-btn bottom-nav-btn" href="/standup/dashboard">
-          {t("nav.dashboard")} →
-        </Link>
-      </div>
     </div>
   );
 }

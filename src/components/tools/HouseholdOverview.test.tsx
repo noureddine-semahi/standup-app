@@ -154,7 +154,8 @@ describe("unknown is never $0; partial is labelled; provisional is labelled", ()
     expect(screen.getByTestId("hh-available").getAttribute("data-kind")).toBe("provisional");
     expect(txt("hh-available-provisional")).toBe("Provisional");
     expect(txt("hh-assumptions")).toContain("Costs nobody is assigned to are counted against the household's income.");
-    expect(txt("hh-available-card")).toContain("provisional estimate");
+    expect(txt("hh-available-card")).toContain("Provisional — not guaranteed savings");
+    expect(txt("hh-available-card")).toContain("not money you can count on saving");
   });
 });
 

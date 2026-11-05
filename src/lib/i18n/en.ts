@@ -730,7 +730,6 @@ export const en = {
   "backlog.pushToTomorrow": "→ Tomorrow",
   "backlog.push": "Push",
   "backlog.removeFromBacklog": "Remove from backlog",
-  "backlog.planTomorrowArrow": "← Plan Tomorrow",
 
   // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set
   "backlog.longTermTitle": "Long-Term Goals",
@@ -1112,7 +1111,10 @@ export const en = {
   "hh.partialLine": "{label}: {assigned} of {total} assigned. {remaining} not yet assigned.",
   "hh.availTitle": "Available household cash",
   "hh.availProvisional": "Provisional",
-  "hh.availProvNote": "A provisional estimate. It will change when the missing information is added.",
+  "hh.provHeading": "Provisional — not guaranteed savings",
+  "hh.provNotGuaranteed": "This is not money you can count on saving. It is a rough figure, and it will change once the missing information is added.",
+  "hh.provMissingTitle": "Missing information",
+  "hh.provAssumedTitle": "This figure also assumes",
   "hh.assumeIncome": "Some income is missing.",
   "hh.assumeSpending": "Some spending is missing.",
   "hh.assumeUnassigned": "Costs nobody is assigned to are counted against the household's income.",
@@ -1355,9 +1357,8 @@ export const en = {
 
   // Tools > Planner > Household > Plan dashboard (Phase 2, Step 5)
   "hp.title": "Household plan",
+  "hp.duplicatesPointer": "Possible duplicates: {count}. These are guesses only; review them in the Overview.",
   "hp.intro": "One monthly picture of the household, built from what you entered. Assigned responsibility is what people said they cover, not payments made. Planned savings are not bills, and debt balances are not expenses.",
-  "hp.provTitle": "Some figures are provisional",
-  "hp.provBody": "Information is missing, so available cash is not final and may change as you fill things in.",
   "hp.unknownBody": "Available cash can't be worked out yet. Add the missing income to see it.",
   "hp.flowTitle": "Monthly cash flow",
   "hp.flowIncome": "Household income",

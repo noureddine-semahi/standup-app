@@ -725,7 +725,6 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.pushToTomorrow": "→ Mañana",
   "backlog.push": "Enviar",
   "backlog.removeFromBacklog": "Eliminar de pendientes",
-  "backlog.planTomorrowArrow": "← Planificar Mañana",
 
   // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set
   "backlog.longTermTitle": "Objetivos a Largo Plazo",
@@ -1107,7 +1106,10 @@ export const es: Record<keyof typeof en, string> = {
   "hh.partialLine": "{label}: {assigned} de {total} asignados. {remaining} sin asignar.",
   "hh.availTitle": "Efectivo disponible del hogar",
   "hh.availProvisional": "Provisional",
-  "hh.availProvNote": "Una estimación provisional. Cambiará cuando se agregue la información que falta.",
+  "hh.provHeading": "Provisional — no es ahorro garantizado",
+  "hh.provNotGuaranteed": "Este no es dinero con el que puedas contar para ahorrar. Es una cifra aproximada y cambiará cuando se añada la información que falta.",
+  "hh.provMissingTitle": "Información que falta",
+  "hh.provAssumedTitle": "Esta cifra también supone",
   "hh.assumeIncome": "Faltan algunos ingresos.",
   "hh.assumeSpending": "Faltan algunos gastos.",
   "hh.assumeUnassigned": "Los gastos sin responsable se descuentan de los ingresos del hogar.",
@@ -1350,9 +1352,8 @@ export const es: Record<keyof typeof en, string> = {
 
   // Tools > Planner > Household > Plan dashboard (Phase 2, Step 5)
   "hp.title": "Plan del hogar",
+  "hp.duplicatesPointer": "Posibles duplicados: {count}. Son solo suposiciones; revísalos en el Resumen.",
   "hp.intro": "Una imagen mensual del hogar, hecha con lo que ingresaste. La responsabilidad asignada es lo que cada persona dijo que cubre, no pagos realizados. El ahorro planificado no son facturas y los saldos de deuda no son gastos.",
-  "hp.provTitle": "Algunas cifras son provisionales",
-  "hp.provBody": "Falta información, así que el efectivo disponible no es definitivo y puede cambiar a medida que completes los datos.",
   "hp.unknownBody": "Aún no se puede calcular el efectivo disponible. Agrega los ingresos que faltan para verlo.",
   "hp.flowTitle": "Flujo de efectivo mensual",
   "hp.flowIncome": "Ingresos del hogar",

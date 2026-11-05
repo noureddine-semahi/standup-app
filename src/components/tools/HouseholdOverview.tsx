@@ -15,7 +15,7 @@ import type { FinancialProfileController } from "./useFinancialProfile";
 import type { HouseholdController } from "./useHousehold";
 import { useHouseholdOverview } from "./useHouseholdOverview";
 import SharedTab from "./SharedTab";
-import { ASSUME_KEY, DuplicatesCard, IntegrityAlert, Responsibility, WarningsCard, fmt, sizePartsText, textOf } from "./HouseholdParts";
+import { DuplicatesCard, IntegrityAlert, ProvisionalNotice, Responsibility, WarningsCard, fmt, sizePartsText, textOf } from "./HouseholdParts";
 
 // Tools > Planner > Household. Phase 2, Step 3: the Overview. Everything shown comes from buildHouseholdPlan (the one
 // calculation module) through buildOverview (display rules only). This screen never saves shared household data: the
@@ -299,14 +299,7 @@ function Overview({ model, sharedUnavailable, stored }: { model: OverviewModel; 
             {avail.kind !== "unknown" && <span className="plan-avail-unit">{t("plan.perMonth")}</span>}
           </div>
           {avail.kind === "provisional" && (
-            <>
-              <div className="plan-tile-note">{t("hh.availProvNote")}</div>
-              <ul className="hh-assume" data-testid="hh-assumptions">
-                {avail.assumptions.map((a) => (
-                  <li key={a}>{t(ASSUME_KEY[a])}</li>
-                ))}
-              </ul>
-            </>
+            <ProvisionalNotice model={m} assumptions={avail.assumptions} prefix="hh" />
           )}
           {avail.kind === "unknown" && <div className="plan-tile-note">{t("hh.availUnknownBody")}</div>}
           {avail.kind !== "unknown" && avail.estimate && <div className="plan-tile-note">{t("hh.noteEstimate")}</div>}

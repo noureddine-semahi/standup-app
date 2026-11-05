@@ -112,19 +112,28 @@ export default function SharedGoalsEditor(p: EditorShared) {
   };
   const plannedTotal = plan.goals.reduce((s, g) => s + g.plannedMonthlyCents, 0);
 
+  const listEmpty = goals.length === 0 && !draft;
+
   return (
     <div className="sg-root" data-testid="sg-root">
-      <section className="plan-glass" aria-label={t("sg.title")}>
-        <h4 className="plan-card-title">{t("sg.title")}</h4>
-        <p className="plan-row-note">{t("sg.intro")}</p>
-      </section>
+      {!listEmpty && (
+        <section className="plan-glass" aria-label={t("sg.title")}>
+          <h4 className="plan-card-title">{t("sg.title")}</h4>
+          <p className="plan-row-note">{t("sg.intro")}</p>
+        </section>
+      )}
 
       <NoticeBox notice={notice} idp="sg" />
 
-      {goals.length === 0 && !draft && (
-        <section className="plan-glass plan-empty-card" data-testid="sg-empty">
-          <h4>{t("sg.empty")}</h4>
-          <p>{t("sg.emptyHelp")}</p>
+      {listEmpty && (
+        <section className="plan-glass plan-empty-card" data-testid="sg-empty" aria-label={t("sg.title")}>
+          <div>
+            <h4 className="plan-card-title">{t("sg.title")}</h4>
+            <p className="plan-row-note">{t("sg.intro")}</p>
+          </div>
+          <p>
+            <strong>{t("sg.empty")}</strong> {t("sg.emptyHelp")}
+          </p>
           <div className="se-actions">
             <button type="button" className="plan-btn plan-gold" onClick={openNew} disabled={off} data-testid="sg-add">
               <Plus size={16} aria-hidden="true" /> {t("sg.add")}

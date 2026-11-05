@@ -59,7 +59,7 @@ import {
   type StepError,
   type StepStatus,
 } from "@/lib/financialPlanner";
-import { nextSteps, spendingBreakdown, type NextStep, type SegmentKey } from "@/lib/plannerView";
+import { nextSteps, percentText, spendingBreakdown, type NextStep, type SegmentKey } from "@/lib/plannerView";
 import type { Person } from "@/lib/household";
 import { FIELD_CLASS, newClientKey } from "./PaymentsDashboard";
 import type { FinancialProfileController } from "./useFinancialProfile";
@@ -1039,7 +1039,7 @@ export default function FinancialPlanner({
   };
   const chartLabel = t("plan.breakdownLabel", {
     total: fmt(breakdown.totalCents),
-    items: breakdown.segments.map((s) => `${t(SEGMENT_KEY[s.key])} ${s.percent}% (${fmt(s.cents)})`).join(", "),
+    items: breakdown.segments.map((s) => `${t(SEGMENT_KEY[s.key])} ${percentText(s.cents, breakdown.totalCents, s.percent)} (${fmt(s.cents)})`).join(", "),
   });
 
   return (
@@ -1291,10 +1291,10 @@ export default function FinancialPlanner({
                 <Donut segments={breakdown.segments} totalText={fmt(breakdown.totalCents)} label={chartLabel} />
                 <ul className="plan-legend" aria-label={t("plan.breakdownTitle")}>
                   {breakdown.segments.map((s) => (
-                    <li key={s.key} aria-label={`${t(SEGMENT_KEY[s.key])}: ${s.percent}%, ${fmt(s.cents)}`} data-testid={`plan-legend-${s.key}`}>
+                    <li key={s.key} aria-label={`${t(SEGMENT_KEY[s.key])}: ${percentText(s.cents, breakdown.totalCents, s.percent)}, ${fmt(s.cents)}`} data-testid={`plan-legend-${s.key}`}>
                       <span className="plan-swatch" style={{ background: SEGMENT_COLOR[s.key] }} aria-hidden="true" />
                       <span className="plan-legend-name">{t(SEGMENT_KEY[s.key])}</span>
-                      <span className="plan-legend-pct">{s.percent}%</span>
+                      <span className="plan-legend-pct">{percentText(s.cents, breakdown.totalCents, s.percent)}</span>
                     </li>
                   ))}
                 </ul>

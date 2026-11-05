@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EXPENSE_CATEGORIES, buildPlan, emptyProfile, type FinancialProfile } from "./financialPlanner";
-import { nextSteps, spendingBreakdown, wholePercents } from "./plannerView";
+import { nextSteps, percentText, spendingBreakdown, wholePercents } from "./plannerView";
 
 const TODAY = "2026-11-04";
 const profile = (over: Partial<FinancialProfile> = {}): FinancialProfile => ({ ...emptyProfile(), ...over });
@@ -111,5 +111,25 @@ describe("nextSteps (rule-based, no AI)", () => {
     });
     const kinds = nextSteps(planOf(p)).map((s) => s.kind);
     expect(kinds).toEqual(["capacity"]); // $100 a month is genuinely free to save
+  });
+});
+
+describe("percentText", () => {
+  it("shows a nonzero share under 1% as <1%, whatever the rounded whole percent says", () => {
+    expect(percentText(1, 1000, 0)).toBe("<1%");
+    expect(percentText(1, 1000, 1)).toBe("<1%"); // largest-remainder rounding can lift a tiny slice to 1
+    expect(percentText(99, 10000, 1)).toBe("<1%");
+  });
+  it("shows 1% and above, and a true zero, as ordinary whole percents", () => {
+    expect(percentText(100, 10000, 1)).toBe("1%");
+    expect(percentText(1, 3, 33)).toBe("33%");
+    expect(percentText(0, 1000, 0)).toBe("0%");
+    expect(percentText(5, 5, 100)).toBe("100%");
+  });
+  it("leaves the stored percentages and cents untouched", () => {
+    const p = profile({ expenses: { housing: { amount: 0.5, covered: false } } as FinancialProfile["expenses"] });
+    const b = spendingBreakdown(planOf(p), p);
+    expect(b.segments.reduce((a, s) => a + s.percent, 0)).toBe(100);
+    expect(b.totalCents).toBe(b.segments.reduce((a, s) => a + s.cents, 0));
   });
 });

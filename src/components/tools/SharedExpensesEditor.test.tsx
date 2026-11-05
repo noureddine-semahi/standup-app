@@ -119,6 +119,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("empty and 'none' states", () => {
+  it("the explanation and the empty state are one compact section (title, intro, empty text and actions together)", async () => {
+    mount();
+    await openShared();
+    const card = screen.getByTestId("se-empty");
+    expect(card.textContent).toContain("Shared expenses");
+    expect(card.textContent).toContain("never split evenly");
+    expect(card.textContent).toContain("No shared expenses entered yet.");
+    expect(card.contains(screen.getByTestId("se-add"))).toBe(true);
+    // no second card repeating the heading above it
+    expect(screen.getByTestId("se-root").querySelectorAll("section.plan-glass")).toHaveLength(1);
+    expect(h.saves).toEqual([]);
+  });
   it("unanswered: offers to add one or to confirm there are none (and nothing is saved by looking)", async () => {
     mount();
     await openShared();

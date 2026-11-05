@@ -152,27 +152,83 @@ export function Responsibility({ model }: { model: OverviewModel }) {
           <dd data-testid="hh-unassigned-value">{m.responsibility.unassigned === null ? dash : fmt(m.responsibility.unassigned.cents)}</dd>
         </div>
       </dl>
-      {m.partial.length > 0 && (
-        <div className="hh-partial" data-testid="hh-partial">
-          <h5 className="plan-card-title">{t("hh.partialTitle")}</h5>
-          <p className="plan-row-note">{t("hh.partialNote")}</p>
-          <ul className="hh-list">
-            {m.partial.map((p) => (
-              <li key={p.id} data-testid={`hh-partial-${p.id}`}>
-                {t("hh.partialLine", { label: p.label, assigned: fmt(p.assignedCents), total: fmt(p.totalCents), remaining: fmt(p.unassignedCents) })}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <PartialList model={m} />
     </section>
   );
 }
 
-/** Completeness warnings (what is missing or needs attention). The unreadable-data warning has its own alert. */
-export function WarningsCard({ model }: { model: OverviewModel }) {
+/** Shared costs that are only partly assigned, with the amount still unassigned. */
+export function PartialList({ model }: { model: OverviewModel }) {
   const { t } = useLanguage();
-  const warnings = model.warnings.filter((w) => w.code !== "storedDataUnreadable");
+  if (model.partial.length === 0) return null;
+  return (
+    <div className="hh-partial" data-testid="hh-partial">
+      <h5 className="plan-card-title">{t("hh.partialTitle")}</h5>
+      <p className="plan-row-note">{t("hh.partialNote")}</p>
+      <ul className="hh-list">
+        {model.partial.map((p) => (
+          <li key={p.id} data-testid={`hh-partial-${p.id}`}>
+            {t("hh.partialLine", { label: p.label, assigned: fmt(p.assignedCents), total: fmt(p.totalCents), remaining: fmt(p.unassignedCents) })}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Warnings that name information the available-cash figure is still missing. The provisional notice lists them, so the warnings card leaves them out where the notice is shown. */
+const MISSING_INFO_CODES: readonly OverviewWarning["code"][] = ["meIncomeUnknown", "partnerIncomeUnknown", "spendingIncomplete", "sharedCostsUnanswered", "sharedDebtsUnanswered", "payerNotSet"];
+const missingInfo = (model: OverviewModel) => model.warnings.filter((w) => MISSING_INFO_CODES.includes(w.code));
+
+/**
+ * The prominent notice for provisional available cash: says plainly that it is not guaranteed savings, names the missing
+ * information, and lists whatever else the figure assumes. Used on the Overview card and the Plan.
+ */
+export function ProvisionalNotice({ model, assumptions, prefix }: { model: OverviewModel; assumptions: OverviewAssumption[]; prefix: "hh" | "hp" }) {
+  const { t } = useLanguage();
+  const missing = missingInfo(model);
+  const incomeNamed = missing.some((w) => w.code === "meIncomeUnknown" || w.code === "partnerIncomeUnknown");
+  const spendingNamed = missing.some((w) => w.code === "spendingIncomplete");
+  // The generic "some income/spending is missing" lines only appear when no warning already says who or what is missing.
+  const assumed = assumptions.filter((a) => !(a === "incomeIncomplete" && incomeNamed) && !(a === "spendingIncomplete" && spendingNamed));
+  return (
+    <div className="hh-prov" data-testid={`${prefix}-prov-notice`}>
+      <strong className="hh-prov-title">
+        <TriangleAlert size={15} aria-hidden="true" /> {t("hh.provHeading")}
+      </strong>
+      <p className="hh-prov-body">{t("hh.provNotGuaranteed")}</p>
+      {missing.length > 0 && (
+        <>
+          <div className="hh-prov-label">{t("hh.provMissingTitle")}</div>
+          <ul className="hh-prov-list" data-testid={`${prefix}-missing`}>
+            {missing.map((w, i) => (
+              <li key={w.code + i} data-code={w.code}>
+                {warnText(w, t, model.names.partner ?? "")}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {assumed.length > 0 && (
+        <>
+          <div className="hh-prov-label">{t("hh.provAssumedTitle")}</div>
+          <ul className="hh-prov-list" data-testid={`${prefix}-assumptions`}>
+            {assumed.map((a) => (
+              <li key={a}>{t(ASSUME_KEY[a])}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Completeness warnings (what is missing or needs attention). The unreadable-data warning has its own alert. */
+export function WarningsCard({ model, hideMissingInfo = false }: { model: OverviewModel; hideMissingInfo?: boolean }) {
+  const { t } = useLanguage();
+  const warnings = model.warnings.filter((w) => w.code !== "storedDataUnreadable" && !(hideMissingInfo && MISSING_INFO_CODES.includes(w.code)));
+  // Nothing left to say here once the provisional notice has listed the missing information.
+  if (hideMissingInfo && warnings.length === 0 && missingInfo(model).length > 0) return null;
   return (
     <section className="plan-glass" data-testid="hh-warnings" aria-label={t("hh.warnTitle")}>
       <h4 className="plan-card-title">

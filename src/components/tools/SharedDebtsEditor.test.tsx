@@ -108,6 +108,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("joint debts: empty and 'none' states", () => {
+  it("the explanation and the empty state are one compact section (title, intro, empty text and actions together)", async () => {
+    mount();
+    await openShared();
+    const card = screen.getByTestId("jd-empty");
+    expect(card.textContent).toContain("Joint debts");
+    expect(card.textContent).toContain("kept apart from monthly totals");
+    expect(card.textContent).toContain("No joint debts entered yet.");
+    expect(card.contains(screen.getByTestId("jd-add"))).toBe(true);
+    // no second card repeating the heading above it
+    expect(screen.getByTestId("jd-root").querySelectorAll("section.plan-glass")).toHaveLength(1);
+    expect(h.saves).toEqual([]);
+  });
   it("unanswered: add one or confirm there are none, and looking saves nothing", async () => {
     mount();
     await openShared();

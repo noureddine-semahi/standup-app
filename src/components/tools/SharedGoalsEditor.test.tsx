@@ -104,6 +104,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("shared goals: empty state and unanswered values", () => {
+  it("the explanation and the empty state are one compact section (title, intro, empty text and actions together)", async () => {
+    mount();
+    await openShared();
+    const card = screen.getByTestId("sg-empty");
+    expect(card.textContent).toContain("Shared goals");
+    expect(card.textContent).toContain("never added to household spending");
+    expect(card.textContent).toContain("No shared goals yet.");
+    expect(card.contains(screen.getByTestId("sg-add"))).toBe(true);
+    // no second card repeating the heading above it
+    expect(screen.getByTestId("sg-root").querySelectorAll("section.plan-glass")).toHaveLength(1);
+    expect(h.saves).toEqual([]);
+  });
   it("starts empty, explains that goals are savings, and saves nothing by looking", async () => {
     mount();
     await openShared();

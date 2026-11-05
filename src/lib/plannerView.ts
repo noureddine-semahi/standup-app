@@ -32,6 +32,16 @@ export function wholePercents(values: readonly number[]): number[] {
   return floors;
 }
 
+/**
+ * Display text for a segment's share. The whole-number percentages are rounded
+ * so they add up to 100, which can show a tiny but real slice as "0%" or "1%";
+ * any nonzero slice under 1% of the total reads "<1%" instead. A true zero stays "0%".
+ */
+export function percentText(cents: number, totalCents: number, percent: number): string {
+  if (cents > 0 && totalCents > 0 && cents * 100 < totalCents) return "<1%";
+  return `${percent}%`;
+}
+
 export function spendingBreakdown(plan: FinancialPlan, profile: Pick<FinancialProfile, "expenses" | "useBills">): Breakdown {
   const raw: { key: SegmentKey; cents: number }[] = [];
   for (const cat of EXPENSE_CATEGORIES) {

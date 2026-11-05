@@ -130,24 +130,31 @@ export default function SharedDebtsEditor(p: EditorShared) {
   const bal = plan.debtBalances;
   const balancesFig: Figure = bal.missingJointBalances > 0 ? (bal.jointCents > 0 ? { kind: "atLeast", cents: bal.jointCents, estimate: false } : { kind: "unknown" }) : { kind: "amount", cents: bal.jointCents, estimate: false };
 
+  const listEmpty = debts.length === 0 && !draft;
+
   return (
     <div className="jd-root" data-testid="jd-root">
-      <section className="plan-glass" aria-label={t("jd.title")}>
-        <h4 className="plan-card-title">{t("jd.title")}</h4>
-        <p className="plan-row-note">{t("jd.intro")}</p>
-      </section>
+      {!listEmpty && (
+        <section className="plan-glass" aria-label={t("jd.title")}>
+          <h4 className="plan-card-title">{t("jd.title")}</h4>
+          <p className="plan-row-note">{t("jd.intro")}</p>
+        </section>
+      )}
 
       <NoticeBox notice={notice} idp="jd" />
 
-      {debts.length === 0 && !draft && (
-        <section className="plan-glass plan-empty-card" data-testid="jd-empty" data-answered={shared.noSharedDebts}>
+      {listEmpty && (
+        <section className="plan-glass plan-empty-card" data-testid="jd-empty" data-answered={shared.noSharedDebts} aria-label={t("jd.title")}>
+          <div>
+            <h4 className="plan-card-title">{t("jd.title")}</h4>
+            <p className="plan-row-note">{t("jd.intro")}</p>
+          </div>
           {shared.noSharedDebts ? (
             <p data-testid="jd-none-confirmed">{t("jd.noneConfirmed")}</p>
           ) : (
-            <>
-              <h4>{t("jd.empty")}</h4>
-              <p>{t("jd.emptyHelp")}</p>
-            </>
+            <p>
+              <strong>{t("jd.empty")}</strong> {t("jd.emptyHelp")}
+            </p>
           )}
           <div className="se-actions">
             <button type="button" className="plan-btn plan-gold" onClick={openNew} disabled={off} data-testid="jd-add">

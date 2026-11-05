@@ -185,25 +185,32 @@ export default function SharedExpensesEditor(p: EditorShared) {
     setNotice(null);
   };
 
+  const listEmpty = expenses.length === 0 && !draft;
+
   return (
     <div className="se-root" data-testid="se-root">
-      <section className="plan-glass" aria-label={t("se.title")}>
-        <h4 className="plan-card-title">{t("se.title")}</h4>
-        <p className="plan-row-note">{t("se.intro")}</p>
-      </section>
+      {!listEmpty && (
+        <section className="plan-glass" aria-label={t("se.title")}>
+          <h4 className="plan-card-title">{t("se.title")}</h4>
+          <p className="plan-row-note">{t("se.intro")}</p>
+        </section>
+      )}
 
       <NoticeBox notice={notice} idp="se" />
 
       {/* ── list / empty states ── */}
-      {expenses.length === 0 && !draft && (
-        <section className="plan-glass plan-empty-card" data-testid="se-empty" data-answered={shared.noSharedExpenses}>
+      {listEmpty && (
+        <section className="plan-glass plan-empty-card" data-testid="se-empty" data-answered={shared.noSharedExpenses} aria-label={t("se.title")}>
+          <div>
+            <h4 className="plan-card-title">{t("se.title")}</h4>
+            <p className="plan-row-note">{t("se.intro")}</p>
+          </div>
           {shared.noSharedExpenses ? (
             <p data-testid="se-none-confirmed">{t("se.noneConfirmed")}</p>
           ) : (
-            <>
-              <h4>{t("se.empty")}</h4>
-              <p>{t("se.emptyHelp")}</p>
-            </>
+            <p>
+              <strong>{t("se.empty")}</strong> {t("se.emptyHelp")}
+            </p>
           )}
           <div className="se-actions">
             <button type="button" className="plan-btn plan-gold" onClick={openNew} disabled={off} data-testid="se-add">

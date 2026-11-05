@@ -152,6 +152,17 @@ describe("unknown is not zero; explicit zero stays zero", () => {
 });
 
 describe("provisional figures are never presented as final", () => {
+  it("names what is missing and says it is not guaranteed savings", async () => {
+    h.state = ready(emptyShared());
+    mount({ me: complete(null, 50) });
+    await openPlan();
+    expect(txt("hp-provisional")).toContain("Provisional — not guaranteed savings");
+    expect(txt("hp-provisional")).toContain("Missing information");
+    expect(txt("hp-missing")).toBeTruthy();
+    // the warnings card does not list the same missing items a second time
+    expect(txt("hp-missing")).toContain("income");
+    expect(screen.queryByTestId("hh-warnings")?.textContent ?? "").not.toContain("income");
+  });
   const excludedWithUnassigned = () => {
     h.included = false;
     h.state = ready(shared({ expenses: [expense({ contributions: { me: null, partner: 1000 } })] }));
@@ -161,7 +172,8 @@ describe("provisional figures are never presented as final", () => {
     mount();
     await openPlan();
     expect(txt("hp-provisional")).toContain("Provisional");
-    expect(txt("hp-provisional")).toContain("not final");
+    expect(txt("hp-provisional")).toContain("not guaranteed savings");
+    expect(txt("hp-provisional")).toContain("not money you can count on saving");
     expect(txt("hp-assumptions")).toContain("Costs nobody is assigned to are counted against the household's income.");
     expect(screen.getByTestId("hp-available").getAttribute("data-kind")).toBe("provisional");
     expect(txt("hp-available-provisional")).toBe("Provisional");
@@ -201,6 +213,16 @@ describe("charts are honest", () => {
     expect(txt("hp-spend-amt-shared")).toBe("$0.00");
     expect(txt("hp-spend-pct-shared")).toBe("0%");
     expect(screen.getByTestId("hp-spend-bar").querySelector('[data-seg="shared"]')).toBeNull();
+  });
+  it("a real but tiny slice reads <1% (never 0% or a rounded-up 1%), while the underlying cents and the bar stay exact", async () => {
+    h.state = ready(shared({ expenses: [expense({ amount: 1, contributions: { me: 1, partner: 0 } })] }));
+    mount();
+    await openPlan();
+    expect(txt("hp-spend-amt-shared")).toBe("$1.00");
+    expect(txt("hp-spend-pct-shared")).toBe("<1%");
+    expect(screen.getByTestId("hp-spend-bar").getAttribute("aria-label")).toContain("Shared expenses <1%");
+    expect(screen.getByTestId("hp-spend-bar").querySelector('[data-seg="shared"]')).toBeTruthy();
+    expect(txt("hp-spend-pct-debtPayments")).not.toContain("<");
   });
   it("incomplete totals hide the chart and say why (nothing is guessed)", async () => {
     h.state = ready(emptyShared());
@@ -253,8 +275,10 @@ describe("who covers what, unassigned and warnings", () => {
     h.state = ready(shared({ expenses: [expense({ contributions: { me: 800, partner: 100 } })] }));
     mount();
     await openPlan();
-    expect(txt("hh-responsibility")).toContain("not a record of what has been paid");
-    expect(txt("hh-unassigned-value")).toBe("$900.00");
+    // the chart carries each person's share and the unassigned remainder; the per-person card is the Overview's
+    expect(screen.queryByTestId("hh-responsibility")).toBeNull();
+    expect(txt("hp-resp-chart")).toContain("not payments made");
+    expect(txt("hp-resp-amt-unassigned")).toBe("$900.00");
     expect(txt("hh-partial-e1")).toBe("Rent: $900.00 of $1,800.00 assigned. $900.00 not yet assigned.");
   });
   it("completeness and duplicate warnings appear", async () => {
@@ -262,7 +286,16 @@ describe("who covers what, unassigned and warnings", () => {
     mount({ me: complete(5000, 100, { useSubscriptions: true }) });
     await openPlan();
     expect(txt("hh-warnings")).toBeTruthy();
-    expect(screen.getByTestId("hh-duplicates").textContent).toContain("Nothing was removed");
+    // possible duplicates are guesses that live in the Overview; the Plan only points at them
+    expect(screen.queryByTestId("hh-duplicates")).toBeNull();
+    expect(txt("hp-duplicates-pointer")).toContain("Possible duplicates: 2");
+  });
+  it("the per-person responsibility card comes back when the chart cannot be drawn", async () => {
+    h.state = ready(emptyShared());
+    mount();
+    await openPlan();
+    expect(screen.getByTestId("hp-resp-chart").getAttribute("data-shown")).toBe("false");
+    expect(screen.getByTestId("hh-responsibility")).toBeTruthy();
   });
 });
 

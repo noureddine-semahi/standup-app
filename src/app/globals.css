@@ -16375,3 +16375,167 @@ button.status-chip-trigger[aria-expanded="true"] {
   font-style: italic;
   overflow-wrap: anywhere;
 }
+
+/* ==========================================================================
+   Premium glass & metallic header (final layer)
+   --------------------------------------------------------------------------
+   A scoped refinement of the approved brushed-metal header, loaded last so it
+   wins by order rather than by !important. Everything is under .app-header:
+   no global .btn rules, no size changes (the header's 65px row, the 121px
+   --header-height and the mobile layout are untouched), no new dependencies.
+   - bar: glass edge highlights + a grounded drop shadow (red rail unchanged)
+   - clock: the illuminated dark-glass instrument with a cool cyan glow
+   - hanging icon buttons: dimensional glossy faces, lit icons, pressed state
+   - avatar: conic amber / cyan / violet ring with a soft glow
+   - desktop: the clock sits on the true center line (grid, :has-gated)
+   - fallbacks: no backdrop-filter -> the clock keeps an opaque face
+   ========================================================================== */
+
+/* -- bar edges --------------------------------------------------------- */
+.app-header-inner {
+  box-shadow:
+    0 0 6px 0.5px rgba(248, 58, 58, 0.55),
+    0 2px 10px -1px rgba(220, 38, 38, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    inset 1px 0 0 rgba(180, 203, 232, 0.24),
+    inset -1px 0 0 rgba(180, 203, 232, 0.24);
+}
+[data-theme="light"] .app-header-inner {
+  box-shadow:
+    0 0 6px 0.5px rgba(248, 58, 58, 0.55),
+    0 2px 10px -1px rgba(220, 38, 38, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(90, 76, 58, 0.3),
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset -1px 0 0 rgba(255, 255, 255, 0.45);
+}
+
+/* -- the clock on the center line (desktop/tablet only) ----------------- */
+@media (min-width: 641px) {
+  .app-header-inner:has(> .standup-header-datetime) {
+    display: grid;
+    grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  }
+  .app-header-inner:has(> .standup-header-datetime) > .brand {
+    justify-self: start;
+  }
+  .app-header-inner:has(> .standup-header-datetime) > .standup-header-datetime {
+    justify-self: center;
+  }
+  .app-header-inner:has(> .standup-header-datetime) > .nav-end-cluster {
+    justify-self: end;
+  }
+}
+
+/* -- illuminated clock -------------------------------------------------- */
+.app-header .standup-header-datetime {
+  border-radius: 999px;
+  color: #bfeaff;
+  /* opaque dark glass first: this is the whole face where backdrop-filter is unsupported */
+  background: linear-gradient(180deg, #1c2b3a, #0b1220);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-top-color: rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.25),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(6, 9, 15, 0.8),
+    0 4px 14px -5px rgba(0, 0, 0, 0.5),
+    0 0 26px -2px rgba(0, 180, 255, 0.45);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .app-header .standup-header-datetime {
+    background: linear-gradient(180deg, rgba(28, 43, 58, 0.88), rgba(11, 18, 32, 0.94));
+  }
+}
+.app-header .standup-header-datetime-day,
+.app-header .standup-header-datetime-time,
+.app-header .standup-header-datetime-date,
+.app-header .standup-header-datetime-date-mid,
+.app-header .standup-header-datetime-date-full {
+  color: #bfeaff;
+}
+.app-header .standup-header-datetime-day {
+  text-shadow: 0 0 10px rgba(0, 190, 255, 0.55);
+}
+.app-header .standup-header-datetime-divider {
+  background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.4) 20%, rgba(255, 255, 255, 0.4) 80%, transparent 100%);
+}
+[data-theme="light"] .app-header .standup-header-datetime {
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.25),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(6, 9, 15, 0.7),
+    0 4px 12px -4px rgba(60, 48, 34, 0.55),
+    0 0 20px -3px rgba(0, 150, 220, 0.42);
+}
+
+/* -- dimensional icon buttons (the seven hanging destinations + the menu list) -- */
+.app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(var(--tab-color-rgb), 0.16), rgba(var(--tab-color-rgb), 0.06)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 46%),
+    linear-gradient(180deg, #2a3a4e, #141d2b);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    0 6px 16px -6px rgba(0, 0, 0, 0.55);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.app-header .folder-tab-hanging:not(.folder-tab-hanging-active):hover {
+  border-color: rgba(var(--tab-color-rgb), 0.55);
+}
+.app-header .folder-tab-hanging:not(.folder-tab-hanging-active):active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.55),
+    0 2px 6px -3px rgba(0, 0, 0, 0.5);
+}
+/* the icon glows in its own accent color */
+.app-header .folder-tab-hanging svg {
+  filter: drop-shadow(0 0 4px rgba(var(--tab-color-rgb), 0.65));
+}
+/* light theme keeps the dark glossy faces (as in the reference) so the accent-colored labels stay legible on the pale bar */
+[data-theme="light"] .app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
+    0 6px 12px -6px rgba(60, 48, 34, 0.6);
+}
+
+/* -- avatar ring -------------------------------------------------------- */
+.app-header .nav-profile .avatar-circle,
+.app-header .nav-mobile-trigger .avatar-circle {
+  border: 3px solid transparent;
+  background:
+    linear-gradient(135deg, var(--accent-purple), var(--accent-blue)) padding-box,
+    conic-gradient(#ffb400, #00c2ff, #7b2bff, #ffb400) border-box;
+  box-shadow: 0 0 18px rgba(0, 180, 255, 0.5);
+}
+.app-header .nav-profile .avatar-circle {
+  border-width: 2px;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 0.45);
+}
+[data-theme="light"] .app-header .nav-profile .avatar-circle,
+[data-theme="light"] .app-header .nav-mobile-trigger .avatar-circle {
+  box-shadow: 0 0 12px rgba(0, 150, 220, 0.4);
+}
+
+/* -- keyboard focus and reduced motion ---------------------------------- */
+.app-header a:focus-visible,
+.app-header button:focus-visible {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-header *,
+  .app-header *::before,
+  .app-header *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

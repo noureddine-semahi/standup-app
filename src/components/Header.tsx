@@ -76,13 +76,15 @@ const INFO_PAGES = Object.keys(INFO_ROTATION);
 // `infoGroup` field and the combined-tab mobile stand-in that collapsed
 // them into one slot) were removed from this list entirely per a later
 // follow-up — see the comment at the end of this array.
-const NAV_TABS: { href: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; color: string }[] = [
+// shortLabelKey: the label the compact (icon-only, <= 660px) row shows on the ACTIVE tab when the full label would not fit
+// beside six icons. The full label is still what every other width, the menu and the page title use.
+const NAV_TABS: { href: string; labelKey: TranslationKey; shortLabelKey?: TranslationKey; icon: typeof LayoutDashboard; color: string }[] = [
   { href: "/standup/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, color: "#60a5fa" },
   { href: "/standup/social", labelKey: "nav.social", icon: Users, color: "#a78bfa" },
-  { href: "/standup/today", labelKey: "nav.reviewToday", icon: CheckCircle2, color: "#34d399" },
-  { href: "/standup/tomorrow", labelKey: "nav.planTomorrow", icon: Sun, color: "#f59e0b" },
+  { href: "/standup/today", labelKey: "nav.reviewToday", shortLabelKey: "nav.reviewShort", icon: CheckCircle2, color: "#34d399" },
+  { href: "/standup/tomorrow", labelKey: "nav.planTomorrow", shortLabelKey: "nav.tomorrowShort", icon: Sun, color: "#f59e0b" },
   { href: "/standup/calendar", labelKey: "nav.calendar", icon: Calendar, color: "#22d3ee" },
-  { href: "/standup/history", labelKey: "nav.progressInsights", icon: TrendingUp, color: "#818cf8" },
+  { href: "/standup/history", labelKey: "nav.progressInsights", shortLabelKey: "nav.insightsShort", icon: TrendingUp, color: "#818cf8" },
   { href: "/standup/tools", labelKey: "nav.tools", icon: Wrench, color: "#f43f5e" },
   // Goal Assignments removed from here per explicit follow-up — still
   // reachable via Social's Goals tab and Tools' Assignments tab, same as
@@ -139,6 +141,14 @@ export default function Header() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The compact tab row can scroll on the narrowest phones; keep the active tab fully in view after each route change.
+  const navRowRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const bar = navRowRef.current;
+    const active = bar?.querySelector<HTMLElement>(".folder-tab-hanging-active");
+    if (!bar || !active || bar.scrollWidth <= bar.clientWidth) return;
+    bar.scrollLeft = Math.max(0, active.offsetLeft - (bar.clientWidth - active.offsetWidth) / 2);
+  }, [pathname, user]);
   const [moreOpen, setMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   // Lives here (not inside the avatar dropdown) so the confirmation survives
@@ -849,7 +859,7 @@ export default function Header() {
   function navTabs() {
     if (!user) return null;
     return (
-      <nav className="folder-tabbar-hanging" aria-label={t("nav.dashboard")}>
+      <nav className="folder-tabbar-hanging" aria-label={t("nav.dashboard")} ref={navRowRef}>
         {NAV_TABS.map((tab) => {
           const isActive = pathname === tab.href;
           return (
@@ -861,7 +871,14 @@ export default function Header() {
               style={{ "--tab-color": tab.color, "--tab-color-rgb": hexToRgbTriple(tab.color) } as React.CSSProperties}
             >
               <tab.icon size={15} />
-              <span>{t(tab.labelKey)}</span>
+              {tab.shortLabelKey ? (
+                <>
+                  <span className="tab-label-full">{t(tab.labelKey)}</span>
+                  <span className="tab-label-short">{t(tab.shortLabelKey)}</span>
+                </>
+              ) : (
+                <span>{t(tab.labelKey)}</span>
+              )}
             </Link>
           );
         })}

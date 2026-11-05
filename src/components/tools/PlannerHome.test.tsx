@@ -97,25 +97,47 @@ function setup(over: { me?: FinancialProfile; partner?: PartnerRecord | null; hS
 }
 
 const alex = (profile: Partial<FinancialProfile> = {}): PartnerRecord => ({ id: "m1", name: "Alex", profile: { ...emptyProfile(), ...profile } });
-const tab = (key: string) => screen.getByTestId(`plan-person-${key}`);
+// "me" and "household" are the two profile buttons; the partner is the fourth section inside Household, so asking for it opens
+// Household first (a no-op when it is already open).
+const tab = (key: string) => {
+  if (key === "me") return screen.getByTestId("plan-profile-personal");
+  if (key === "household") return screen.getByTestId("plan-profile-household");
+  if (!screen.queryByTestId("hh-nav-partner")) fireEvent.click(screen.getByTestId("plan-profile-household"));
+  return screen.getByTestId("hh-nav-partner");
+};
 const txt = (id: string) => screen.getByTestId(id).textContent;
 
 afterEach(cleanup);
 
 describe("person switcher", () => {
-  it("offers Me, Partner and Household, opens on Me, and Me is the unchanged personal planner", () => {
+  it("offers Personal and Household only, opens on Personal, and Personal is the unchanged personal planner", () => {
     setup();
     expect(screen.getByRole("tablist", { name: "Whose finances" })).toBeTruthy();
-    expect(["me", "partner", "household"].map((k) => tab(k).textContent)).toEqual(["Me", "Partner", "Household"]);
+    expect(screen.getAllByRole("tab").filter((b) => b.getAttribute("data-testid")?.startsWith("plan-profile-")).map((b) => b.textContent)).toEqual(["Personal", "Household"]);
+    expect(screen.queryByTestId("hh-root")).toBeNull(); // Household is never opened on its own
+    expect(screen.queryByTestId("hh-nav-partner")).toBeNull();
     expect(tab("me").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("heading", { name: "Financial Planner" })).toBeTruthy();
     expect(txt("plan-income")).toBe("$5,000.00");
     expect(screen.getByTestId("plan-use-bills")).toBeTruthy(); // my records panel is still here
   });
 
-  it("the partner tab is labelled with the partner's name once one exists", () => {
+  it("the Partner section inside Household is labelled with the partner's name once one exists", () => {
     setup({ partner: alex() });
     expect(tab("partner").textContent).toBe("Alex");
+  });
+
+  it("Household stays closed even when a partner exists, and only opens when selected; Partner is reachable inside it", () => {
+    setup({ partner: alex() });
+    expect(screen.queryByTestId("hh-root")).toBeNull();
+    fireEvent.click(tab("household"));
+    expect(screen.getByTestId("hh-root")).toBeTruthy();
+    expect(["hh-nav-overview", "hh-nav-shared", "hh-nav-plan", "hh-nav-partner"].every((id) => !!screen.queryByTestId(id))).toBe(true);
+    fireEvent.click(screen.getByTestId("hh-nav-partner"));
+    expect(screen.getByText("Planning for Alex")).toBeTruthy();
+    fireEvent.click(tab("me")); // back to Personal
+    expect(screen.queryByTestId("hh-root")).toBeNull();
+    expect(txt("plan-income")).toBe("$5,000.00");
   });
 
   it("switching tabs shows the right content without changing any data", () => {
@@ -205,7 +227,7 @@ describe("partner profile: separate data, progress and wizard", () => {
     expect(txt("plan-expenses")).toBe("$1,000.00");
     expect(screen.queryByTestId("plan-subscriptions")).toBeNull();
     expect(screen.queryByTestId("plan-use-bills")).toBeNull();
-    expect(screen.getByTestId("plan-partner-records-note").textContent).toContain("managed under Me and aren’t part of Alex’s plan yet");
+    expect(screen.getByTestId("plan-partner-records-note").textContent).toContain("managed under Personal and aren’t part of Alex’s plan yet");
     expect(screen.queryByTestId("plan-overlap")).toBeNull();
   });
 
@@ -310,7 +332,7 @@ describe("step 2 is named for what each person is asked", () => {
     localStorage.setItem("standup-language", "es");
     try {
       setup({ partner: alex() });
-      await waitFor(() => expect(tab("me").textContent).toBe("Yo"));
+      await waitFor(() => expect(tab("me").textContent).toBe("Personal"));
       fireEvent.click(screen.getByTestId("plan-nav-profile"));
       expect(screen.getByRole("button", { name: /Ubicación y hogar/ })).toBeTruthy();
       fireEvent.click(tab("partner"));
@@ -355,22 +377,20 @@ describe("household tab: the Household Overview replaces the placeholder", () =>
 });
 
 describe("backward compatibility and availability", () => {
-  it("household tables not applied: Partner and Household explain it, and Me works exactly as before", async () => {
+  it("household tables not applied: Household explains it (there is no Partner to add), and Personal works exactly as before", async () => {
     const spies = setup({ hState: "unavailable" });
-    fireEvent.click(tab("partner"));
-    expect(screen.getByTestId("plan-partner-unavailable").textContent).toContain("database update");
-    expect(screen.queryByTestId("plan-partner-add")).toBeNull();
     fireEvent.click(tab("household"));
     expect(screen.getByTestId("hh-partner-unavailable").textContent).toContain("database update");
+    expect(screen.queryByTestId("plan-partner-add")).toBeNull();
     fireEvent.click(tab("me"));
     expect(txt("plan-income")).toBe("$5,000.00");
     fireEvent.click(screen.getByTestId("plan-use-accounts"));
     await waitFor(() => expect(spies.meSaves).toEqual([{ useAccounts: true }]));
   });
-  it("loading shows a loading message in the Partner tab only", () => {
+  it("loading shows a loading message in Household only; Personal is unaffected", () => {
     setup({ hState: "loading" });
     expect(txt("plan-income")).toBe("$5,000.00");
-    fireEvent.click(tab("partner"));
+    fireEvent.click(tab("household"));
     expect(screen.getByText("Loading…")).toBeTruthy();
   });
   it("a personal profile with no household at all behaves exactly like the original planner (same figures)", () => {
@@ -385,7 +405,7 @@ describe("Spanish and layout", () => {
     localStorage.setItem("standup-language", "es");
     try {
       setup();
-      await waitFor(() => expect(tab("me").textContent).toBe("Yo"));
+      await waitFor(() => expect(tab("me").textContent).toBe("Personal"));
       expect(tab("partner").textContent).toBe("Pareja");
       expect(tab("household").textContent).toBe("Hogar");
       fireEvent.click(tab("partner"));

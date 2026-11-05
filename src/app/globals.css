@@ -14981,7 +14981,8 @@ button.status-chip-trigger[aria-expanded="true"] {
 }
 .plan-root .plan-seg {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 6px;
   padding: 6px;
   margin-bottom: 1rem;
@@ -15001,6 +15002,25 @@ button.status-chip-trigger[aria-expanded="true"] {
   font-weight: 700;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+.plan-root .plan-seg[data-count="4"] {
+  gap: 3px;
+  padding: 5px;
+}
+.plan-root .plan-seg[data-count="4"] .plan-seg-btn {
+  font-size: 0.7rem;
+  padding: 0 2px;
+  line-height: 1.15;
+  overflow-wrap: normal;
+}
+/* only the last tab (the partner's own name) may still break inside a very long word */
+.plan-root .plan-seg[data-count="4"] .plan-seg-btn:last-child {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 360px) {
+  .plan-root .plan-seg[data-count="4"] .plan-seg-btn {
+    font-size: 0.62rem;
+  }
 }
 .plan-root .plan-seg-btn[aria-selected="true"] {
   background: var(--plan-gold);
@@ -15078,7 +15098,14 @@ button.status-chip-trigger[aria-expanded="true"] {
   flex: 1 1 0;
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.4rem;
+}
+/* a long translated label ("Continuar configuración") wraps inside the card instead of running past its edge at 320px */
+.plan-root .plan-complete-body .plan-btn {
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
 }
 .plan-root .plan-complete-body h4 {
   margin: 0;

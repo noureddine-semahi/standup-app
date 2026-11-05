@@ -7,18 +7,21 @@ import type { Bill } from "@/lib/bills";
 import type { PaymentAccount } from "@/lib/supabase/db";
 import type { Subscription } from "@/lib/subscriptions";
 import { emptyProfile } from "@/lib/financialPlanner";
-import { DEFAULT_PARTNER_NAME, MAX_PARTNER_NAME, parsePartnerName, type PlannerPerson } from "@/lib/household";
+import { DEFAULT_PARTNER_NAME, MAX_PARTNER_NAME, parsePartnerName } from "@/lib/household";
 import FinancialPlanner from "./FinancialPlanner";
 import HouseholdOverview from "./HouseholdOverview";
 import { ConfirmActionModal, FIELD_CLASS } from "./PaymentsDashboard";
 import type { FinancialProfileController } from "./useFinancialProfile";
 import { partnerAsController, type HouseholdController } from "./useHousehold";
 
-// Tools > Planner, household Phase 1. A Me / Partner / Household switcher above the same Planner screens:
-//  - Me: the signed-in user's own profile, exactly as before.
-//  - Partner: one optional partner whose profile the signed-in user manages (no StandUp account needed).
-//  - Household (Phase 2): inner Overview | Shared | Plan. Overview and Plan are read-only views of the one household calculation;
-//    Shared edits shared expenses, joint debts and shared goals (saved through the revision-checked householdShared data layer).
+// Finances > Planner. A compact Personal | Household selector above the same Planner screens. It only chooses what to show;
+// switching never reads, writes or deletes anything, and Household is never opened on its own.
+//  - Personal (the default): the signed-in user's own profile (Overview | Profile | Plan).
+//  - Household: inner Overview | Shared | Plan | Partner. Overview and Plan are read-only views of the one household calculation;
+//    Shared edits shared expenses, joint debts and shared goals (saved through the revision-checked householdShared data layer);
+//    Partner is one optional partner whose profile the signed-in user manages (no StandUp account needed).
+
+type Profile = "personal" | "household";
 
 export default function PlannerHome({
   me,
@@ -36,13 +39,12 @@ export default function PlannerHome({
   todayISO: string;
 }) {
   const { t } = useLanguage();
-  const [person, setPerson] = useState<PlannerPerson>("me");
+  const [profile, setProfile] = useState<Profile>("personal");
   const partner = household.partner;
   const partnerName = partner?.name ?? DEFAULT_PARTNER_NAME;
 
-  const tabs: { key: PlannerPerson; label: string }[] = [
-    { key: "me", label: t("plan.personMe") },
-    { key: "partner", label: partner ? partner.name : t("plan.personPartner") },
+  const tabs: { key: Profile; label: string }[] = [
+    { key: "personal", label: t("plan.profilePersonal") },
     { key: "household", label: t("plan.personHousehold") },
   ];
 
@@ -50,18 +52,25 @@ export default function PlannerHome({
     <div className="pay-panel plan-panel plan-root plan-home">
       <div className="plan-people" role="tablist" aria-label={t("plan.peopleLabel")}>
         {tabs.map((x) => (
-          <button key={x.key} type="button" role="tab" aria-selected={person === x.key} className="plan-people-btn" data-testid={`plan-person-${x.key}`} title={x.label} onClick={() => setPerson(x.key)}>
+          <button key={x.key} type="button" role="tab" aria-selected={profile === x.key} className="plan-people-btn" data-testid={`plan-profile-${x.key}`} title={x.label} onClick={() => setProfile(x.key)}>
             {x.label}
           </button>
         ))}
       </div>
 
-      {person === "me" && <FinancialPlanner key="me" embedded controller={me} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} />}
+      {profile === "personal" && <FinancialPlanner key="me" embedded controller={me} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} />}
 
-      {person === "partner" && <PartnerView household={household} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} partnerName={partnerName} />}
-
-      {person === "household" && (
-        <HouseholdOverview me={me} household={household} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} onAddPartner={() => setPerson("partner")} />
+      {profile === "household" && (
+        <HouseholdOverview
+          me={me}
+          household={household}
+          bills={bills}
+          accounts={accounts}
+          subscriptions={subscriptions}
+          todayISO={todayISO}
+          partnerLabel={partner ? partner.name : t("plan.personPartner")}
+          partnerView={<PartnerView household={household} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} partnerName={partnerName} />}
+        />
       )}
     </div>
   );

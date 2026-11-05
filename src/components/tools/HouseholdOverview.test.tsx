@@ -466,8 +466,8 @@ describe("layout rules in the stylesheet", () => {
     expect(own).toContain('[data-theme="light"] .plan-root');
     expect(own).not.toMatch(/background:\s*#/);
   });
-  it("the inner navigation is the planner's three-column 44px segmented control", () => {
-    expect(block(".plan-root .plan-seg {")).toContain("repeat(3, minmax(0, 1fr))");
+  it("the inner navigation is the planner's equal-column 44px segmented control (three sections, four with the Partner)", () => {
+    expect(block(".plan-root .plan-seg {")).toContain("grid-auto-columns: minmax(0, 1fr)");
     expect(block(".plan-root .plan-seg-btn {")).toContain("min-height: 44px");
   });
 });

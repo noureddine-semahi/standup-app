@@ -22,7 +22,7 @@ import { DuplicatesCard, IntegrityAlert, ProvisionalNotice, Responsibility, Warn
 // only write it can make is the partner's include_in_household switch. Shared and Plan are labelled placeholders.
 
 
-type Section = "overview" | "shared" | "plan";
+type Section = "overview" | "shared" | "plan" | "partner";
 
 export default function HouseholdOverview({
   me,
@@ -32,6 +32,8 @@ export default function HouseholdOverview({
   subscriptions,
   todayISO,
   onAddPartner,
+  partnerView,
+  partnerLabel,
 }: {
   me: FinancialProfileController;
   household: HouseholdController;
@@ -39,7 +41,11 @@ export default function HouseholdOverview({
   accounts: readonly PaymentAccount[];
   subscriptions: readonly Subscription[];
   todayISO: string;
-  onAddPartner: () => void;
+  /** Used when there is no `partnerView` to open (the Partner section is the normal place to add one). */
+  onAddPartner?: () => void;
+  /** The existing Partner screens (Overview | Profile | Plan), shown as the fourth section of Household. */
+  partnerView?: React.ReactNode;
+  partnerLabel?: string;
 }) {
   const { t } = useLanguage();
   const [section, setSection] = useState<Section>("overview");
@@ -76,6 +82,7 @@ export default function HouseholdOverview({
     { key: "overview", label: t("hh.navOverview") },
     { key: "shared", label: t("hh.navShared") },
     { key: "plan", label: t("hh.navPlan") },
+    ...(partnerView ? [{ key: "partner" as const, label: partnerLabel ?? t("plan.personPartner") }] : []),
   ];
 
   // The Me and Partner profiles are the foundation. If either can't load, say so instead of showing figures.
@@ -133,16 +140,16 @@ export default function HouseholdOverview({
             </div>
           )}
         </section>
-      ) : (
+      ) : section === "partner" ? null : (
         <section className="plan-note hh-nopartner" data-testid="hh-no-partner">
           <span>{t("hh.noPartner")}</span>{" "}
-          <button type="button" className="plan-link" onClick={onAddPartner} data-testid="hh-add-partner">
+          <button type="button" className="plan-link" onClick={() => (partnerView ? setSection("partner") : onAddPartner?.())} data-testid="hh-add-partner">
             {t("hh.addPartner")}
           </button>
         </section>
       )}
 
-      <div className="plan-seg" role="tablist" aria-label={t("hh.navLabel")}>
+      <div className="plan-seg" data-count={tabs.length} role="tablist" aria-label={t("hh.navLabel")}>
         {tabs.map((x) => (
           <button key={x.key} type="button" role="tab" aria-selected={section === x.key} data-testid={`hh-nav-${x.key}`} className="plan-seg-btn" onClick={() => setSection(x.key)}>
             {x.label}
@@ -170,8 +177,9 @@ export default function HouseholdOverview({
         <HouseholdPlanDashboard plan={built.plan} model={built.model} view={built.planView} sharedUnavailable={data.shared === null} state={data.shared} />
       )}
 
-      {section !== "shared" && data.phase === "loading" && <div className="text-white/60 text-center py-6">{t("backlog.loading")}</div>}
-      {section !== "shared" && data.phase === "error" && (
+      {section === "partner" && partnerView}
+      {section !== "shared" && section !== "partner" && data.phase === "loading" && <div className="text-white/60 text-center py-6">{t("backlog.loading")}</div>}
+      {section !== "shared" && section !== "partner" && data.phase === "error" && (
         <div role="alert" className="pay-error pay-error-page" data-testid="hh-load-error">
           {data.message}{" "}
           <button type="button" className="plan-link" onClick={ctl.reload} data-testid="hh-retry">

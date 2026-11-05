@@ -124,7 +124,7 @@ describe("person switcher", () => {
     expect(tab("partner").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByText("Planning for Alex")).toBeTruthy();
     fireEvent.click(tab("household"));
-    expect(screen.getByTestId("plan-household-soon")).toBeTruthy();
+    expect(screen.getByTestId("hh-root")).toBeTruthy();
     fireEvent.click(tab("me"));
     expect(txt("plan-income")).toBe("$5,000.00");
     expect(spies.meSaves).toEqual([]);
@@ -323,38 +323,45 @@ describe("step 2 is named for what each person is asked", () => {
   });
 });
 
-describe("household tab: honest placeholder", () => {
-  it("says it is not available yet and shows no money figures at all", () => {
+describe("household tab: the Household Overview replaces the placeholder", () => {
+  it("opens the overview with its own Overview | Shared | Plan navigation, and no placeholder text", async () => {
     setup({ partner: alex({ payFrequency: "monthly", takeHome: 2000 }) });
     fireEvent.click(tab("household"));
-    const panel = screen.getByTestId("plan-household-soon");
-    expect(panel.textContent).toContain("Not available yet");
-    expect(panel.textContent).toContain("nothing is combined");
-    expect(panel.textContent).not.toMatch(/\$/);
+    expect(screen.queryByTestId("plan-household-soon")).toBeNull();
+    expect(screen.getByTestId("hh-title").textContent).toBe("Household overview");
+    expect(["overview", "shared", "plan"].map((k) => screen.getByTestId(`hh-nav-${k}`).textContent)).toEqual(["Overview", "Shared", "Plan"]);
+    expect(await screen.findByTestId("hh-income")).toBeTruthy();
+    // the Me planner's own figures are not on this screen
     expect(screen.queryByTestId("plan-income")).toBeNull();
     expect(screen.queryByTestId("plan-available")).toBeNull();
   });
-  it("lists each person's real setup progress and nothing else", () => {
-    setup({ partner: alex() });
-    fireEvent.click(tab("household"));
-    expect(txt("plan-household-me")).toBe("Me: 80% complete");
-    expect(txt("plan-household-partner")).toBe("Alex: 0% complete");
-  });
-  it("without a partner it points to the Partner tab", () => {
+  it("without a partner it covers Me only and offers to add one (which opens the Partner tab)", async () => {
     setup();
     fireEvent.click(tab("household"));
-    expect(screen.getByText("No partner yet. You can add one under the Partner tab.")).toBeTruthy();
+    expect(screen.getByTestId("hh-no-partner").textContent).toContain("No partner added yet");
+    fireEvent.click(screen.getByTestId("hh-add-partner"));
+    expect(tab("partner").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("plan-partner-empty")).toBeTruthy();
+  });
+  it("opening the overview never saves anything on the Me or Partner side", async () => {
+    const spies = setup({ partner: alex({ payFrequency: "monthly", takeHome: 2000 }) });
+    fireEvent.click(tab("household"));
+    await screen.findByTestId("hh-income");
+    fireEvent.click(screen.getByTestId("hh-nav-shared"));
+    fireEvent.click(screen.getByTestId("hh-nav-plan"));
+    expect(spies.meSaves).toEqual([]);
+    expect(spies.partnerSaves).toEqual([]);
   });
 });
 
 describe("backward compatibility and availability", () => {
-  it("household tables not applied: Partner explains it, Household still shows its placeholder, and Me works exactly as before", async () => {
+  it("household tables not applied: Partner and Household explain it, and Me works exactly as before", async () => {
     const spies = setup({ hState: "unavailable" });
     fireEvent.click(tab("partner"));
     expect(screen.getByTestId("plan-partner-unavailable").textContent).toContain("database update");
     expect(screen.queryByTestId("plan-partner-add")).toBeNull();
     fireEvent.click(tab("household"));
-    expect(screen.getByTestId("plan-household-soon")).toBeTruthy();
+    expect(screen.getByTestId("hh-partner-unavailable").textContent).toContain("database update");
     fireEvent.click(tab("me"));
     expect(txt("plan-income")).toBe("$5,000.00");
     fireEvent.click(screen.getByTestId("plan-use-accounts"));
@@ -385,7 +392,8 @@ describe("Spanish and layout", () => {
       expect(screen.getByText("Aún no has agregado a tu pareja")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Agregar pareja" })).toBeTruthy();
       fireEvent.click(tab("household"));
-      expect(screen.getByTestId("plan-household-soon").textContent).toContain("Aún no disponible");
+      expect(screen.getByTestId("hh-title").textContent).toBe("Resumen del hogar");
+      expect(screen.getByTestId("hh-nav-overview").textContent).toBe("Resumen");
     } finally {
       localStorage.removeItem("standup-language");
     }
@@ -403,3 +411,14 @@ describe("Spanish and layout", () => {
 });
 
 vi.mock("@/lib/supabase/client", () => ({ supabase: {} }));
+// The Household tab loads the household's shared data and the partner's include flag; here: an empty, healthy household.
+vi.mock("@/lib/supabase/householdShared", () => ({
+  getHouseholdShared: async () => ({
+    status: "ready", householdId: null, revision: 0,
+    shared: { expenses: [], noSharedExpenses: false, debts: [], noSharedDebts: false, goals: [] },
+    composition: { adults: null, children: null, otherMembers: null },
+    droppedItems: 0, integrity: { ok: true, issues: [], fingerprint: "x" }, stored: {},
+  }),
+  getPartnerIncluded: async () => true,
+  setPartnerIncluded: async (_id: string, v: boolean) => v,
+}));

@@ -15933,3 +15933,358 @@ button.status-chip-trigger[aria-expanded="true"] {
   font-size: 0.8rem;
 }
 
+
+/* ── Tools > Planner > Household overview (Phase 2, Step 3) ──────────────────
+   Reuses the Planner's metallic/glass tokens (--plan-*), tiles, rows and chips. Only what the Overview adds lives here. */
+.plan-root .hh-root {
+  min-width: 0;
+}
+.plan-root .hh-include {
+  margin: 0 0 0.9rem;
+}
+.plan-root .hh-nopartner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.7rem;
+}
+.plan-root .hh-qual {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--plan-muted);
+}
+.plan-root .hh-val {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  min-width: 0;
+}
+.plan-root .hh-val .hh-num {
+  white-space: nowrap;
+}
+.plan-root .hh-list,
+.plan-root .hh-assume {
+  margin: 0.4rem 0 0;
+  padding: 0 0 0 1.1rem;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.plan-root .hh-assume {
+  margin-top: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--plan-muted);
+}
+.plan-root .hh-list li[data-severity="warning"] {
+  color: #fcd34d;
+}
+[data-theme="light"] .plan-root .hh-list li[data-severity="warning"] {
+  color: #8a4b05;
+}
+.plan-root .hh-alert {
+  border-color: rgba(248, 113, 113, 0.75);
+  display: grid;
+  gap: 0.6rem;
+}
+.plan-root .hh-alert .plan-card-title {
+  margin: 0;
+  color: #fca5a5;
+}
+[data-theme="light"] .plan-root .hh-alert .plan-card-title {
+  color: #b91c1c;
+}
+.plan-root .hh-alert .plan-btn {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+.plan-root .hh-unassigned dd {
+  color: var(--tone, inherit);
+}
+.plan-root .plan-empty-card h4 .plan-chip {
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+.plan-root .hh-partial {
+  margin-top: 0.8rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--plan-line);
+}
+.plan-root .hh-partial .plan-card-title {
+  margin-bottom: 0.2rem;
+  font-size: 0.82rem;
+}
+/* Narrow screens: stack each Household tile's icon above its text so labels and notes get the full tile width and
+   never split mid-word (Spanish labels are longer). Scoped to the Household overview; the Me/Partner tiles are unchanged. */
+@container (max-width: 440px) {
+  .plan-root .hh-root .plan-tile {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+  .plan-root .hh-root .plan-tile-label,
+  .plan-root .hh-root .plan-tile-note {
+    overflow-wrap: break-word;
+  }
+}
+
+/* ── Tools > Planner > Household > Shared expenses editor (Phase 2, Step 4A) ──
+   Reuses the Planner tokens, glass panels, buttons, checks and fields. Amounts never wrap; controls are 44px+. */
+.plan-root .se-root {
+  min-width: 0;
+}
+.plan-root .se-card {
+  display: grid;
+  gap: 0.5rem;
+}
+.plan-root .se-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.plan-root .se-card-title {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.plan-root .se-card-head .hh-val {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+.plan-root .se-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.plan-root .se-actions .plan-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  white-space: normal;
+  text-align: center;
+}
+.plan-root .se-who {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-root .se-form {
+  display: grid;
+  gap: 0.7rem;
+}
+.plan-root .se-form .plan-card-title {
+  margin: 0;
+}
+.plan-root .se-who-box {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.6rem;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid var(--plan-line);
+  background: var(--plan-recess);
+  box-shadow: var(--plan-recess-shadow);
+}
+.plan-root .se-who-box legend {
+  padding: 0 0.3rem;
+}
+.plan-root .se-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+@container (max-width: 340px) {
+  .plan-root .se-grid2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.plan-root .se-form .plan-amount {
+  text-align: right;
+}
+.plan-root .se-sugg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.6rem;
+}
+.plan-root .se-sugg .plan-btn {
+  min-height: 44px;
+}
+.plan-root .se-links summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.plan-root .se-link {
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+.plan-root .se-link span {
+  min-width: 0;
+}
+.plan-root .se-links h5 {
+  margin: 0.5rem 0 0.1rem;
+  font-size: 0.78rem;
+}
+
+/* ── Joint debts editor (Phase 2, Step 4B): reuses the shared-expense styles; only the payment column is new ── */
+.plan-root .jd-root {
+  min-width: 0;
+}
+.plan-root .jd-pay {
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+.plan-root .jd-pay .plan-row-note {
+  font-weight: 400;
+  text-align: right;
+}
+
+/* ── Shared goals editor (Phase 2, Step 4C): reuses the shared-expense layout; only the progress bar and person box are new ── */
+.plan-root .sg-root {
+  min-width: 0;
+}
+.plan-root .sg-person {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  align-content: start;
+}
+.plan-root .sg-progress {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--plan-rim);
+  background: var(--plan-recess);
+  box-shadow: var(--plan-recess-shadow);
+}
+.plan-root .sg-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--plan-gold);
+}
+.plan-root .se-form input[type="date"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ── Household plan dashboard (Phase 2, Step 5): charts + goal cards. Colours come from the Planner tone tokens. ── */
+.plan-root .hp-root {
+  min-width: 0;
+}
+.plan-root .hp-bar {
+  display: flex;
+  gap: 2px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--plan-rim);
+  background: var(--plan-recess);
+  box-shadow: var(--plan-recess-shadow);
+}
+.plan-root .hp-bar > span {
+  flex-basis: 0;
+  min-width: 4px;
+  border-radius: 999px;
+  background: rgb(var(--tone-rgb, 148, 163, 184));
+}
+.plan-root .hp-bar > span[data-hatch="true"],
+.plan-root .hp-swatch[data-hatch="true"] {
+  background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.4) 0 3px, transparent 3px 6px);
+}
+.plan-root .hp-legend {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.plan-root .hp-legend li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.2rem 0.5rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  min-width: 0;
+}
+.plan-root .hp-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: rgb(var(--tone-rgb, 148, 163, 184));
+  align-self: center;
+}
+.plan-root .hp-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.plan-root .hp-amt {
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: right;
+}
+.plan-root .hp-pct {
+  min-width: 3.2ch;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--plan-muted);
+}
+.plan-root .hp-goals {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+.plan-root .hp-goal {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.65rem;
+  border-radius: 14px;
+  border: 1px solid var(--plan-line);
+  background: var(--plan-recess);
+  box-shadow: var(--plan-recess-shadow);
+}
+.plan-root .hp-goal .se-card-head {
+  align-items: flex-start;
+}
+.plan-root .hp-goal .plan-chip {
+  white-space: normal;
+  text-align: right;
+}
+
+/* Household plan: a legend entry for a part that is listed but not drawn because nothing is known about it. */
+.plan-root .hp-swatch-none {
+  background: transparent;
+  border: 1px dashed var(--plan-muted);
+}
+.plan-root .hp-nothing {
+  grid-column: span 2;
+  text-align: right;
+  color: var(--plan-muted);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}

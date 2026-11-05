@@ -6,9 +6,10 @@ import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { Bill } from "@/lib/bills";
 import type { PaymentAccount } from "@/lib/supabase/db";
 import type { Subscription } from "@/lib/subscriptions";
-import { emptyProfile, profileCompletion } from "@/lib/financialPlanner";
+import { emptyProfile } from "@/lib/financialPlanner";
 import { DEFAULT_PARTNER_NAME, MAX_PARTNER_NAME, parsePartnerName, type PlannerPerson } from "@/lib/household";
 import FinancialPlanner from "./FinancialPlanner";
+import HouseholdOverview from "./HouseholdOverview";
 import { ConfirmActionModal, FIELD_CLASS } from "./PaymentsDashboard";
 import type { FinancialProfileController } from "./useFinancialProfile";
 import { partnerAsController, type HouseholdController } from "./useHousehold";
@@ -16,7 +17,8 @@ import { partnerAsController, type HouseholdController } from "./useHousehold";
 // Tools > Planner, household Phase 1. A Me / Partner / Household switcher above the same Planner screens:
 //  - Me: the signed-in user's own profile, exactly as before.
 //  - Partner: one optional partner whose profile the signed-in user manages (no StandUp account needed).
-//  - Household: a labelled placeholder. No household totals exist yet, and none are shown or implied.
+//  - Household (Phase 2): inner Overview | Shared | Plan. Overview and Plan are read-only views of the one household calculation;
+//    Shared edits shared expenses, joint debts and shared goals (saved through the revision-checked householdShared data layer).
 
 export default function PlannerHome({
   me,
@@ -59,21 +61,7 @@ export default function PlannerHome({
       {person === "partner" && <PartnerView household={household} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} partnerName={partnerName} />}
 
       {person === "household" && (
-        <section className="plan-glass plan-empty-card" data-testid="plan-household-soon" aria-label={t("plan.householdTitle")}>
-          <h4>{t("plan.householdTitle")}</h4>
-          <p>{t("plan.householdSoon")}</p>
-          <div>
-            <p className="plan-card-title">{t("plan.householdProgress")}</p>
-            <ul className="plan-status-list">
-              <li data-testid="plan-household-me">{t("plan.householdMeProgress", { pct: profileCompletion(me.profile).percent })}</li>
-              {partner ? (
-                <li data-testid="plan-household-partner">{t("plan.householdPartnerProgress", { name: partner.name, pct: profileCompletion(partner.profile, "partner").percent })}</li>
-              ) : (
-                <li>{t("plan.householdNoPartner")}</li>
-              )}
-            </ul>
-          </div>
-        </section>
+        <HouseholdOverview me={me} household={household} bills={bills} accounts={accounts} subscriptions={subscriptions} todayISO={todayISO} onAddPartner={() => setPerson("partner")} />
       )}
     </div>
   );

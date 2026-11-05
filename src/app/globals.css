@@ -16539,3 +16539,106 @@ button.status-chip-trigger[aria-expanded="true"] {
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   Header pass 2: closer to the reference render
+   - desktop/tablet clock: the large illuminated pill with a light-burst behind it
+   - active tab: the raised glossy face in its own accent (red for Tools), white rim
+   - inactive icons: fully saturated accent with a stronger glow
+   Mobile (<= 760px) keeps the compact clock; only the button faces change there.
+   ========================================================================== */
+
+/* inactive icon buttons: accent-saturated icons */
+.app-header .folder-tabbar-hanging .folder-tab-hanging:not(.folder-tab-hanging-active) {
+  color: rgb(var(--tab-color-rgb));
+}
+.app-header .folder-tabbar-hanging .folder-tab-hanging:not(.folder-tab-hanging-active) svg {
+  filter: drop-shadow(0 0 5px rgba(var(--tab-color-rgb), 0.85)) saturate(1.3);
+}
+
+/* active tab: raised glossy accent face with a white rim (follows whichever route is current) */
+.app-header .folder-tabbar-hanging .folder-tab-hanging-active {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 44%),
+    linear-gradient(180deg, rgb(var(--tab-color-rgb)), rgba(var(--tab-color-rgb), 0.62)),
+    #150a0c;
+  box-shadow:
+    0 0 0 2px rgba(232, 238, 247, 0.92),
+    0 0 0 4px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.45),
+    0 0 22px rgba(var(--tab-color-rgb), 0.6);
+}
+[data-theme="light"] .app-header .folder-tabbar-hanging .folder-tab-hanging-active {
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 44%),
+    linear-gradient(180deg, rgb(var(--tab-color-rgb)), rgba(var(--tab-color-rgb), 0.62)),
+    #150a0c;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 0 0 4px rgba(40, 32, 28, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(var(--tab-color-rgb), 0.55);
+}
+/* the older inset "socket" face is replaced by the glossy face above */
+.app-header .folder-tabbar-hanging .folder-tab-hanging-active::before {
+  display: none;
+}
+.app-header .folder-tabbar-hanging .folder-tab-hanging-active svg,
+.app-header .folder-tabbar-hanging .folder-tab-hanging-active span {
+  transform: none;
+}
+.app-header .folder-tabbar-hanging .folder-tab-hanging-active svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* desktop/tablet: the large clock instrument and its light burst */
+@media (min-width: 761px) {
+  .app-header .standup-header-datetime {
+    height: 54px;
+    padding: 0 28px;
+    z-index: 1;
+    box-shadow:
+      inset 0 2px 6px rgba(255, 255, 255, 0.25),
+      inset 0 -4px 10px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(6, 9, 15, 0.8),
+      0 0 0 3px rgba(150, 190, 230, 0.28),
+      0 4px 14px -5px rgba(0, 0, 0, 0.5),
+      0 0 36px rgba(0, 180, 255, 0.5);
+  }
+  .app-header .standup-header-datetime-day {
+    font-size: 38px;
+  }
+  .app-header .standup-header-datetime-divider {
+    margin: 4px 14px;
+  }
+  .app-header .standup-header-datetime-time {
+    font-size: 17px;
+  }
+  .app-header .standup-header-datetime-date,
+  .app-header .standup-header-datetime-date-mid,
+  .app-header .standup-header-datetime-date-full {
+    font-size: 12px;
+  }
+  .app-header-inner:has(> .standup-header-datetime)::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 440px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 0;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(130, 215, 255, 0.55) 0deg 0.7deg, transparent 0.7deg 6deg);
+    -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, transparent 46%, #000 62%, transparent 100%);
+    mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, transparent 46%, #000 62%, transparent 100%);
+    opacity: 0.55;
+  }
+}

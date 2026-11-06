@@ -12,9 +12,14 @@ const code = sql
   .join("\n");
 
 describe("account entitlements migration", () => {
-  it("exists and sorts after every earlier migration", () => {
+  it("exists and sorts after the migration before it (later migrations, like the note, routine and Goal limits, build on it)", () => {
     expect(file).toBeTruthy();
-    expect(readdirSync(dir).filter((f) => f !== file && f.endsWith(".sql")).every((f) => f < file)).toBe(true);
+    const notes = readdirSync(dir).find((f) => f.endsWith("_notes.sql"))!;
+    expect(file > notes).toBe(true);
+    for (const later of ["_notes_free_limit.sql", "_routines_free_limit.sql", "_goals_free_limit.sql", "_premium_trial.sql"]) {
+      const f = readdirSync(dir).find((x) => x.endsWith(later));
+      if (f) expect(f > file).toBe(true);
+    }
   });
 
   it("one owner-keyed table, defaulting to free, with only the three tiers", () => {

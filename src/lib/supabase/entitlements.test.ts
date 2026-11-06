@@ -48,9 +48,9 @@ describe("getMyEntitlement", () => {
     state.error = { code: "08006", message: "connection lost" };
     await expect(getMyEntitlement()).rejects.toMatchObject({ message: "connection lost" });
   });
-  it("has no function that could change a tier or a trial date", async () => {
+  it("has no function that could change a tier or a trial date directly; the only writer is startMyTrial, which calls the database's one trial function", async () => {
     const mod = await import("./entitlements");
-    expect(Object.keys(mod).filter((k) => /^(set|update|grant|activate|upgrade|start|save|create|insert)/i.test(k))).toEqual([]);
+    expect(Object.keys(mod).filter((k) => /^(set|update|grant|activate|upgrade|start|save|create|insert)/i.test(k))).toEqual(["startMyTrial"]);
   });
 });
 

@@ -99,6 +99,14 @@ export function resolveTier(facts: EntitlementFacts | null | undefined, now: Dat
   return "free";
 }
 
+/**
+ * Whether an account may start its one-time Premium trial: it must not already be Premium and must never have had a trial.
+ * (The database is what actually decides; this lets the app know whether to offer it.)
+ */
+export function canStartTrial(state: { tier: AccountTier; trialUsed: boolean }): boolean {
+  return state.tier !== "premium" && !state.trialUsed;
+}
+
 // ── Limits ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Premium Trial and Premium get everything Premium includes. */

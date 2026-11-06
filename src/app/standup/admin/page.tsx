@@ -492,7 +492,7 @@ export default function AdminPage() {
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-1">Audit Log</h2>
-        <p className="text-sm text-white/50 mb-4">Every points change and data wipe, most recent first.</p>
+        <p className="text-sm text-white/50 mb-4">{t("adminEnt.auditSubtitle")}</p>
 
         {auditLog.length === 0 ? (
           <p className="text-sm text-white/50">No admin actions recorded yet.</p>

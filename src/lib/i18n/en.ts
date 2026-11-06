@@ -1936,6 +1936,7 @@ export const en = {
   "settings.light": "Light",
   "settings.dark": "Dark",
   "adminEnt.title": "Plans",
+  "adminEnt.auditSubtitle": "Every points change, role change, plan change and data wipe, most recent first.",
   "adminEnt.subtitleSys": "See a member's plan and grant or revoke Premium. Every change is recorded in the audit log.",
   "adminEnt.subtitleView": "See a member's plan. Only Sys Admins can change it.",
   "adminEnt.member": "Member",

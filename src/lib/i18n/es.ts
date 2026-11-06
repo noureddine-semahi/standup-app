@@ -1931,6 +1931,7 @@ export const es: Record<keyof typeof en, string> = {
   "settings.light": "Claro",
   "settings.dark": "Oscuro",
   "adminEnt.title": "Planes",
+  "adminEnt.auditSubtitle": "Cada cambio de puntos, de rol y de plan, y cada borrado de datos, del más reciente al más antiguo.",
   "adminEnt.subtitleSys": "Consulta el plan de un miembro y concede o revoca Premium. Cada cambio queda registrado en el registro de auditoría.",
   "adminEnt.subtitleView": "Consulta el plan de un miembro. Solo los Sys Admin pueden cambiarlo.",
   "adminEnt.member": "Miembro",

@@ -27,4 +27,15 @@ describe("trialView", () => {
   it("a Premium account is never offered a trial and shows no trial info", () => {
     expect(trialView({ tier: "premium", trialStartedAt: null, trialEndsAt: null, trialUsed: false })).toEqual({ tier: "premium", canStart: false, endsAt: null, daysLeft: 0, trialEnded: false });
   });
+  it("a Premium grant by an admin, over a used trial, shows Premium and offers no trial", () => {
+    const v = trialView({ tier: "premium", trialStartedAt: start, trialEndsAt: ends, trialUsed: true });
+    expect(v).toMatchObject({ tier: "premium", canStart: false, trialEnded: false, endsAt: null });
+  });
+  it("after an admin sets Free, a used trial stays used: no second trial is offered", () => {
+    const v = trialView({ tier: "free", trialStartedAt: start, trialEndsAt: ends, trialUsed: true });
+    expect(v).toMatchObject({ tier: "free", canStart: false, trialEnded: true });
+  });
+  it("after an admin sets Free on an account that never had a trial, the one trial is still offered", () => {
+    expect(trialView({ tier: "free", trialStartedAt: null, trialEndsAt: null, trialUsed: false }).canStart).toBe(true);
+  });
 });

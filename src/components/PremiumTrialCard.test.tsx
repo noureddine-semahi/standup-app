@@ -158,6 +158,38 @@ describe("errors", () => {
   });
 });
 
+describe("plans section", () => {
+  it("is shown under the trial offer for a Free account, and the trial flow still works", async () => {
+    await mount(free);
+    expect(screen.getByTestId("premium-plans")).toBeTruthy();
+    expect(screen.getByTestId("premium-start")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("premium-start"));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(api.startMyTrial).not.toHaveBeenCalled();
+  });
+  it("is shown during a trial and after one ended, next to the accurate status", async () => {
+    await mount(trial, used);
+    expect(screen.getByTestId("premium-plans")).toBeTruthy();
+    expect(screen.getByTestId("premium-tier").textContent).toBe("Premium Trial");
+    cleanup();
+    await mount(expired, used);
+    expect(screen.getByTestId("premium-plans")).toBeTruthy();
+    expect(screen.getByTestId("premium-trial-ended")).toBeTruthy();
+  });
+  it("is not shown to a Premium account, which has no upgrade to consider", async () => {
+    await mount(premium);
+    expect(screen.queryByTestId("premium-plans")).toBeNull();
+  });
+  it("picking a billing option changes neither the plan nor the entitlement calls", async () => {
+    await mount(free);
+    const calls = api.getMyEntitlement.mock.calls.length;
+    fireEvent.click(screen.getByTestId("premium-billing-monthly"));
+    expect(screen.getByTestId("premium-tier").textContent).toBe("Free");
+    expect(api.getMyEntitlement.mock.calls.length).toBe(calls);
+    expect(api.startMyTrial).not.toHaveBeenCalled();
+  });
+});
+
 describe("Spanish", () => {
   it("renders the card, the offer and the confirmation in Spanish", async () => {
     localStorage.setItem("standup-language", "es");

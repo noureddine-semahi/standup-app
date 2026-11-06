@@ -7,6 +7,7 @@ import { TRIAL_DAYS } from "@/lib/entitlements";
 import { trialView } from "@/lib/trialView";
 import { TrialNotAvailableError, getMyEntitlement, getMyTrialHistory, isEntitlementsUnavailableError, startMyTrial, type AccountEntitlement, type TrialHistory } from "@/lib/supabase/entitlements";
 import { ConfirmActionModal } from "@/components/tools/PaymentsDashboard";
+import PremiumPlans from "@/components/PremiumPlans";
 
 // Account settings > Premium. Shows the current plan and, if the one-time trial is still available, a "Start 14-Day Free Trial"
 // action. The trial starts ONLY when the user confirms in the dialog; nothing here runs on page load or at signup. No payment is
@@ -116,6 +117,8 @@ export default function PremiumTrialCard() {
               </button>
             </div>
           )}
+
+          {view.tier !== "premium" && <PremiumPlans />}
         </div>
       )}
 

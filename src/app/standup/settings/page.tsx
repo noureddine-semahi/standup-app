@@ -16,6 +16,7 @@ import { getStoredTheme, setTheme, type Theme } from "@/lib/theme";
 import { Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import PageLoadingState from "@/components/PageLoadingState";
+import PremiumTrialCard from "@/components/PremiumTrialCard";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
 // Error instances — `err instanceof Error` is false for those, so checking
@@ -346,6 +347,8 @@ export default function SettingsPage() {
           </span>
         </div>
       </div>
+
+      <PremiumTrialCard />
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-4">{t("settings.profileTitle")}</h2>

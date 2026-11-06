@@ -66,7 +66,9 @@ describe("Stripe stays on the server", () => {
     expect(code).not.toMatch(/account_entitlements|account_billing|admin_set_entitlement|start_my_premium_trial/);
     // (hashing the idempotency key with createHash(...).update(...) is not a database write)
     expect(code.replace(/createHash\([^)]*\)\.update\(/g, "")).not.toMatch(/\.(insert|update|upsert|delete)\(/);
-    expect([...new Set(code.match(/\.rpc\(\s*"[a-z_]+"/g))].sort()).toEqual(['.rpc("claim_stripe_event"', '.rpc("complete_stripe_event"', '.rpc("fail_stripe_event"', '.rpc("get_feature_flags"']);
+    // the database functions billing code may call: directly (.rpc("name")) or through the event store's call("op", "name", ...) helper
+    const fnNames = [...code.matchAll(/(?:\.rpc\(\s*|\bcall\(\s*"[a-z]+",\s*)"([a-z_]+)"/g)].map((m) => m[1]);
+    expect([...new Set(fnNames)].sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "get_feature_flags"]);
     expect(code).not.toMatch(/\.from\(\s*["']/);
   });
 
@@ -76,7 +78,8 @@ describe("Stripe stays on the server", () => {
     const outside = files.filter((f) => !f.endsWith("webhookStore.ts") && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
     expect(outside.map(rel)).toEqual([]);
     // the service role may only call the three event-ledger functions
-    expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\.rpc\(\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event"]);
+    expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\bcall\(\s*"[a-z]+",\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event"]);
+    expect(read(join(billingDir, "webhookStore.ts")).match(/db\.rpc\(/g)).toHaveLength(1); // every database call goes through the one diagnosing helper
     expect(read(join(billingDir, "serverAuth.ts"))).not.toMatch(/service_role|SERVICE_ROLE/i);
   });
 

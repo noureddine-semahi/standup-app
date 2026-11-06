@@ -51,6 +51,8 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { DEFAULT_PRIORITY } from "@/lib/goalLogic";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { FREE_LIMITS } from "@/lib/entitlements";
+import { isGoalLimitError } from "@/lib/goalLimit";
 import type { TranslationKey } from "@/lib/i18n/en";
 import { Target, TriangleAlert, Pencil, CheckCircle2, Ban, RotateCcw } from "lucide-react";
 
@@ -485,7 +487,7 @@ export default function GoalDetailPage() {
       const updated = await setOutcomeGoalStatus(goal.id, status);
       setGoal(updated);
     } catch (e: any) {
-      setMsg(e?.message ?? t("goalDetail.statusChangeFailed"));
+      setMsg(isGoalLimitError(e) ? t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals }) : e?.message ?? t("goalDetail.statusChangeFailed"));
     } finally {
       setSettingStatus(false);
     }

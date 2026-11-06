@@ -33,6 +33,9 @@ import GoalTypeSelect from "@/components/GoalTypeSelect";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { FREE_LIMITS, type AccountTier } from "@/lib/entitlements";
+import { goalLimitReached, isGoalLimitError } from "@/lib/goalLimit";
+import { getMyEntitlement } from "@/lib/supabase/entitlements";
 import type { TranslationKey } from "@/lib/i18n/en";
 import { Plus, MoreHorizontal, TriangleAlert, Eye, EyeOff, X, CheckCircle2 } from "lucide-react";
 
@@ -169,6 +172,12 @@ export default function GoalsManagementPanel({
   }, [initialView]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  // Free plan: at most 3 ACTIVE Goals. The database enforces it; these only say so up front.
+  const [tier, setTier] = useState<AccountTier | null>(null);
+  const [goalRefused, setGoalRefused] = useState(false);
+  useEffect(() => {
+    getMyEntitlement().then((e) => setTier(e.tier), () => {});
+  }, []);
   const [outcomeGoals, setOutcomeGoals] = useState<OutcomeGoal[]>([]);
   const [conceptualTasks, setConceptualTasks] = useState<ConceptualTask<ArchivedGoal>[]>([]);
   const [cycleHistoryByGoalId, setCycleHistoryByGoalId] = useState<Map<string, OutcomeGoalCycleWithAggregation[]>>(
@@ -230,6 +239,8 @@ export default function GoalsManagementPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const goalsAtLimit = goalLimitReached(tier, outcomeGoals, goalRefused);
+
   async function handleCreateGoal() {
     const title = newGoalTitle.trim();
     if (!title || creatingGoal) return;
@@ -251,7 +262,8 @@ export default function GoalsManagementPanel({
       setNewGoalType("one_time");
       setShowNewGoalForm(false);
     } catch (e: any) {
-      setMsg(e?.message ?? t("tomorrow.goalCreateFailed"));
+      if (isGoalLimitError(e)) setGoalRefused(true);
+      else setMsg(e?.message ?? t("tomorrow.goalCreateFailed"));
     } finally {
       setCreatingGoal(false);
     }
@@ -265,8 +277,10 @@ export default function GoalsManagementPanel({
     try {
       const updated = await setOutcomeGoalStatus(goal.id, status);
       setOutcomeGoals((prev) => prev.map((g) => (g.id === goal.id ? updated : g)));
+      if (status !== "active") setGoalRefused(false); // completing or archiving one frees a slot
     } catch (e: any) {
-      setMsg(e?.message ?? t("goalDetail.statusChangeFailed"));
+      if (isGoalLimitError(e)) setGoalRefused(true);
+      else setMsg(e?.message ?? t("goalDetail.statusChangeFailed"));
     } finally {
       setSettingStatusId(null);
     }
@@ -407,6 +421,11 @@ export default function GoalsManagementPanel({
       {msg && (
         <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">{msg}</div>
       )}
+      {goalsAtLimit && (
+        <div role="status" className="mb-4 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm" data-testid="goals-limit">
+          {t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals })}
+        </div>
+      )}
 
       {/* Primary status filters */}
       <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -493,6 +512,7 @@ export default function GoalsManagementPanel({
         <button
           type="button"
           onClick={() => setShowNewGoalForm(true)}
+          disabled={goalsAtLimit}
           className="btn standup-metal-btn standup-metal-btn--accent inline-flex items-center gap-1.5 mb-3"
         >
           <Plus size={14} /> {t("tools.goalsNewGoal")}
@@ -755,7 +775,7 @@ export default function GoalsManagementPanel({
                             <button
                               type="button"
                               className="conn-card-menu-item"
-                              disabled={settingStatusId === goal.id}
+                              disabled={settingStatusId === goal.id || goalsAtLimit}
                               onClick={() => handleSetStatus(goal, "active")}
                             >
                               {t("goalDetail.reactivateGoal")}

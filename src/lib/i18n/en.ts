@@ -760,6 +760,7 @@ export const en = {
   "tools.goalsOpenManage": "Open Goal",
   "tools.goalsArchiveAction": "Archive",
   "tools.goalsViewMyGoals": "My Goals",
+  "goals.limitReached": "You've reached the Free plan limit of {limit} active Goals. Complete or archive one, or upgrade to Premium for unlimited Goals.",
   "tools.goalsViewAssigned": "Assigned",
   "tools.goalsViewMyGoalsShort": "Goals",
   "tools.goalsViewLongTermShort": "Long-Term",

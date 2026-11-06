@@ -755,6 +755,7 @@ export const es: Record<keyof typeof en, string> = {
   "tools.goalsOpenManage": "Abrir Objetivo",
   "tools.goalsArchiveAction": "Archivar",
   "tools.goalsViewMyGoals": "Mis Objetivos",
+  "goals.limitReached": "Has alcanzado el límite del plan Gratis de {limit} Objetivos activos. Completa o archiva uno, o pásate a Premium para tener Objetivos ilimitados.",
   "tools.goalsViewAssigned": "Asignados",
   "tools.goalsViewMyGoalsShort": "Objetivos",
   "tools.goalsViewLongTermShort": "Largo",

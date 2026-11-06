@@ -103,6 +103,8 @@ import {
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { FREE_LIMITS } from "@/lib/entitlements";
+import { isGoalLimitError } from "@/lib/goalLimit";
 import type { TranslationKey } from "@/lib/i18n/en";
 
 // Priority options matching Tomorrow page
@@ -1786,7 +1788,7 @@ export default function TodayPage() {
       resetAddFlow();
       await refresh({ silent: true });
     } catch (e: any) {
-      setGoalCreateError(e?.message ?? t("tomorrow.goalCreateFailed"));
+      setGoalCreateError(isGoalLimitError(e) ? t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals }) : e?.message ?? t("tomorrow.goalCreateFailed"));
     } finally {
       setCreatingGoal(false);
     }

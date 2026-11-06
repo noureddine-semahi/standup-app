@@ -90,6 +90,8 @@ import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import { loadCardPresentation, saveCardPresentation } from "@/lib/cardPresentationStorage";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { FREE_LIMITS } from "@/lib/entitlements";
+import { isGoalLimitError } from "@/lib/goalLimit";
 import { statusLabel } from "@/lib/goalStatus";
 import StatusIcon from "@/components/StatusIcon";
 import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckCircle2, Check, ChevronDown, ChevronUp, ChevronRight, UserPlus, Target, Trash2, ArrowRightLeft, Clock, EyeOff, CalendarDays, LayoutDashboard, Wrench } from "lucide-react";
@@ -578,7 +580,7 @@ export default function TomorrowGoalsPage() {
       await persistGoals(true);
       resetAddFlow();
     } catch (e: any) {
-      setGoalCreateError(e?.message ?? t("tomorrow.goalCreateFailed"));
+      setGoalCreateError(isGoalLimitError(e) ? t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals }) : e?.message ?? t("tomorrow.goalCreateFailed"));
     } finally {
       setCreatingGoal(false);
     }

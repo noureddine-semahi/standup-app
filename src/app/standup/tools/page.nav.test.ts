@@ -76,3 +76,20 @@ describe("Goals + Long-Term and Recurring -> Routines", () => {
     expect(en["goalType.recurring.chip"]).toBeTruthy(); // the Recurring goal TYPE is unchanged
   });
 });
+
+describe("Goals view switch on narrow phones", () => {
+  const panelSrc = readFileSync(join(__dirname, "..", "..", "..", "components", "GoalsManagementPanel.tsx"), "utf8");
+  it("the two longer labels have short forms (full labels everywhere else), and the row wraps rather than clipping", () => {
+    expect(panelSrc).toContain("goals-view-full");
+    expect(panelSrc).toContain("goals-view-short");
+    expect(panelSrc).toContain("goals-view-row");
+    expect(en["tools.goalsViewMyGoalsShort"]).toBe("Goals");
+    expect(es["tools.goalsViewMyGoalsShort"]).toBe("Objetivos");
+    expect(en["tools.goalsViewLongTermShort"]).toBe("Long-Term");
+    expect(es["tools.goalsViewLongTermShort"]).toBe("Largo");
+    // the full labels are untouched
+    expect(en["tools.goalsViewMyGoals"]).toBe("My Goals");
+    expect(es["tools.goalsViewMyGoals"]).toBe("Mis Objetivos");
+    expect(es["backlog.tabLongTerm"]).toBe("Largo Plazo");
+  });
+});

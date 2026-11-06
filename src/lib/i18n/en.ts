@@ -716,6 +716,8 @@ export const en = {
   "tools.goalsArchiveAction": "Archive",
   "tools.goalsViewMyGoals": "My Goals",
   "tools.goalsViewAssigned": "Assigned",
+  "tools.goalsViewMyGoalsShort": "Goals",
+  "tools.goalsViewLongTermShort": "Long-Term",
   "tools.goalsSearchPlaceholder": "Search goals…",
   "tools.goalsSearchClear": "Clear search",
   "tools.goalsEmptySearch": "No goals match your search.",

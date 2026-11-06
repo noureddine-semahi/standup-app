@@ -348,7 +348,7 @@ export default function GoalsManagementPanel({
           flight, since GoalAssignmentsPanel manages its own loading
           state independently -- it was never gated on this component's
           `loading`. */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center flex-wrap gap-2 mb-4 goals-view-row">
         <button
           type="button"
           onClick={() => setManagementView("myGoals")}
@@ -360,7 +360,8 @@ export default function GoalsManagementPanel({
             borderColor: managementView === "myGoals" ? "rgba(244, 114, 182, 0.5)" : undefined,
           }}
         >
-          {t("tools.goalsViewMyGoals")}
+          <span className="goals-view-full">{t("tools.goalsViewMyGoals")}</span>
+          <span className="goals-view-short">{t("tools.goalsViewMyGoalsShort")}</span>
         </button>
         <button
           type="button"
@@ -389,7 +390,8 @@ export default function GoalsManagementPanel({
               borderColor: managementView === "longTerm" ? "rgba(244, 114, 182, 0.5)" : undefined,
             }}
           >
-            {t("backlog.tabLongTerm")}
+            <span className="goals-view-full">{t("backlog.tabLongTerm")}</span>
+            <span className="goals-view-short">{t("tools.goalsViewLongTermShort")}</span>
           </button>
         )}
       </div>

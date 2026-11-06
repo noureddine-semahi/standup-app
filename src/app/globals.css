@@ -16703,3 +16703,28 @@ button.status-chip-trigger[aria-expanded="true"] {
     display: inline-block;
   }
 }
+
+/* Goals view switch (My Goals | Assigned | Long-Term): never clip or break a label. The row wraps if it must, labels stay on one
+   line, and on 320px-class phones the two longer labels use their short forms with slightly tighter padding. */
+.goals-view-row .btn {
+  white-space: nowrap;
+  max-width: 100%;
+}
+.goals-view-short {
+  display: none;
+}
+@media (max-width: 340px) {
+  .goals-view-row {
+    gap: 0.35rem;
+  }
+  .goals-view-row .btn {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  .goals-view-row .goals-view-full {
+    display: none;
+  }
+  .goals-view-row .goals-view-short {
+    display: inline;
+  }
+}

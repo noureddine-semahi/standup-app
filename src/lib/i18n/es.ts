@@ -711,6 +711,8 @@ export const es: Record<keyof typeof en, string> = {
   "tools.goalsArchiveAction": "Archivar",
   "tools.goalsViewMyGoals": "Mis Objetivos",
   "tools.goalsViewAssigned": "Asignados",
+  "tools.goalsViewMyGoalsShort": "Objetivos",
+  "tools.goalsViewLongTermShort": "Largo",
   "tools.goalsSearchPlaceholder": "Buscar objetivos…",
   "tools.goalsSearchClear": "Borrar búsqueda",
   "tools.goalsEmptySearch": "Ningún objetivo coincide con tu búsqueda.",

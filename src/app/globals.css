@@ -16704,6 +16704,335 @@ button.status-chip-trigger[aria-expanded="true"] {
   }
 }
 
+/* ==========================================================================
+   Tools > Notes: card library and editor. Reuses the metallic/glass panel, field and button styles; only the layout and
+   the note card are new.
+   ========================================================================== */
+.notes-root {
+  display: grid;
+  gap: 1rem;
+}
+.notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+.notes-search {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 0;
+  display: block;
+}
+.notes-search > svg {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.notes-search-input {
+  padding-left: 2.3rem !important;
+}
+.notes-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.notes-empty {
+  padding: 1.6rem 0.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+[data-theme="light"] .notes-empty {
+  color: rgba(30, 36, 48, 0.75);
+}
+.notes-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 0.8rem;
+}
+.note-card {
+  position: relative;
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.28);
+  background: linear-gradient(180deg, rgba(var(--panel-rgb), 0.9), rgba(var(--panel-rgb), 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.3),
+    0 4px 12px -6px rgba(0, 0, 0, 0.55);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+}
+/* subtle metallic top highlight: a 1px glint that fades in from both corners (same recipe as the sub-tab faces) */
+.note-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+  pointer-events: none;
+}
+[data-theme="light"] .note-card::before {
+  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.95) 50%, transparent 100%);
+}
+.note-card[data-pinned="true"] {
+  border-color: rgba(250, 204, 21, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.3),
+    0 0 14px -6px rgba(250, 204, 21, 0.5),
+    0 4px 12px -6px rgba(0, 0, 0, 0.55);
+}
+.note-card:hover {
+  border-color: rgba(250, 204, 21, 0.5);
+}
+.note-card-open {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 132px;
+  padding: 0.95rem 2.8rem 0.85rem 0.95rem;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  align-content: start;
+}
+.note-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-card-title.is-untitled {
+  opacity: 0.6;
+  font-style: italic;
+}
+.note-card-preview {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  opacity: 0.78;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-card-date {
+  align-self: end;
+  font-size: 0.7rem;
+  opacity: 0.55;
+}
+.note-card-pin {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+.note-card-pin[aria-pressed="true"] {
+  color: #facc15;
+  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.6));
+}
+.note-card-pin:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+}
+[data-theme="light"] .note-card {
+  border-color: rgba(60, 48, 34, 0.25);
+  background: linear-gradient(180deg, #fbf9f4, #eee8dc);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -2px 4px rgba(90, 76, 58, 0.12),
+    0 4px 12px -6px rgba(60, 48, 34, 0.4);
+}
+[data-theme="light"] .note-card-pin {
+  color: rgba(30, 36, 48, 0.5);
+}
+[data-theme="light"] .note-card-pin[aria-pressed="true"] {
+  color: #b7791f;
+}
+.note-card a:focus-visible,
+.note-card button:focus-visible,
+.note-editor button:focus-visible,
+.note-editor input:focus-visible,
+.note-editor textarea:focus-visible {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 2px;
+}
+
+.note-editor {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+}
+.note-editor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.note-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.note-editor-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.4rem;
+}
+.note-icon-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.note-icon-btn[aria-pressed="true"] {
+  color: #facc15;
+}
+.note-delete:hover {
+  color: #fb7185;
+}
+.note-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-height: 1.2rem;
+  opacity: 0.85;
+}
+.note-status[data-status="saved"] {
+  color: #34d399;
+}
+.note-status[data-status="saving"] {
+  color: rgba(255, 255, 255, 0.7);
+}
+.note-status[data-status="error"],
+.note-status[data-status="conflict"] {
+  color: #fbbf24;
+}
+[data-theme="light"] .note-status[data-status="saving"] {
+  color: rgba(30, 36, 48, 0.7);
+}
+[data-theme="light"] .note-status[data-status="saved"] {
+  color: #047857;
+}
+[data-theme="light"] .note-status[data-status="error"],
+[data-theme="light"] .note-status[data-status="conflict"] {
+  color: #92400e;
+}
+.note-spin {
+  animation: note-spin 0.9s linear infinite;
+}
+@keyframes note-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .note-spin {
+    animation: none;
+  }
+}
+.note-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.1);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.note-banner-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.note-title-input,
+.note-body-input {
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(var(--panel-rgb), 0.6);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
+  outline: none;
+}
+.note-title-input {
+  padding: 0.65rem 0.85rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.note-body-input {
+  padding: 0.8rem 0.85rem;
+  min-height: 52vh;
+  resize: vertical;
+  line-height: 1.55;
+  font-size: 0.95rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.note-title-input:focus,
+.note-body-input:focus {
+  border-color: rgba(250, 204, 21, 0.6);
+}
+[data-theme="light"] .note-title-input,
+[data-theme="light"] .note-body-input {
+  border-color: rgba(60, 48, 34, 0.3);
+  background-color: #fffdf8;
+  box-shadow: inset 0 2px 4px rgba(90, 76, 58, 0.15);
+}
+
+/* Tools tab bar: the active tab takes only as much room as its label needs (it used to claim the whole rest of the row on
+   narrow screens), and the group stays centered. Scoped to the Tools bar; the Finances bar is unchanged. */
+@media (max-width: 940px) {
+  .folder-tabbar-tools.tools-bar-fit {
+    justify-content: center;
+  }
+  .folder-tabbar-tools.tools-bar-fit .folder-tab-tools.folder-tab-active {
+    flex: 0 0 auto;
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+  .folder-tabbar-tools.tools-bar-fit .folder-tab-tools.folder-tab-active span {
+    flex: 0 0 auto;
+  }
+}
+
 /* Goals view switch (My Goals | Assigned | Long-Term): never clip or break a label. The row wraps if it must, labels stay on one
    line, and on 320px-class phones the two longer labels use their short forms with slightly tighter padding. */
 .goals-view-row .btn {

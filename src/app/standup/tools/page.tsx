@@ -2,9 +2,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, X, Repeat, ListChecks, Target } from "lucide-react";
+import { Archive, X, Repeat, ListChecks, Target, NotebookPen } from "lucide-react";
 import GoalsManagementPanel, { type ManagementView } from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
+import NotesTab from "@/components/tools/NotesTab";
 import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT, LEGACY_TOOLS_TAB } from "@/lib/toolsTabStorage";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
 import {
@@ -61,7 +62,7 @@ function summarizeWeekdays(days: number[], t: (key: TranslationKey) => string): 
   return sorted.map((d) => t(WEEKDAY_KEYS[d])).join(" · ");
 }
 
-type ToolsTab = "goals" | "backlog" | "routines" | "lists";
+type ToolsTab = "goals" | "backlog" | "routines" | "lists" | "notes";
 
 // Per-tab accent colors, same folder-tab theme and palette approach as
 // Social's tab bar — explicit user call to apply it here too.
@@ -71,11 +72,12 @@ type ToolsTab = "goals" | "backlog" | "routines" | "lists";
 // central Goal management workspace. Pink/#f472b6 reuses this app's own
 // existing "Goal" color identity (Dashboard's Target icon, Goal Detail's
 // active-status chip) rather than picking an arbitrary new accent.
-const TABS: { key: ToolsTab; labelKey: TranslationKey; icon: typeof Archive; color: string; descriptionKey: TranslationKey }[] = [
-  { key: "goals", labelKey: "backlog.tabGoals", icon: Target, color: "#f472b6", descriptionKey: "tools.descGoals" },
-  { key: "backlog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa", descriptionKey: "tools.descBacklog" },
-  { key: "routines", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
-  { key: "lists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
+const TABS: { key: ToolsTab; labelKey: TranslationKey; headingKey: TranslationKey; icon: typeof Archive; color: string; descriptionKey: TranslationKey }[] = [
+  { key: "goals", headingKey: "tools.headingGoals", labelKey: "backlog.tabGoals", icon: Target, color: "#f472b6", descriptionKey: "tools.descGoals" },
+  { key: "backlog", headingKey: "tools.headingBacklog", labelKey: "backlog.tabBacklog", icon: Archive, color: "#60a5fa", descriptionKey: "tools.descBacklog" },
+  { key: "routines", headingKey: "tools.headingRoutines", labelKey: "backlog.tabRecurring", icon: Repeat, color: "#22d3ee", descriptionKey: "tools.descRecurring" },
+  { key: "lists", headingKey: "tools.headingLists", labelKey: "backlog.tabLists", icon: ListChecks, color: "#34d399", descriptionKey: "tools.descLists" },
+  { key: "notes", headingKey: "tools.headingNotes", labelKey: "backlog.tabNotes", icon: NotebookPen, color: "#f59e0b", descriptionKey: "tools.descNotes" },
 ];
 
 export default function ToolsPage() {
@@ -681,7 +683,7 @@ export default function ToolsPage() {
         .folder-tabbar's negative margin-bottom in globals.css. */}
     <div ref={wrapperRef} style={wrapperStyle}>
       <div ref={sentinelRef} style={{ height: 0 }} />
-      <div ref={barRef} className="folder-tabbar folder-tabbar-tools" style={barStyle} role="tablist">
+      <div ref={barRef} className="folder-tabbar folder-tabbar-tools tools-bar-fit" style={barStyle} role="tablist">
         {(() => {
           // CodePen-reference segmented nav: the tabs immediately LEFT
           // and RIGHT of the active one each get their own transition
@@ -732,7 +734,7 @@ export default function ToolsPage() {
           a tab switch while the bar is pinned -- always present
           regardless of which sub-tab is active. */}
       <div ref={contentRef} className="card card-highlight folder-tabbar-panel">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t("nav.tools")}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">{t(TABS.find((tab) => tab.key === activeTab)!.headingKey)}</h1>
         <p className="text-white/70">{t(TABS.find((tab) => tab.key === activeTab)!.descriptionKey)}</p>
       </div>
 
@@ -1193,6 +1195,12 @@ export default function ToolsPage() {
     </div>
     )}
 
+
+    {activeTab === "notes" && (
+      <div className="mt-6">
+        <NotesTab />
+      </div>
+    )}
     </div>
     </div>
   );

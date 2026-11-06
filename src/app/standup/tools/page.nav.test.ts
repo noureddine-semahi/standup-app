@@ -31,12 +31,12 @@ describe("Tools / Finances split", () => {
 
   it("Tools keeps only the productivity tabs", () => {
     for (const k of ["payments", "planner", "calculator", "salary"]) expect(source).not.toContain(`key: "${k}"`);
-    for (const k of ["goals", "backlog", "routines", "lists"]) expect(source).toContain(`key: "${k}"`);
+    for (const k of ["goals", "backlog", "routines", "lists", "notes"]) expect(source).toContain(`key: "${k}"`);
     // Long-Term and Recurring are no longer tabs of their own
     for (const k of ["longTerm", "recurring"]) expect(source).not.toContain(`key: "${k}"`);
     // final order: Goals | Backlog | Routines | Lists
-    const order = [...source.matchAll(/{ key: "(goals|backlog|routines|lists)", labelKey/g)].map((m) => m[1]);
-    expect(order).toEqual(["goals", "backlog", "routines", "lists"]);
+    const order = [...source.matchAll(/{ key: "(goals|backlog|routines|lists|notes)", headingKey/g)].map((m) => m[1]);
+    expect(order).toEqual(["goals", "backlog", "routines", "lists", "notes"]);
     expect(source).not.toContain("FinancesHub");
     expect(source).not.toContain("PlannerHome");
   });
@@ -74,6 +74,22 @@ describe("Goals + Long-Term and Recurring -> Routines", () => {
     expect(en["backlog.recurringTitle"]).toBe("Routines");
     expect(es["backlog.recurringTitle"]).toBe("Rutinas");
     expect(en["goalType.recurring.chip"]).toBeTruthy(); // the Recurring goal TYPE is unchanged
+  });
+});
+
+describe("Tools page heading", () => {
+  it("names the active section instead of a generic 'Tools' (every tab has its own heading, in both languages)", () => {
+    expect(source).not.toContain('{t("nav.tools")}</h1>');
+    expect(source).toContain("headingKey");
+    const expected = { Goals: ["My Goals", "Mis Objetivos"], Backlog: ["My Backlog", "Mi Backlog"], Routines: ["My Routines", "Mis Rutinas"], Lists: ["My Lists", "Mis Listas"], Notes: ["My Notes", "Mis Notas"] };
+    for (const [k, [enText, esText]] of Object.entries(expected)) {
+      expect(source).toContain(`"tools.heading${k}"`);
+      expect((en as Record<string, string>)[`tools.heading${k}`]).toBe(enText);
+      expect((es as Record<string, string>)[`tools.heading${k}`]).toBe(esText);
+    }
+  });
+  it("the Tools tab bar opts in to the fit-to-label active tab", () => {
+    expect(source).toContain("folder-tabbar-tools tools-bar-fit");
   });
 });
 

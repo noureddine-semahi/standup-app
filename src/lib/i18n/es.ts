@@ -831,6 +831,7 @@ export const es: Record<keyof typeof en, string> = {
   "fin.sections": "Secciones de finanzas",
   "fin.tabOverview": "Resumen",
   "fin.tabCalculators": "Calculadoras",
+  "fin.tabPlannerShort": "Plan",
   "fin.tabBills": "Facturas",
   "fin.tabPayments": "Pagos",
   "fin.tabSubscriptions": "Suscripciones",

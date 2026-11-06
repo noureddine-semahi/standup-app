@@ -836,6 +836,7 @@ export const en = {
   "fin.sections": "Finances sections",
   "fin.tabOverview": "Overview",
   "fin.tabCalculators": "Calculators",
+  "fin.tabPlannerShort": "Planner",
   "fin.tabBills": "Bills",
   "fin.tabPayments": "Payments",
   "fin.tabSubscriptions": "Subscriptions",

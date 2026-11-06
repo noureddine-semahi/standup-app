@@ -23,12 +23,13 @@ type Calc = "standard" | "salary";
 
 // Same hanging folder-tab bar as Tools and Social. Colors carry over from where each piece lived before:
 // the Finances hub's own tab colors, and the Planner / Calculator / Salary tab colors from Tools.
-const TABS: { key: FinancesTab; labelKey: TranslationKey; icon: typeof Wallet; color: string }[] = [
+// shortLabelKey: shown instead of the full label on narrow phones, where the active tab's label would be cut off.
+const TABS: { key: FinancesTab; labelKey: TranslationKey; shortLabelKey?: TranslationKey; icon: typeof Wallet; color: string }[] = [
   { key: "overview", labelKey: "fin.tabOverview", icon: Wallet, color: "#60a5fa" },
   { key: "bills", labelKey: "fin.tabBills", icon: Receipt, color: "#f59e0b" },
   { key: "payments", labelKey: "fin.tabPayments", icon: CreditCard, color: "#f43f5e" },
   { key: "subscriptions", labelKey: "fin.tabSubscriptions", icon: RefreshCw, color: "#a78bfa" },
-  { key: "planner", labelKey: "backlog.tabPlanner", icon: PiggyBank, color: "#2dd4bf" },
+  { key: "planner", labelKey: "backlog.tabPlanner", shortLabelKey: "fin.tabPlannerShort", icon: PiggyBank, color: "#2dd4bf" },
   { key: "calculators", labelKey: "fin.tabCalculators", icon: CalculatorIcon, color: "#fb923c" },
 ];
 const TAB_KEYS = TABS.map((x) => x.key);
@@ -91,7 +92,14 @@ export default function FinancesPage() {
                 style={{ "--tab-color": tab.color, "--tab-color-rgb": hexToRgbTriple(tab.color), "--active-glow-color": activeColor } as React.CSSProperties}
               >
                 <tab.icon size={15} />
-                <span>{t(tab.labelKey)}</span>
+                {tab.shortLabelKey ? (
+                  <>
+                    <span className="tab-label-full">{t(tab.labelKey)}</span>
+                    <span className="tab-label-short">{t(tab.shortLabelKey)}</span>
+                  </>
+                ) : (
+                  <span>{t(tab.labelKey)}</span>
+                )}
               </button>
             );
           })}

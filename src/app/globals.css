@@ -16470,43 +16470,6 @@ button.status-chip-trigger[aria-expanded="true"] {
     0 0 20px -3px rgba(0, 150, 220, 0.42);
 }
 
-/* -- dimensional icon buttons (the seven hanging destinations + the menu list) -- */
-.app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 9px;
-  background:
-    linear-gradient(180deg, rgba(var(--tab-color-rgb), 0.16), rgba(var(--tab-color-rgb), 0.06)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 46%),
-    linear-gradient(180deg, #2a3a4e, #141d2b);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
-    0 6px 16px -6px rgba(0, 0, 0, 0.55);
-  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-.app-header .folder-tab-hanging:not(.folder-tab-hanging-active):hover {
-  border-color: rgba(var(--tab-color-rgb), 0.55);
-}
-.app-header .folder-tab-hanging:not(.folder-tab-hanging-active):active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 3px rgba(0, 0, 0, 0.55),
-    0 2px 6px -3px rgba(0, 0, 0, 0.5);
-}
-/* the icon glows in its own accent color */
-.app-header .folder-tab-hanging svg {
-  filter: drop-shadow(0 0 4px rgba(var(--tab-color-rgb), 0.65));
-}
-/* light theme keeps the dark glossy faces (as in the reference) so the accent-colored labels stay legible on the pale bar */
-[data-theme="light"] .app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.55),
-    0 6px 12px -6px rgba(60, 48, 34, 0.6);
-}
-
 /* -- avatar ring -------------------------------------------------------- */
 .app-header .nav-profile .avatar-circle,
 .app-header .nav-mobile-trigger .avatar-circle {
@@ -16547,56 +16510,6 @@ button.status-chip-trigger[aria-expanded="true"] {
    - inactive icons: fully saturated accent with a stronger glow
    Mobile (<= 760px) keeps the compact clock; only the button faces change there.
    ========================================================================== */
-
-/* inactive icon buttons: accent-saturated icons */
-.app-header .folder-tabbar-hanging .folder-tab-hanging:not(.folder-tab-hanging-active) {
-  color: rgb(var(--tab-color-rgb));
-}
-.app-header .folder-tabbar-hanging .folder-tab-hanging:not(.folder-tab-hanging-active) svg {
-  filter: drop-shadow(0 0 5px rgba(var(--tab-color-rgb), 0.85)) saturate(1.3);
-}
-
-/* active tab: raised glossy accent face with a white rim (follows whichever route is current) */
-.app-header .folder-tabbar-hanging .folder-tab-hanging-active {
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 9px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 44%),
-    linear-gradient(180deg, rgb(var(--tab-color-rgb)), rgba(var(--tab-color-rgb), 0.62)),
-    #150a0c;
-  box-shadow:
-    0 0 0 2px rgba(232, 238, 247, 0.92),
-    0 0 0 4px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -4px 8px rgba(0, 0, 0, 0.45),
-    0 0 22px rgba(var(--tab-color-rgb), 0.6);
-}
-[data-theme="light"] .app-header .folder-tabbar-hanging .folder-tab-hanging-active {
-  color: #fff;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 44%),
-    linear-gradient(180deg, rgb(var(--tab-color-rgb)), rgba(var(--tab-color-rgb), 0.62)),
-    #150a0c;
-  box-shadow:
-    0 0 0 2px rgba(255, 255, 255, 0.95),
-    0 0 0 4px rgba(40, 32, 28, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -4px 8px rgba(0, 0, 0, 0.45),
-    0 0 18px rgba(var(--tab-color-rgb), 0.55);
-}
-/* the older inset "socket" face is replaced by the glossy face above */
-.app-header .folder-tabbar-hanging .folder-tab-hanging-active::before {
-  display: none;
-}
-.app-header .folder-tabbar-hanging .folder-tab-hanging-active svg,
-.app-header .folder-tabbar-hanging .folder-tab-hanging-active span {
-  transform: none;
-}
-.app-header .folder-tabbar-hanging .folder-tab-hanging-active svg {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-}
 
 /* desktop/tablet: the large clock instrument and its light burst */
 @media (min-width: 761px) {
@@ -16752,5 +16665,41 @@ button.status-chip-trigger[aria-expanded="true"] {
 @media (min-width: 341px) and (max-width: 400px) {
   .app-header .folder-tab-hanging:not(.folder-tab-hanging-active) {
     padding: 0.45rem 0.37rem;
+  }
+}
+
+/* ==========================================================================
+   Navigation alignment (desktop/tablet)
+   - the main header's tab group is centered within its dark rail (the rail frame itself still spans logo to profile)
+   - the Tools and Finances sub-tab bars are centered in the page column, so they line up with the centered content below
+     (including the narrower Financial Planner column) and never shift between sections
+   Phones keep their existing compact, full-width behavior.
+   ========================================================================== */
+@media (min-width: 761px) {
+  .folder-tabbar-hanging {
+    justify-content: center;
+    justify-content: safe center;
+  }
+}
+@media (min-width: 661px) {
+  .folder-tabbar-tools {
+    width: fit-content;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Finances sub-tabs: on narrow phones the active Planner tab shows its short label ("Plan" in Spanish) so it is not cut off.
+   Selectors are as specific as the sub-tab span rules they have to beat. */
+.folder-tabbar-tools .folder-tab-tools .tab-label-short {
+  display: none;
+}
+@media (max-width: 400px) {
+  .folder-tabbar-tools .folder-tab-tools .tab-label-full {
+    display: none;
+  }
+  .folder-tabbar-tools .folder-tab-tools .tab-label-short {
+    display: inline-block;
   }
 }

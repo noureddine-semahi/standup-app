@@ -50,7 +50,15 @@ describe("Stripe stays on the server", () => {
 
   it("Checkout sessions are created in one place only, and there is no webhook, portal or subscription-changing code yet", () => {
     expect(billingFiles().filter((n) => /checkout\.sessions\.create/.test(read(join(billingDir, n))))).toEqual(["checkout.ts"]);
-    expect(billingCode()).not.toMatch(/billingPortal|webhooks\.constructEvent|subscriptions\.(create|update|cancel|resume)|invoices\.|paymentIntents\./);
+    expect(billingCode()).not.toMatch(/billingPortal|subscriptions\.(create|update|cancel|resume)|invoices\.|paymentIntents\./);
+  });
+
+  it("webhook signatures are verified in one place only (the Stripe client module), and the webhook handler never trusts an unverified body", () => {
+    expect(billingFiles().filter((n) => /webhooks\.constructEvent/.test(read(join(billingDir, n))))).toEqual(["stripe.ts"]);
+    const handler = read(join(billingDir, "webhook.ts"));
+    expect(handler.indexOf("deps.verifier(config)(rawBody, signature)")).toBeGreaterThan(-1);
+    expect(handler).not.toMatch(/JSON\.parse|req\.json\(\)|\.json\(\)\s*\)?\s*;?\s*\n?\s*const event/); // the body is only ever read as raw text
+    expect(handler.indexOf("deps.store()")).toBeGreaterThan(handler.indexOf("deps.verifier(config)(rawBody, signature)"));
   });
 
   it("billing code can never write an entitlement or any data: no entitlement tables or functions, no inserts/updates/upserts/deletes", () => {
@@ -58,12 +66,25 @@ describe("Stripe stays on the server", () => {
     expect(code).not.toMatch(/account_entitlements|account_billing|admin_set_entitlement|start_my_premium_trial/);
     // (hashing the idempotency key with createHash(...).update(...) is not a database write)
     expect(code.replace(/createHash\([^)]*\)\.update\(/g, "")).not.toMatch(/\.(insert|update|upsert|delete)\(/);
-    expect(code.match(/\.rpc\(\s*"[a-z_]+"/g)).toEqual(['.rpc("get_feature_flags"']);
+    expect([...new Set(code.match(/\.rpc\(\s*"[a-z_]+"/g))].sort()).toEqual(['.rpc("claim_stripe_event"', '.rpc("complete_stripe_event"', '.rpc("fail_stripe_event"', '.rpc("get_feature_flags"']);
+    expect(code).not.toMatch(/\.from\(\s*["']/);
   });
 
-  it("Supabase is touched only by serverAuth.ts, as the calling user (no service role)", () => {
-    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["serverAuth.ts"]);
-    expect(billingCode()).not.toMatch(/service_role|SERVICE_ROLE/);
+  it("Supabase is touched only by serverAuth.ts (as the calling user) and webhookStore.ts; the service role lives in webhookStore.ts alone", () => {
+    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["serverAuth.ts", "webhookStore.ts"]);
+    expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["webhookStore.ts"]);
+    const outside = files.filter((f) => !f.endsWith("webhookStore.ts") && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
+    expect(outside.map(rel)).toEqual([]);
+    // the service role may only call the three event-ledger functions
+    expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\.rpc\(\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event"]);
+    expect(read(join(billingDir, "serverAuth.ts"))).not.toMatch(/service_role|SERVICE_ROLE/i);
+  });
+
+  it("the webhook route exposes POST only and delegates to the handler; the secret key and webhook secret are never sent to a client", () => {
+    const route = read(join(src, "app", "api", "stripe", "webhook", "route.ts"));
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect(route).toContain("handleStripeWebhook");
+    expect(files.filter((f) => /"use client"|'use client'/.test(read(f)) && /webhook|SERVICE_ROLE/i.test(read(f)) && f.startsWith(billingDir))).toEqual([]);
   });
 
   it("the checkout route exposes POST only and delegates to the handler", () => {

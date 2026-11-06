@@ -70,3 +70,29 @@ Checkout session creation, webhook handling that turns an active subscription in
   origins listed in `BILLING_TRUSTED_ORIGINS`, comma-separated, https only), with fixed paths `/standup/settings?checkout=success|cancelled`.
 - **Retries:** a repeat of the same request within 5 minutes reuses the same Stripe idempotency key, so Stripe returns the same session.
 - **Grants nothing:** creating a session changes no entitlement. Turning a paid subscription into Premium belongs to the webhook phase.
+
+## Webhook endpoint (Phase 5.5: verification and deduplication only)
+
+`POST /api/stripe/webhook`: `https://standup-app-two.vercel.app/api/stripe/webhook`
+
+It **verifies, deduplicates and records** Stripe events. It does **not** grant or revoke Premium, sync subscriptions or change any trial, billing
+record or account yet (the handlers are placeholders for the next phase). Checkout stays disabled by the feature flags.
+
+- **Signature:** verified against the raw request body with `STRIPE_WEBHOOK_SECRET`. Missing, malformed, wrong, tampered or replayed (older than 5 minutes)
+  signatures get `400`; a missing or invalid webhook configuration gets `503`. Live-mode events are rejected (sandbox only).
+- **Supported events** (acknowledged and recorded): `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`,
+  `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`. Any other verified event gets `200`
+  with nothing stored or changed.
+- **Deduplication:** each event ID is claimed atomically in `public.stripe_webhook_events`. A duplicate gets `200 { duplicate: true }`; a delivery that arrives while the
+  first is still processing gets `409` (Stripe retries); a failed event is re-claimed on Stripe's retry; a claim left by a crashed run expires after 5 minutes.
+- **Logs:** event ID, type and outcome only.
+
+### Setup (one time)
+1. Run `supabase/migrations/20261118000100_stripe_webhook_events.sql` in the Supabase SQL Editor (a table plus three functions, executable by the service role only).
+2. Add the server-only variable **`SUPABASE_SERVICE_ROLE_KEY`** (Supabase > Project Settings > API) to `.env.local` and to Vercel. It is used only by the
+   webhook's event ledger. Never prefix it `NEXT_PUBLIC_`.
+3. Stripe Dashboard (**test mode**) > Developers > Webhooks > Add endpoint: URL above; select the six events listed; copy the signing secret
+   (`whsec_...`) into `STRIPE_WEBHOOK_SECRET` (`.env.local` and Vercel).
+4. Local testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook` prints a temporary `whsec_...` to use in `.env.local`.
+
+Until steps 1 and 2 are done the endpoint answers `503` and Stripe simply retries; nothing is lost or changed.

@@ -111,3 +111,33 @@ describe("Stripe client", () => {
     expect(getStripe()).toBe(getStripe());
   });
 });
+
+import { readWebhookConfig } from "./config";
+
+describe("readWebhookConfig", () => {
+  const ok = { STRIPE_SECRET_KEY: "sk_test_abc123DEF456", STRIPE_WEBHOOK_SECRET: "whsec_abc123def" };
+  const problems = (env: Record<string, string | undefined>) => {
+    try {
+      readWebhookConfig(env);
+    } catch (e) {
+      return (e as BillingConfigError).problems;
+    }
+    throw new Error("expected a BillingConfigError");
+  };
+  it("needs only the test secret key and the signing secret: no Price IDs", () => {
+    expect(readWebhookConfig(ok)).toEqual({ secretKey: "sk_test_abc123DEF456", webhookSecret: "whsec_abc123def" });
+  });
+  it("a missing or malformed webhook secret fails, naming the variable and never the value", () => {
+    expect(problems({ STRIPE_SECRET_KEY: ok.STRIPE_SECRET_KEY })).toEqual(["STRIPE_WEBHOOK_SECRET is missing"]);
+    expect(problems({ ...ok, STRIPE_WEBHOOK_SECRET: "not-a-whsec-VALUE" })[0]).toContain("whsec_");
+    try {
+      readWebhookConfig({ ...ok, STRIPE_WEBHOOK_SECRET: "not-a-whsec-VALUE" });
+    } catch (e) {
+      expect((e as Error).message).not.toContain("not-a-whsec-VALUE");
+    }
+  });
+  it("refuses a live key or a missing key", () => {
+    expect(problems({ ...ok, STRIPE_SECRET_KEY: "sk_live_REAL" })[0]).toContain("live key");
+    expect(problems({ STRIPE_WEBHOOK_SECRET: ok.STRIPE_WEBHOOK_SECRET })).toEqual(["STRIPE_SECRET_KEY is missing"]);
+  });
+});

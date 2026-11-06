@@ -84,3 +84,29 @@ export function isBillingConfigured(env: Env = process.env): boolean {
 export function priceIdFor(plan: BillingPlan, config: BillingConfig): string {
   return config.prices[plan];
 }
+
+// ── Webhook configuration ─────────────────────────────────────────────────────────────────────────────────────────
+
+export type WebhookConfig = {
+  /** Test-mode secret key (needed to build the Stripe client that verifies signatures). */
+  secretKey: string;
+  /** The endpoint's signing secret from the Stripe Dashboard (whsec_...). */
+  webhookSecret: string;
+};
+
+/**
+ * What the webhook endpoint needs: a test-mode secret key and the signing secret. Unlike checkout it needs no Price IDs. Throws a
+ * BillingConfigError naming the problems (never values) if either is missing or malformed.
+ */
+export function readWebhookConfig(env: Env = process.env): WebhookConfig {
+  const problems: string[] = [];
+  const secretKey = read(env, STRIPE_ENV.secretKey);
+  if (!secretKey) problems.push(`${STRIPE_ENV.secretKey} is missing`);
+  else if (LIVE_SECRET.test(secretKey)) problems.push(`${STRIPE_ENV.secretKey} is a live key; only test-mode keys are allowed for now`);
+  else if (!TEST_SECRET.test(secretKey)) problems.push(`${STRIPE_ENV.secretKey} must be a Stripe test-mode secret key (sk_test_… or rk_test_…)`);
+  const webhookSecret = read(env, STRIPE_ENV.webhookSecret);
+  if (!webhookSecret) problems.push(`${STRIPE_ENV.webhookSecret} is missing`);
+  else if (!WEBHOOK_SECRET.test(webhookSecret)) problems.push(`${STRIPE_ENV.webhookSecret} must be a webhook signing secret (whsec_…)`);
+  if (problems.length > 0 || !secretKey || !webhookSecret) throw new BillingConfigError(problems);
+  return { secretKey, webhookSecret };
+}

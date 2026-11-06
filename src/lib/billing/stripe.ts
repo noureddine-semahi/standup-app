@@ -22,3 +22,12 @@ export function getStripe(): Stripe {
 export function resetStripeClientForTests(): void {
   client = null;
 }
+
+/**
+ * Verifies a webhook's signature against its RAW body and returns the verified event; throws if the signature is missing, malformed,
+ * wrong or too old (Stripe's default 5-minute tolerance). The only place the webhook secret is used.
+ */
+export function createWebhookVerifier(secretKey: string, webhookSecret: string): (rawBody: string, signatureHeader: string) => Stripe.Event {
+  const stripe = new Stripe(secretKey, { appInfo: { name: "StandUp" } });
+  return (rawBody, signatureHeader) => stripe.webhooks.constructEvent(rawBody, signatureHeader, webhookSecret);
+}

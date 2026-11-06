@@ -1,12 +1,13 @@
 import "server-only";
 import type Stripe from "stripe";
-import { readWebhookConfig, type WebhookConfig } from "@/lib/billing/config";
-import { createWebhookVerifier } from "@/lib/billing/stripe";
+import { readBillingConfig, readWebhookConfig, type WebhookConfig } from "@/lib/billing/config";
+import { createSubscriptionSyncHandler } from "@/lib/billing/subscriptionSync";
+import { createWebhookVerifier, getStripe } from "@/lib/billing/stripe";
 import { createWebhookStore, type WebhookStore } from "@/lib/billing/webhookStore";
 
-// POST /api/stripe/webhook: receives Stripe events. FOUNDATION ONLY: events are verified, deduplicated and recognised, and the outcome
-// is logged. NOTHING here grants or revokes Premium, syncs a subscription or changes a trial, billing record or account; that is a later
-// phase and will be built on the handlers below.
+// POST /api/stripe/webhook: receives Stripe events: verified, deduplicated, and (Phase 5.6 step 1) recorded as BILLING RECORDS by the
+// subscription sync handlers (subscriptionSync.ts). NOTHING here grants or revokes Premium or changes a trial, entitlement or admin
+// grant: turning a verified billing record into an entitlement is a later step.
 //
 // Order: webhook configuration -> signature header -> raw body -> signature verification -> live-mode guard -> supported type? ->
 // claim (persistent, atomic dedup) -> handler -> complete/fail. A request that fails any early step never reaches the database, and
@@ -26,18 +27,25 @@ export const SUPPORTED_EVENT_TYPES = [
 export type SupportedEventType = (typeof SUPPORTED_EVENT_TYPES)[number];
 export const isSupportedEventType = (t: string): t is SupportedEventType => (SUPPORTED_EVENT_TYPES as readonly string[]).includes(t);
 
-/** What to do with a verified, first-time event. Must be idempotent (a crashed run can be retried). */
-export type EventHandler = (event: Stripe.Event) => Promise<void>;
+/**
+ * What to do with a verified, first-time event. Must be idempotent (a crashed run can be retried). May return a short safe outcome
+ * code (e.g. "sync_applied") that is logged alongside the event ID.
+ */
+export type EventHandler = (event: Stripe.Event, ctx: { store: WebhookStore }) => Promise<string | void>;
 
-// Phase 5.5: recognise only. The next phase replaces these with real subscription synchronisation.
-const noop: EventHandler = async () => {};
+// All six events are about one subscription: each is resolved to that subscription's current state and recorded (subscriptionSync.ts).
+const syncHandler = createSubscriptionSyncHandler({
+  retrieveSubscription: (id) => getStripe().subscriptions.retrieve(id),
+  prices: () => readBillingConfig().prices,
+  now: () => new Date(),
+});
 export const defaultHandlers: Readonly<Record<SupportedEventType, EventHandler>> = {
-  "checkout.session.completed": noop,
-  "invoice.paid": noop,
-  "invoice.payment_failed": noop,
-  "customer.subscription.created": noop,
-  "customer.subscription.updated": noop,
-  "customer.subscription.deleted": noop,
+  "checkout.session.completed": syncHandler,
+  "invoice.paid": syncHandler,
+  "invoice.payment_failed": syncHandler,
+  "customer.subscription.created": syncHandler,
+  "customer.subscription.updated": syncHandler,
+  "customer.subscription.deleted": syncHandler,
 };
 
 export type WebhookDeps = {
@@ -81,7 +89,7 @@ const respond = (body: Record<string, unknown>, status: number) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 const fail = (error: WebhookError) => respond({ error }, STATUS[error]);
 
-const log = (fields: { event?: string; type?: string; outcome: string }) => console.info("stripe webhook", fields);
+const log = (fields: { event?: string; type?: string; outcome: string; detail?: string }) => console.info("stripe webhook", fields);
 
 export async function handleStripeWebhook(req: Request, deps: WebhookDeps = realDeps()): Promise<Response> {
   let config: WebhookConfig;
@@ -143,8 +151,9 @@ export async function handleStripeWebhook(req: Request, deps: WebhookDeps = real
     return fail("in_progress"); // another delivery is processing it; Stripe will retry
   }
 
+  let detail: string | void;
   try {
-    await deps.handlers[event.type](event);
+    detail = await deps.handlers[event.type](event, { store });
   } catch {
     await store.fail(event.id, "handler_error").catch(() => {});
     log({ event: event.id, type: event.type, outcome: "processing_failed" });
@@ -157,6 +166,6 @@ export async function handleStripeWebhook(req: Request, deps: WebhookDeps = real
     log({ event: event.id, type: event.type, outcome: "complete_failed" });
     return fail("store_unavailable"); // the claim lease expires and a retry can run again
   }
-  log({ event: event.id, type: event.type, outcome: "processed" });
+  log({ event: event.id, type: event.type, outcome: "processed", ...(typeof detail === "string" ? { detail } : {}) });
   return respond({ received: true, handled: true }, 200);
 }

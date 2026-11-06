@@ -124,3 +124,31 @@ describe("success and safety", () => {
     for (const f of fields) expect(["reason", "op", "missing", "code", "status"]).toContain(f);
   });
 });
+
+describe("syncSubscription", () => {
+  const args = {
+    eventId: "evt_test_1", userHint: "0b8c1d1e-2f3a-4b5c-8d6e-7f8091a2b3c4", customerId: "cus_1", subscriptionId: "sub_1", priceId: "price_1", plan: "monthly" as const, status: "active",
+    periodStart: "2026-11-06T00:00:00.000Z", periodEnd: "2026-12-06T00:00:00.000Z", cancelAtPeriodEnd: false, canceledAt: null, endedAt: null, fetchedAt: "2026-11-06T18:00:00.000Z",
+  };
+  it("calls sync_stripe_subscription with every fact as a parameter and returns the database's verdict", async () => {
+    for (const verdict of ["applied", "stale", "unmapped", "ownership_conflict", "subscription_conflict", "invalid"]) {
+      rpc.mockResolvedValue({ data: verdict, error: null, status: 200 });
+      expect(await createWebhookStore(env).syncSubscription(args)).toBe(verdict);
+    }
+    expect(rpc).toHaveBeenLastCalledWith("sync_stripe_subscription", {
+      p_event_id: "evt_test_1", p_user_hint: args.userHint, p_customer_id: "cus_1", p_subscription_id: "sub_1", p_price_id: "price_1", p_plan: "monthly", p_status: "active",
+      p_period_start: args.periodStart, p_period_end: args.periodEnd, p_cancel_at_period_end: false, p_canceled_at: null, p_ended_at: null, p_fetched_at: args.fetchedAt,
+    });
+  });
+  it("an unrecognised verdict or a failed call is a safe, diagnosed failure", async () => {
+    rpc.mockResolvedValue({ data: "weird", error: null, status: 200 });
+    await expect(createWebhookStore(env).syncSubscription(args)).rejects.toMatchObject({ reason: "unexpected_response" });
+    expect(logged()).toEqual([{ reason: "unexpected_response", op: "sync" }]);
+    logs = [];
+    rpc.mockResolvedValue({ data: null, error: { code: "42501", message: `${KEY}` }, status: 403 });
+    await expect(createWebhookStore(env).syncSubscription(args)).rejects.toMatchObject({ reason: "rpc_error" });
+    expect(logged()).toEqual([{ reason: "rpc_error", op: "sync", code: "42501", status: 403 }]);
+    expect(text()).not.toContain(KEY);
+    expect(text()).not.toContain("cus_1");
+  });
+});

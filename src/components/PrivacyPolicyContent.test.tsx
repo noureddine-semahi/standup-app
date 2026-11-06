@@ -1,0 +1,38 @@
+import { describe, it, expect, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+
+import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import PrivacyPolicyContent from "./PrivacyPolicyContent";
+
+const mount = () =>
+  render(
+    <LanguageProvider>
+      <PrivacyPolicyContent />
+    </LanguageProvider>
+  );
+afterEach(cleanup);
+
+describe("privacy policy: payments & billing", () => {
+  it("says what is stored for a paid plan, that card details never reach StandUp, and that deleting content doesn't remove billing records", () => {
+    mount();
+    const t = screen.getByTestId("privacy-billing").textContent!;
+    expect(t).toContain("free during the beta");
+    expect(t).toContain("handled by Stripe");
+    expect(t).toContain("card details go to Stripe and never reach StandUp");
+    for (const stored of ["Stripe customer and subscription identifiers", "monthly or annual", "status", "billing period dates"]) expect(t).toContain(stored);
+    expect(t).toContain("never shown to other members");
+    expect(t).toContain("doesn't remove these billing records");
+    expect(screen.getByText("Payments & billing")).toBeTruthy();
+  });
+  it("is available in Spanish with the same commitments", () => {
+    localStorage.setItem("standup-language", "es");
+    try {
+      mount();
+      const t = screen.getByTestId("privacy-billing").textContent!;
+      for (const s of ["gratis durante la beta", "Stripe", "nunca llegan a StandUp", "identificadores de cliente y suscripción", "mensual o anual", "nunca se muestran a otros miembros", "no elimina estos registros de facturación"]) expect(t).toContain(s);
+      expect(screen.getByText("Pagos y facturación")).toBeTruthy();
+    } finally {
+      localStorage.removeItem("standup-language");
+    }
+  });
+});

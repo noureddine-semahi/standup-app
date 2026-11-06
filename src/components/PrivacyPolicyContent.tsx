@@ -43,6 +43,13 @@ export default function PrivacyPolicyContent() {
       </section>
 
       <section className="py-6">
+        <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.billingTitle")}</h2>
+        <p className="text-sm text-white/70" data-testid="privacy-billing">
+          {t("privacy.billingBody")}
+        </p>
+      </section>
+
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.yourControlTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.yourControlBody")}</p>
       </section>

@@ -44,6 +44,9 @@ function memoryStore() {
       const r = rows.get(id);
       if (r && r.status === "processing") Object.assign(r, { status: "failed", error: code });
     },
+    async syncSubscription() {
+      return "applied";
+    },
   };
   return store;
 }
@@ -186,9 +189,18 @@ describe("supported and unsupported events", () => {
       expect(handler).not.toHaveBeenCalled();
     }
   });
-  it("the default handlers in this phase do nothing: no entitlement or subscription change is possible", async () => {
+  it("the default handlers only record billing: an event with no subscription is ignored without touching the store, and none can reach an entitlement", async () => {
     for (const h of Object.values(defaultHandlers)) expect(h.toString()).not.toMatch(/supabase|entitlement|rpc|from\(/);
-    for (const t of SUPPORTED_EVENT_TYPES) await expect(defaultHandlers[t]({} as Stripe.Event)).resolves.toBeUndefined();
+    const store = memoryStore();
+    const spy = vi.spyOn(store, "syncSubscription");
+    for (const t of SUPPORTED_EVENT_TYPES) await expect(defaultHandlers[t]({ id: "evt_x", type: t, data: { object: {} } } as unknown as Stripe.Event, { store })).resolves.toBe("ignored_no_subscription");
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("the handler's outcome code is logged next to the event ID, and nothing else is", async () => {
+    const handler = vi.fn<EventHandler>().mockResolvedValue("sync_applied");
+    const { deps } = makeDeps({}, memoryStore(), handler);
+    await handleStripeWebhook(signed(eventJson()), deps);
+    expect(JSON.stringify(logs)).toContain("sync_applied");
   });
 });
 

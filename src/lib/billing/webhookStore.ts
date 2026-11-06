@@ -11,12 +11,35 @@ import { createClient } from "@supabase/supabase-js";
 
 export type ClaimResult = "claimed" | "duplicate" | "in_progress";
 
+/** The subscription facts the database records against an account, all derived on the server from Stripe's own data. */
+export type SubscriptionSyncArgs = {
+  eventId: string;
+  /** The account the trusted Checkout metadata names, or null. The database weighs it against existing records; it is never trusted alone. */
+  userHint: string | null;
+  customerId: string;
+  subscriptionId: string;
+  priceId: string;
+  plan: "monthly" | "annual";
+  status: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  endedAt: string | null;
+  /** When this server fetched the subscription from Stripe: a snapshot older than the stored one never overwrites it. */
+  fetchedAt: string;
+};
+export type SubscriptionSyncResult = "applied" | "stale" | "unmapped" | "ownership_conflict" | "subscription_conflict" | "invalid";
+const SYNC_RESULTS: readonly string[] = ["applied", "stale", "unmapped", "ownership_conflict", "subscription_conflict", "invalid"];
+
 export type WebhookStore = {
   /** Atomically claim an event for processing. Concurrent deliveries of one event: exactly one gets "claimed". */
   claim(eventId: string, eventType: string): Promise<ClaimResult>;
   complete(eventId: string): Promise<void>;
   /** `code` is a short machine code (e.g. "handler_error"), never a message. */
   fail(eventId: string, code: string): Promise<void>;
+  /** Record a subscription against its account (billing records only; never an entitlement). */
+  syncSubscription(args: SubscriptionSyncArgs): Promise<SubscriptionSyncResult>;
 };
 
 /** missing_env: a required variable isn't set. rpc_error: Supabase (or the network) failed the call. unexpected_response: it answered with something else. */
@@ -53,7 +76,7 @@ export function createWebhookStore(env: Readonly<Record<string, string | undefin
   const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 
   /** One rpc call. Returns the data on success; on any failure logs the safe diagnostic and throws. */
-  async function call(op: string, fn: string, args: Record<string, string>): Promise<unknown> {
+  async function call(op: string, fn: string, args: Record<string, string | boolean | null>): Promise<unknown> {
     let res: { data: unknown; error: { code?: unknown } | null; status?: unknown };
     try {
       res = (await db.rpc(fn, args)) as typeof res;
@@ -82,6 +105,28 @@ export function createWebhookStore(env: Readonly<Record<string, string | undefin
     },
     async fail(eventId, code) {
       await call("fail", "fail_stripe_event", { p_event_id: eventId, p_error: code });
+    },
+    async syncSubscription(a) {
+      const data = await call("sync", "sync_stripe_subscription", {
+        p_event_id: a.eventId,
+        p_user_hint: a.userHint,
+        p_customer_id: a.customerId,
+        p_subscription_id: a.subscriptionId,
+        p_price_id: a.priceId,
+        p_plan: a.plan,
+        p_status: a.status,
+        p_period_start: a.periodStart,
+        p_period_end: a.periodEnd,
+        p_cancel_at_period_end: a.cancelAtPeriodEnd,
+        p_canceled_at: a.canceledAt,
+        p_ended_at: a.endedAt,
+        p_fetched_at: a.fetchedAt,
+      });
+      if (typeof data !== "string" || !SYNC_RESULTS.includes(data)) {
+        logStoreFailure({ reason: "unexpected_response", op: "sync" });
+        throw new WebhookStoreUnavailableError("unexpected_response");
+      }
+      return data as SubscriptionSyncResult;
     },
   };
 }

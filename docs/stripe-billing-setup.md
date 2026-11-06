@@ -96,3 +96,22 @@ record or account yet (the handlers are placeholders for the next phase). Checko
 4. Local testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook` prints a temporary `whsec_...` to use in `.env.local`.
 
 Until steps 1 and 2 are done the endpoint answers `503` and Stripe simply retries; nothing is lost or changed.
+
+## Subscription-to-account mapping (Phase 5.6 step 1: billing records only)
+
+Verified webhook events now record each subscription in `public.account_billing` (customer, subscription and price IDs, plan, status, billing
+period, cancel/end timestamps). **Premium is not activated or revoked by this step**, and entitlements, trials and admin grants are untouched:
+turning a verified billing record into an entitlement is the next step. Checkout and the beta flags are unchanged.
+
+- **Source of truth:** the event only says *which* subscription changed; the handler then fetches that subscription from Stripe and records
+  its current state, so duplicate and out-of-order events converge on the latest state. Every write carries its fetch time and the
+  database refuses an older snapshot (`stale`).
+- **Plan:** taken from the Price ID, matched against `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL`. Metadata or anything a browser sent is never used for the plan.
+  A subscription on any other Price, or in live mode, is ignored.
+- **Account:** an existing billing record always wins; otherwise the account comes from the Checkout metadata set by our own server
+  (`client_reference_id` / `metadata.user_id`) and must be a real account. Contradictory hints, a subscription or customer claimed by two accounts, an account tied to a different
+  customer, or a second live subscription change nothing (`ownership_conflict` / `subscription_conflict`; logged, not retried).
+- **Needs in Vercel Production:** `STRIPE_PRICE_MONTHLY` and `STRIPE_PRICE_ANNUAL` (and `STRIPE_SECRET_KEY`) in addition to the webhook variables; without them a subscription event fails
+  and Stripe retries it until they are set.
+- **Migration:** run `supabase/migrations/20261119000100_billing_sync.sql` (new nullable columns + one service-role-only function).
+- **Privacy policy (EN/ES)** now has a "Payments & billing" section describing exactly what is stored.

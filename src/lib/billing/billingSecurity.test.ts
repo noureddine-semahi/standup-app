@@ -24,12 +24,12 @@ describe("Stripe stays on the server", () => {
   });
 
   it("no 'use client' file imports the Stripe SDK or the server billing modules", () => {
-    const offenders = files.filter((f) => /^\s*["']use client["']/.test(read(f)) && /from\s+["'](stripe|@\/lib\/billing\/(config|stripe))["']/.test(read(f)));
+    const offenders = files.filter((f) => /^\s*["']use client["']/.test(read(f)) && /from\s+["'](stripe|@\/lib\/billing\/(config|stripe|checkout|serverAuth|origins))["']/.test(read(f)));
     expect(offenders.map(rel)).toEqual([]);
   });
 
   it("the Stripe SDK is imported only by the server client module", () => {
-    const importers = files.filter((f) => /from\s+["']stripe["']/.test(read(f)));
+    const importers = files.filter((f) => /^import (?!type)[^\n]*from\s+["']stripe["']/m.test(read(f)));
     expect(importers.map(rel)).toEqual(["src/lib/billing/stripe.ts"]);
   });
 
@@ -45,13 +45,31 @@ describe("Stripe stays on the server", () => {
     expect(cfg).not.toMatch(/\benv\s*:/);
   });
 
-  it("this phase adds no checkout, webhook, portal or entitlement-writing code", () => {
-    const code = readdirSync(billingDir)
-      .filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n))
-      .map((n) => read(join(billingDir, n)))
-      .join("\n");
-    expect(code).not.toMatch(/checkout\.sessions\.create|billingPortal|webhooks\.constructEvent|subscriptions\.(create|update|cancel)/);
-    expect(code).not.toMatch(/account_entitlements|admin_set_entitlement|supabase/i);
+  const billingFiles = () => readdirSync(billingDir).filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n));
+  const billingCode = () => billingFiles().map((n) => read(join(billingDir, n))).join("\n");
+
+  it("Checkout sessions are created in one place only, and there is no webhook, portal or subscription-changing code yet", () => {
+    expect(billingFiles().filter((n) => /checkout\.sessions\.create/.test(read(join(billingDir, n))))).toEqual(["checkout.ts"]);
+    expect(billingCode()).not.toMatch(/billingPortal|webhooks\.constructEvent|subscriptions\.(create|update|cancel|resume)|invoices\.|paymentIntents\./);
+  });
+
+  it("billing code can never write an entitlement or any data: no entitlement tables or functions, no inserts/updates/upserts/deletes", () => {
+    const code = billingCode();
+    expect(code).not.toMatch(/account_entitlements|account_billing|admin_set_entitlement|start_my_premium_trial/);
+    // (hashing the idempotency key with createHash(...).update(...) is not a database write)
+    expect(code.replace(/createHash\([^)]*\)\.update\(/g, "")).not.toMatch(/\.(insert|update|upsert|delete)\(/);
+    expect(code.match(/\.rpc\(\s*"[a-z_]+"/g)).toEqual(['.rpc("get_feature_flags"']);
+  });
+
+  it("Supabase is touched only by serverAuth.ts, as the calling user (no service role)", () => {
+    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["serverAuth.ts"]);
+    expect(billingCode()).not.toMatch(/service_role|SERVICE_ROLE/);
+  });
+
+  it("the checkout route exposes POST only and delegates to the handler", () => {
+    const route = read(join(src, "app", "api", "billing", "checkout", "route.ts"));
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect(route).toContain("handleCheckoutRequest");
   });
 
   it("the settings UI components don't reference Stripe or the billing config", () => {

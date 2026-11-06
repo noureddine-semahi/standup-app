@@ -55,3 +55,18 @@ server's service role can, and nothing uses it yet.
 ## Next phases (not done)
 
 Checkout session creation, webhook handling that turns an active subscription into a Premium entitlement, and the customer portal.
+
+## Checkout endpoint (Phase 5.4: sandbox, blocked during the beta)
+
+`POST /api/billing/checkout` creates a Stripe Checkout session (subscription mode, test mode) for the signed-in user.
+
+- **Request:** headers `Authorization: Bearer <Supabase access token>` and a trusted `Origin`; JSON body `{ "plan": "monthly" | "annual" }`. Nothing
+  else is accepted: any extra field (a price, amount, customer or redirect URL) is rejected.
+- **Response:** `200 { "url": "https://checkout.stripe.com/..." }`, or `{ "error": code }`: `403 forbidden_origin`, `401 unauthenticated`,
+  `403 checkout_disabled`, `400 invalid_request`, `503 billing_unavailable`, `502 checkout_failed`.
+- **Blocked in the beta:** it requires **both** `billing_checkout_enabled` and `premium_promotion_enabled` (see `docs/feature-flags.md`). All flags are off, so every
+  request is refused with `checkout_disabled` before Stripe is contacted.
+- **Redirects:** built on the server from the request's `Origin`, only if it is trusted (the production origin; localhost outside production; plus any
+  origins listed in `BILLING_TRUSTED_ORIGINS`, comma-separated, https only), with fixed paths `/standup/settings?checkout=success|cancelled`.
+- **Retries:** a repeat of the same request within 5 minutes reuses the same Stripe idempotency key, so Stripe returns the same session.
+- **Grants nothing:** creating a session changes no entitlement. Turning a paid subscription into Premium belongs to the webhook phase.

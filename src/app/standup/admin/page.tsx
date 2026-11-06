@@ -22,6 +22,7 @@ import {
   type LandingVisitStats,
 } from "@/lib/supabase/db";
 import { getLevelInfo } from "@/lib/levels";
+import AdminEntitlementsPanel from "@/components/AdminEntitlementsPanel";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
@@ -37,6 +38,7 @@ const ACTION_LABELS: Record<string, string> = {
   set_points: "Set Points",
   wipe_data: "Wipe Data",
   set_role: "Change Role",
+  set_entitlement: "Change Plan",
 };
 
 const ROLE_LABELS: Record<AdminRole, string> = {
@@ -53,6 +55,9 @@ function describeAuditDetails(entry: AdminAuditEntry): string {
     const oldRole = ROLE_LABELS[entry.details.old_role as AdminRole] ?? entry.details.old_role ?? "?";
     const newRole = ROLE_LABELS[entry.details.new_role as AdminRole] ?? entry.details.new_role ?? "?";
     return `${oldRole} → ${newRole}`;
+  }
+  if (entry.action === "set_entitlement" && entry.details) {
+    return `${entry.details.old_stored_tier ?? "?"} → ${entry.details.new_stored_tier ?? "?"}`;
   }
   return "—";
 }
@@ -482,6 +487,8 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+
+      <AdminEntitlementsPanel members={members} canChange={sysAdmin} />
 
       <div className="card">
         <h2 className="text-lg font-semibold mb-1">Audit Log</h2>

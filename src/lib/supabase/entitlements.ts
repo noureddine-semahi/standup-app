@@ -70,7 +70,7 @@ export async function getMyEntitlement(): Promise<AccountEntitlement> {
 // Requires supabase/migrations/20261114000100_premium_trial.sql. A trial can only be started through the database function
 // start_my_premium_trial(); nothing in the app can set a tier or a trial date.
 
-export type TrialRefusal = "already_used" | "already_premium" | "not_signed_in";
+export type TrialRefusal = "already_used" | "already_premium" | "not_signed_in" | "activation_disabled";
 
 /** Why the database refused to start a trial, or null if the error is something else. */
 export function trialRefusalReason(e: unknown): TrialRefusal | null {
@@ -78,6 +78,7 @@ export function trialRefusalReason(e: unknown): TrialRefusal | null {
   if (msg.includes("TRIAL_ALREADY_USED")) return "already_used";
   if (msg.includes("ALREADY_PREMIUM")) return "already_premium";
   if (msg.includes("NOT_SIGNED_IN")) return "not_signed_in";
+  if (msg.includes("TRIAL_ACTIVATION_DISABLED")) return "activation_disabled";
   return null;
 }
 

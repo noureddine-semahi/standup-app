@@ -90,6 +90,7 @@ import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
 import { loadCardPresentation, saveCardPresentation } from "@/lib/cardPresentationStorage";
 import { buildGoalTimeline } from "@/lib/goalTimeline";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useLimitReachedText } from "@/lib/useFeatureFlags";
 import { FREE_LIMITS } from "@/lib/entitlements";
 import { isGoalLimitError } from "@/lib/goalLimit";
 import { statusLabel } from "@/lib/goalStatus";
@@ -98,6 +99,7 @@ import { Link2, Plus, Sun, X, MessageCircle, Redo2, Lock, Unlock, Ticket, CheckC
 
 export default function TomorrowGoalsPage() {
   const { t } = useLanguage();
+  const limitText = useLimitReachedText();
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
   const todayISO = useMemo(() => toISODate(new Date()), []);
   // Deep-linking in from Dashboard's tappable goal rows (?goal=<id>) —
@@ -580,7 +582,7 @@ export default function TomorrowGoalsPage() {
       await persistGoals(true);
       resetAddFlow();
     } catch (e: any) {
-      setGoalCreateError(isGoalLimitError(e) ? t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals }) : e?.message ?? t("tomorrow.goalCreateFailed"));
+      setGoalCreateError(isGoalLimitError(e) ? limitText("goals", FREE_LIMITS.structuredGoals) : e?.message ?? t("tomorrow.goalCreateFailed"));
     } finally {
       setCreatingGoal(false);
     }

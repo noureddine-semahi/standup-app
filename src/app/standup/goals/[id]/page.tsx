@@ -51,6 +51,7 @@ import { statusLabel, statusChipColors } from "@/lib/goalStatus";
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import { DEFAULT_PRIORITY } from "@/lib/goalLogic";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useLimitReachedText } from "@/lib/useFeatureFlags";
 import { FREE_LIMITS } from "@/lib/entitlements";
 import { isGoalLimitError } from "@/lib/goalLimit";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -136,6 +137,7 @@ export default function GoalDetailPage() {
   const idParam = params?.id;
   const id = typeof idParam === "string" ? idParam : Array.isArray(idParam) ? idParam[0] ?? "" : "";
   const { t } = useLanguage();
+  const limitText = useLimitReachedText();
 
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
@@ -487,7 +489,7 @@ export default function GoalDetailPage() {
       const updated = await setOutcomeGoalStatus(goal.id, status);
       setGoal(updated);
     } catch (e: any) {
-      setMsg(isGoalLimitError(e) ? t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals }) : e?.message ?? t("goalDetail.statusChangeFailed"));
+      setMsg(isGoalLimitError(e) ? limitText("goals", FREE_LIMITS.structuredGoals) : e?.message ?? t("goalDetail.statusChangeFailed"));
     } finally {
       setSettingStatus(false);
     }

@@ -33,6 +33,7 @@ import GoalTypeSelect from "@/components/GoalTypeSelect";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
 import GoalAssignmentsPanel from "@/components/GoalAssignmentsPanel";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useLimitReachedText } from "@/lib/useFeatureFlags";
 import { FREE_LIMITS, type AccountTier } from "@/lib/entitlements";
 import { goalLimitReached, isGoalLimitError } from "@/lib/goalLimit";
 import { getMyEntitlement } from "@/lib/supabase/entitlements";
@@ -165,6 +166,7 @@ export default function GoalsManagementPanel({
   initialView?: ManagementView;
 } = {}) {
   const { t } = useLanguage();
+  const limitText = useLimitReachedText();
   const [managementView, setManagementView] = useState<ManagementView>(initialView ?? DEFAULT_MANAGEMENT_VIEW);
   // A late-arriving initial view (restored after the first paint) is applied once.
   useEffect(() => {
@@ -423,7 +425,7 @@ export default function GoalsManagementPanel({
       )}
       {goalsAtLimit && (
         <div role="status" className="mb-4 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm" data-testid="goals-limit">
-          {t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals })}
+          {limitText("goals", FREE_LIMITS.structuredGoals)}
         </div>
       )}
 

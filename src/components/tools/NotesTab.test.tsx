@@ -14,6 +14,10 @@ vi.mock("@/lib/supabase/notes", async (orig) => ({ ...(await orig<typeof import(
 const ent = vi.hoisted(() => ({ getMyEntitlement: vi.fn() }));
 vi.mock("@/lib/supabase/entitlements", async (orig) => ({ ...(await orig<typeof import("@/lib/supabase/entitlements")>()), ...ent }));
 
+const flagsApi = vi.hoisted(() => ({ getFeatureFlags: vi.fn() }));
+vi.mock("@/lib/supabase/featureFlags", () => flagsApi);
+const flagsWith = (promotion: boolean) => ({ premium_promotion_enabled: promotion, premium_trial_activation_enabled: false, billing_checkout_enabled: false });
+
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import NotesTab from "./NotesTab";
 
@@ -55,6 +59,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   Object.values(api).forEach((f) => f.mockReset());
   ent.getMyEntitlement.mockReset();
+  flagsApi.getFeatureFlags.mockReset();
+  flagsApi.getFeatureFlags.mockResolvedValue(flagsWith(false));
   ent.getMyEntitlement.mockResolvedValue({ tier: "free", storedTier: "free", trialStartedAt: null, trialEndsAt: null });
   api.saveNoteText.mockImplementation(async (_id, rev, text) => ({ status: "ok", note: note({ ...text, revision: rev + 1 }) }));
 });
@@ -300,12 +306,20 @@ describe("Free-plan note limit", () => {
     expect(screen.queryByTestId("notes-limit")).toBeNull();
   });
   it("at the limit (10 notes) a Free account cannot create another: the button is off and a concise upgrade message shows", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(flagsWith(true));
     await mount(many(10));
     expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId("notes-limit").textContent).toContain("Free plan limit of 10 notes");
     expect(screen.getByTestId("notes-limit").textContent).toContain("Upgrade to Premium");
     expect(api.createNote).not.toHaveBeenCalled();
     expect(ids()).toHaveLength(10); // every existing note is still listed
+  });
+  it("during the free beta (promotion off) the same limit is enforced but the message doesn't mention Premium", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(flagsWith(false));
+    await mount(many(10));
+    expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("notes-limit").textContent).toBe("You've reached the Free plan limit of 10 notes.");
+    expect(ids()).toHaveLength(10);
   });
   it("Premium and an active Premium Trial have no limit, however many notes there are", async () => {
     for (const tier of ["premium", "premium_trial"]) {

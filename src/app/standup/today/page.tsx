@@ -103,6 +103,7 @@ import {
 import { notifyPointsUpdated } from "@/lib/pointsBus";
 import { notifyNotificationsUpdated } from "@/lib/notificationsBus";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useLimitReachedText } from "@/lib/useFeatureFlags";
 import { FREE_LIMITS } from "@/lib/entitlements";
 import { isGoalLimitError } from "@/lib/goalLimit";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -216,6 +217,7 @@ const RECURRING_RESULT_LABEL_KEY: Record<Exclude<CycleResultStatus, "unconfigure
 
 export default function TodayPage() {
   const { t } = useLanguage();
+  const limitText = useLimitReachedText();
   const todayISO = useMemo(() => toISODate(new Date()), []);
   const tomorrowISO = useMemo(() => toISODate(addDays(new Date(), 1)), []);
   // Deep-linking in from Dashboard's now-tappable goal rows (?goal=<id>) —
@@ -1788,7 +1790,7 @@ export default function TodayPage() {
       resetAddFlow();
       await refresh({ silent: true });
     } catch (e: any) {
-      setGoalCreateError(isGoalLimitError(e) ? t("goals.limitReached", { limit: FREE_LIMITS.structuredGoals }) : e?.message ?? t("tomorrow.goalCreateFailed"));
+      setGoalCreateError(isGoalLimitError(e) ? limitText("goals", FREE_LIMITS.structuredGoals) : e?.message ?? t("tomorrow.goalCreateFailed"));
     } finally {
       setCreatingGoal(false);
     }

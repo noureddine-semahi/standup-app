@@ -8,6 +8,8 @@ import { trialView } from "@/lib/trialView";
 import { TrialNotAvailableError, getMyEntitlement, getMyTrialHistory, isEntitlementsUnavailableError, startMyTrial, type AccountEntitlement, type TrialHistory } from "@/lib/supabase/entitlements";
 import { ConfirmActionModal } from "@/components/tools/PaymentsDashboard";
 import PremiumPlans from "@/components/PremiumPlans";
+import { showPremiumPromotion, showTrialOffer } from "@/lib/featureFlags";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
 // Account settings > Premium. Shows the current plan and, if the one-time trial is still available, a "Start 14-Day Free Trial"
 // action. The trial starts ONLY when the user confirms in the dialog; nothing here runs on page load or at signup. No payment is
@@ -17,6 +19,7 @@ type Phase = "loading" | "ready" | "error";
 
 export default function PremiumTrialCard() {
   const { t, language } = useLanguage();
+  const flags = useFeatureFlags(); // all off until the server says otherwise: the free beta shows no Premium promotion
   const [phase, setPhase] = useState<Phase>("loading");
   const [ent, setEnt] = useState<AccountEntitlement | null>(null);
   const [history, setHistory] = useState<TrialHistory | null>(null);
@@ -59,6 +62,7 @@ export default function PremiumTrialCard() {
         await load(); // the truth may differ from what was on screen (used elsewhere, or already Premium)
         if (e.reason === "already_used") return t("premium.alreadyUsed");
         if (e.reason === "already_premium") return t("premium.alreadyPremium");
+        if (e.reason === "activation_disabled") return t("premium.activationDisabled");
         return t("premium.startFailed");
       }
       return isEntitlementsUnavailableError(e) ? t("premium.unavailable") : t("premium.startFailed");
@@ -107,7 +111,7 @@ export default function PremiumTrialCard() {
             </p>
           )}
 
-          {view.canStart && (
+          {view.canStart && showTrialOffer(flags) && (
             <div className="space-y-2">
               <p className="text-sm text-white/70" data-testid="premium-offer">
                 {t("premium.offer", { days: TRIAL_DAYS })}
@@ -118,7 +122,7 @@ export default function PremiumTrialCard() {
             </div>
           )}
 
-          {view.tier !== "premium" && <PremiumPlans />}
+          {view.tier !== "premium" && showPremiumPromotion(flags) && <PremiumPlans />}
         </div>
       )}
 

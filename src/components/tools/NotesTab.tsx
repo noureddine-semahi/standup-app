@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pin, Plus, Search } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useLimitReachedText } from "@/lib/useFeatureFlags";
 import { FREE_LIMITS, isAtLimit, type AccountTier } from "@/lib/entitlements";
 import { filterNotes, notePreview, sortNotes, type Note } from "@/lib/notes";
 import { getMyEntitlement } from "@/lib/supabase/entitlements";
@@ -17,6 +18,7 @@ type Phase = "loading" | "ready" | "error" | "unavailable";
 
 export default function NotesTab() {
   const { t, language } = useLanguage();
+  const limitText = useLimitReachedText();
   const [phase, setPhase] = useState<Phase>("loading");
   const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
@@ -156,7 +158,7 @@ export default function NotesTab() {
 
       {phase === "ready" && atLimit && (
         <div role="status" className="note-banner" data-testid="notes-limit">
-          {t("notes.limitReached", { limit: FREE_LIMITS.notes })}
+          {limitText("notes", FREE_LIMITS.notes)}
         </div>
       )}
 

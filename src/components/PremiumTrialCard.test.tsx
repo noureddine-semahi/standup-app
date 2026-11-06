@@ -4,6 +4,11 @@ import { render, screen, fireEvent, cleanup, act, within } from "@testing-librar
 const api = vi.hoisted(() => ({ getMyEntitlement: vi.fn(), getMyTrialHistory: vi.fn(), startMyTrial: vi.fn() }));
 vi.mock("@/lib/supabase/entitlements", async (orig) => ({ ...(await orig<typeof import("@/lib/supabase/entitlements")>()), ...api }));
 
+const flagsApi = vi.hoisted(() => ({ getFeatureFlags: vi.fn() }));
+vi.mock("@/lib/supabase/featureFlags", () => flagsApi);
+const ALL_ON = { premium_promotion_enabled: true, premium_trial_activation_enabled: true, billing_checkout_enabled: false };
+const ALL_OFF = { premium_promotion_enabled: false, premium_trial_activation_enabled: false, billing_checkout_enabled: false };
+
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { TrialNotAvailableError } from "@/lib/supabase/entitlements";
 import PremiumTrialCard from "./PremiumTrialCard";
@@ -33,6 +38,8 @@ async function mount(ent: unknown, hist: unknown = unused) {
 
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
+  flagsApi.getFeatureFlags.mockReset();
+  flagsApi.getFeatureFlags.mockResolvedValue(ALL_ON); // the pre-beta behaviour, so the existing trial tests still describe it
 });
 afterEach(cleanup);
 
@@ -155,6 +162,56 @@ describe("errors", () => {
     await act(async () => fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Start trial")));
     await settle();
     expect(screen.getByRole("alertdialog").textContent).toContain("isn't available yet");
+  });
+});
+
+describe("beta feature flags", () => {
+  it("all off (the free beta): no promotion, no pricing, no trial offer; the current plan is still shown", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(ALL_OFF);
+    await mount(free);
+    expect(screen.getByTestId("premium-tier").textContent).toBe("Free");
+    expect(screen.queryByTestId("premium-plans")).toBeNull();
+    expect(screen.queryByTestId("premium-offer")).toBeNull();
+    expect(screen.queryByTestId("premium-start")).toBeNull();
+    expect(screen.queryByText(/$5.99|$49.99/)).toBeNull();
+  });
+  it("a failure to read the flags behaves as all off, never all on", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(ALL_OFF); // the data layer turns any error into this
+    await mount(free);
+    expect(screen.queryByTestId("premium-start")).toBeNull();
+  });
+  it("promotion on, trial activation off: comparison and pricing show, but there is no way to start a trial", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue({ ...ALL_OFF, premium_promotion_enabled: true });
+    await mount(free);
+    expect(screen.getByTestId("premium-plans")).toBeTruthy();
+    expect(screen.queryByTestId("premium-start")).toBeNull();
+  });
+  it("trial activation on, promotion off: the trial can be offered without the pricing comparison", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue({ ...ALL_OFF, premium_trial_activation_enabled: true });
+    await mount(free);
+    expect(screen.getByTestId("premium-start")).toBeTruthy();
+    expect(screen.queryByTestId("premium-plans")).toBeNull();
+  });
+  it("existing Premium, an active trial and an ended trial are all still shown accurately with every flag off", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(ALL_OFF);
+    await mount(premium);
+    expect(screen.getByTestId("premium-tier").textContent).toBe("Premium");
+    cleanup();
+    await mount(trial, used);
+    expect(screen.getByTestId("premium-tier").textContent).toBe("Premium Trial");
+    expect(screen.getByTestId("premium-trial-info")).toBeTruthy();
+    cleanup();
+    await mount(expired, used);
+    expect(screen.getByTestId("premium-trial-ended")).toBeTruthy();
+  });
+  it("if the server refuses because activation was switched off meanwhile, the user is told and nothing starts", async () => {
+    await mount(free);
+    fireEvent.click(screen.getByTestId("premium-start"));
+    api.startMyTrial.mockRejectedValue(new TrialNotAvailableError("activation_disabled"));
+    await act(async () => fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Start trial")));
+    await settle();
+    expect(screen.getByRole("alertdialog").textContent).toContain("aren't available right now");
+    expect(screen.getByTestId("premium-tier").textContent).toBe("Free");
   });
 });
 

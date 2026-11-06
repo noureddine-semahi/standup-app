@@ -39,6 +39,7 @@ import { isRoutineLimitError, routineLimitReached } from "@/lib/routineLimit";
 import { getMyEntitlement } from "@/lib/supabase/entitlements";
 import { hexToRgbTriple } from "@/lib/color";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useLimitReachedText } from "@/lib/useFeatureFlags";
 import type { TranslationKey } from "@/lib/i18n/en";
 
 const WEEKDAY_KEYS: TranslationKey[] = [
@@ -85,6 +86,7 @@ const TABS: { key: ToolsTab; labelKey: TranslationKey; headingKey: TranslationKe
 
 export default function ToolsPage() {
   const { t } = useLanguage();
+  const limitText = useLimitReachedText();
   const router = useRouter();
   const [activeTab, setActiveTabState] = useState<ToolsTab>("goals");
   // Which view Goals opens on (a legacy Long-Term tab or link opens its Long-Term view).
@@ -930,7 +932,7 @@ export default function ToolsPage() {
 
       {routinesAtLimit && (
         <div role="status" className="mb-4 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm" data-testid="routines-limit">
-          {t("routines.limitReached", { limit: FREE_LIMITS.routines })}
+          {limitText("routines", FREE_LIMITS.routines)}
         </div>
       )}
 

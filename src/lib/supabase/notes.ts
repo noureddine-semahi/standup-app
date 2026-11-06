@@ -26,6 +26,13 @@ export function isNotesUnavailableError(e: unknown): boolean {
   );
 }
 
+/** True when the database refused a new note because a Free account is at its note limit (trigger error NOTE_LIMIT_REACHED, 53400). */
+export function isNoteLimitError(e: unknown): boolean {
+  const err = e as { code?: string; message?: string } | null;
+  if (!err) return false;
+  return err.code === "53400" || String(err.message ?? "").includes("NOTE_LIMIT_REACHED");
+}
+
 function rowToNote(r: NoteRow): Note {
   return { id: r.id, title: r.title, body: r.body, pinned: r.pinned, revision: r.revision, createdAt: r.created_at, updatedAt: r.updated_at };
 }

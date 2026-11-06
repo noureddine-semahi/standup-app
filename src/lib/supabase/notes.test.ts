@@ -43,7 +43,7 @@ vi.mock("@/lib/supabase/db", () => ({
   },
 }));
 
-import { createNote, deleteNote, isNotesUnavailableError, listNotes, saveNoteText, setNotePinned } from "./notes";
+import { createNote, deleteNote, isNoteLimitError, isNotesUnavailableError, listNotes, saveNoteText, setNotePinned } from "./notes";
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: "n1",
@@ -177,5 +177,28 @@ describe("isNotesUnavailableError", () => {
     expect(isNotesUnavailableError({ message: "Could not find the table 'public.notes' in the schema cache" })).toBe(true);
     expect(isNotesUnavailableError({ code: "08006", message: "connection lost" })).toBe(false);
     expect(isNotesUnavailableError(null)).toBe(false);
+  });
+});
+
+describe("the Free note limit", () => {
+  it("recognises the database's refusal (53400 / NOTE_LIMIT_REACHED) and nothing else", () => {
+    expect(isNoteLimitError({ code: "53400", message: "x" })).toBe(true);
+    expect(isNoteLimitError({ message: "NOTE_LIMIT_REACHED" })).toBe(true);
+    expect(isNoteLimitError({ code: "42501", message: "new row violates row-level security policy" })).toBe(false);
+    expect(isNoteLimitError({ code: "08006", message: "connection lost" })).toBe(false);
+    expect(isNoteLimitError(null)).toBe(false);
+  });
+  it("createNote surfaces the refusal to the caller unchanged and writes nothing else", async () => {
+    state.error = { code: "53400", message: "NOTE_LIMIT_REACHED" };
+    await expect(createNote()).rejects.toMatchObject({ code: "53400" });
+    expect(state.calls.filter((c) => c.op === "insert")).toHaveLength(1);
+    expect(state.calls.some((c) => c.op === "update" || c.op === "delete")).toBe(false);
+  });
+  it("saving, pinning and deleting never go through the insert path, so the limit can't block them", async () => {
+    state.writeResult = row();
+    await saveNoteText("n1", 2, { title: "a", body: "b" });
+    await setNotePinned("n1", 3, true);
+    await deleteNote("n1");
+    expect(state.calls.some((c) => c.op === "insert")).toBe(false);
   });
 });

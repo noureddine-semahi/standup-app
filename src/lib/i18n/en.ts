@@ -700,6 +700,7 @@ export const en = {
   "notes.gone": "This note no longer exists.",
   "notes.unsavedBody": "Your latest changes aren't saved yet.",
   "notes.leaveAnyway": "Leave without saving",
+  "notes.limitReached": "You've reached the Free plan limit of {limit} notes. Upgrade to Premium for unlimited notes.",
   "notes.pinFailed": "Couldn't change the pin. Try again.",
   "backlog.tabAssignments": "Assigned Goals",
   "tools.descCalculator": "A quick calculator for everyday arithmetic, with memory and history.",

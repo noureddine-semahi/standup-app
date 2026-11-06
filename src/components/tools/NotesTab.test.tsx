@@ -11,6 +11,8 @@ const api = vi.hoisted(() => ({
   deleteNote: vi.fn(),
 }));
 vi.mock("@/lib/supabase/notes", async (orig) => ({ ...(await orig<typeof import("@/lib/supabase/notes")>()), ...api }));
+const ent = vi.hoisted(() => ({ getMyEntitlement: vi.fn() }));
+vi.mock("@/lib/supabase/entitlements", async (orig) => ({ ...(await orig<typeof import("@/lib/supabase/entitlements")>()), ...ent }));
 
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import NotesTab from "./NotesTab";
@@ -52,6 +54,8 @@ const type = (testid: string, value: string) => fireEvent.change(screen.getByTes
 beforeEach(() => {
   vi.useFakeTimers();
   Object.values(api).forEach((f) => f.mockReset());
+  ent.getMyEntitlement.mockReset();
+  ent.getMyEntitlement.mockResolvedValue({ tier: "free", storedTier: "free", trialStartedAt: null, trialEndsAt: null });
   api.saveNoteText.mockImplementation(async (_id, rev, text) => ({ status: "ok", note: note({ ...text, revision: rev + 1 }) }));
 });
 afterEach(() => {
@@ -284,6 +288,86 @@ describe("pin and delete in the editor", () => {
     await settle();
     expect(screen.getByRole("alertdialog").textContent).toContain("denied");
     expect(screen.getByTestId("note-editor")).toBeTruthy();
+  });
+});
+
+const many = (n: number) => Array.from({ length: n }, (_, i) => note({ id: `m${i}`, title: `Note ${i}`, updatedAt: `2026-10-${String(i + 1).padStart(2, "0")}T10:00:00Z` }));
+
+describe("Free-plan note limit", () => {
+  it("below the limit (9 notes) New note is available and no upgrade message shows", async () => {
+    await mount(many(9));
+    expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId("notes-limit")).toBeNull();
+  });
+  it("at the limit (10 notes) a Free account cannot create another: the button is off and a concise upgrade message shows", async () => {
+    await mount(many(10));
+    expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("notes-limit").textContent).toContain("Free plan limit of 10 notes");
+    expect(screen.getByTestId("notes-limit").textContent).toContain("Upgrade to Premium");
+    expect(api.createNote).not.toHaveBeenCalled();
+    expect(ids()).toHaveLength(10); // every existing note is still listed
+  });
+  it("Premium and an active Premium Trial have no limit, however many notes there are", async () => {
+    for (const tier of ["premium", "premium_trial"]) {
+      cleanup();
+      ent.getMyEntitlement.mockResolvedValue({ tier, storedTier: tier, trialStartedAt: null, trialEndsAt: null });
+      await mount(many(25));
+      expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(false);
+      expect(screen.queryByTestId("notes-limit")).toBeNull();
+    }
+  });
+  it("an expired trial (resolved to Free by the database) is limited again", async () => {
+    ent.getMyEntitlement.mockResolvedValue({ tier: "free", storedTier: "premium_trial", trialStartedAt: "2026-10-01T00:00:00Z", trialEndsAt: "2026-10-15T00:00:00Z" });
+    await mount(many(12));
+    expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("notes-limit")).toBeTruthy();
+  });
+  it("if the entitlement lookup fails the account is treated as Free for the message, but nothing else changes", async () => {
+    ent.getMyEntitlement.mockRejectedValue(new Error("offline"));
+    await mount(many(10));
+    expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(false); // the database still enforces it
+    expect(ids()).toHaveLength(10);
+  });
+  it("when the DATABASE refuses the insert (stale tier, or another tab took the last slot) the upgrade message appears and nothing is lost", async () => {
+    ent.getMyEntitlement.mockResolvedValue({ tier: "premium", storedTier: "premium", trialStartedAt: null, trialEndsAt: null });
+    await mount(many(10));
+    api.createNote.mockRejectedValue({ code: "53400", message: "NOTE_LIMIT_REACHED" });
+    await act(async () => fireEvent.click(screen.getByTestId("notes-new")));
+    await settle();
+    expect(screen.getByTestId("notes-limit")).toBeTruthy();
+    expect(screen.queryByTestId("note-editor")).toBeNull(); // no editor opened for a note that was never created
+    expect(ids()).toHaveLength(10);
+    expect(screen.queryByTestId("notes-action-error")).toBeNull(); // it is the upgrade message, not a generic failure
+  });
+  it("deleting a note brings a Free account back under the limit", async () => {
+    await mount(many(10));
+    fireEvent.click(screen.getByTestId("note-open-m3"));
+    fireEvent.click(screen.getByTestId("note-delete"));
+    api.deleteNote.mockResolvedValue(undefined);
+    await act(async () => fireEvent.click(within(screen.getByRole("alertdialog")).getByText("Delete")));
+    await settle();
+    expect(screen.queryByTestId("notes-limit")).toBeNull();
+    expect((screen.getByTestId("notes-new") as HTMLButtonElement).disabled).toBe(false);
+  });
+  it("editing, pinning and autosave still work at the limit", async () => {
+    await mount(many(10));
+    api.setNotePinned.mockResolvedValue({ status: "ok", note: note({ id: "m0", pinned: true, revision: 2 }) });
+    await act(async () => fireEvent.click(screen.getByTestId("note-pin-m0")));
+    await settle();
+    expect(api.setNotePinned).toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("note-open-m1"));
+    type("note-body", "still editable at the limit");
+    await advance(900);
+    expect(api.saveNoteText).toHaveBeenCalledWith("m1", 1, { title: "Note 1", body: "still editable at the limit" });
+  });
+  it("the message is available in Spanish", async () => {
+    localStorage.setItem("standup-language", "es");
+    try {
+      await mount(many(10));
+      expect(screen.getByTestId("notes-limit").textContent).toContain("límite del plan Gratis de 10 notas");
+    } finally {
+      localStorage.removeItem("standup-language");
+    }
   });
 });
 

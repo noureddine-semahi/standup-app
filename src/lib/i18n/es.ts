@@ -695,6 +695,7 @@ export const es: Record<keyof typeof en, string> = {
   "notes.gone": "Esta nota ya no existe.",
   "notes.unsavedBody": "Tus últimos cambios aún no se han guardado.",
   "notes.leaveAnyway": "Salir sin guardar",
+  "notes.limitReached": "Has alcanzado el límite del plan Gratis de {limit} notas. Pásate a Premium para tener notas ilimitadas.",
   "notes.pinFailed": "No se pudo cambiar la nota fijada. Inténtalo de nuevo.",
   "backlog.tabAssignments": "Metas Asignadas",
   "tools.descCalculator": "Una calculadora rápida para operaciones cotidianas, con memoria e historial.",

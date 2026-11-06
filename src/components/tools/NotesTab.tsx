@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pin, Plus, Search } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { FREE_LIMITS, isAtLimit, type AccountTier } from "@/lib/entitlements";
 import { filterNotes, notePreview, sortNotes, type Note } from "@/lib/notes";
-import { createNote, isNotesUnavailableError, listNotes, setNotePinned } from "@/lib/supabase/notes";
+import { getMyEntitlement } from "@/lib/supabase/entitlements";
+import { createNote, isNoteLimitError, isNotesUnavailableError, listNotes, setNotePinned } from "@/lib/supabase/notes";
 import NoteEditor from "./NoteEditor";
 import { FIELD_CLASS } from "./PaymentsDashboard";
 
@@ -23,12 +25,18 @@ export default function NotesTab() {
   const [editorKey, setEditorKey] = useState(0);
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  /** The account's effective tier (resolved by the database); null until known. The database enforces the limit either way. */
+  const [tier, setTier] = useState<AccountTier | null>(null);
+  /** The database refused a new note because of the Free limit (covers a stale tier, or a race for the last slot). */
+  const [limitHit, setLimitHit] = useState(false);
 
   const load = useCallback(async () => {
     setPhase("loading");
     try {
       setNotes(sortNotes(await listNotes()));
       setPhase("ready");
+      // Only used to say so up front; a failed lookup changes nothing (the database still enforces the limit).
+      getMyEntitlement().then((e) => setTier(e.tier), () => {});
     } catch (e) {
       setPhase(isNotesUnavailableError(e) ? "unavailable" : "error");
     }
@@ -41,8 +49,12 @@ export default function NotesTab() {
   const put = useCallback((n: Note) => {
     setNotes((prev) => sortNotes(prev.some((x) => x.id === n.id) ? prev.map((x) => (x.id === n.id ? n : x)) : [n, ...prev]));
   }, []);
-  const drop = useCallback((id: string) => setNotes((prev) => prev.filter((x) => x.id !== id)), []);
+  const drop = useCallback((id: string) => {
+    setNotes((prev) => prev.filter((x) => x.id !== id));
+    setLimitHit(false);
+  }, []);
 
+  const atLimit = (tier !== null && isAtLimit(tier, "notes", notes.length)) || limitHit;
   const visible = useMemo(() => filterNotes(notes, query), [notes, query]);
   const open = openId ? notes.find((n) => n.id === openId) ?? null : null;
 
@@ -68,7 +80,8 @@ export default function NotesTab() {
       setQuery("");
       setOpenId(n.id);
     } catch (e) {
-      if (isNotesUnavailableError(e)) setPhase("unavailable");
+      if (isNoteLimitError(e)) setLimitHit(true);
+      else if (isNotesUnavailableError(e)) setPhase("unavailable");
       else setActionError(t("notes.loadFailed"));
     } finally {
       setCreating(false);
@@ -136,10 +149,16 @@ export default function NotesTab() {
             disabled={phase !== "ready"}
           />
         </label>
-        <button type="button" className="btn standup-metal-btn standup-metal-btn--accent notes-new" onClick={() => void newNote()} disabled={creating || phase !== "ready"} data-testid="notes-new">
+        <button type="button" className="btn standup-metal-btn standup-metal-btn--accent notes-new" onClick={() => void newNote()} disabled={creating || phase !== "ready" || atLimit} data-testid="notes-new">
           <Plus size={16} aria-hidden="true" /> {t("notes.new")}
         </button>
       </div>
+
+      {phase === "ready" && atLimit && (
+        <div role="status" className="note-banner" data-testid="notes-limit">
+          {t("notes.limitReached", { limit: FREE_LIMITS.notes })}
+        </div>
+      )}
 
       {actionError && (
         <div role="alert" className="pay-error" data-testid="notes-action-error">

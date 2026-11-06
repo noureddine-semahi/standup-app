@@ -34,6 +34,9 @@ import {
   type ShoppingListItem,
 } from "@/lib/supabase/db";
 import { getPriorityMeta } from "@/lib/priorityStyles";
+import { FREE_LIMITS, type AccountTier } from "@/lib/entitlements";
+import { isRoutineLimitError, routineLimitReached } from "@/lib/routineLimit";
+import { getMyEntitlement } from "@/lib/supabase/entitlements";
 import { hexToRgbTriple } from "@/lib/color";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
@@ -135,6 +138,9 @@ export default function ToolsPage() {
   const [templates, setTemplates] = useState<RecurringGoalTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templateMsg, setTemplateMsg] = useState<string | null>(null);
+  // Free plan: at most 3 ACTIVE routines. The database enforces it; these only say so up front.
+  const [tier, setTier] = useState<AccountTier | null>(null);
+  const [routineRefused, setRoutineRefused] = useState(false);
   const [newTemplateTitle, setNewTemplateTitle] = useState("");
   const [newTemplateDays, setNewTemplateDays] = useState<Set<number>>(new Set());
   const [addingTemplate, setAddingTemplate] = useState(false);
@@ -181,6 +187,7 @@ export default function ToolsPage() {
     refresh();
     refreshTemplates();
     refreshLists();
+    getMyEntitlement().then((e) => setTier(e.tier), () => {});
   }, []);
 
   async function refreshTemplates() {
@@ -227,7 +234,8 @@ export default function ToolsPage() {
       setNewTemplateTitle("");
       setNewTemplateDays(new Set());
     } catch (e: any) {
-      setTemplateMsg(e?.message ?? t("backlog.failedAddTemplate"));
+      if (isRoutineLimitError(e)) setRoutineRefused(true);
+      else setTemplateMsg(e?.message ?? t("backlog.failedAddTemplate"));
     } finally {
       setAddingTemplate(false);
     }
@@ -240,8 +248,10 @@ export default function ToolsPage() {
     try {
       await setRecurringGoalTemplateActive(template.id, !template.active);
       setTemplates((prev) => prev.map((t2) => (t2.id === template.id ? { ...t2, active: !template.active } : t2)));
+      if (template.active) setRoutineRefused(false); // retiring one frees a slot
     } catch (e: any) {
-      setTemplateMsg(e?.message ?? t("backlog.failedUpdateTemplate"));
+      if (isRoutineLimitError(e)) setRoutineRefused(true);
+      else setTemplateMsg(e?.message ?? t("backlog.failedUpdateTemplate"));
     } finally {
       setTemplateBusy(template.id, false);
     }
@@ -255,6 +265,7 @@ export default function ToolsPage() {
       await deleteRecurringGoalTemplate(template.id);
       setTemplates((prev) => prev.filter((t2) => t2.id !== template.id));
       setConfirmingDeleteId((cur) => (cur === template.id ? null : cur));
+      setRoutineRefused(false);
     } catch (e: any) {
       setTemplateMsg(e?.message ?? t("backlog.failedDeleteTemplate"));
     } finally {
@@ -504,6 +515,7 @@ export default function ToolsPage() {
     }
   }
 
+  const routinesAtLimit = routineLimitReached(tier, templates, routineRefused);
   const plainItems = items.filter((i) => !i.target_date);
   const longTermItems = items.filter((i) => !!i.target_date);
 
@@ -916,6 +928,12 @@ export default function ToolsPage() {
         </div>
       )}
 
+      {routinesAtLimit && (
+        <div role="status" className="mb-4 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm" data-testid="routines-limit">
+          {t("routines.limitReached", { limit: FREE_LIMITS.routines })}
+        </div>
+      )}
+
       <div className="space-y-3 mb-6">
         <input
           type="text"
@@ -950,7 +968,7 @@ export default function ToolsPage() {
         <button
           type="button"
           onClick={handleAddTemplate}
-          disabled={addingTemplate || !newTemplateTitle.trim() || newTemplateDays.size === 0}
+          disabled={addingTemplate || !newTemplateTitle.trim() || newTemplateDays.size === 0 || routinesAtLimit}
           className="btn standup-metal-btn standup-metal-btn--accent"
         >
           {addingTemplate ? t("backlog.addingTemplate") : t("backlog.addTemplate")}
@@ -1006,7 +1024,7 @@ export default function ToolsPage() {
                     <button
                       type="button"
                       onClick={() => handleToggleTemplateActive(template)}
-                      disabled={busy}
+                      disabled={busy || (!template.active && routinesAtLimit)}
                       className="btn standup-metal-btn"
                       style={{ padding: "0.25rem 0.6rem", fontSize: "0.7rem" }}
                     >

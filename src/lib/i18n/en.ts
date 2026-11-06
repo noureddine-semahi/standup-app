@@ -799,6 +799,7 @@ export const en = {
   "backlog.retireTemplate": "Retire",
   "backlog.reactivateTemplate": "Reactivate",
   "backlog.deleteTemplate": "Delete",
+  "routines.limitReached": "You've reached the Free plan limit of {limit} active routines. Retire one, or upgrade to Premium for unlimited routines.",
   "backlog.failedLoadTemplates": "Failed to load routines",
   "backlog.failedAddTemplate": "Failed to add routine",
   "backlog.failedUpdateTemplate": "Failed to update routine",

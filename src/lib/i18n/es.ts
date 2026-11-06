@@ -794,6 +794,7 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.retireTemplate": "Retirar",
   "backlog.reactivateTemplate": "Reactivar",
   "backlog.deleteTemplate": "Eliminar",
+  "routines.limitReached": "Has alcanzado el límite del plan Gratis de {limit} rutinas activas. Retira una o pásate a Premium para tener rutinas ilimitadas.",
   "backlog.failedLoadTemplates": "Error al cargar las rutinas",
   "backlog.failedAddTemplate": "Error al agregar la rutina",
   "backlog.failedUpdateTemplate": "Error al actualizar la rutina",

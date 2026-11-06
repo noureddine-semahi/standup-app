@@ -23,9 +23,10 @@ export default function PremiumPlans() {
   ];
   const premiumItems = [t("premium.plans.prem1"), t("premium.plans.prem2"), t("premium.plans.prem3"), t("premium.plans.prem4")];
 
-  const options: { id: Billing; label: string; price: string }[] = [
-    { id: "monthly", label: t("premium.plans.monthly"), price: t("premium.plans.perMonth", { price: formatPriceCents(PRICING.monthly.amountCents) }) },
-    { id: "annual", label: t("premium.plans.annual"), price: t("premium.plans.perYear", { price: formatPriceCents(PRICING.yearly.amountCents) }) },
+  // The amount and its period are separate no-wrap pieces, so a narrow box wraps between them and never inside "$5.99 / month".
+  const options: { id: Billing; label: string; amount: string; period: string }[] = [
+    { id: "monthly", label: t("premium.plans.monthly"), amount: formatPriceCents(PRICING.monthly.amountCents), period: t("premium.plans.perMonth") },
+    { id: "annual", label: t("premium.plans.annual"), amount: formatPriceCents(PRICING.yearly.amountCents), period: t("premium.plans.perYear") },
   ];
 
   return (
@@ -69,11 +70,14 @@ export default function PremiumPlans() {
               role="radio"
               aria-checked={selected}
               onClick={() => setBilling(o.id)}
-              className={`rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-white/50 bg-white/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+              className={`relative rounded-lg border px-3 py-2 text-left transition-colors ${selected ? "border-amber-400/80 bg-white/10 ring-1 ring-amber-400/50" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
               data-testid={`premium-billing-${o.id}`}
             >
+              {selected && <Check size={14} className="absolute right-2 top-2 text-amber-400" aria-hidden="true" />}
               <span className="block text-xs text-white/60">{o.label}</span>
-              <span className="block text-sm font-semibold">{o.price}</span>
+              <span className="flex flex-wrap items-baseline gap-x-1 text-sm font-semibold">
+                <span className="whitespace-nowrap">{o.amount}</span> <span className="whitespace-nowrap text-xs font-normal text-white/70">{o.period}</span>
+              </span>
             </button>
           );
         })}

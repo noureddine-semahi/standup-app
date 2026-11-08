@@ -33,6 +33,7 @@ describe("FAQ: plans and billing answer", () => {
     flagsApi.getFeatureFlags.mockResolvedValue(flags(false));
     await mount();
     expect(screen.queryByTestId("faq-plans")).toBeNull();
+    expect(screen.queryByTestId("faq-double-subscribe")).toBeNull();
     expect(document.body.textContent).not.toMatch(/grace period/i);
   });
   it("is shown when promotion is on, and states the implemented policy: nothing deleted, 7-day grace, Free limits, manual grants and trials unaffected", async () => {
@@ -45,6 +46,12 @@ describe("FAQ: plans and billing answer", () => {
     expect(t).toContain("set to cancel at the end of the period stays Premium until that period ends");
     expect(t).toContain("an admin gave you directly, or an active free trial, isn't affected");
     expect(t).toContain("In Settings you can see your plan, your subscription's status, its renewal or end date, any grace period");
+    const dup = screen.getByTestId("faq-double-subscribe").textContent!;
+    expect(dup).toContain("we won't start another one");
+    expect(dup).toContain("active, in its payment grace period, unpaid or still being set up");
+    expect(dup).toContain("continues the same one");
+    expect(dup).toContain("only one can ever be paid");
+    expect(dup).toContain("Premium that an admin gave you, or your free trial, doesn't count as a subscription");
   });
   it("is available in Spanish with the same commitments", async () => {
     localStorage.setItem("standup-language", "es");
@@ -53,6 +60,8 @@ describe("FAQ: plans and billing answer", () => {
       await mount();
       const t = screen.getByTestId("faq-plans").textContent!;
       for (const s of ["Nada de lo que creaste se elimina nunca", "periodo de gracia de 7 días", "3 Objetivos activos, 3 rutinas activas, 10 notas", "un administrador, o una prueba gratuita activa", "En Ajustes puedes ver tu plan, el estado de tu suscripción"]) expect(t).toContain(s);
+      const dup = screen.getByTestId("faq-double-subscribe").textContent!;
+      for (const s of ["no iniciaremos otra", "solo uno puede llegar a pagarse", "no cuenta como suscripción"]) expect(dup).toContain(s);
     } finally {
       localStorage.removeItem("standup-language");
     }

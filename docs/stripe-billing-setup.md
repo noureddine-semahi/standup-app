@@ -159,3 +159,21 @@ granted by an admin. A plain Free account, or one on the free trial only, sees n
 - **Data:** `get_my_billing_status()` (migration `20261121000100_billing_status.sql`): read-only, no parameters, answers only for the signed-in member, reuses
   `account_effective_tier` / `billing_grants_premium` (no policy of its own), and returns no identifiers. `account_billing` itself stays unreachable from browsers.
 - Until the migration is applied the section simply doesn't appear.
+
+## Duplicate-subscription protection (Phase 5.6 step 5)
+
+`POST /api/billing/checkout` can no longer open a second paid subscription. The guard runs **after** the flags and body checks and **before** any Stripe session is created, so
+with the beta flags off nothing changes (requests are still refused with `checkout_disabled`). It does not rely on the browser or on the billing record alone (which lags the webhook).
+
+- **Existing subscription** → `409 already_subscribed`. A subscription blocks unless it is over for good: `active`, `trialing`, `past_due`, `unpaid`, `incomplete`, `paused` and any unknown
+  status block; only `canceled` and `incomplete_expired` allow a new one. An admin Premium grant or the one-time StandUp trial are not subscriptions and never count.
+- **Concurrent requests** → one request per member claims the single slot in `checkout_attempts` (an advisory lock plus a one-active-attempt-per-member unique index); the others get
+  `409 checkout_in_progress` or continue the same checkout. A claim older than 2 minutes is stale and is re-adopted (same plan) so Stripe's idempotency key returns the same session.
+- **An unfinished checkout** → Stripe is asked about the earlier session (it is the authority): still open and the same plan → the **same URL** is returned; open and the other plan → it is expired first
+  so only one session can ever be paid; complete → `already_subscribed` if its subscription is live (paid but not yet synced), otherwise a new checkout may start; expired → a new one starts.
+- **Idempotency** → the Stripe idempotency key is derived from the claimed attempt, never from the client.
+- **If the attempt ledger is unavailable** the request fails with `503 billing_unavailable` and no session is created (no protection means no checkout).
+- **Privacy:** the ledger holds only the member, the plan, a status, a Stripe session reference and times. Browsers can't read or write it, and no Stripe identifier is ever returned.
+- **Migration:** run `supabase/migrations/20261122000100_checkout_attempts.sql` (one table, three service-role-only functions; touches nothing else). Needs `SUPABASE_SERVICE_ROLE_KEY` in the
+  environment (already used by the webhook).
+- **Messages:** `src/lib/checkoutMessages.ts` maps each refusal to an EN/ES message for the future Subscribe button; the FAQ answer appears only when promotion is on.

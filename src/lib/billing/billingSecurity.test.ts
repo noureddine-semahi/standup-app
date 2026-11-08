@@ -131,14 +131,16 @@ describe("Stripe stays on the server", () => {
     expect(noComments).not.toMatch(/account_billing|account_entitlements|\.from\(|SERVICE_ROLE|service_role|\.rpc\(|checkout\.sessions|subscriptions\.(create|update|cancel|resume)|billingPortal|customers\./);
     expect(noComments).toMatch(/subscriptions\.retrieve\(id\)/);
     expect(noComments).toMatch(/\bdeps\.sync\(built\.args\)/); // the one write: the same database function the webhooks use
-    expect(noComments).not.toMatch(/searchParams|req\.url|\.json\(\)/); // nothing but headers and a tiny validated body is read from the request
+    expect(noComments).not.toMatch(/searchParams|\.json\(\)/); // nothing but headers and a tiny validated body is read from the request
+    expect(noComments.match(/req\.url/g)).toHaveLength(1); // the only look at the URL: the scheduled (GET) call must have an empty query string
+    expect(noComments).toMatch(/new URL\(req\.url\)\.search === ""/);
     const sync = read(join(billingDir, "subscriptionSync.ts"));
     expect(sync).toContain("cancellationScheduled(sub as unknown as Obj, periodEnd, fetchedAt)"); // the normalisation lives in the shared builder both paths use
   });
 
-  it("the reconcile route exposes POST only and delegates to the handler", () => {
+  it("the reconcile route exposes POST (manual) and GET (Vercel Cron) only, and delegates both to the handler", () => {
     const route = read(join(src, "app", "api", "billing", "reconcile", "route.ts"));
-    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST", "GET"]);
     expect(route).toContain("handleReconcileRequest");
   });
 

@@ -166,14 +166,38 @@ export async function reconcileSubscriptions(deps: ReconcileDeps, opts: Reconcil
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// The server-side invocation: POST /api/billing/reconcile, for the owner's scheduler or an operator, never for members or browsers.
+// The server-side invocation: /api/billing/reconcile, for the owner's scheduler or an operator, never for members or browsers.
 //
-// Authorization: a shared secret, BILLING_RECONCILE_SECRET (at least 32 characters), sent as "Authorization: Bearer <secret>". Without the
-// variable (or with a short one) the endpoint is switched off entirely. The comparison is constant-time. A request carrying an Origin header is a
-// browser request and is refused. The request names no account, customer or subscription: the optional body is {} or { "limit": 1..25 }.
+//   * POST: manual / external scheduler. Optional body: nothing, {} or { "limit": 1..25 }.
+//   * GET:  Vercel Cron (it can only issue GET). No body and NO query string; the default bound applies. The schedule lives in vercel.json.
+//
+// Authorization (both methods): "Authorization: Bearer <secret>" where the secret is BILLING_RECONCILE_SECRET or CRON_SECRET (the variable Vercel
+// Cron sends automatically as that header), each at least 32 characters. If neither is configured the endpoint is switched off entirely (503). The
+// comparison is constant-time. A request carrying an Origin header is a browser request and is refused. The request names no account, customer or
+// subscription.
+//
+// Overlap: a second request that arrives while a run is still in progress on the same instance is turned away (409 already_running). Across
+// instances (or a duplicated cron delivery) overlap is safe anyway: every write goes through sync_stripe_subscription, which serialises per customer
+// and account and refuses stale snapshots, and recently checked records are skipped by the 10-minute cooldown.
+//
+// Logging: counts and categories only (trigger, outcome counts, error category); never an identifier, the request or a secret.
 
 export const RECONCILE_SECRET_ENV = "BILLING_RECONCILE_SECRET";
+/** The variable Vercel Cron reads and sends back as "Authorization: Bearer <value>" on its scheduled GET request. */
+export const CRON_SECRET_ENV = "CRON_SECRET";
 const MIN_SECRET_LENGTH = 32;
+
+export type ReconcileTrigger = "cron" | "manual";
+export type ReconcileFailureCategory = "not_configured" | "database" | "unexpected";
+/** Safe category of a failed run: the kind of problem only, never a message (messages can carry identifiers or keys). */
+export function failureCategory(e: unknown): ReconcileFailureCategory {
+  const name = (e as { name?: unknown } | null)?.name;
+  if (name === "BillingConfigError") return "not_configured";
+  if (name === "ReconcileStoreUnavailableError" || name === "WebhookStoreUnavailableError") return "database";
+  return "unexpected";
+}
+
+let running = false;
 
 export type ReconcileRouteDeps = {
   env: Readonly<Record<string, string | undefined>>;
@@ -221,21 +245,43 @@ export function parseReconcileBody(text: string): ReconcileOptions | null {
 }
 
 export async function handleReconcileRequest(req: Request, deps: ReconcileRouteDeps = realRouteDeps()): Promise<Response> {
-  const secret = deps.env[RECONCILE_SECRET_ENV]?.trim();
-  if (!secret || secret.length < MIN_SECRET_LENGTH) return respond({ error: "reconcile_unavailable" }, 503);
+  const trigger: ReconcileTrigger = req.method === "GET" ? "cron" : "manual";
+  const reject = (reason: "unavailable" | "forbidden" | "unauthorized" | "invalid_request", error: string, status: number) => {
+    console.warn("billing reconcile rejected", { trigger, reason }); // category only
+    return respond({ error }, status);
+  };
 
-  if (req.headers.get("origin")) return respond({ error: "forbidden" }, 403); // browsers send Origin; this is for servers only
+  const secrets = [deps.env[RECONCILE_SECRET_ENV], deps.env[CRON_SECRET_ENV]].map((v) => v?.trim()).filter((v): v is string => !!v && v.length >= MIN_SECRET_LENGTH);
+  if (secrets.length === 0) return reject("unavailable", "reconcile_unavailable", 503);
+
+  if (req.headers.get("origin")) return reject("forbidden", "forbidden", 403); // browsers send Origin; this is for servers only
   const m = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") ?? "");
-  if (!m || !secretMatches(m[1], secret)) return respond({ error: "unauthorized" }, 401);
+  // every configured secret is compared (no early exit), so the time taken doesn't reveal which one matched
+  const authorised = m ? secrets.map((x) => secretMatches(m[1], x)).some(Boolean) : false;
+  if (!authorised) return reject("unauthorized", "unauthorized", 401);
 
-  const opts = parseReconcileBody(await req.text().catch(() => "x"));
-  if (!opts) return respond({ error: "invalid_request" }, 400);
+  let opts: ReconcileOptions | null;
+  if (trigger === "cron") {
+    opts = new URL(req.url).search === "" ? {} : null; // the scheduled call carries nothing: any query string is refused
+  } else {
+    opts = parseReconcileBody(await req.text().catch(() => "x"));
+  }
+  if (!opts) return reject("invalid_request", "invalid_request", 400);
 
+  if (running) {
+    console.warn("billing reconcile skipped", { trigger, reason: "already_running" });
+    return respond({ error: "already_running" }, 409);
+  }
+  running = true;
   try {
     const summary = await deps.run(opts);
-    console.info("billing reconcile", { examined: summary.examined, ...summary.outcomes, moreDue: summary.moreDue, aborted: summary.aborted }); // counts only
+    console.info("billing reconcile", { trigger, examined: summary.examined, ...summary.outcomes, moreDue: summary.moreDue, backedOff: summary.backedOff, aborted: summary.aborted }); // counts only
+    if (summary.aborted) console.error("billing reconcile failed", { trigger, category: "database" });
     return respond({ ...summary }, summary.aborted ? 503 : 200);
-  } catch {
+  } catch (e) {
+    console.error("billing reconcile failed", { trigger, category: failureCategory(e) }); // the category only: never the error message
     return respond({ error: "reconcile_failed" }, 503); // not configured / database unreachable: nothing was changed; no detail is given
+  } finally {
+    running = false;
   }
 }

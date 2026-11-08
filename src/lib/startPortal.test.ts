@@ -54,9 +54,8 @@ describe("startPortal", () => {
 describe("portal messages (EN and ES)", () => {
   it("each error code maps to its own message, anything else to the generic failure", () => {
     expect(portalErrorMessageKey("no_subscription")).toBe("portal.noSubscription");
-    expect(portalErrorMessageKey("portal_disabled")).toBe("portal.unavailable");
     expect(portalErrorMessageKey("billing_unavailable")).toBe("portal.unavailable");
-    for (const c of ["portal_failed", "invalid_request", "forbidden_origin", "weird", null, undefined]) expect(portalErrorMessageKey(c)).toBe("portal.failed");
+    for (const c of ["portal_failed", "portal_disabled", "invalid_request", "forbidden_origin", "weird", null, undefined]) expect(portalErrorMessageKey(c)).toBe("portal.failed");
   });
 
   it("every portal string exists in English and Spanish, differs between them, and names no Stripe identifier or technical error", () => {

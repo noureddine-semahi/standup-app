@@ -17,11 +17,11 @@ import type { TranslationKey } from "@/lib/i18n/en";
 // all if the status can't be read: it never guesses, and it never describes a subscription as active just because the member has Premium from
 // somewhere else.
 //
-// The one action is "Manage subscription", for a member whose subscription has something to manage (portalEligible) while the monetization
-// flags permit it: it asks the server (startPortal) for Stripe's hosted Customer Portal and leaves for it. The page sends no customer or
-// subscription ID; the server finds them. Nothing here changes access: cancellations and card updates reach StandUp only as verified webhooks.
+// The one action is "Manage subscription", for a member whose subscription has something to manage (portalEligible). It does NOT depend on the monetization flags: paying members can manage their subscription even when new
+// subscriptions are switched off. It asks the server (startPortal) for Stripe's hosted Customer Portal and leaves for it. The page sends no
+// customer or subscription ID; the server finds them. Nothing here changes access: cancellations and card updates reach StandUp only as verified webhooks.
 
-export default function BillingStatus({ portalEnabled = false }: { portalEnabled?: boolean }) {
+export default function BillingStatus() {
   const { t, language } = useLanguage();
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,7 +57,7 @@ export default function BillingStatus({ portalEnabled = false }: { portalEnabled
 
   const view = billingView(status);
   if (!view) return null;
-  const canManage = portalEnabled && portalEligible(status?.status);
+  const canManage = portalEligible(status?.status);
 
   const fmt = (iso: string | null) => {
     if (!iso) return "";

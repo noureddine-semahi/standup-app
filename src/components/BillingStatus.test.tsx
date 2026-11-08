@@ -102,11 +102,15 @@ describe("how Premium is held, and never implying an active subscription", () =>
       expect(screen.queryByTestId("billing-status")).toBeNull();
     }
   });
-  it("shows no identifiers and offers no Checkout, cancel, portal or payment action", async () => {
+  it("shows no identifiers and offers no Checkout, cancel or payment action of its own: the only control is Manage subscription (Stripe's portal)", async () => {
     await mount(sub({ status: "past_due", graceEndsAt: GRACE_END }));
     const root = screen.getByTestId("billing-status");
-    expect(root.querySelectorAll("button, a, input, form, select").length).toBe(0);
-    expect(root.textContent).not.toMatch(/cus_|sub_|price_|evt_|checkout|portal|cancel subscription|subscribe now|update payment/i);
+    const controls = [...root.querySelectorAll("button, a, input, form, select")];
+    expect(controls.map((c) => c.getAttribute("data-testid"))).toEqual(["billing-manage-button"]);
+    const manage = screen.getByTestId("billing-manage");
+    const rest = (root.textContent ?? "").replace(manage.textContent ?? "", "");
+    expect(rest).not.toMatch(/cus_|sub_|price_|evt_|checkout|portal|cancel subscription|subscribe now|update payment/i);
+    expect(root.textContent).not.toMatch(/cus_|sub_|price_|evt_/);
   });
 });
 

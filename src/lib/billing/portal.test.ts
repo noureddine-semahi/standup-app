@@ -8,13 +8,11 @@ vi.mock("@/lib/billing/portalStore", () => ({ createPortalStore: vi.fn() }));
 
 import { handlePortalRequest, isEmptyPortalBody, type PortalDeps } from "./portal";
 import { readBillingConfig } from "./config";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/lib/featureFlags";
 import type { PortalCustomer, PortalStore } from "./portalStore";
 
 const ORIGIN = "https://standup-app-two.vercel.app";
 const SECRET = "sk_test_SECRETVALUE123";
 const config = readBillingConfig({ STRIPE_SECRET_KEY: SECRET, STRIPE_PRICE_MONTHLY: "price_monthlyAAA", STRIPE_PRICE_ANNUAL: "price_annualBBB" });
-const ON: FeatureFlags = { premium_promotion_enabled: true, premium_trial_activation_enabled: false, billing_checkout_enabled: true };
 const ME = { id: "11111111-2222-3333-4444-555555555555" };
 const OTHER = { id: "99999999-8888-7777-6666-555555555555" };
 const PORTAL_URL = "https://billing.stripe.com/p/session/test_abc";
@@ -27,7 +25,7 @@ type World = {
 };
 
 // An in-memory account_billing: one row per account, each with its own Stripe customer.
-function makeWorld(opts: { rows?: Record<string, PortalCustomer>; flags?: FeatureFlags; env?: Record<string, string | undefined>; stripeError?: unknown; url?: string | null; storeError?: boolean; configBad?: boolean; user?: { id: string } | null } = {}): World {
+function makeWorld(opts: { rows?: Record<string, PortalCustomer>; env?: Record<string, string | undefined>; stripeError?: unknown; url?: string | null; storeError?: boolean; configBad?: boolean; user?: { id: string } | null } = {}): World {
   const rows: Record<string, PortalCustomer> = opts.rows ?? { [ME.id]: { customerId: "cus_ME111", status: "active" }, [OTHER.id]: { customerId: "cus_OTHER222", status: "active" } };
   const lookups: string[] = [];
   const store: PortalStore = {
@@ -45,7 +43,6 @@ function makeWorld(opts: { rows?: Record<string, PortalCustomer>; flags?: Featur
   const deps: PortalDeps = {
     env: { NODE_ENV: "production", ...(opts.env ?? {}) },
     authenticate,
-    readFlags: async () => opts.flags ?? ON,
     readConfig: () => {
       if (opts.configBad) throw new Error("bad config");
       return config;
@@ -211,31 +208,69 @@ describe("origins and the return URL", () => {
   });
 });
 
-describe("feature flags", () => {
-  it("is closed while either monetization flag is off, and with the default (all off) flags: 403 portal_disabled and nothing is looked up", async () => {
-    const closed: FeatureFlags[] = [
-      DEFAULT_FEATURE_FLAGS,
-      { ...ON, billing_checkout_enabled: false },
-      { ...ON, premium_promotion_enabled: false },
-      { ...DEFAULT_FEATURE_FLAGS, premium_trial_activation_enabled: true },
-    ];
-    for (const flags of closed) {
-      const w = makeWorld({ flags });
-      const res = await handlePortalRequest(req(), w.deps);
-      expect(res.status).toBe(403);
-      expect(await json(res)).toEqual({ error: "portal_disabled" });
-      expect(w.lookups).toEqual([]);
-      expect(w.create).not.toHaveBeenCalled();
+describe("independent of the Checkout flags (step 8.1)", () => {
+  const ALL_OFF = { premium_promotion_enabled: false, premium_trial_activation_enabled: false, billing_checkout_enabled: false };
+  const CHECKOUT_ON = { premium_promotion_enabled: true, premium_trial_activation_enabled: true, billing_checkout_enabled: true };
+
+  async function viaDefaultDependencies(flags: Record<string, boolean>) {
+    // the real dependency wiring (no deps argument): the flag reader is mocked so we can prove it is never even consulted
+    const serverAuth = await import("@/lib/billing/serverAuth");
+    const stripeMod = await import("@/lib/billing/stripe");
+    const storeMod = await import("@/lib/billing/portalStore");
+    const create = vi.fn(async () => ({ url: PORTAL_URL }));
+    vi.mocked(serverAuth.authenticateUser).mockImplementation(async (t: string) => (t === "good-token" ? ME : null));
+    vi.mocked(serverAuth.readFeatureFlagsForUser).mockResolvedValue(flags as never);
+    vi.mocked(stripeMod.getStripe).mockReturnValue({ billingPortal: { sessions: { create } } } as never);
+    vi.mocked(storeMod.createPortalStore).mockReturnValue({ customerFor: async (id: string) => (id === ME.id ? { customerId: "cus_ME111", status: "active" } : null) });
+    vi.stubEnv("STRIPE_SECRET_KEY", SECRET);
+    vi.stubEnv("STRIPE_PRICE_MONTHLY", "price_monthlyAAA");
+    vi.stubEnv("STRIPE_PRICE_ANNUAL", "price_annualBBB");
+    const res = await handlePortalRequest(req());
+    return { res, create, flagReader: vi.mocked(serverAuth.readFeatureFlagsForUser) };
+  }
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("a subscriber reaches the portal with promotion, Checkout and the trial flag ALL OFF, and the flag reader is never consulted", async () => {
+    const { res, create, flagReader } = await viaDefaultDependencies(ALL_OFF);
+    expect(res.status).toBe(200);
+    expect(await json(res)).toEqual({ url: PORTAL_URL });
+    expect(create).toHaveBeenCalledWith({ customer: "cus_ME111", return_url: `${ORIGIN}/standup/settings?portal=return` });
+    expect(flagReader).not.toHaveBeenCalled();
+  });
+
+  it("the answer is identical whatever the flags say: all off, all on, or only one of the Checkout pair on", async () => {
+    for (const flags of [ALL_OFF, CHECKOUT_ON, { ...ALL_OFF, billing_checkout_enabled: true }, { ...ALL_OFF, premium_promotion_enabled: true }]) {
+      const { res } = await viaDefaultDependencies(flags);
+      expect(res.status, JSON.stringify(flags)).toBe(200);
     }
   });
 
-  it("a flag read that fails is closed, never open", async () => {
+  it("the dependency list no longer includes a flag reader, and no 'portal_disabled' answer exists", async () => {
     const w = makeWorld();
-    w.deps.readFlags = async () => {
-      throw new Error("down");
-    };
-    expect((await handlePortalRequest(req(), w.deps)).status).toBe(403);
-    expect(w.create).not.toHaveBeenCalled();
+    expect(Object.keys(w.deps)).not.toContain("readFlags");
+    const src = (await import("fs")).readFileSync(new URL("./portal.ts", import.meta.url), "utf8").split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    expect(src).not.toMatch(/featureFlags|readFeatureFlags|showCheckout|premium_promotion_enabled|billing_checkout_enabled|portal_disabled/);
+  });
+
+  it("with the flags off, everyone who should be blocked still is: no sign-in, a bad Origin, no billing record, a canceled subscription", async () => {
+    const noAuth = await viaDefaultDependencies(ALL_OFF).then(async () => handlePortalRequest(req({ auth: null })));
+    expect(noAuth.status).toBe(401);
+    const badOrigin = await handlePortalRequest(req({ origin: "https://evil.example" }));
+    expect(badOrigin.status).toBe(403);
+    const none = makeWorld({ rows: {} });
+    expect((await handlePortalRequest(req(), none.deps)).status).toBe(409);
+    const canceled = makeWorld({ rows: { [ME.id]: { customerId: "cus_ME111", status: "canceled" } } });
+    expect((await handlePortalRequest(req(), canceled.deps)).status).toBe(409);
+    expect(none.create).not.toHaveBeenCalled();
+    expect(canceled.create).not.toHaveBeenCalled();
+  });
+
+  it("every eligible status works with the flags off (active, trialing, past_due, unpaid, paused)", async () => {
+    for (const status of ["active", "trialing", "past_due", "unpaid", "paused"]) {
+      const w = makeWorld({ rows: { [ME.id]: { customerId: "cus_ME111", status } } });
+      expect((await handlePortalRequest(req(), w.deps)).status, status).toBe(200);
+    }
   });
 });
 
@@ -323,7 +358,7 @@ describe("failures never leak identifiers", () => {
 describe("what the portal does not do", () => {
   it("the endpoint writes nothing: its dependencies offer no way to change an entitlement, billing row or subscription", () => {
     const w = makeWorld();
-    expect(Object.keys(w.deps).sort()).toEqual(["authenticate", "env", "portalStore", "readConfig", "readFlags", "stripe"]);
+    expect(Object.keys(w.deps).sort()).toEqual(["authenticate", "env", "portalStore", "readConfig", "stripe"]);
     expect(Object.keys(w.deps.portalStore())).toEqual(["customerFor"]);
   });
 

@@ -128,7 +128,7 @@ export default function PremiumTrialCard() {
             </div>
           )}
 
-          <BillingStatus portalEnabled={showCheckout(flags)} />
+          <BillingStatus />
 
           {view.tier !== "premium" && showPremiumPromotion(flags) && <PremiumPlans checkoutEnabled={showCheckout(flags)} />}
         </div>

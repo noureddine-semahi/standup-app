@@ -7,7 +7,6 @@ export function portalErrorMessageKey(code: string | null | undefined): Translat
   switch (code) {
     case "no_subscription":
       return "portal.noSubscription";
-    case "portal_disabled":
     case "billing_unavailable":
       return "portal.unavailable";
     default:

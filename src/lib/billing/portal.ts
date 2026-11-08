@@ -3,10 +3,9 @@ import type Stripe from "stripe";
 import { readBillingConfig, type BillingConfig } from "@/lib/billing/config";
 import { portalReturnUrl, resolveTrustedOrigin } from "@/lib/billing/origins";
 import { createPortalStore, type PortalStore } from "@/lib/billing/portalStore";
-import { authenticateUser, readFeatureFlagsForUser } from "@/lib/billing/serverAuth";
+import { authenticateUser } from "@/lib/billing/serverAuth";
 import { getStripe } from "@/lib/billing/stripe";
 import { portalEligible } from "@/lib/billing/subscriptionStates";
-import { showCheckout, type FeatureFlags } from "@/lib/featureFlags";
 
 // POST /api/billing/portal: open Stripe's hosted Customer Portal for the signed-in member's existing subscription (TEST mode).
 //
@@ -16,8 +15,12 @@ import { showCheckout, type FeatureFlags } from "@/lib/featureFlags";
 // What the client controls: nothing but the fact that it asked. The Stripe customer comes ONLY from the member's own billing record,
 // looked up by the account ID the server just verified from their sign-in; a customer, subscription or account ID in the request is refused,
 // as is any other field. The return URL is built here from a trusted origin and a fixed Settings path. Order of checks, so nothing costly or
-// external happens for a request that shouldn't: trusted origin -> signed-in user -> BOTH monetization flags (the same two as Checkout) -> body
+// external happens for a request that shouldn't: trusted origin -> signed-in user -> body
 // -> Stripe configuration -> the member's own billing record -> a subscription that has something to manage -> Stripe.
+//
+// NO FEATURE FLAGS (step 8.1). Unlike Checkout, the portal is not gated by premium_promotion_enabled or billing_checkout_enabled: those switch
+// off SELLING, and a member who already pays must still be able to cancel or fix a card. Who may use it is decided only by the checks above
+// and by the member's own billing record.
 //
 // This opens a page; it changes NOTHING here. Whatever the member does in the portal (cancel, update a card) reaches StandUp only as verified
 // Stripe webhooks through the existing billing synchronisation, and the return to Settings never touches an entitlement.
@@ -37,7 +40,6 @@ export type PortalStripe = {
 export type PortalDeps = {
   env: Readonly<Record<string, string | undefined>>;
   authenticate(accessToken: string): Promise<{ id: string } | null>;
-  readFlags(accessToken: string): Promise<FeatureFlags>;
   readConfig(): BillingConfig;
   portalStore(): PortalStore;
   stripe(): PortalStripe;
@@ -46,7 +48,6 @@ export type PortalDeps = {
 const realDeps = (): PortalDeps => ({
   env: process.env,
   authenticate: authenticateUser,
-  readFlags: readFeatureFlagsForUser,
   readConfig: () => readBillingConfig(),
   portalStore: () => createPortalStore(),
   stripe: () => getStripe() as unknown as PortalStripe,
@@ -55,7 +56,6 @@ const realDeps = (): PortalDeps => ({
 export type PortalError =
   | "forbidden_origin"
   | "unauthenticated"
-  | "portal_disabled"
   | "invalid_request"
   | "no_subscription"
   | "billing_unavailable"
@@ -64,7 +64,6 @@ export type PortalError =
 const STATUS: Record<PortalError, number> = {
   forbidden_origin: 403,
   unauthenticated: 401,
-  portal_disabled: 403,
   invalid_request: 400,
   no_subscription: 409,
   billing_unavailable: 503,
@@ -105,9 +104,6 @@ export async function handlePortalRequest(req: Request, deps: PortalDeps = realD
   if (!token) return fail("unauthenticated");
   const user = await deps.authenticate(token).catch(() => null);
   if (!user) return fail("unauthenticated");
-
-  const flags = await deps.readFlags(token).catch(() => null);
-  if (!flags || !showCheckout(flags)) return fail("portal_disabled");
 
   if (!isEmptyPortalBody(await req.text().catch(() => "x"))) return fail("invalid_request");
 

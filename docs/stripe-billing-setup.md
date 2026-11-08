@@ -145,3 +145,17 @@ only, exactly as when a trial ends. The one-time trial history is never touched,
 entitlement functions to use the combined tier. The policy as readable code is in `src/lib/billingEntitlement.ts`.
 
 **Checkout and promotion stay off:** the three beta flags are unchanged, so nobody can subscribe yet. The FAQ answer about plans appears only when promotion is on.
+
+## Member-visible billing status (Phase 5.6 step 4)
+
+Settings > Premium now has a read-only **Subscription** section (`src/components/BillingStatus.tsx`). It appears only when there is something to say: a subscription record, or Premium
+granted by an admin. A plain Free account, or one on the free trial only, sees nothing extra (the trial card already covers it).
+
+- **What it shows:** the plan (Monthly/Annual), the subscription's own status, the renewal or end date, whether it is set to cancel, whether *this subscription* currently gives Premium (On/Off),
+  and, for a failed payment, the 7-day grace period and the date it ends (or ended).
+- **Why they have Premium:** a separate line says whether Premium comes from the subscription, an admin grant or the free trial. The subscription is always described from its **own**
+  status: having Premium from an admin grant or a trial never makes a canceled subscription look active. An unrecognised status reads "Status unavailable".
+- **No actions:** no Checkout, cancel or portal buttons. No Stripe or account identifiers are ever returned or shown.
+- **Data:** `get_my_billing_status()` (migration `20261121000100_billing_status.sql`): read-only, no parameters, answers only for the signed-in member, reuses
+  `account_effective_tier` / `billing_grants_premium` (no policy of its own), and returns no identifiers. `account_billing` itself stays unreachable from browsers.
+- Until the migration is applied the section simply doesn't appear.

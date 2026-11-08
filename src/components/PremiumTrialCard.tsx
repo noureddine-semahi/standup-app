@@ -8,6 +8,7 @@ import { trialView } from "@/lib/trialView";
 import { TrialNotAvailableError, getMyEntitlement, getMyTrialHistory, isEntitlementsUnavailableError, startMyTrial, type AccountEntitlement, type TrialHistory } from "@/lib/supabase/entitlements";
 import { ConfirmActionModal } from "@/components/tools/PaymentsDashboard";
 import PremiumPlans from "@/components/PremiumPlans";
+import BillingStatus from "@/components/BillingStatus";
 import { showPremiumPromotion, showTrialOffer } from "@/lib/featureFlags";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
@@ -121,6 +122,8 @@ export default function PremiumTrialCard() {
               </button>
             </div>
           )}
+
+          <BillingStatus />
 
           {view.tier !== "premium" && showPremiumPromotion(flags) && <PremiumPlans />}
         </div>

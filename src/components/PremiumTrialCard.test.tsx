@@ -6,6 +6,7 @@ vi.mock("@/lib/supabase/entitlements", async (orig) => ({ ...(await orig<typeof 
 
 const flagsApi = vi.hoisted(() => ({ getFeatureFlags: vi.fn() }));
 vi.mock("@/lib/supabase/featureFlags", () => flagsApi);
+vi.mock("@/lib/supabase/billingStatus", async (orig) => ({ ...(await orig<typeof import("@/lib/supabase/billingStatus")>()), getMyBillingStatus: vi.fn().mockResolvedValue(null) }));
 const ALL_ON = { premium_promotion_enabled: true, premium_trial_activation_enabled: true, billing_checkout_enabled: false };
 const ALL_OFF = { premium_promotion_enabled: false, premium_trial_activation_enabled: false, billing_checkout_enabled: false };
 

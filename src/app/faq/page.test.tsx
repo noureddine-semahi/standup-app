@@ -44,6 +44,7 @@ describe("FAQ: plans and billing answer", () => {
     expect(t).toContain("3 active Goals, 3 active routines, 10 notes");
     expect(t).toContain("set to cancel at the end of the period stays Premium until that period ends");
     expect(t).toContain("an admin gave you directly, or an active free trial, isn't affected");
+    expect(t).toContain("In Settings you can see your plan, your subscription's status, its renewal or end date, any grace period");
   });
   it("is available in Spanish with the same commitments", async () => {
     localStorage.setItem("standup-language", "es");
@@ -51,7 +52,7 @@ describe("FAQ: plans and billing answer", () => {
       flagsApi.getFeatureFlags.mockResolvedValue(flags(true));
       await mount();
       const t = screen.getByTestId("faq-plans").textContent!;
-      for (const s of ["Nada de lo que creaste se elimina nunca", "periodo de gracia de 7 días", "3 Objetivos activos, 3 rutinas activas, 10 notas", "un administrador, o una prueba gratuita activa"]) expect(t).toContain(s);
+      for (const s of ["Nada de lo que creaste se elimina nunca", "periodo de gracia de 7 días", "3 Objetivos activos, 3 rutinas activas, 10 notas", "un administrador, o una prueba gratuita activa", "En Ajustes puedes ver tu plan, el estado de tu suscripción"]) expect(t).toContain(s);
     } finally {
       localStorage.removeItem("standup-language");
     }

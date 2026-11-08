@@ -93,7 +93,7 @@ describe("Stripe stays on the server", () => {
   it("Supabase is touched only by serverAuth.ts (as the calling user), webhookStore.ts, checkoutStore.ts, portalStore.ts and reconcileStore.ts; the service role lives in those four stores alone", () => {
     expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "reconcileStore.ts", "serverAuth.ts", "webhookStore.ts"]);
     expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "reconcileStore.ts", "webhookStore.ts"]);
-    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore|reconcileStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
+    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore|reconcileStore|deletionStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
     expect(outside.map(rel)).toEqual([]);
     // the service role may only call the three event-ledger functions
     expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\bcall\(\s*"[a-z]+",\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "sync_stripe_subscription"]);
@@ -136,6 +136,27 @@ describe("Stripe stays on the server", () => {
     expect(noComments).toMatch(/new URL\(req\.url\)\.search === ""/);
     const sync = read(join(billingDir, "subscriptionSync.ts"));
     expect(sync).toContain("cancellationScheduled(sub as unknown as Obj, periodEnd, fetchedAt)"); // the normalisation lives in the shared builder both paths use
+  });
+
+  it("account deletion: Stripe is only ever READ and CANCELED (never refunded, deleted or charged), the login is deleted only after the billing sweep, and the route is POST only", () => {
+    const accountDir = join(src, "lib", "account");
+    const orchestrator = read(join(accountDir, "deleteAccount.ts"));
+    const code = orchestrator.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    expect(code).not.toMatch(/refunds|charges\.|customers\.(del|update|create)|paymentIntents|invoices\.|subscriptions\.(create|update)|checkout\.sessions\.create|billingPortal/);
+    expect(code).not.toMatch(/STRIPE_|SERVICE_ROLE|service_role|\.from\(|\.rpc\(/); // no secrets and no direct database access: only the store (process.env is only passed through for the trusted-origin list)
+    // the order is fixed in code: billing sweep -> advance -> storage -> data -> login
+    const order = ["shutDownBilling(userId, store, stripe, now)", 'store.advance(userId, "billing_cancelled", null)', "store.removeStorage(userId)", "store.cleanupData(userId)", "store.deleteAuthUser(userId)"].map((s) => code.indexOf(s, code.indexOf("export async function runAccountDeletion")));
+    expect(order.every((i) => i > -1)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(code.match(/deleteAuthUser\(/g)).toHaveLength(1); // exactly one place can delete the login
+    // the account is the verified session's, never the body's
+    expect(code).toMatch(/runAccountDeletion\(user\.id, store, stripe, deps\.now\)/);
+    expect(code).not.toMatch(/searchParams|req\.url|\.json\(\)/);
+    const route = read(join(src, "app", "api", "account", "delete", "route.ts"));
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect(route).toContain("handleDeleteAccountRequest");
+    // the service role lives in the deletion store alone (within the account folder)
+    expect(readdirSync(accountDir).filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n) && /service_role|SERVICE_ROLE/i.test(read(join(accountDir, n))))).toEqual(["deletionStore.ts"]);
   });
 
   it("the reconcile route exposes POST (manual) and GET (Vercel Cron) only, and delegates both to the handler", () => {

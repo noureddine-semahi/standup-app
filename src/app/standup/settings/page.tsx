@@ -8,7 +8,6 @@ import {
   updateDisplayName,
   updatePersonalInfo,
   uploadAvatar,
-  deleteAccount,
   updateThemePreference,
   updateDiscoverablePreference,
 } from "@/lib/supabase/db";
@@ -17,6 +16,9 @@ import { Sun, Moon, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import PageLoadingState from "@/components/PageLoadingState";
 import PremiumTrialCard from "@/components/PremiumTrialCard";
+import { accountDeletionErrorKey, requestAccountDeletion } from "@/lib/startAccountDeletion";
+import { loginUrlWithReturn } from "@/lib/safeReturn";
+import { navigateTo } from "@/lib/navigate";
 
 // Supabase throws plain {message, details, hint, code} objects, not native
 // Error instances — `err instanceof Error` is false for those, so checking
@@ -285,10 +287,22 @@ export default function SettingsPage() {
     setDeleteErr(null);
 
     try {
-      await deleteAccount();
-      setTheme("dark");
-      // Full reload — see the same note on Header/Profile's logout handlers.
-      window.location.href = "/";
+      // The server cancels any subscription in Stripe FIRST and only then deletes the login; if anything fails the account is not deleted.
+      const result = await requestAccountDeletion({ getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null });
+      if (result.kind === "deleted") {
+        await supabase.auth.signOut({ scope: "local" }).catch(() => undefined); // the login is already gone on the server; this clears the browser's copy
+        setTheme("dark");
+        // Full reload — see the same note on Header/Profile's logout handlers.
+        window.location.href = "/";
+        return;
+      }
+      if (result.kind === "login") {
+        setDeleteErr(t("account.delete.signIn"));
+        navigateTo(loginUrlWithReturn("/standup/settings")); // sign in again, then straight back here to retry
+        return;
+      }
+      setDeleteErr(t(accountDeletionErrorKey(result.code)));
+      setDeleting(false);
     } catch (err) {
       setDeleteErr(errorMessage(err, t("settings.failedDeleteAccount")));
       setDeleting(false);

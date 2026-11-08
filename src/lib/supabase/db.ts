@@ -462,6 +462,9 @@ export async function updateDiscoverablePreference(discoverable: boolean) {
 }
 
 /**
+ * SUPERSEDED (Phase 5.7): Settings now deletes accounts through POST /api/account/delete (src/lib/account/deleteAccount.ts), which cancels any
+ * Stripe subscription first and really deletes the login. This partial client-side wipe is no longer called by the app.
+ *
  * Wipes the current user's data and signs them out. This is NOT a true auth
  * account deletion — the client only has the public/anon key, and removing
  * the actual login requires the service-role key (server-side only), which

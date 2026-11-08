@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "crypto";
 import type Stripe from "stripe";
 import { readBillingConfig, priceIdFor, type BillingConfig } from "@/lib/billing/config";
+import { createDeletionStore } from "@/lib/account/deletionStore";
 import { createCheckoutStore, type BeginResult, type CheckoutStore } from "@/lib/billing/checkoutStore";
 import { checkoutReturnUrls, resolveTrustedOrigin } from "@/lib/billing/origins";
 import { isBillingPlan, type BillingPlan } from "@/lib/billing/plans";
@@ -52,6 +53,8 @@ export type CheckoutDeps = {
   readConfig(): BillingConfig;
   checkoutStore(): CheckoutStore;
   stripe(): CheckoutStripe;
+  /** Whether an account deletion is in progress for this member (Phase 5.7): no new Checkout may start or survive while it is. */
+  deletionPending(userId: string): Promise<boolean>;
 };
 
 const realDeps = (): CheckoutDeps => ({
@@ -61,6 +64,7 @@ const realDeps = (): CheckoutDeps => ({
   readConfig: () => readBillingConfig(),
   checkoutStore: () => createCheckoutStore(),
   stripe: () => getStripe() as unknown as CheckoutStripe,
+  deletionPending: (userId) => createDeletionStore().isPending(userId),
 });
 
 export type CheckoutError =
@@ -152,6 +156,11 @@ export async function handleCheckoutRequest(req: Request, deps: CheckoutDeps = r
     return fail("billing_unavailable"); // without the attempt ledger there is no duplicate protection, so no session is created
   }
   const stripe = deps.stripe();
+  try {
+    if (await deps.deletionPending(user.id)) return fail("checkout_disabled"); // a member whose account is being deleted can't start a subscription
+  } catch {
+    return fail("billing_unavailable"); // can't tell: fail closed
+  }
   const finish = (id: string, status: "completed" | "expired" | "failed") => store.finish(id, status).catch(() => undefined);
 
   for (let pass = 0; pass < MAX_PASSES; pass++) {
@@ -220,6 +229,19 @@ export async function handleCheckoutRequest(req: Request, deps: CheckoutDeps = r
       if (!session.id || !validUrl(session.url)) {
         await finish(begin.attemptId, "failed");
         return fail("checkout_failed");
+      }
+      // A deletion may have started while this session was being created. Marking happens BEFORE the deletion looks for sessions and this check
+      // happens AFTER the session exists, so either the deletion's scan finds this session or this check sees the mark: it can't be paid unseen.
+      let deleting = true;
+      try {
+        deleting = await deps.deletionPending(user.id);
+      } catch {
+        deleting = true;
+      }
+      if (deleting) {
+        await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+        await finish(begin.attemptId, "expired");
+        return fail("checkout_disabled");
       }
       const expiresAt = typeof session.expires_at === "number" ? new Date(session.expires_at * 1000).toISOString() : null;
       await store.record(begin.attemptId, session.id, expiresAt).catch(() => undefined); // if this is lost, the stale claim is re-adopted and returns this same session

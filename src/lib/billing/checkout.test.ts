@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/billing/serverAuth", () => ({ authenticateUser: vi.fn(), readFeatureFlagsForUser: vi.fn() }));
 vi.mock("@/lib/billing/stripe", () => ({ getStripe: vi.fn() }));
 vi.mock("@/lib/billing/checkoutStore", () => ({ createCheckoutStore: vi.fn() }));
+vi.mock("@/lib/account/deletionStore", () => ({ createDeletionStore: vi.fn() }));
 
 import { checkoutIdempotencyKey, handleCheckoutRequest, parseCheckoutBody, type CheckoutDeps, type CheckoutStripe } from "./checkout";
 import { BillingConfigError, readBillingConfig } from "./config";
@@ -114,6 +115,7 @@ const deps = (world: ReturnType<typeof makeWorld>, over: Partial<CheckoutDeps> =
   readConfig: vi.fn(() => config),
   checkoutStore: vi.fn(() => world.store),
   stripe: vi.fn(() => world.stripe),
+  deletionPending: vi.fn(async () => false),
   ...over,
 });
 const req = (o: { body?: unknown; raw?: string; origin?: string | null; auth?: string | null } = {}) =>

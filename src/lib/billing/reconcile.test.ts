@@ -7,8 +7,8 @@ vi.mock("@/lib/billing/stripe", () => ({ getStripe: vi.fn() }));
 vi.mock("@/lib/billing/reconcileStore", () => ({ createReconcileStore: vi.fn() }));
 vi.mock("@/lib/billing/webhookStore", () => ({ createWebhookStore: vi.fn() }));
 
-import { DEFAULT_BUDGET_MS, DEFAULT_LIMIT, MAX_LIMIT, handleReconcileRequest, parseReconcileBody, reconcileSubscriptions, type ReconcileDeps, type ReconcileRouteDeps, type ReconcileSummary } from "./reconcile";
-import type { ReconcileCandidate, ReconcileStore } from "./reconcileStore";
+import { DEFAULT_BUDGET_MS, DEFAULT_LIMIT, MAX_LIMIT, PERSISTENT_BACKOFF, TRANSIENT_BACKOFF, TRANSIENT_ESCALATE_AFTER, handleReconcileRequest, retryDelayMs, parseReconcileBody, reconcileSubscriptions, type ReconcileDeps, type ReconcileRouteDeps, type ReconcileSummary } from "./reconcile";
+import type { ReconcileCandidate, ReconcileFailureKind, ReconcileStore } from "./reconcileStore";
 import type { SubscriptionSyncArgs, SubscriptionSyncResult } from "./webhookStore";
 import { billingGrantsPremium } from "@/lib/billingEntitlement";
 
@@ -19,8 +19,8 @@ const END = T0 + 20 * DAY;
 const iso = (s: number | null) => (s === null ? null : new Date(s * 1000).toISOString());
 
 // ---- an in-memory model of public.account_billing + public.sync_stripe_subscription (ownership, stale-snapshot refusal) ----
-type Row = { userId: string; customerId: string; subscriptionId: string; priceId: string; plan: "monthly" | "annual"; status: string; cancelAtPeriodEnd: boolean; periodEnd: string | null; canceledAt: string | null; endedAt: string | null; syncedAtMs: number | null; lastEventId: string | null };
-const row = (n: number, o: Partial<Row> = {}): Row => ({ userId: `00000000-0000-4000-8000-00000000000${n}`, customerId: `cus_C${n}`, subscriptionId: `sub_S${n}`, priceId: PRICES.monthly, plan: "monthly", status: "active", cancelAtPeriodEnd: false, periodEnd: iso(END), canceledAt: null, endedAt: null, syncedAtMs: (T0 - 3600) * 1000, lastEventId: `evt_old${n}`, ...o });
+type Row = { userId: string; customerId: string; subscriptionId: string; priceId: string; plan: "monthly" | "annual"; status: string; cancelAtPeriodEnd: boolean; periodEnd: string | null; canceledAt: string | null; endedAt: string | null; syncedAtMs: number | null; lastEventId: string | null; failures: number; nextAttemptMs: number | null; lastOutcome: ReconcileFailureKind | null };
+const row = (n: number, o: Partial<Row> = {}): Row => ({ userId: `00000000-0000-4000-8000-00000000000${n}`, customerId: `cus_C${n}`, subscriptionId: `sub_S${n}`, priceId: PRICES.monthly, plan: "monthly", status: "active", cancelAtPeriodEnd: false, periodEnd: iso(END), canceledAt: null, endedAt: null, syncedAtMs: (T0 - 3600) * 1000, lastEventId: `evt_old${n}`, failures: 0, nextAttemptMs: null, lastOutcome: null, ...o });
 
 function world(initial: Row[], opts: { clockStart?: number } = {}) {
   const db = [...initial];
@@ -42,14 +42,30 @@ function world(initial: Row[], opts: { clockStart?: number } = {}) {
     Object.assign(r, { priceId: a.priceId, plan: a.plan, status: a.status, cancelAtPeriodEnd: a.cancelAtPeriodEnd, periodEnd: a.periodEnd, canceledAt: a.canceledAt, endedAt: a.endedAt, syncedAtMs: Date.parse(a.fetchedAt), lastEventId: a.eventId });
     return "applied";
   };
+  const recorded: { subscriptionId: string; ok: boolean; kind?: string; nextAttemptAtIso?: string }[] = [];
   const store: ReconcileStore = {
-    async candidates(staleBeforeIso, limit) {
+    async candidates(staleBeforeIso, nowIso, limit) {
       const before = Date.parse(staleBeforeIso);
+      const now = Date.parse(nowIso);
       return db
-        .filter((r) => !["canceled", "incomplete_expired"].includes(r.status) && (r.syncedAtMs === null || r.syncedAtMs < before))
-        .sort((a, b) => (a.syncedAtMs ?? -1) - (b.syncedAtMs ?? -1))
+        .filter((r) => !["canceled", "incomplete_expired"].includes(r.status) && (r.syncedAtMs === null || r.syncedAtMs < before) && (r.nextAttemptMs === null || r.nextAttemptMs <= now))
+        .sort((x, y) => x.failures - y.failures || (x.syncedAtMs ?? -1) - (y.syncedAtMs ?? -1))
         .slice(0, limit)
-        .map((r): ReconcileCandidate => ({ subscriptionId: r.subscriptionId, lastEventId: r.lastEventId, status: r.status, priceId: r.priceId, cancelAtPeriodEnd: r.cancelAtPeriodEnd, periodEnd: r.periodEnd, canceledAt: r.canceledAt, endedAt: r.endedAt, syncedAt: r.syncedAtMs === null ? null : new Date(r.syncedAtMs).toISOString() }));
+        .map((r): ReconcileCandidate => ({ subscriptionId: r.subscriptionId, lastEventId: r.lastEventId, status: r.status, priceId: r.priceId, cancelAtPeriodEnd: r.cancelAtPeriodEnd, periodEnd: r.periodEnd, canceledAt: r.canceledAt, endedAt: r.endedAt, syncedAt: r.syncedAtMs === null ? null : new Date(r.syncedAtMs).toISOString(), failures: r.failures }));
+    },
+    async waiting(nowIso) {
+      return db.filter((r) => !["canceled", "incomplete_expired"].includes(r.status) && r.nextAttemptMs !== null && r.nextAttemptMs > Date.parse(nowIso)).length;
+    },
+    async record(subscriptionId, result) {
+      recorded.push({ subscriptionId, ok: result.ok, ...(result.ok ? {} : { kind: result.kind, nextAttemptAtIso: result.nextAttemptAtIso }) });
+      const r = db.find((x) => x.subscriptionId === subscriptionId);
+      if (!r) return;
+      // mirrors record_reconcile_result: ONLY the four reconcile columns change
+      if (result.ok) Object.assign(r, { failures: 0, lastOutcome: null, nextAttemptMs: null });
+      else {
+        const next = Math.max(nowMs, Math.min(Date.parse(result.nextAttemptAtIso), nowMs + 7 * 86400_000));
+        Object.assign(r, { failures: Math.min(r.failures + 1, 1000), lastOutcome: result.kind, nextAttemptMs: next });
+      }
     },
   };
   const deps: ReconcileDeps = {
@@ -66,7 +82,7 @@ function world(initial: Row[], opts: { clockStart?: number } = {}) {
     now: () => new Date(nowMs),
   };
   return {
-    db, deps, writes, extraCalls, stripeSubs, stripeSub,
+    db, deps, writes, extraCalls, recorded, stripeSubs, stripeSub,
     setNow: (s: number) => (nowMs = s * 1000),
     advance: (ms: number) => (nowMs += ms),
     nowMs: () => nowMs,
@@ -74,6 +90,8 @@ function world(initial: Row[], opts: { clockStart?: number } = {}) {
   };
 }
 
+/** A record without its retry memory: what a failed check must leave byte-for-byte alone (billing data). */
+const billingOnly = (r: Row) => { const { failures, nextAttemptMs, lastOutcome, ...rest } = r; void failures; void nextAttemptMs; void lastOutcome; return rest; };
 const sum = (s: ReconcileSummary) => ({ ...s.outcomes, examined: s.examined });
 
 describe("missed webhooks are recovered", () => {
@@ -221,10 +239,12 @@ describe("Stripe API failure and retry", () => {
     w.stripeSubs.set(r.subscriptionId, () => Object.assign(new Error("rate limited; sk_test_SECRET cus_C1"), { type: "StripeRateLimitError", code: "rate_limit", statusCode: 429 }));
     const s1 = await reconcileSubscriptions(w.deps);
     expect(sum(s1)).toMatchObject({ stripe_error: 1, changed: 0, examined: 1 });
-    expect(r).toEqual(before);
+    expect(billingOnly(r)).toEqual(billingOnly(before));
     expect(w.writes).toHaveLength(0);
     expect(JSON.stringify(s1)).not.toMatch(/sk_test|cus_|sub_/);
     w.serve(r, { cancel_at: END });
+    expect((await reconcileSubscriptions(w.deps)).examined).toBe(0); // backed off for 5 minutes: not retried at once
+    w.advance(6 * 60_000);
     const s2 = await reconcileSubscriptions(w.deps);
     expect(s2.outcomes.changed).toBe(1);
     expect(r.cancelAtPeriodEnd).toBe(true);
@@ -258,7 +278,7 @@ describe("Stripe API failure and retry", () => {
   it("a failure to even list the due records, or unconfigured billing, throws before any Stripe call", async () => {
     const w = world([row(1)]);
     const retrieve = vi.spyOn(w.deps, "retrieveSubscription");
-    w.deps.store = { candidates: async () => Promise.reject(new Error("db down")) };
+    w.deps.store = { ...w.deps.store, candidates: async () => Promise.reject(new Error("db down")) };
     await expect(reconcileSubscriptions(w.deps)).rejects.toThrow();
     w.deps.prices = () => {
       throw new Error("not configured");
@@ -336,7 +356,7 @@ describe("missing or deleted objects, ownership and safety", () => {
     const before = { ...r };
     const s = await reconcileSubscriptions(w.deps); // nothing served: Stripe answers resource_missing
     expect(s.outcomes.missing).toBe(1);
-    expect(r).toEqual(before);
+    expect(billingOnly(r)).toEqual(billingOnly(before));
     expect(w.writes).toHaveLength(0);
   });
 
@@ -355,7 +375,7 @@ describe("missing or deleted objects, ownership and safety", () => {
     w.serve(r, { customer: "cus_SOMEONE_ELSE", status: "canceled" });
     const s = await reconcileSubscriptions(w.deps);
     expect(s.outcomes.conflict).toBe(1);
-    expect(r).toEqual(before);
+    expect(billingOnly(r)).toEqual(billingOnly(before));
   });
 
   it("ownership: Stripe answering with a different subscription than the one asked about is never recorded", async () => {
@@ -398,7 +418,7 @@ describe("missing or deleted objects, ownership and safety", () => {
     w.serve(r, { status: "past_due" });
     await reconcileSubscriptions(w.deps);
     expect(Object.keys(w.deps).sort()).toEqual(["now", "prices", "retrieveSubscription", "store", "sync"]);
-    expect(Object.keys(w.deps.store)).toEqual(["candidates"]);
+    expect(Object.keys(w.deps.store).sort()).toEqual(["candidates", "record", "waiting"]);
     expect(w.extraCalls).toEqual([]);
   });
 
@@ -407,7 +427,7 @@ describe("missing or deleted objects, ownership and safety", () => {
     const w = world([r]);
     w.serve(r);
     const s = await reconcileSubscriptions(w.deps);
-    expect(Object.keys(s).sort()).toEqual(["aborted", "examined", "moreDue", "outcomes"]);
+    expect(Object.keys(s).sort()).toEqual(["aborted", "backedOff", "examined", "moreDue", "outcomes"]);
     expect(JSON.stringify(s)).not.toMatch(/sub_|cus_|evt_|00000000/);
   });
 });
@@ -464,10 +484,318 @@ describe("bounded execution", () => {
   });
 });
 
+describe("retry backoff: failing records cannot starve healthy ones (step 9.2)", () => {
+  const MIN = 60_000;
+  const NOW = T0 * 1000;
+  const missingSub = (w: ReturnType<typeof world>, r: Row) => w.stripeSubs.delete(r.subscriptionId); // Stripe answers resource_missing
+
+  it("the delay schedule: doubles per consecutive failure and is capped; Stripe errors are quick, missing/conflict/ignored slow; repeated Stripe errors escalate", () => {
+    expect([0, 1, 2, 3, 4, 5].map((n) => retryDelayMs("stripe_error", n) / MIN)).toEqual([5, 10, 20, 40, 60, 1440]);
+    expect(TRANSIENT_ESCALATE_AFTER).toBe(5);
+    expect([0, 1, 2, 3, 4, 5, 6].map((n) => retryDelayMs("missing", n) / MIN)).toEqual([60, 120, 240, 480, 960, 1440, 1440]);
+    for (const k of ["missing", "conflict", "ignored"] as const) expect(retryDelayMs(k, 0)).toBe(PERSISTENT_BACKOFF.baseMs);
+    expect(retryDelayMs("stripe_error", 0)).toBe(TRANSIENT_BACKOFF.baseMs);
+    expect(retryDelayMs("missing", 1000)).toBe(PERSISTENT_BACKOFF.capMs); // never overflows or exceeds the cap
+    expect(retryDelayMs("stripe_error", -3)).toBe(TRANSIENT_BACKOFF.baseMs);
+    expect(PERSISTENT_BACKOFF.capMs).toBeLessThanOrEqual(7 * 86400_000); // the database refuses anything beyond 7 days anyway
+  });
+
+  it("a permanently missing subscription: remembered with a retry time, skipped until then, retried later with a longer delay, never discarded", async () => {
+    const bad = row(1);
+    const w = world([bad]);
+    missingSub(w, bad);
+    const before = JSON.stringify({ ...bad, failures: 0, nextAttemptMs: null, lastOutcome: null });
+    let s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.missing).toBe(1);
+    expect(s.backedOff).toBe(1);
+    expect(bad.failures).toBe(1);
+    expect(bad.lastOutcome).toBe("missing");
+    expect(bad.nextAttemptMs).toBe(NOW + 60 * MIN);
+    expect(JSON.stringify({ ...bad, failures: 0, nextAttemptMs: null, lastOutcome: null })).toBe(before); // billing data untouched
+
+    w.advance(30 * MIN); // still waiting
+    s = await reconcileSubscriptions(w.deps);
+    expect(s.examined).toBe(0);
+    expect(s.backedOff).toBe(1);
+    expect(bad.failures).toBe(1);
+
+    w.advance(31 * MIN); // the hour has passed: tried again, fails again, waits twice as long
+    s = await reconcileSubscriptions(w.deps);
+    expect(s.examined).toBe(1);
+    expect(s.outcomes.missing).toBe(1);
+    expect(bad.failures).toBe(2);
+    expect(bad.nextAttemptMs).toBe(w.nowMs() + 120 * MIN);
+    expect(w.db).toContain(bad); // still stored and visible
+  });
+
+  it("repeated customer mismatch: each consecutive conflict doubles the wait; the record is never changed", async () => {
+    const bad = row(1);
+    const w = world([bad]);
+    w.serve(bad, { customer: "cus_SOMEONE_ELSE" });
+    const delays: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      const s = await reconcileSubscriptions(w.deps);
+      expect(s.outcomes.conflict).toBe(1);
+      delays.push((bad.nextAttemptMs! - w.nowMs()) / MIN);
+      w.setNow(bad.nextAttemptMs! / 1000 + 1);
+    }
+    expect(delays).toEqual([60, 120, 240, 480]);
+    expect(bad.failures).toBe(4);
+    expect(bad.status).toBe("active");
+    expect(bad.customerId).toBe("cus_C1");
+  });
+
+  it("a conflict reported by the Stripe answer itself (a different subscription than asked) and an ignored record are backed off too", async () => {
+    const a = row(1), b = row(2), other = row(3);
+    const w = world([a, b]);
+    w.stripeSubs.set(a.subscriptionId, () => w.stripeSub(other));
+    w.serve(b, { livemode: true });
+    const s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.conflict).toBe(1);
+    expect(s.outcomes.ignored).toBe(1);
+    expect(a.lastOutcome).toBe("conflict");
+    expect(b.lastOutcome).toBe("ignored");
+    expect(s.backedOff).toBe(2);
+  });
+
+  it("a transient Stripe error: retried soon (5 min), recovery clears the memory, and the next failure starts from the beginning again", async () => {
+    const r = row(1);
+    const w = world([r]);
+    w.stripeSubs.set(r.subscriptionId, () => Object.assign(new Error("rate limited"), { code: "rate_limit", statusCode: 429 }));
+    let s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.stripe_error).toBe(1);
+    expect(r.nextAttemptMs).toBe(NOW + 5 * MIN);
+    w.advance(6 * MIN);
+    s = await reconcileSubscriptions(w.deps);
+    expect(r.failures).toBe(2);
+    expect(r.nextAttemptMs).toBe(w.nowMs() + 10 * MIN);
+    // Stripe recovers
+    w.serve(r, { cancel_at: END });
+    w.advance(11 * MIN);
+    s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.changed).toBe(1);
+    expect(r.cancelAtPeriodEnd).toBe(true);
+    expect(r.failures).toBe(0);
+    expect(r.lastOutcome).toBeNull();
+    expect(r.nextAttemptMs).toBeNull();
+    expect(s.backedOff).toBe(0);
+    // a later failure starts the schedule over
+    w.stripeSubs.set(r.subscriptionId, () => new Error("boom"));
+    w.advance(11 * MIN);
+    await reconcileSubscriptions(w.deps);
+    expect(r.failures).toBe(1);
+    expect(r.nextAttemptMs).toBe(w.nowMs() + 5 * MIN);
+  });
+
+  it("repeated Stripe errors escalate to the slow schedule after 5 in a row (bounded noise during a long outage)", async () => {
+    const r = row(1, { failures: TRANSIENT_ESCALATE_AFTER });
+    const w = world([r]);
+    w.stripeSubs.set(r.subscriptionId, () => new Error("still down"));
+    await reconcileSubscriptions(w.deps);
+    expect(r.nextAttemptMs! - w.nowMs()).toBe(PERSISTENT_BACKOFF.capMs); // 60 min * 2^5 is capped at 24 h
+  });
+
+  it("HEALTHY RECORDS PROGRESS PAST FAILING ONES: with more failing records than the batch holds, healthy ones are still reconciled on the first run, and after backoff the failing ones no longer occupy the batch", async () => {
+    const failing = Array.from({ length: 12 }, (_, i) => row(i + 1, { subscriptionId: `sub_F${i + 1}`, customerId: `cus_F${i + 1}`, syncedAtMs: (T0 - 7200 - i) * 1000 })); // the OLDEST records
+    const healthy = Array.from({ length: 6 }, (_, i) => row(i + 21, { subscriptionId: `sub_H${i + 1}`, customerId: `cus_H${i + 1}` }));
+    const w = world([...failing, ...healthy]);
+    for (const h of healthy) w.serve(h, { cancel_at: END });
+    // (failing ones: Stripe knows nothing about them)
+    const first = await reconcileSubscriptions(w.deps, { limit: 10 });
+    // run 1: all 18 records are healthy-so-far, so the 12 OLDEST (the failing ones) take 10 of the slots and each backs off after one try
+    expect(first.examined).toBe(10);
+    expect(first.outcomes.missing).toBe(10);
+    expect(first.backedOff).toBe(10);
+    // run 2 (same instant): the 10 are waiting, so the batch is the 2 remaining failing records plus ALL 6 healthy ones: the healthy ones got through
+    const second = await reconcileSubscriptions(w.deps, { limit: 10 });
+    expect(second.examined).toBe(8);
+    expect(second.outcomes.missing).toBe(2);
+    expect(second.outcomes.changed).toBe(6);
+    for (const h of healthy) expect(h.cancelAtPeriodEnd).toBe(true);
+    // run 3 (same instant): nothing is due: every failing record waits, every healthy one is inside its cooldown
+    const third = await reconcileSubscriptions(w.deps, { limit: 10 });
+    expect(third.examined).toBe(0);
+    expect(third.backedOff).toBe(12);
+    expect(failing.every((f) => f.failures === 1 && f.lastOutcome === "missing")).toBe(true); // all still stored and visible
+    // an hour later the failing records return, but a healthy record due at the same moment is still ahead of them
+    w.advance(61 * MIN);
+    healthy[0].syncedAtMs = (T0 - 7200) * 1000;
+    const fourth = await reconcileSubscriptions(w.deps, { limit: 3 });
+    expect(fourth.examined).toBe(3);
+    expect(w.writes.at(-1)!.subscriptionId === "sub_H1" || w.writes.slice(-3).some((x) => x.subscriptionId === "sub_H1")).toBe(true);
+  });
+
+  it("in a single batch healthy records go FIRST and failing ones only fill what is left (a failing record never displaces a healthy one)", async () => {
+    const retry = row(1, { failures: 3, syncedAtMs: (T0 - 9000) * 1000 }); // oldest, eligible to retry
+    const h1 = row(2), h2 = row(3);
+    const w = world([retry, h1, h2]);
+    for (const r of [retry, h1, h2]) w.serve(r);
+    await reconcileSubscriptions(w.deps, { limit: 2 });
+    expect(w.writes.map((x) => x.subscriptionId).sort()).toEqual(["sub_S2", "sub_S3"]);
+    expect(retry.failures).toBe(3); // untouched: it will be retried when there is room
+    const s = await reconcileSubscriptions(w.deps, { limit: 2 });
+    expect(s.examined).toBe(1);
+    expect(w.writes.at(-1)!.subscriptionId).toBe("sub_S1");
+    expect(retry.failures).toBe(0); // and its success cleared the memory
+  });
+
+  it("retry eligibility after backoff is exact: not before the retry time, yes at it", async () => {
+    const r = row(1, { failures: 1, lastOutcome: "missing", nextAttemptMs: NOW + 60 * MIN, syncedAtMs: (T0 - 7200) * 1000 });
+    const w = world([r]);
+    w.serve(r);
+    w.setNow(T0 + 60 * 60 - 1);
+    expect((await reconcileSubscriptions(w.deps)).examined).toBe(0);
+    w.setNow(T0 + 60 * 60);
+    const s = await reconcileSubscriptions(w.deps);
+    expect(s.examined).toBe(1);
+    expect(s.outcomes.unchanged).toBe(1);
+  });
+
+  it("the 10-minute successful-check cooldown, batch limit and time budget are unchanged by backoff", async () => {
+    const rows = Array.from({ length: 5 }, (_, i) => row(i + 1, { subscriptionId: `sub_Z${i + 1}`, customerId: `cus_Z${i + 1}` }));
+    const w = world(rows);
+    for (const r of rows) w.serve(r);
+    expect((await reconcileSubscriptions(w.deps, { limit: 2 })).examined).toBe(2);
+    expect((await reconcileSubscriptions(w.deps, { limit: 2 })).examined).toBe(2); // different two: the first two are inside their cooldown
+    expect((await reconcileSubscriptions(w.deps, { limit: 2 })).examined).toBe(1);
+    expect((await reconcileSubscriptions(w.deps, { limit: 2 })).examined).toBe(0);
+    w.advance(11 * MIN);
+    expect((await reconcileSubscriptions(w.deps, { limit: 25 })).examined).toBe(5);
+    // budget
+    w.advance(11 * MIN);
+    w.deps.retrieveSubscription = async (id) => {
+      w.advance(8000);
+      return w.stripeSub(rows.find((r) => r.subscriptionId === id)!);
+    };
+    const s = await reconcileSubscriptions(w.deps, { budgetMs: 10_000 });
+    expect(s.examined).toBe(2);
+    expect(s.moreDue).toBe(true);
+  });
+
+  it("idempotent: running again changes nothing further, and a failing record is not re-counted while it waits", async () => {
+    const bad = row(1);
+    const good = row(2);
+    const w = world([bad, good]);
+    missingSub(w, bad);
+    w.serve(good);
+    await reconcileSubscriptions(w.deps);
+    const snap = JSON.stringify([bad, good]);
+    const recordedBefore = w.recorded.length;
+    const s = await reconcileSubscriptions(w.deps); // same instant
+    expect(s.examined).toBe(0);
+    expect(JSON.stringify([bad, good])).toBe(snap);
+    expect(w.recorded.length).toBe(recordedBefore);
+    expect(bad.failures).toBe(1);
+  });
+
+  it("success on a healthy record writes no retry memory at all (no extra writes in the normal case)", async () => {
+    const r = row(1);
+    const w = world([r]);
+    w.serve(r, { status: "past_due" });
+    await reconcileSubscriptions(w.deps);
+    expect(w.recorded).toEqual([]);
+  });
+
+  it("a webhook win ('stale') counts as a successful check and clears earlier failures", async () => {
+    const r = row(1, { failures: 2, lastOutcome: "stripe_error", syncedAtMs: (T0 - 7200) * 1000 });
+    const w = world([r]);
+    w.serve(r);
+    const real = w.deps.sync;
+    w.deps.sync = async (a) => (r.syncedAtMs = Date.parse(a.fetchedAt) + 60_000, real(a)); // a newer webhook landed first
+    const s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.stale).toBe(1);
+    expect(r.failures).toBe(0);
+    expect(r.nextAttemptMs).toBeNull();
+  });
+
+  it("backoff memory can't touch billing: the model's record() changes only the three retry fields, and the store offers no other write", async () => {
+    const r = row(1);
+    const w = world([r]);
+    const before = { ...r };
+    await w.deps.store.record(r.subscriptionId, { ok: false, kind: "missing", nextAttemptAtIso: new Date(NOW + MIN).toISOString() });
+    const changed = Object.keys(r).filter((k) => JSON.stringify((r as Record<string, unknown>)[k]) !== JSON.stringify((before as Record<string, unknown>)[k]));
+    expect(changed.sort()).toEqual(["failures", "lastOutcome", "nextAttemptMs"]);
+    expect(Object.keys(w.deps.store).sort()).toEqual(["candidates", "record", "waiting"]);
+  });
+
+  it("the retry time is bounded by the database to 7 days, never in the past", async () => {
+    const r = row(1);
+    const w = world([r]);
+    await w.deps.store.record(r.subscriptionId, { ok: false, kind: "missing", nextAttemptAtIso: new Date(NOW + 400 * 86400_000).toISOString() });
+    expect(r.nextAttemptMs).toBe(NOW + 7 * 86400_000);
+    await w.deps.store.record(r.subscriptionId, { ok: false, kind: "missing", nextAttemptAtIso: new Date(NOW - 5 * 86400_000).toISOString() });
+    expect(r.nextAttemptMs).toBe(NOW);
+  });
+
+  it("losing the retry memory (a database hiccup while recording) never stops the run or affects the others", async () => {
+    const bad = row(1), good = row(2);
+    const w = world([bad, good]);
+    missingSub(w, bad);
+    w.serve(good, { status: "past_due" });
+    w.deps.store.record = async () => {
+      throw new Error("db hiccup");
+    };
+    const s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.missing).toBe(1);
+    expect(s.outcomes.changed).toBe(1);
+    expect(s.aborted).toBe(false);
+    expect(good.status).toBe("past_due");
+  });
+});
+
+describe("backoff under concurrent webhook and reconciliation processing", () => {
+  it("a webhook newer than a failing record's last check still applies normally, and the next successful check clears the failure memory", async () => {
+    const r = row(1, { failures: 2, lastOutcome: "conflict", nextAttemptMs: null, syncedAtMs: (T0 - 7200) * 1000 });
+    const w = world([r]);
+    w.serve(r, { status: "past_due" });
+    // a webhook writes first (newer snapshot)
+    w.advance(1000);
+    expect(await w.deps.sync({ eventId: "evt_hook", userHint: null, customerId: r.customerId, subscriptionId: r.subscriptionId, priceId: r.priceId, plan: "monthly", status: "past_due", periodStart: null, periodEnd: iso(END), cancelAtPeriodEnd: false, canceledAt: null, endedAt: null, fetchedAt: new Date(w.nowMs()).toISOString() })).toBe("applied");
+    expect(r.failures).toBe(2); // the webhook path doesn't touch retry memory
+    w.advance(11 * 60_000);
+    const s = await reconcileSubscriptions(w.deps);
+    expect(s.outcomes.unchanged).toBe(1);
+    expect(r.failures).toBe(0);
+  });
+
+  it("a slow reconciliation that loses to a webhook is 'stale': not a failure, so it is not backed off", async () => {
+    const r = row(1);
+    const w = world([r]);
+    let release!: () => void;
+    const gate = new Promise<void>((res) => (release = res));
+    w.deps.retrieveSubscription = async () => {
+      const snap = w.stripeSub(r);
+      await gate;
+      return snap;
+    };
+    const run = reconcileSubscriptions(w.deps);
+    await Promise.resolve();
+    w.advance(5000);
+    await w.deps.sync({ eventId: "evt_hook", userHint: null, customerId: r.customerId, subscriptionId: r.subscriptionId, priceId: r.priceId, plan: "monthly", status: "active", periodStart: null, periodEnd: iso(END), cancelAtPeriodEnd: true, canceledAt: iso(T0 + 1), endedAt: null, fetchedAt: new Date(w.nowMs()).toISOString() });
+    release();
+    const s = await run;
+    expect(s.outcomes.stale).toBe(1);
+    expect(r.cancelAtPeriodEnd).toBe(true);
+    expect(r.failures).toBe(0);
+    expect(r.nextAttemptMs).toBeNull();
+  });
+
+  it("two overlapping runs over a failing record both record the failure; the stored count stays bounded and the retry time sane", async () => {
+    const bad = row(1);
+    const w = world([bad]);
+    w.stripeSubs.delete(bad.subscriptionId);
+    await Promise.all([reconcileSubscriptions(w.deps), reconcileSubscriptions(w.deps)]);
+    expect(bad.failures).toBeGreaterThanOrEqual(1);
+    expect(bad.failures).toBeLessThanOrEqual(2);
+    expect(bad.nextAttemptMs).toBeGreaterThan(w.nowMs());
+    expect(bad.nextAttemptMs).toBeLessThanOrEqual(w.nowMs() + 24 * 60 * 60_000);
+  });
+});
+
 // ---------------------------------------------------------------------------------------------------------------------------------------
 describe("the server-side invocation (POST /api/billing/reconcile)", () => {
   const SECRET = "reconcile-secret-0123456789-abcdefghijklmnop";
-  const summary: ReconcileSummary = { examined: 2, outcomes: { changed: 1, unchanged: 1, stale: 0, missing: 0, conflict: 0, ignored: 0, stripe_error: 0, store_error: 0 }, moreDue: false, aborted: false };
+  const summary: ReconcileSummary = { examined: 2, outcomes: { changed: 1, unchanged: 1, stale: 0, missing: 0, conflict: 0, ignored: 0, stripe_error: 0, store_error: 0 }, moreDue: false, backedOff: 0, aborted: false };
   const mk = (over: Partial<ReconcileRouteDeps> = {}) => {
     const run = vi.fn(async () => summary);
     return { run, deps: { env: { BILLING_RECONCILE_SECRET: SECRET }, run, ...over } as ReconcileRouteDeps };

@@ -206,3 +206,8 @@ through the same code the webhooks use (including the scheduled-cancellation nor
   subscriptions already canceled for good. The response holds counts only (`changed`, `unchanged`, `stale`, `missing`, `conflict`, `ignored`, `stripe_error`, `store_error`, `moreDue`).
 - **Safe:** it creates no subscription, Checkout session or entitlement and changes no trial, admin grant or Free limit. A Stripe failure leaves a record as it was; the next run retries it.
 - **Scheduling:** none is configured. Run it from the owner's scheduler (for example a cron job or GitHub Action) when wanted.
+- **Retry backoff (step 9.2, needs `supabase/migrations/20261123000100_reconcile_backoff.sql`):** a record Stripe cannot answer for (`missing`, `conflict`, `ignored`, or repeated
+  `stripe_error`) is remembered in four `reconcile_*` columns and skipped until a retry time that doubles per consecutive failure (Stripe errors 5 min to 1 h, becoming
+  persistent after 5 in a row; missing/conflict/ignored 1 h to 24 h). Healthy records are always ahead of retries in a batch, a success clears the memory, and the response
+  adds `backedOff` (records waiting). The columns never touch billing status, entitlements, trials or grants. To investigate:
+  `select user_id, reconcile_last_outcome, reconcile_failures, reconcile_last_failed_at, reconcile_next_attempt_at from public.account_billing where reconcile_failures > 0;`

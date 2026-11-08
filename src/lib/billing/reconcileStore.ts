@@ -1,9 +1,13 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
-// Which billing records the reconciler should re-check against Stripe: read from public.account_billing with the Supabase service role (that
-// table has no policies and no browser access). READ-ONLY: one select, no filters from any request. Writing the refreshed state is NOT done
-// here; it goes through the existing sync function (webhookStore.syncSubscription), the same path the webhooks use, with its stale-snapshot guard.
+// Which billing records the reconciler should re-check against Stripe, and the memory of which ones failed: read from public.account_billing with
+// the Supabase service role (that table has no policies and no browser access). Refreshed billing state is NOT written here; it goes through the
+// existing sync function (webhookStore.syncSubscription), the same path the webhooks use, with its stale-snapshot guard.
+//
+// The only thing this store writes is the retry/backoff memory (reconcile_* columns), through the one function record_reconcile_result
+// (supabase/migrations/20261123000100_reconcile_backoff.sql). That function can touch those four columns and nothing else, so backoff metadata can
+// never alter a status, plan, period, entitlement, trial or admin grant.
 //
 // Failures are logged with the same safe fields as the other stores (category, operation, error code, HTTP status): never a message, key, URL
 // or identifier.
@@ -19,14 +23,25 @@ export type ReconcileCandidate = {
   canceledAt: string | null;
   endedAt: string | null;
   syncedAt: string | null;
+  /** How many reconciliation attempts in a row have failed for this record (0 = healthy). */
+  failures: number;
 };
+
+export type ReconcileFailureKind = "missing" | "conflict" | "stripe_error" | "ignored";
+export type ReconcileRecord = { ok: true } | { ok: false; kind: ReconcileFailureKind; nextAttemptAtIso: string };
 
 export type ReconcileStore = {
   /**
-   * Records worth re-checking, oldest synchronisation first: they have a subscription, are not over for good (canceled / incomplete_expired
-   * are final in Stripe), and were last synchronised before `staleBefore` (or never). At most `limit`.
+   * Records worth re-checking: they have a subscription, are not over for good (canceled / incomplete_expired are final in Stripe), were last
+   * synchronised before `staleBefore` (or never), and are NOT waiting out a retry delay (`now` is past their next attempt time, or they have none).
+   * Healthy records (no failures) come first, then the longest-unsynchronised; at most `limit`. A failing record therefore cannot keep a healthy
+   * one out of a batch, and cannot occupy a batch until its own retry time comes round.
    */
-  candidates(staleBeforeIso: string, limit: number): Promise<ReconcileCandidate[]>;
+  candidates(staleBeforeIso: string, nowIso: string, limit: number): Promise<ReconcileCandidate[]>;
+  /** How many records are currently waiting out a retry delay: failures that are still visible and will be retried, not discarded. */
+  waiting(nowIso: string): Promise<number>;
+  /** Remember the result of one check (success clears the failure memory; a failure counts it and sets the earliest retry time). Best-effort. */
+  record(subscriptionId: string, result: ReconcileRecord): Promise<void>;
 };
 
 export class ReconcileStoreUnavailableError extends Error {
@@ -54,28 +69,41 @@ export function createReconcileStore(env: Readonly<Record<string, string | undef
   }
   const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 
+  async function run<T>(op: string, fn: () => PromiseLike<{ data: T; error: { code?: unknown } | null; status?: unknown; count?: number | null }>): Promise<{ data: T; count: number | null }> {
+    let res: Awaited<ReturnType<typeof fn>>;
+    try {
+      res = await fn();
+    } catch {
+      logFailure({ reason: "query_error", op });
+      throw new ReconcileStoreUnavailableError("query_error");
+    }
+    if (res.error) {
+      logFailure({ reason: "query_error", op, code: safeCode(res.error.code), status: safeStatus(res.status) });
+      throw new ReconcileStoreUnavailableError("query_error");
+    }
+    return { data: res.data, count: res.count ?? null };
+  }
+
   return {
-    async candidates(staleBeforeIso, limit) {
-      let res: { data: unknown; error: { code?: unknown } | null; status?: unknown };
-      try {
-        res = (await db
+    async candidates(staleBeforeIso, nowIso, limit) {
+      // (never synchronised OR synchronised before the cut-off) AND (no retry time OR the retry time has come). PostgREST takes ONE top-level
+      // "or", so the AND of two ORs is written out as an OR of the four combinations.
+      const due = `subscription_synced_at.is.null,subscription_synced_at.lt.${staleBeforeIso}`.split(",");
+      const ready = `reconcile_next_attempt_at.is.null,reconcile_next_attempt_at.lte.${nowIso}`.split(",");
+      const combos = due.flatMap((d) => ready.map((r) => `and(${d},${r})`)).join(",");
+      const { data } = await run("candidates", () =>
+        db
           .from("account_billing")
-          .select("stripe_subscription_id, last_event_id, subscription_status, stripe_price_id, cancel_at_period_end, current_period_end, canceled_at, ended_at, subscription_synced_at")
+          .select("stripe_subscription_id, last_event_id, subscription_status, stripe_price_id, cancel_at_period_end, current_period_end, canceled_at, ended_at, subscription_synced_at, reconcile_failures")
           .not("stripe_subscription_id", "is", null)
           .not("subscription_status", "in", "(canceled,incomplete_expired)")
-          .or(`subscription_synced_at.is.null,subscription_synced_at.lt.${staleBeforeIso}`)
+          .or(combos)
+          .order("reconcile_failures", { ascending: true })
           .order("subscription_synced_at", { ascending: true, nullsFirst: true })
-          .limit(limit)) as typeof res;
-      } catch {
-        logFailure({ reason: "query_error", op: "candidates" });
-        throw new ReconcileStoreUnavailableError("query_error");
-      }
-      if (res.error) {
-        logFailure({ reason: "query_error", op: "candidates", code: safeCode(res.error.code), status: safeStatus(res.status) });
-        throw new ReconcileStoreUnavailableError("query_error");
-      }
+          .limit(limit)
+      );
       const out: ReconcileCandidate[] = [];
-      for (const r of Array.isArray(res.data) ? (res.data as Record<string, unknown>[]) : []) {
+      for (const r of Array.isArray(data) ? (data as Record<string, unknown>[]) : []) {
         const subscriptionId = str(r.stripe_subscription_id);
         if (!subscriptionId || !SUB_ID.test(subscriptionId)) continue; // never ask Stripe about anything that isn't a subscription ID
         const last = str(r.last_event_id);
@@ -89,9 +117,33 @@ export function createReconcileStore(env: Readonly<Record<string, string | undef
           canceledAt: str(r.canceled_at),
           endedAt: str(r.ended_at),
           syncedAt: str(r.subscription_synced_at),
+          failures: typeof r.reconcile_failures === "number" && Number.isInteger(r.reconcile_failures) && r.reconcile_failures > 0 ? r.reconcile_failures : 0,
         });
       }
       return out;
+    },
+
+    async waiting(nowIso) {
+      const { count } = await run("waiting", () =>
+        db
+          .from("account_billing")
+          .select("stripe_subscription_id", { count: "exact", head: true })
+          .not("stripe_subscription_id", "is", null)
+          .not("subscription_status", "in", "(canceled,incomplete_expired)")
+          .gt("reconcile_next_attempt_at", nowIso)
+      );
+      return count ?? 0;
+    },
+
+    async record(subscriptionId, result) {
+      if (!SUB_ID.test(subscriptionId)) return;
+      await run("record", () =>
+        db.rpc("record_reconcile_result", {
+          p_subscription_id: subscriptionId,
+          p_outcome: result.ok ? "ok" : result.kind,
+          p_next_attempt_at: result.ok ? null : result.nextAttemptAtIso,
+        })
+      );
     },
   };
 }

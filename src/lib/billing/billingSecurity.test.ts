@@ -86,7 +86,7 @@ describe("Stripe stays on the server", () => {
     expect(code.replace(/createHash\([^)]*\)\.update\(/g, "")).not.toMatch(/\.(insert|update|upsert|delete)\(/);
     // the database functions billing code may call: directly (.rpc("name")) or through the event store's call("op", "name", ...) helper
     const fnNames = [...code.matchAll(/(?:\.rpc\(\s*|\bcall\(\s*"[a-z]+",\s*)"([a-z_]+)"/g)].map((m) => m[1]);
-    expect([...new Set(fnNames)].sort()).toEqual(["begin_checkout_attempt", "claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "finish_checkout_attempt", "get_feature_flags", "record_checkout_session", "sync_stripe_subscription"]);
+    expect([...new Set(fnNames)].sort()).toEqual(["begin_checkout_attempt", "claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "finish_checkout_attempt", "get_feature_flags", "record_checkout_session", "record_reconcile_result", "sync_stripe_subscription"]);
     expect(billingCodeWithoutPortalStore()).not.toMatch(/\.from\(\s*["']/);
   });
 
@@ -121,9 +121,11 @@ describe("Stripe stays on the server", () => {
   it("reconciliation: one read-only select by stored subscription state; writes go only through the existing sync function; nothing from the request names an account, customer or subscription", () => {
     const store = read(join(billingDir, "reconcileStore.ts"));
     expect(store).toMatch(/^import "server-only";/);
-    expect(store.match(/\.from\(/g)).toHaveLength(1);
-    expect(store).toMatch(/\.from\("account_billing"\)/);
-    expect(store).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(/);
+    expect(store.match(/\.from\(/g)).toHaveLength(2); // the candidates query and the waiting count: both read-only selects of account_billing
+    expect(store.match(/\.from\("account_billing"\)/g)).toHaveLength(2);
+    expect(store).not.toMatch(/\.(insert|update|upsert|delete)\(/);
+    // the one write is the retry/backoff memory, through the one function that can touch only the reconcile_* columns
+    expect([...store.matchAll(/\.rpc\(\s*"([a-z_]+)"/g)].map((m) => m[1])).toEqual(["record_reconcile_result"]);
     const code = read(join(billingDir, "reconcile.ts"));
     const noComments = code.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
     expect(noComments).not.toMatch(/account_billing|account_entitlements|\.from\(|SERVICE_ROLE|service_role|\.rpc\(|checkout\.sessions|subscriptions\.(create|update|cancel|resume)|billingPortal|customers\./);

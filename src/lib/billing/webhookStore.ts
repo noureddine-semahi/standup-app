@@ -13,7 +13,8 @@ export type ClaimResult = "claimed" | "duplicate" | "in_progress";
 
 /** The subscription facts the database records against an account, all derived on the server from Stripe's own data. */
 export type SubscriptionSyncArgs = {
-  eventId: string;
+  /** The Stripe event that triggered this, or (reconciliation) the record's existing last event ID, or null: stored as the record's last event. */
+  eventId: string | null;
   /** The account the trusted Checkout metadata names, or null. The database weighs it against existing records; it is never trusted alone. */
   userHint: string | null;
   customerId: string;

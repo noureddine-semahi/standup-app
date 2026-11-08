@@ -193,3 +193,16 @@ Settings > Premium can now take a member to Stripe Checkout and back. **It is in
 - **Expired sign-in:** `AuthGate` and the Subscribe button send the member to `/login?next=<path>`; after signing in they return to it (e.g. Settings with the checkout parameter). Only in-app
   paths under `/standup` are accepted (`src/lib/safeReturn.ts`); anything else (another site, `//host`, schemes, backslashes, control characters) falls back to Today.
 - **No migration** for this step. FAQ (shown only when promotion is on) and the privacy policy describe the flow in EN/ES.
+
+## Reconciliation (missed or delayed webhooks)
+
+If a webhook is missed, `account_billing` can drift from Stripe. `POST /api/billing/reconcile` re-reads each stored subscription from Stripe and records it
+through the same code the webhooks use (including the scheduled-cancellation normalisation and the stale-snapshot guard in `sync_stripe_subscription`).
+
+- **Authorization:** set `BILLING_RECONCILE_SECRET` (at least 32 random characters) in Vercel. Without it the endpoint answers 503 and does nothing.
+  Call it with `Authorization: Bearer <secret>`, no `Origin` header, and an empty body, `{}` or `{"limit": 1-25}`. It accepts no account, customer or subscription.
+- **Example:** `curl -s -X POST https://standup-app-two.vercel.app/api/billing/reconcile -H "Authorization: Bearer $BILLING_RECONCILE_SECRET"`
+- **Bounded:** up to 10 records per run by default (25 max), a 20 s budget, oldest synchronisation first, skipping records synchronised in the last 10 minutes and
+  subscriptions already canceled for good. The response holds counts only (`changed`, `unchanged`, `stale`, `missing`, `conflict`, `ignored`, `stripe_error`, `store_error`, `moreDue`).
+- **Safe:** it creates no subscription, Checkout session or entitlement and changes no trial, admin grant or Free limit. A Stripe failure leaves a record as it was; the next run retries it.
+- **Scheduling:** none is configured. Run it from the owner's scheduler (for example a cron job or GitHub Action) when wanted.

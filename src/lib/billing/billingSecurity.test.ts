@@ -48,7 +48,7 @@ describe("Stripe stays on the server", () => {
   const billingFiles = () => readdirSync(billingDir).filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n));
   const billingCode = () => billingFiles().map((n) => read(join(billingDir, n))).join("\n");
   // The one module allowed to name account_billing and use .from(): the Customer Portal's read-only customer lookup (pinned by its own test below).
-  const billingCodeWithoutPortalStore = () => billingFiles().filter((n) => n !== "portalStore.ts").map((n) => read(join(billingDir, n))).join("\n");
+  const billingCodeWithoutPortalStore = () => billingFiles().filter((n) => n !== "portalStore.ts" && n !== "reconcileStore.ts").map((n) => read(join(billingDir, n))).join("\n");
 
   it("Checkout sessions are created in one place only, Customer Portal sessions in one place only, and nothing changes a subscription, invoice or payment from the app", () => {
     expect(billingFiles().filter((n) => /checkout\.sessions\.create/.test(read(join(billingDir, n))))).toEqual(["checkout.ts"]);
@@ -90,10 +90,10 @@ describe("Stripe stays on the server", () => {
     expect(billingCodeWithoutPortalStore()).not.toMatch(/\.from\(\s*["']/);
   });
 
-  it("Supabase is touched only by serverAuth.ts (as the calling user), webhookStore.ts, checkoutStore.ts and portalStore.ts; the service role lives in those three stores alone", () => {
-    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "serverAuth.ts", "webhookStore.ts"]);
-    expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "webhookStore.ts"]);
-    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
+  it("Supabase is touched only by serverAuth.ts (as the calling user), webhookStore.ts, checkoutStore.ts, portalStore.ts and reconcileStore.ts; the service role lives in those four stores alone", () => {
+    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "reconcileStore.ts", "serverAuth.ts", "webhookStore.ts"]);
+    expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "reconcileStore.ts", "webhookStore.ts"]);
+    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore|reconcileStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
     expect(outside.map(rel)).toEqual([]);
     // the service role may only call the three event-ledger functions
     expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\bcall\(\s*"[a-z]+",\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "sync_stripe_subscription"]);
@@ -116,6 +116,28 @@ describe("Stripe stays on the server", () => {
     const route = read(join(src, "app", "api", "billing", "checkout", "route.ts"));
     expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
     expect(route).toContain("handleCheckoutRequest");
+  });
+
+  it("reconciliation: one read-only select by stored subscription state; writes go only through the existing sync function; nothing from the request names an account, customer or subscription", () => {
+    const store = read(join(billingDir, "reconcileStore.ts"));
+    expect(store).toMatch(/^import "server-only";/);
+    expect(store.match(/\.from\(/g)).toHaveLength(1);
+    expect(store).toMatch(/\.from\("account_billing"\)/);
+    expect(store).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(/);
+    const code = read(join(billingDir, "reconcile.ts"));
+    const noComments = code.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    expect(noComments).not.toMatch(/account_billing|account_entitlements|\.from\(|SERVICE_ROLE|service_role|\.rpc\(|checkout\.sessions|subscriptions\.(create|update|cancel|resume)|billingPortal|customers\./);
+    expect(noComments).toMatch(/subscriptions\.retrieve\(id\)/);
+    expect(noComments).toMatch(/\bdeps\.sync\(built\.args\)/); // the one write: the same database function the webhooks use
+    expect(noComments).not.toMatch(/searchParams|req\.url|\.json\(\)/); // nothing but headers and a tiny validated body is read from the request
+    const sync = read(join(billingDir, "subscriptionSync.ts"));
+    expect(sync).toContain("cancellationScheduled(sub as unknown as Obj, periodEnd, fetchedAt)"); // the normalisation lives in the shared builder both paths use
+  });
+
+  it("the reconcile route exposes POST only and delegates to the handler", () => {
+    const route = read(join(src, "app", "api", "billing", "reconcile", "route.ts"));
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect(route).toContain("handleReconcileRequest");
   });
 
   it("the portal route exposes POST only and delegates to the handler", () => {

@@ -89,7 +89,7 @@ export type BuiltSync = { ok: true; args: SubscriptionSyncArgs } | { ok: false; 
  * The record to store, from the subscription as Stripe reports it. `userHints` are every hint seen (event + subscription metadata);
  * they must be valid account IDs and must agree with each other, otherwise nothing is recorded.
  */
-export function buildSyncArgs(sub: Stripe.Subscription, prices: Readonly<Record<BillingPlan, string>>, eventId: string, userHints: string[], fetchedAt: string): BuiltSync {
+export function buildSyncArgs(sub: Stripe.Subscription, prices: Readonly<Record<BillingPlan, string>>, eventId: string | null, userHints: string[], fetchedAt: string): BuiltSync {
   if (sub.livemode === true) return { ok: false, reason: "ignored_live_mode" };
 
   const customerId = idOf(sub.customer);

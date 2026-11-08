@@ -216,6 +216,41 @@ describe("beta feature flags", () => {
   });
 });
 
+describe("Subscribe button visibility follows the beta flags", () => {
+  const FLAGS = (p: boolean, c: boolean) => ({ premium_promotion_enabled: p, premium_trial_activation_enabled: false, billing_checkout_enabled: c });
+  it("both promotion and checkout on: a Free account sees the Subscribe button", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(FLAGS(true, true));
+    await mount(free);
+    expect(screen.getByTestId("premium-subscribe-button")).toBeTruthy();
+    expect(screen.queryByTestId("premium-not-available")).toBeNull();
+  });
+  it("promotion on but checkout off: the plans show with the 'not available yet' note and NO button", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(FLAGS(true, false));
+    await mount(free);
+    expect(screen.getByTestId("premium-plans")).toBeTruthy();
+    expect(screen.getByTestId("premium-not-available")).toBeTruthy();
+    expect(screen.queryByTestId("premium-subscribe-button")).toBeNull();
+  });
+  it("checkout on but promotion off (it needs both): no plans and no button", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(FLAGS(false, true));
+    await mount(free);
+    expect(screen.queryByTestId("premium-plans")).toBeNull();
+    expect(screen.queryByTestId("premium-subscribe-button")).toBeNull();
+  });
+  it("the current beta (everything off): nothing about subscribing appears", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(FLAGS(false, false));
+    await mount(free);
+    expect(screen.queryByTestId("premium-plans")).toBeNull();
+    expect(screen.queryByTestId("premium-subscribe")).toBeNull();
+    expect(screen.queryByTestId("checkout-return")).toBeNull();
+  });
+  it("a Premium account is never shown the button", async () => {
+    flagsApi.getFeatureFlags.mockResolvedValue(FLAGS(true, true));
+    await mount(premium);
+    expect(screen.queryByTestId("premium-subscribe-button")).toBeNull();
+  });
+});
+
 describe("plans section", () => {
   it("is shown under the trial offer for a Free account, and the trial flow still works", async () => {
     await mount(free);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { loginUrlWithReturn } from "@/lib/safeReturn";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
@@ -23,7 +24,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         if (sessionErr) throw sessionErr;
 
         if (!data.session) {
-          router.push("/login");
+          // keep where they were going (e.g. Settings after Stripe), so signing in brings them back; only safe in-app paths are kept
+          router.push(loginUrlWithReturn(window.location.pathname + window.location.search));
           return;
         }
 

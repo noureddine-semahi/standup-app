@@ -100,7 +100,18 @@ describe("Stripe stays on the server", () => {
     expect(route).toContain("handleCheckoutRequest");
   });
 
-  it("the settings UI components don't reference Stripe or the billing config", () => {
-    for (const f of ["PremiumTrialCard.tsx", "PremiumPlans.tsx"]) expect(read(join(src, "components", f))).not.toMatch(/stripe|lib\/billing\/(config|stripe)/i);
+  it("the settings UI components never import the Stripe SDK or any server billing module, never read secrets or environment variables, and talk to the server only through the existing endpoint helper", () => {
+    for (const f of ["PremiumTrialCard.tsx", "PremiumPlans.tsx", "CheckoutReturn.tsx", "BillingStatus.tsx"]) {
+      const code = read(join(src, "components", f));
+      expect(code).not.toMatch(/from\s+["']stripe["']|lib\/billing\/(config|stripe|checkout|checkoutStore|serverAuth|webhook|webhookStore|origins)["']/);
+      expect(code).not.toMatch(/process\.env|STRIPE_|SERVICE_ROLE|sk_(test|live)_|whsec_/);
+      expect(code).not.toMatch(/\bfetch\(/); // no second checkout implementation: the one network call lives in startCheckout.ts
+    }
+    const helper = read(join(src, "lib", "startCheckout.ts"));
+    const helperCode = helper.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n"); // (the header comment also names the endpoint)
+    expect(helperCode.match(/\/api\/billing\/checkout/g)).toHaveLength(1);
+    expect(helperCode).not.toMatch(/process\.env|STRIPE_(SECRET|WEBHOOK|PRICE)|SERVICE_ROLE|price_|checkout\.sessions/);
+    // the helper may follow only a Stripe Checkout URL, and the member's token never leaves the one request
+    expect(helper).toContain("https:\\/\\/checkout\\.stripe\\.com\\/");
   });
 });

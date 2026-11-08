@@ -9,7 +9,8 @@ import { TrialNotAvailableError, getMyEntitlement, getMyTrialHistory, isEntitlem
 import { ConfirmActionModal } from "@/components/tools/PaymentsDashboard";
 import PremiumPlans from "@/components/PremiumPlans";
 import BillingStatus from "@/components/BillingStatus";
-import { showPremiumPromotion, showTrialOffer } from "@/lib/featureFlags";
+import CheckoutReturn from "@/components/CheckoutReturn";
+import { showCheckout, showPremiumPromotion, showTrialOffer } from "@/lib/featureFlags";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
 // Account settings > Premium. Shows the current plan and, if the one-time trial is still available, a "Start 14-Day Free Trial"
@@ -80,6 +81,8 @@ export default function PremiumTrialCard() {
         <Sparkles size={16} aria-hidden="true" /> {t("premium.title")}
       </h2>
 
+      <CheckoutReturn onConfirmed={() => void load()} />
+
       {phase === "loading" && (
         <p className="text-sm text-white/50" role="status" data-testid="premium-loading">
           {t("premium.loading")}
@@ -125,7 +128,7 @@ export default function PremiumTrialCard() {
 
           <BillingStatus />
 
-          {view.tier !== "premium" && showPremiumPromotion(flags) && <PremiumPlans />}
+          {view.tier !== "premium" && showPremiumPromotion(flags) && <PremiumPlans checkoutEnabled={showCheckout(flags)} />}
         </div>
       )}
 

@@ -26,6 +26,7 @@ describe("privacy policy: payments & billing", () => {
     expect(t).toContain("returns to the Free plan and nothing you created is deleted");
     expect(t).toContain("see your plan, status and renewal date in Settings; we never show Stripe identifiers");
     expect(t).toContain("which plan you chose (monthly or annual) and when you started a checkout");
+    expect(t).toContain("complete payment on Stripe's own secure page, and we only act on a payment after confirming it ourselves");
     expect(t).toContain("doesn't remove these billing records");
     expect(screen.getByText("Payments & billing")).toBeTruthy();
   });
@@ -34,7 +35,7 @@ describe("privacy policy: payments & billing", () => {
     try {
       mount();
       const t = screen.getByTestId("privacy-billing").textContent!;
-      for (const s of ["gratis durante la beta", "Stripe", "nunca llegan a StandUp", "identificadores de cliente y suscripción", "mensual o anual", "nunca se muestran a otros miembros", "no elimina estos registros de facturación", "Mientras una suscripción está activa, tu cuenta tiene Premium", "breve periodo de gracia", "vuelve al plan Gratis y no se elimina nada de lo que creaste", "nunca mostramos identificadores de Stripe", "cuándo iniciaste un pago"]) expect(t).toContain(s);
+      for (const s of ["gratis durante la beta", "Stripe", "nunca llegan a StandUp", "identificadores de cliente y suscripción", "mensual o anual", "nunca se muestran a otros miembros", "no elimina estos registros de facturación", "Mientras una suscripción está activa, tu cuenta tiene Premium", "breve periodo de gracia", "vuelve al plan Gratis y no se elimina nada de lo que creaste", "nunca mostramos identificadores de Stripe", "cuándo iniciaste un pago", "solo actuamos sobre un pago después de confirmarlo nosotros"]) expect(t).toContain(s);
       expect(screen.getByText("Pagos y facturación")).toBeTruthy();
     } finally {
       localStorage.removeItem("standup-language");

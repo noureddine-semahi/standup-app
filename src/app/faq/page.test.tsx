@@ -34,6 +34,7 @@ describe("FAQ: plans and billing answer", () => {
     await mount();
     expect(screen.queryByTestId("faq-plans")).toBeNull();
     expect(screen.queryByTestId("faq-double-subscribe")).toBeNull();
+    expect(screen.queryByTestId("faq-subscribe-flow")).toBeNull();
     expect(document.body.textContent).not.toMatch(/grace period/i);
   });
   it("is shown when promotion is on, and states the implemented policy: nothing deleted, 7-day grace, Free limits, manual grants and trials unaffected", async () => {
@@ -52,6 +53,12 @@ describe("FAQ: plans and billing answer", () => {
     expect(dup).toContain("continues the same one");
     expect(dup).toContain("only one can ever be paid");
     expect(dup).toContain("Premium that an admin gave you, or your free trial, doesn't count as a subscription");
+    const flow = screen.getByTestId("faq-subscribe-flow").textContent!;
+    expect(flow).toContain("Stripe's own secure checkout page, so your card details never reach StandUp");
+    expect(flow).toContain("we don't take the page's word for it");
+    expect(flow).toContain("Premium switches on by itself as soon as it arrives");
+    expect(flow).toContain("If you leave checkout early, nothing is changed");
+    expect(flow).toContain("brought back to Settings");
   });
   it("is available in Spanish with the same commitments", async () => {
     localStorage.setItem("standup-language", "es");
@@ -62,6 +69,8 @@ describe("FAQ: plans and billing answer", () => {
       for (const s of ["Nada de lo que creaste se elimina nunca", "periodo de gracia de 7 días", "3 Objetivos activos, 3 rutinas activas, 10 notas", "un administrador, o una prueba gratuita activa", "En Ajustes puedes ver tu plan, el estado de tu suscripción"]) expect(t).toContain(s);
       const dup = screen.getByTestId("faq-double-subscribe").textContent!;
       for (const s of ["no iniciaremos otra", "solo uno puede llegar a pagarse", "no cuenta como suscripción"]) expect(dup).toContain(s);
+      const flow = screen.getByTestId("faq-subscribe-flow").textContent!;
+      for (const s of ["nunca llegan a StandUp", "no nos fiamos solo de la página", "Premium se activa solo en cuanto llega", "volverás a Ajustes"]) expect(flow).toContain(s);
     } finally {
       localStorage.removeItem("standup-language");
     }

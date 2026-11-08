@@ -177,3 +177,19 @@ with the beta flags off nothing changes (requests are still refused with `checko
 - **Migration:** run `supabase/migrations/20261122000100_checkout_attempts.sql` (one table, three service-role-only functions; touches nothing else). Needs `SUPABASE_SERVICE_ROLE_KEY` in the
   environment (already used by the webhook).
 - **Messages:** `src/lib/checkoutMessages.ts` maps each refusal to an EN/ES message for the future Subscribe button; the FAQ answer appears only when promotion is on.
+
+## Subscribe button and Checkout return (Phase 5.6 step 6)
+
+Settings > Premium can now take a member to Stripe Checkout and back. **It is invisible during the beta**: the button needs BOTH `premium_promotion_enabled` and `billing_checkout_enabled`
+(all flags are off). With only promotion on, the plans show with the "not available yet" note, exactly as before.
+
+- **Subscribe** (`PremiumPlans`) uses the existing endpoint through one helper (`src/lib/startCheckout.ts`): it sends only the plan with the member's token and follows only a
+  `https://checkout.stripe.com/` URL. The server re-checks the sign-in, both flags and the duplicate-subscription guard; hiding the button is a courtesy, never the protection. A member who
+  already has a subscription isn't offered the button, and a refusal (`already_subscribed`, `checkout_in_progress`, disabled, failed) shows its EN/ES message and allows a retry.
+- **Returning** (`CheckoutReturn`): `?checkout=success` is **never proof of payment** (anyone can type it). It shows "checking", then polls the member-scoped billing status the verified webhook
+  fills in (every 4s, up to 15 times). Only when THIS SUBSCRIPTION gives Premium does it say "confirmed" (and refreshes the plan). A payment still being completed says so; if nothing arrives
+  it says "we haven't received confirmation yet" with a **Check again** button. Premium from an admin grant or a trial is never mistaken for a confirmed payment.
+  `?checkout=cancelled` only says the member left checkout and changed nothing (no claim about money). The parameter is removed from the address bar once read.
+- **Expired sign-in:** `AuthGate` and the Subscribe button send the member to `/login?next=<path>`; after signing in they return to it (e.g. Settings with the checkout parameter). Only in-app
+  paths under `/standup` are accepted (`src/lib/safeReturn.ts`); anything else (another site, `//host`, schemes, backslashes, control characters) falls back to Today.
+- **No migration** for this step. FAQ (shown only when promotion is on) and the privacy policy describe the flow in EN/ES.

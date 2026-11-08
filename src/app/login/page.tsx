@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { returnPathFromSearch } from "@/lib/safeReturn";
 
 export default function LoginPage() {
   const { t } = useLanguage();
@@ -41,7 +42,7 @@ export default function LoginPage() {
 
       if (data?.user) {
         setMessage(t("login.successRedirecting"));
-        router.push("/standup/today");
+        router.push(returnPathFromSearch(window.location.search) ?? "/standup/today");
       }
     } catch (err: any) {
       setError(err?.message ?? t("login.failed"));
@@ -65,7 +66,7 @@ export default function LoginPage() {
       const { error: magicError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/standup/today`,
+          emailRedirectTo: `${window.location.origin}${returnPathFromSearch(window.location.search) ?? "/standup/today"}`,
         },
       });
 

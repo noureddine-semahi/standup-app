@@ -1,19 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { FREE_LIMITS, PRICING, formatPriceCents, yearlyPerMonthCents, yearlySavingsPercent } from "@/lib/entitlements";
+import type { TranslationKey } from "@/lib/i18n/en";
+import { blocksNewCheckout } from "@/lib/billing/subscriptionStates";
+import { checkoutErrorMessageKey } from "@/lib/checkoutMessages";
+import { loginUrlWithReturn } from "@/lib/safeReturn";
+import { navigateTo } from "@/lib/navigate";
+import { startCheckout } from "@/lib/startCheckout";
+import { supabase } from "@/lib/supabase/client";
+import { getMyBillingStatus } from "@/lib/supabase/billingStatus";
 
-// Settings > Premium: what Free and Premium include, and the two planned billing options. INFORMATION ONLY: choosing Monthly or Annual
-// is a local view choice. It starts no payment and changes no entitlement, and there is deliberately no Subscribe button: paid
-// subscriptions don't exist yet. (The free trial in the card above is the only way to get Premium from this screen.)
+// Settings > Premium: what Free and Premium include, and the two billing options. Choosing Monthly or Annual is a local view choice and
+// changes nothing by itself. The Subscribe button appears ONLY when the card says checkout is allowed (both beta flags on); otherwise the
+// section just says paid subscriptions aren't available yet. The button goes through the existing server endpoint (startCheckout), which
+// re-checks the sign-in, both flags and the duplicate-subscription guard: hiding the button here is a courtesy, never the protection.
+// Nothing here grants Premium; that only ever follows a verified payment (see CheckoutReturn).
 
 type Billing = "monthly" | "annual";
 
-export default function PremiumPlans() {
+export default function PremiumPlans({ checkoutEnabled = false }: { checkoutEnabled?: boolean }) {
   const { t } = useLanguage();
   const [billing, setBilling] = useState<Billing>("annual");
+  const [busy, setBusy] = useState(false);
+  const [errorKey, setErrorKey] = useState<TranslationKey | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
+
+  // A friendly hint only: a member who already has a subscription isn't offered the button. The server refuses a second one regardless.
+  useEffect(() => {
+    if (!checkoutEnabled) return;
+    let alive = true;
+    void getMyBillingStatus().then((s) => {
+      if (alive && s && s.status !== null && blocksNewCheckout(s.status)) setSubscribed(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [checkoutEnabled]);
+
+  async function subscribe() {
+    if (busy) return; // one request at a time from this screen (the server guards duplicates anyway)
+    setBusy(true);
+    setErrorKey(null);
+    const result = await startCheckout(billing === "annual" ? "annual" : "monthly", {
+      getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+    });
+    if (result.kind === "redirect") {
+      navigateTo(result.url); // stay busy while the browser leaves for Stripe
+      return;
+    }
+    if (result.kind === "login") {
+      setErrorKey("checkout.signInAgain");
+      navigateTo(loginUrlWithReturn("/standup/settings")); // sign in again, then straight back here
+      return;
+    }
+    if (result.code === "already_subscribed") setSubscribed(true);
+    setErrorKey(checkoutErrorMessageKey(result.code));
+    setBusy(false);
+  }
 
   const freeItems = [
     t("premium.plans.free1", { n: FREE_LIMITS.structuredGoals }),
@@ -88,9 +134,31 @@ export default function PremiumPlans() {
         </p>
       )}
 
-      <p className="text-sm text-white/60" role="note" data-testid="premium-not-available">
-        {t("premium.plans.notAvailable")}
-      </p>
+      {checkoutEnabled ? (
+        <div className="space-y-2" data-testid="premium-subscribe">
+          {subscribed ? (
+            <p className="text-sm text-white/70" data-testid="premium-have-subscription">
+              {t("checkout.haveSubscription")}
+            </p>
+          ) : (
+            <>
+              <button type="button" className="btn standup-metal-btn standup-metal-btn--accent" disabled={busy} onClick={() => void subscribe()} data-testid="premium-subscribe-button">
+                {busy ? t("checkout.opening") : t("checkout.subscribe", { plan: billing === "annual" ? t("premium.plans.annual") : t("premium.plans.monthly") })}
+              </button>
+              <p className="text-xs text-white/50">{t("checkout.secureNote")}</p>
+            </>
+          )}
+          {errorKey && (
+            <p className="text-sm text-amber-300" role="alert" data-testid="premium-subscribe-error">
+              {t(errorKey)}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-white/60" role="note" data-testid="premium-not-available">
+          {t("premium.plans.notAvailable")}
+        </p>
+      )}
     </section>
   );
 }

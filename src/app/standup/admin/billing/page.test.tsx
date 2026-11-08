@@ -8,6 +8,8 @@ vi.mock("@/lib/supabase/db", () => ({ isCurrentUserSysAdmin: m.isSys }));
 vi.mock("@/lib/supabase/client", () => ({ supabase: { auth: { getSession: m.getSession } } }));
 vi.mock("@/lib/admin/getBillingOverview", () => ({ getBillingOverview: m.overview }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
+vi.mock("@/components/AdminBillingMembers", () => ({ default: () => <div data-testid="stub-members" /> }));
+vi.mock("@/components/AdminBillingOperations", () => ({ default: () => <div data-testid="stub-ops" /> }));
 
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { en } from "@/lib/i18n/en";

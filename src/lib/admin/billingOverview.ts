@@ -1,7 +1,7 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
 import { resolveTrustedOrigin } from "@/lib/billing/origins";
 import { authenticateUser, readFeatureFlagsForUser } from "@/lib/billing/serverAuth";
+import { isSysAdminViaDatabase } from "@/lib/admin/adminGuard";
 import { summarizeBillingOverview, type BillingOverviewNumbers } from "@/lib/admin/billingSummary";
 import { createOverviewStore, type OverviewStore } from "@/lib/admin/overviewStore";
 import { FEATURE_FLAGS, type FeatureFlags } from "@/lib/featureFlags";
@@ -28,20 +28,6 @@ export type OverviewDeps = {
   store(): OverviewStore;
   now(): Date;
 };
-
-/** Asks the database whether THIS token's owner is a System Admin (is_sys_admin runs as the caller). Any failure is "no". */
-async function isSysAdminViaDatabase(accessToken: string): Promise<boolean> {
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anon) return false;
-    const supabase = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, global: { headers: { Authorization: `Bearer ${accessToken}` } } });
-    const { data, error } = await supabase.rpc("is_sys_admin");
-    return !error && data === true;
-  } catch {
-    return false;
-  }
-}
 
 const realDeps = (): OverviewDeps => ({
   env: process.env,

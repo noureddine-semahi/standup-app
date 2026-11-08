@@ -12,6 +12,8 @@ import type { BillingOverviewResponse } from "@/lib/admin/billingOverview";
 import { loginUrlWithReturn } from "@/lib/safeReturn";
 import AdminBillingDashboard from "@/components/AdminBillingDashboard";
 import AdminSubscriptionPreview from "@/components/AdminSubscriptionPreview";
+import AdminBillingMembers from "@/components/AdminBillingMembers";
+import AdminBillingOperations from "@/components/AdminBillingOperations";
 
 // System Admin > Premium & Billing. System Admins only. The check below only decides what this page SHOWS: the numbers come from
 // POST /api/admin/billing-overview, which verifies the System Admin on the server and refuses everyone else (so a member who reaches this URL, or
@@ -102,6 +104,8 @@ export default function AdminBillingPage() {
       {phase === "ready" && data && (
         <>
           <AdminBillingDashboard data={data} />
+          <AdminBillingMembers onUnauthorized={() => setPhase("denied")} />
+          <AdminBillingOperations />
           <AdminSubscriptionPreview />
         </>
       )}

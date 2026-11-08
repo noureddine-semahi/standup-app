@@ -45,3 +45,8 @@ export function resolveTrustedOrigin(originHeader: string | null | undefined, en
 export function checkoutReturnUrls(origin: string): { success: string; cancel: string } {
   return { success: `${origin}${CHECKOUT_RETURN_PATH}?checkout=success`, cancel: `${origin}${CHECKOUT_RETURN_PATH}?checkout=cancelled` };
 }
+
+/** Where the Customer Portal sends a member back to: Settings, on a trusted origin. The path and query are fixed here, never taken from a request. */
+export function portalReturnUrl(origin: string): string {
+  return `${origin}${CHECKOUT_RETURN_PATH}?portal=return`;
+}

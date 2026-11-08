@@ -17,3 +17,15 @@ export function blocksNewCheckout(status: string | null | undefined): boolean {
   if (!status) return false; // no subscription record at all
   return !(ENDED_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
 }
+
+/**
+ * Which subscription states have something to MANAGE in Stripe's Customer Portal: a subscription that is running, being retried (past_due, where
+ * updating the card is exactly the fix), no longer collecting (unpaid) or paused. Anything over (canceled, incomplete_expired), never started
+ * (incomplete) or not recognised has nothing to manage, so no portal session is opened for it. An allow-list, so a status Stripe adds later
+ * stays closed until it is deliberately added here.
+ */
+export const PORTAL_SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "unpaid", "paused"] as const;
+
+export function portalEligible(status: string | null | undefined): boolean {
+  return !!status && (PORTAL_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}

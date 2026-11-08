@@ -47,10 +47,27 @@ describe("Stripe stays on the server", () => {
 
   const billingFiles = () => readdirSync(billingDir).filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n));
   const billingCode = () => billingFiles().map((n) => read(join(billingDir, n))).join("\n");
+  // The one module allowed to name account_billing and use .from(): the Customer Portal's read-only customer lookup (pinned by its own test below).
+  const billingCodeWithoutPortalStore = () => billingFiles().filter((n) => n !== "portalStore.ts").map((n) => read(join(billingDir, n))).join("\n");
 
-  it("Checkout sessions are created in one place only, and there is no webhook, portal or subscription-changing code yet", () => {
+  it("Checkout sessions are created in one place only, Customer Portal sessions in one place only, and nothing changes a subscription, invoice or payment from the app", () => {
     expect(billingFiles().filter((n) => /checkout\.sessions\.create/.test(read(join(billingDir, n))))).toEqual(["checkout.ts"]);
-    expect(billingCode()).not.toMatch(/billingPortal|subscriptions\.(create|update|cancel|resume)|invoices\.|paymentIntents\./);
+    expect(billingFiles().filter((n) => /billingPortal/.test(read(join(billingDir, n))))).toEqual(["portal.ts"]);
+    expect(billingFiles().filter((n) => /billingPortal\.sessions\.create/.test(read(join(billingDir, n))))).toEqual(["portal.ts"]);
+    // the portal cannot be pointed at a flow that changes things for the member (flow_data), and the app never calls Stripe to change a subscription itself
+    expect(billingCode()).not.toMatch(/flow_data|subscriptions\.(create|update|cancel|resume)|invoices\.|paymentIntents\.|billingPortal\.configurations/);
+  });
+
+  it("the Customer Portal's customer comes only from the member's own account_billing row: one read-only select by the verified account, never anything from the request", () => {
+    const store = read(join(billingDir, "portalStore.ts"));
+    expect(store).toMatch(/^import "server-only";/);
+    expect(store.match(/\.from\(/g)).toHaveLength(1);
+    expect(store).toMatch(/\.from\("account_billing"\)\.select\("stripe_customer_id, subscription_status"\)\.eq\("user_id", userId\)/);
+    expect(store).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(/);
+    const portal = read(join(billingDir, "portal.ts"));
+    expect(portal).toMatch(/customerFor\(user\.id\)/); // the id verified from the sign-in
+    expect(portal).not.toMatch(/req\.json\(\)|searchParams|req\.url|headers\.get\("(x-|referer|host)/i); // nothing but Origin and Authorization is read from the request
+    expect(portal).not.toMatch(/account_billing|\.from\(|SERVICE_ROLE|service_role/);
   });
 
   it("webhook signatures are verified in one place only (the Stripe client module), and the webhook handler never trusts an unverified body", () => {
@@ -63,19 +80,20 @@ describe("Stripe stays on the server", () => {
 
   it("billing code can never write an entitlement or any data: no entitlement tables or functions, no inserts/updates/upserts/deletes", () => {
     const code = billingCode();
-    expect(code).not.toMatch(/account_entitlements|account_billing|admin_set_entitlement|start_my_premium_trial/);
+    expect(billingCodeWithoutPortalStore()).not.toMatch(/account_entitlements|account_billing|admin_set_entitlement|start_my_premium_trial/);
+    expect(read(join(billingDir, "portalStore.ts"))).not.toMatch(/account_entitlements|admin_set_entitlement|start_my_premium_trial/);
     // (hashing the idempotency key with createHash(...).update(...) is not a database write)
     expect(code.replace(/createHash\([^)]*\)\.update\(/g, "")).not.toMatch(/\.(insert|update|upsert|delete)\(/);
     // the database functions billing code may call: directly (.rpc("name")) or through the event store's call("op", "name", ...) helper
     const fnNames = [...code.matchAll(/(?:\.rpc\(\s*|\bcall\(\s*"[a-z]+",\s*)"([a-z_]+)"/g)].map((m) => m[1]);
     expect([...new Set(fnNames)].sort()).toEqual(["begin_checkout_attempt", "claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "finish_checkout_attempt", "get_feature_flags", "record_checkout_session", "sync_stripe_subscription"]);
-    expect(code).not.toMatch(/\.from\(\s*["']/);
+    expect(billingCodeWithoutPortalStore()).not.toMatch(/\.from\(\s*["']/);
   });
 
-  it("Supabase is touched only by serverAuth.ts (as the calling user), webhookStore.ts and checkoutStore.ts; the service role lives in those two stores alone", () => {
-    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "serverAuth.ts", "webhookStore.ts"]);
-    expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "webhookStore.ts"]);
-    const outside = files.filter((f) => !/(webhookStore|checkoutStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
+  it("Supabase is touched only by serverAuth.ts (as the calling user), webhookStore.ts, checkoutStore.ts and portalStore.ts; the service role lives in those three stores alone", () => {
+    expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "serverAuth.ts", "webhookStore.ts"]);
+    expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "webhookStore.ts"]);
+    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
     expect(outside.map(rel)).toEqual([]);
     // the service role may only call the three event-ledger functions
     expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\bcall\(\s*"[a-z]+",\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "sync_stripe_subscription"]);
@@ -100,10 +118,16 @@ describe("Stripe stays on the server", () => {
     expect(route).toContain("handleCheckoutRequest");
   });
 
+  it("the portal route exposes POST only and delegates to the handler", () => {
+    const route = read(join(src, "app", "api", "billing", "portal", "route.ts"));
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect(route).toContain("handlePortalRequest");
+  });
+
   it("the settings UI components never import the Stripe SDK or any server billing module, never read secrets or environment variables, and talk to the server only through the existing endpoint helper", () => {
-    for (const f of ["PremiumTrialCard.tsx", "PremiumPlans.tsx", "CheckoutReturn.tsx", "BillingStatus.tsx"]) {
+    for (const f of ["PremiumTrialCard.tsx", "PremiumPlans.tsx", "CheckoutReturn.tsx", "BillingStatus.tsx", "PortalReturn.tsx"]) {
       const code = read(join(src, "components", f));
-      expect(code).not.toMatch(/from\s+["']stripe["']|lib\/billing\/(config|stripe|checkout|checkoutStore|serverAuth|webhook|webhookStore|origins)["']/);
+      expect(code).not.toMatch(/from\s+["']stripe["']|lib\/billing\/(config|stripe|checkout|checkoutStore|portal|portalStore|serverAuth|webhook|webhookStore|origins)["']/);
       expect(code).not.toMatch(/process\.env|STRIPE_|SERVICE_ROLE|sk_(test|live)_|whsec_/);
       expect(code).not.toMatch(/\bfetch\(/); // no second checkout implementation: the one network call lives in startCheckout.ts
     }
@@ -113,5 +137,11 @@ describe("Stripe stays on the server", () => {
     expect(helperCode).not.toMatch(/process\.env|STRIPE_(SECRET|WEBHOOK|PRICE)|SERVICE_ROLE|price_|checkout\.sessions/);
     // the helper may follow only a Stripe Checkout URL, and the member's token never leaves the one request
     expect(helper).toContain("https:\\/\\/checkout\\.stripe\\.com\\/");
+    // the portal helper: one network call, no body at all (so no customer, subscription or account can be named), and it follows only a Stripe billing page
+    const portalHelper = read(join(src, "lib", "startPortal.ts"));
+    const portalCode = portalHelper.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    expect(portalCode.match(/\/api\/billing\/portal/g)).toHaveLength(1);
+    expect(portalCode).not.toMatch(/body\s*:\s*JSON|process\.env|STRIPE_(SECRET|WEBHOOK|PRICE|PORTAL_CONFIG)|SERVICE_ROLE|cus_|sub_|customer/);
+    expect(portalHelper).toContain("https:\\/\\/billing\\.stripe\\.com\\/");
   });
 });

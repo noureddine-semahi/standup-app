@@ -155,6 +155,18 @@ export default function FAQPage() {
                 <p className="mt-3 text-sm text-white/70 leading-relaxed">{t("faq.q36.answer")}</p>
               </details>
             )}
+
+            {showPlans && (
+              <details className="group py-4 last:pb-0" data-testid="faq-manage-subscription">
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-semibold text-white">
+                  {t("faq.q37.question")}
+                  <span className="text-white/40 transition-transform group-open:rotate-45 text-xl leading-none flex-shrink-0">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm text-white/70 leading-relaxed">{t("faq.q37.answer")}</p>
+              </details>
+            )}
           </div>
         </div>
 

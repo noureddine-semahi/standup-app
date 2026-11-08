@@ -10,6 +10,7 @@ import { ConfirmActionModal } from "@/components/tools/PaymentsDashboard";
 import PremiumPlans from "@/components/PremiumPlans";
 import BillingStatus from "@/components/BillingStatus";
 import CheckoutReturn from "@/components/CheckoutReturn";
+import PortalReturn from "@/components/PortalReturn";
 import { showCheckout, showPremiumPromotion, showTrialOffer } from "@/lib/featureFlags";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
@@ -82,6 +83,7 @@ export default function PremiumTrialCard() {
       </h2>
 
       <CheckoutReturn onConfirmed={() => void load()} />
+      <PortalReturn />
 
       {phase === "loading" && (
         <p className="text-sm text-white/50" role="status" data-testid="premium-loading">
@@ -126,7 +128,7 @@ export default function PremiumTrialCard() {
             </div>
           )}
 
-          <BillingStatus />
+          <BillingStatus portalEnabled={showCheckout(flags)} />
 
           {view.tier !== "premium" && showPremiumPromotion(flags) && <PremiumPlans checkoutEnabled={showCheckout(flags)} />}
         </div>

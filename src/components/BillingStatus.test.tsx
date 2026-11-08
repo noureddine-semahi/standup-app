@@ -40,7 +40,7 @@ describe("subscription status display", () => {
     await mount(sub({ plan: "annual", cancelAtPeriodEnd: true }));
     expect(screen.getByTestId("billing-plan").textContent).toBe("Annual");
     expect(screen.getByTestId("billing-status-label").textContent).toBe("Active, set to cancel");
-    expect(screen.getByTestId("billing-explain").textContent).toContain("It won't renew. Premium from this subscription ends on December 1, 2026");
+    expect(screen.getByTestId("billing-explain").textContent).toContain("Cancels on December 1, 2026. It won't renew, and Premium from this subscription ends then");
   });
   it("failed payment inside the grace period: states the 7-day grace and its end date", async () => {
     await mount(sub({ status: "past_due", graceEndsAt: GRACE_END }));

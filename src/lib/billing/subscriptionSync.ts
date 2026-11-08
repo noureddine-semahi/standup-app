@@ -64,6 +64,25 @@ export function subscriptionRef(event: Stripe.Event): SubscriptionRef | null {
   }
 }
 
+/**
+ * Whether the subscription is SCHEDULED TO END at the close of the period the member already paid for (so it will not renew). Stripe says so in
+ * one of two ways: the legacy flag `cancel_at_period_end`, or, in subscriptions using Stripe's flexible billing mode (what the Customer Portal
+ * produces now), `cancel_at` set to a date with the flag left false. Both count. `cancel_at` counts ONLY when it is a valid timestamp that is
+ * still in the future (strictly after `now`) and no later than the end of the current period; an absent, null, malformed, past or later-than-
+ * the-period-end value does not (a cancellation we cannot place inside the paid period is not claimed). This is a display fact only: access
+ * never reads it (Premium follows the subscription status and period dates), and no date is invented from it.
+ */
+export function cancellationScheduled(sub: { cancel_at_period_end?: unknown; cancel_at?: unknown }, periodEndIso: string | null, nowIso: string): boolean {
+  if (sub.cancel_at_period_end === true) return true;
+  const at = sub.cancel_at;
+  if (typeof at !== "number" || !Number.isInteger(at) || at <= 0 || !periodEndIso) return false;
+  const endMs = Date.parse(periodEndIso);
+  const nowMs = Date.parse(nowIso);
+  if (!Number.isFinite(endMs) || !Number.isFinite(nowMs)) return false;
+  const atMs = at * 1000;
+  return atMs > nowMs && atMs <= endMs;
+}
+
 export type BuiltSync = { ok: true; args: SubscriptionSyncArgs } | { ok: false; reason: string };
 
 /**
@@ -94,6 +113,7 @@ export function buildSyncArgs(sub: Stripe.Subscription, prices: Readonly<Record<
 
   // billing period: on the item in current Stripe API versions, on the subscription in older ones
   const legacy = sub as unknown as Obj;
+  const periodEnd = iso(matched.item.current_period_end ?? legacy.current_period_end);
   return {
     ok: true,
     args: {
@@ -105,8 +125,8 @@ export function buildSyncArgs(sub: Stripe.Subscription, prices: Readonly<Record<
       plan: matched.plan,
       status: String(sub.status),
       periodStart: iso(matched.item.current_period_start ?? legacy.current_period_start),
-      periodEnd: iso(matched.item.current_period_end ?? legacy.current_period_end),
-      cancelAtPeriodEnd: sub.cancel_at_period_end === true,
+      periodEnd,
+      cancelAtPeriodEnd: cancellationScheduled(sub as unknown as Obj, periodEnd, fetchedAt),
       canceledAt: iso(sub.canceled_at),
       endedAt: iso(sub.ended_at),
       fetchedAt,

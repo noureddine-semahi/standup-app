@@ -282,6 +282,16 @@ export default function AboutPage() {
             {t("about.haveQuestionsPart4")}
           </p>
 
+          <p className="mt-6 text-center text-sm text-white/60" data-testid="about-legal-links">
+            <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
+              {t("settings.privacyPolicy")}
+            </Link>
+            {" · "}
+            <Link href="/terms" className="text-amber-300 hover:text-amber-200 underline">
+              {t("terms.title")}
+            </Link>
+          </p>
+
           <SocialShareButtons className="mt-8" onPage />
         </div>
       </div>

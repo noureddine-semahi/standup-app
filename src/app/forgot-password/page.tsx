@@ -106,6 +106,10 @@ export default function ForgotPasswordPage() {
           <Link href="/privacy" className="hover:text-white/60 transition">
             {t("login.privacyPolicy")}
           </Link>
+          {" · "}
+          <Link href="/terms" className="hover:text-white/60 transition">
+            {t("terms.title")}
+          </Link>
         </div>
       </div>
     </div>

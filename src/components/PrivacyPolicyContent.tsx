@@ -61,7 +61,12 @@ export default function PrivacyPolicyContent() {
           <Link href="/contact" className="text-amber-300 hover:text-amber-200 underline">
             {t("nav.contact")}
           </Link>
-          {t("privacy.questionsPart2")}
+          {t("privacy.questionsPart2")}{" "}
+          {t("privacy.seeTermsPart1")}
+          <Link href="/terms" className="text-amber-300 hover:text-amber-200 underline">
+            {t("terms.title")}
+          </Link>
+          {t("privacy.seeTermsPart2")}
         </p>
       </section>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { FREE_LIMITS, PRICING, formatPriceCents, yearlyPerMonthCents, yearlySavingsPercent } from "@/lib/entitlements";
@@ -146,6 +147,13 @@ export default function PremiumPlans({ checkoutEnabled = false }: { checkoutEnab
                 {busy ? t("checkout.opening") : t("checkout.subscribe", { plan: billing === "annual" ? t("premium.plans.annual") : t("premium.plans.monthly") })}
               </button>
               <p className="text-xs text-white/50">{t("checkout.secureNote")}</p>
+              <p className="text-xs text-white/50" data-testid="premium-renewal-note">
+                {t("checkout.renewalNotePart1")}
+                <Link href="/terms" className="text-amber-300 hover:text-amber-200 underline">
+                  {t("terms.title")}
+                </Link>
+                {t("checkout.renewalNotePart2")}
+              </p>
             </>
           )}
           {errorKey && (

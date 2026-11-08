@@ -194,6 +194,15 @@ export default function FAQPage() {
             </Link>{" "}
             {t("faq.trailingStandup")}
           </p>
+          <p className="mt-3 text-sm text-page-tertiary" data-testid="faq-legal-links">
+            <Link href="/privacy" className="text-amber-300 hover:text-amber-200 underline">
+              {t("settings.privacyPolicy")}
+            </Link>
+            {" · "}
+            <Link href="/terms" className="text-amber-300 hover:text-amber-200 underline">
+              {t("terms.title")}
+            </Link>
+          </p>
         </div>
       </div>
     </div>

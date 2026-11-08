@@ -115,3 +115,33 @@ turning a verified billing record into an entitlement is the next step. Checkout
   and Stripe retries it until they are set.
 - **Migration:** run `supabase/migrations/20261119000100_billing_sync.sql` (new nullable columns + one service-role-only function).
 - **Privacy policy (EN/ES)** now has a "Payments & billing" section describing exactly what is stored.
+
+## Billing-derived Premium (Phase 5.6 step 3)
+
+A verified Stripe subscription in `account_billing` grants Premium; it ends by itself. **Billing-derived Premium is computed, never stored**: nothing is
+written to `account_entitlements` or trial history, so a Stripe event cannot overwrite a manual admin grant or a trial, and ending it needs no write.
+Duplicate, out-of-order and concurrent events are already made safe by the billing sync (older snapshots are refused); the result is a pure function of the
+stored billing record and the clock, so it is atomic and idempotent by construction.
+
+**Precedence** (the first that applies): 1. manual admin grant (`account_entitlements.tier = 'premium'`), 2. billing-derived Premium, 3. an active one-time trial,
+4. Free. A Stripe cancellation only ends rule 2.
+
+**Billing status policy** (`current_period_end` = the end of the period already paid for):
+
+| Stripe status | Premium? |
+| --- | --- |
+| `active`, `trialing` | Yes, while `now <= current_period_end + 3 days` (the 3 days only absorb a late renewal update) |
+| `past_due` | **Grace:** yes until `current_period_end + 7 days`, then Free even if Stripe is still retrying. A temporary payment failure never revokes access immediately |
+| `unpaid`, `canceled`, `incomplete`, `incomplete_expired`, `paused` | No |
+| anything else (unknown/future) | No (fail closed) |
+
+A subscription set to cancel at period end stays `active` (so Premium) until the period ends, then becomes `canceled`.
+
+**On downgrade:** nothing is deleted or deactivated. The Free creation limits (3 active Goals, 3 active routines, 10 notes) apply to *new* creations and reactivations
+only, exactly as when a trial ends. The one-time trial history is never touched, and a subscriber cannot start the one-time trial (`ALREADY_PREMIUM`).
+
+**Migration:** run `supabase/migrations/20261120000100_billing_entitlements.sql` (functions only; no tables or rows change). It adds `billing_grants_premium` and
+`account_effective_tier` (service-role only) and redefines `get_my_account_entitlement`, the three limit triggers, `start_my_premium_trial` and the two admin
+entitlement functions to use the combined tier. The policy as readable code is in `src/lib/billingEntitlement.ts`.
+
+**Checkout and promotion stay off:** the three beta flags are unchanged, so nobody can subscribe yet. The FAQ answer about plans appears only when promotion is on.

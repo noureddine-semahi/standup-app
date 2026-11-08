@@ -93,7 +93,7 @@ describe("Stripe stays on the server", () => {
   it("Supabase is touched only by serverAuth.ts (as the calling user), webhookStore.ts, checkoutStore.ts, portalStore.ts and reconcileStore.ts; the service role lives in those four stores alone", () => {
     expect(billingFiles().filter((n) => /from\s+["'](@supabase\/|@\/lib\/supabase)/.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "reconcileStore.ts", "serverAuth.ts", "webhookStore.ts"]);
     expect(billingFiles().filter((n) => /service_role|SERVICE_ROLE/i.test(read(join(billingDir, n))))).toEqual(["checkoutStore.ts", "portalStore.ts", "reconcileStore.ts", "webhookStore.ts"]);
-    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore|reconcileStore|deletionStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
+    const outside = files.filter((f) => !/(webhookStore|checkoutStore|portalStore|reconcileStore|deletionStore|overviewStore)\.ts$/.test(f) && /SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(read(f)));
     expect(outside.map(rel)).toEqual([]);
     // the service role may only call the three event-ledger functions
     expect([...read(join(billingDir, "webhookStore.ts")).matchAll(/\bcall\(\s*"[a-z]+",\s*"([a-z_]+)"/g)].map((m) => m[1]).sort()).toEqual(["claim_stripe_event", "complete_stripe_event", "fail_stripe_event", "sync_stripe_subscription"]);
@@ -157,6 +157,31 @@ describe("Stripe stays on the server", () => {
     expect(route).toContain("handleDeleteAccountRequest");
     // the service role lives in the deletion store alone (within the account folder)
     expect(readdirSync(accountDir).filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n) && /service_role|SERVICE_ROLE/i.test(read(join(accountDir, n))))).toEqual(["deletionStore.ts"]);
+  });
+
+  it("the admin Premium & Billing endpoint: System Admin verified BEFORE any data is read, read-only selects, no Stripe, no writes, no identifiers returned, POST only", () => {
+    const adminDir = join(src, "lib", "admin");
+    const handler = read(join(adminDir, "billingOverview.ts")).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    const order = ["resolveTrustedOrigin(", "deps.authenticate(token)", "deps.isSysAdmin(token)", "deps.store().load()", "deps.readFlags(token)"].map((s) => handler.indexOf(s));
+    expect(order.every((i) => i > -1)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order); // origin -> sign-in -> System Admin -> data -> flags
+    expect(handler).toContain('supabase.rpc("is_sys_admin")'); // the database's own check, run as the caller
+    expect(handler).not.toMatch(/getStripe|from\s+["']stripe|SERVICE_ROLE|service_role|\.from\(|\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
+    const store = read(join(adminDir, "overviewStore.ts")).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+    expect(store).not.toMatch(/\.(insert|update|upsert|delete|rpc)\(/); // selects only
+    expect([...store.matchAll(/db\s*\.from\(\s*table\s*\)|\.from\("(\w+)"\)/g)].length).toBeGreaterThan(0);
+    expect(store).not.toMatch(/stripe/i);
+    expect(store).not.toMatch(/deleteUser|createUser|updateUserById|generateLink|inviteUserByEmail|signOut/); // the only Auth call is listUsers
+    // only the System Admin dashboard's store holds the service role inside the admin folder
+    expect(readdirSync(adminDir).filter((n) => /\.ts$/.test(n) && !/\.test\.ts$/.test(n) && /service_role|SERVICE_ROLE/i.test(read(join(adminDir, n))))).toEqual(["overviewStore.ts"]);
+    const route = read(join(src, "app", "api", "admin", "billing-overview", "route.ts"));
+    expect([...route.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1])).toEqual(["POST"]);
+    expect(route).toContain("handleBillingOverviewRequest");
+    // the browser-side pieces never import a server module
+    for (const f of [["lib", "admin", "getBillingOverview.ts"], ["components", "AdminBillingDashboard.tsx"], ["components", "AdminSubscriptionPreview.tsx"], ["app", "standup", "admin", "billing", "page.tsx"]]) {
+      const code = read(join(src, ...f));
+      for (const m of code.matchAll(/^import (?!type)[^\n]*from\s+["']([^"']+)["']/gm)) expect(m[1], f.join("/")).not.toMatch(/overviewStore|admin\/billingOverview$|billing\/(stripe|serverAuth|config)|server-only/);
+    }
   });
 
   it("the reconcile route exposes POST (manual) and GET (Vercel Cron) only, and delegates both to the handler", () => {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardList, CheckCircle2, ShieldAlert } from "lucide-react";
+import { ClipboardList, CheckCircle2, ShieldAlert, CreditCard } from "lucide-react";
 import {
   isCurrentUserAdmin,
   isCurrentUserSysAdmin,
@@ -269,6 +269,11 @@ export default function AdminPage() {
             <Link href="/standup/admin/product-log" className="btn standup-metal-btn whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
               <ClipboardList size={15} /> Product Log
             </Link>
+            {sysAdmin && (
+              <Link href="/standup/admin/billing" className="btn standup-metal-btn whitespace-nowrap" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }} data-testid="admin-billing-link">
+                <CreditCard size={15} /> {t("adminBill.title")}
+              </Link>
+            )}
           </div>
         </div>
         {msg && <p className="mt-3 text-sm text-amber-300">{msg}</p>}

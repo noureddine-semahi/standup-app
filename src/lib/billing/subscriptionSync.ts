@@ -22,6 +22,8 @@ export type SubscriptionSyncDeps = {
   retrieveSubscription(id: string): Promise<Stripe.Subscription>;
   /** The configured Price IDs. Throws if billing isn't configured (the event is then retried by Stripe). */
   prices(): Readonly<Record<BillingPlan, string>>;
+  /** The environment's Stripe mode. Absent means "test" (the strictest default). A subscription of the other mode is never recorded. */
+  mode?(): "test" | "live";
   now(): Date;
 };
 
@@ -89,8 +91,9 @@ export type BuiltSync = { ok: true; args: SubscriptionSyncArgs } | { ok: false; 
  * The record to store, from the subscription as Stripe reports it. `userHints` are every hint seen (event + subscription metadata);
  * they must be valid account IDs and must agree with each other, otherwise nothing is recorded.
  */
-export function buildSyncArgs(sub: Stripe.Subscription, prices: Readonly<Record<BillingPlan, string>>, eventId: string | null, userHints: string[], fetchedAt: string): BuiltSync {
-  if (sub.livemode === true) return { ok: false, reason: "ignored_live_mode" };
+export function buildSyncArgs(sub: Stripe.Subscription, prices: Readonly<Record<BillingPlan, string>>, eventId: string | null, userHints: string[], fetchedAt: string, mode: "test" | "live" = "test"): BuiltSync {
+  // Only a subscription of THIS environment's mode is recorded: a test environment ignores live subscriptions, a live one ignores test ones.
+  if (mode === "live" ? sub.livemode !== true : sub.livemode === true) return { ok: false, reason: mode === "live" ? "ignored_test_mode" : "ignored_live_mode" };
 
   const customerId = idOf(sub.customer);
   if (!customerId || !sub.id) return { ok: false, reason: "ignored_incomplete_subscription" };
@@ -145,6 +148,7 @@ export function createSubscriptionSyncHandler(deps: SubscriptionSyncDeps): Subsc
     if (!ref) return "ignored_no_subscription";
 
     const prices = deps.prices(); // throws if billing isn't configured: the event fails and Stripe retries it later
+    const mode = deps.mode?.() ?? "test";
     const fetchedAt = deps.now().toISOString(); // taken BEFORE the fetch, so a slower, older snapshot can never look newer
 
     let sub: Stripe.Subscription;
@@ -157,7 +161,7 @@ export function createSubscriptionSyncHandler(deps: SubscriptionSyncDeps): Subsc
 
     const metaHint = obj(sub.metadata)?.user_id;
     const hints = [...ref.userHints, ...(typeof metaHint === "string" && metaHint ? [metaHint] : [])];
-    const built = buildSyncArgs(sub, prices, event.id, hints, fetchedAt);
+    const built = buildSyncArgs(sub, prices, event.id, hints, fetchedAt, mode);
     if (!built.ok) return built.reason;
 
     return `sync_${await store.syncSubscription(built.args)}`;

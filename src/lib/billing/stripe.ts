@@ -2,9 +2,10 @@ import "server-only";
 import Stripe from "stripe";
 import { readBillingConfig, type BillingConfig } from "@/lib/billing/config";
 
-// The one Stripe client, created lazily on the server from validated test-mode configuration. Import this only from server code
-// (route handlers, server actions); the `server-only` import stops the build if a client component tries. Making the client does not
-// contact Stripe; nothing in this phase calls Stripe at all.
+// The one Stripe client, created lazily on the server from validated configuration (test mode by default; live only when STRIPE_MODE=live
+// and the key is a restricted live key: see config.ts). Checkout, the Customer Portal, reconciliation, the webhook and account deletion all
+// reach Stripe through this client or through readBillingConfig/readWebhookConfig. Import this only from server code (route handlers,
+// server actions); the `server-only` import stops the build if a client component tries. Making the client does not contact Stripe.
 
 export function createStripeClient(config: BillingConfig): Stripe {
   return new Stripe(config.secretKey, { appInfo: { name: "StandUp" }, maxNetworkRetries: 2 });

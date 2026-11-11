@@ -212,3 +212,14 @@ through the same code the webhooks use (including the scheduled-cancellation nor
   adds `backedOff` (records waiting). The columns never touch billing status, entitlements, trials or grants. To investigate:
   `select user_id, reconcile_last_outcome, reconcile_failures, reconcile_last_failed_at, reconcile_next_attempt_at from public.account_billing where reconcile_failures > 0;`
 - **Monitoring:** Vercel dashboard > the project > **Settings > Cron Jobs** shows each scheduled run and its HTTP status (200 = ran; 401 = `CRON_SECRET` missing/wrong; 503 = database or Stripe configuration problem; 409 = overlapped a running run). **Logs** (filter `billing reconcile`) hold one line per run: `info "billing reconcile"` with `trigger`, `examined`, the outcome counts, `moreDue`, `backedOff`, `aborted`; `error "billing reconcile failed"` with `category` (`not_configured` | `database` | `unexpected`); `warn "billing reconcile rejected"` with a `reason`. Nothing logged contains an identifier or secret. Watch for: `moreDue: true` on consecutive days (more subscribers than one run covers: raise the schedule frequency or the limit), a growing `backedOff` or non-zero `missing`/`conflict` (investigate with the SQL above), and any 4xx/5xx in Cron Jobs.
+
+## Live mode (explicit opt-in)
+
+The app runs in **test mode** unless `STRIPE_MODE` is exactly `live`. Rules, enforced by `src/lib/billing/config.ts` (the app refuses to use a configuration that breaks them):
+
+| `STRIPE_MODE` | `STRIPE_SECRET_KEY` accepted | Webhook events accepted | Subscriptions recorded |
+|---|---|---|---|
+| unset or `test` | `sk_test_…` or `rk_test_…` (a live key is refused) | `livemode: false` only | test only |
+| `live` | restricted live key `rk_live_…` only (`sk_live_…` and any test key are refused) | `livemode: true` only | live only |
+
+Any other `STRIPE_MODE` value is an error. For live mode, all of these must be the **live** values together: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (the live destination's signing secret), `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, and optionally `STRIPE_PORTAL_CONFIGURATION`. Price IDs and signing secrets look the same in both modes, so the app cannot check them by format: it compares each webhook event's and each fetched subscription's own `livemode` flag with `STRIPE_MODE` instead. The Premium feature flags are separate and stay off until live billing is deliberately switched on.

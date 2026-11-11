@@ -73,6 +73,8 @@ export type ReconcileDeps = {
   sync: WebhookStore["syncSubscription"];
   retrieveSubscription(id: string): Promise<Stripe.Subscription>;
   prices(): Readonly<Record<BillingPlan, string>>;
+  /** The environment's Stripe mode; absent means "test". A subscription of the other mode is ignored, never recorded. */
+  mode?(): "test" | "live";
   now(): Date;
 };
 
@@ -99,6 +101,7 @@ export async function reconcileSubscriptions(deps: ReconcileDeps, opts: Reconcil
   const summary: ReconcileSummary = { examined: 0, outcomes: emptyOutcomes(), moreDue: false, backedOff: 0, aborted: false };
 
   const prices = deps.prices(); // throws if billing isn't configured: nothing is attempted
+  const mode = deps.mode?.() ?? "test";
   const due = await deps.store.candidates(new Date(started - staleMs).toISOString(), new Date(started).toISOString(), limit + 1);
   summary.moreDue = due.length > limit;
 
@@ -131,7 +134,7 @@ export async function reconcileSubscriptions(deps: ReconcileDeps, opts: Reconcil
       await remember(c, kind);
       continue;
     }
-    const built = buildSyncArgs(sub, prices, c.lastEventId, [], fetchedAt); // no user hint: the database finds the owner from the stored subscription/customer
+    const built = buildSyncArgs(sub, prices, c.lastEventId, [], fetchedAt, mode); // no user hint: the database finds the owner from the stored subscription/customer
     if (!built.ok) {
       summary.outcomes.ignored++;
       await remember(c, "ignored");
@@ -213,6 +216,7 @@ const realRouteDeps = (): ReconcileRouteDeps => ({
         sync: (a) => createWebhookStore().syncSubscription(a),
         retrieveSubscription: (id) => getStripe().subscriptions.retrieve(id),
         prices: () => readBillingConfig().prices,
+        mode: () => readBillingConfig().mode,
         now: () => new Date(),
       },
       opts

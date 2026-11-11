@@ -412,6 +412,22 @@ describe("missing or deleted objects, ownership and safety", () => {
     expect(w.writes).toHaveLength(0);
   });
 
+  it("in a LIVE environment a test-mode subscription is ignored and a live one is reconciled; in a test environment it is the other way round", async () => {
+    const t = row(1), l = row(2);
+    const live = world([t, l]);
+    live.serve(t, { livemode: false });
+    live.serve(l, { livemode: true, status: "past_due" });
+    const s = await reconcileSubscriptions({ ...live.deps, mode: () => "live" });
+    expect(s.outcomes.ignored).toBe(1);
+    expect(live.writes.map((w) => JSON.stringify(w)).join("")).toContain("past_due");
+    expect(live.writes).toHaveLength(1);
+    const test = world([row(3)]);
+    test.serve(row(3), { livemode: true });
+    const s2 = await reconcileSubscriptions({ ...test.deps, mode: () => "test" });
+    expect(s2.outcomes.ignored).toBe(1);
+    expect(test.writes).toHaveLength(0);
+  });
+
   it("it never creates anything: the only operations are reading a subscription and the one sync call", async () => {
     const r = row(1);
     const w = world([r]);

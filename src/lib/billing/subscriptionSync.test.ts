@@ -303,3 +303,29 @@ describe("handler: sync from Stripe's current state", () => {
     });
   });
 });
+
+describe("the sync records only subscriptions of this environment's mode", () => {
+  const SYNC_EVENT = () => event("customer.subscription.updated", { id: "sub_TEST1", metadata: { user_id: USER } });
+  it("test mode (the default) ignores a live subscription and records a test one", () => {
+    expect(buildSyncArgs(subscription({ livemode: true }), PRICES, "evt_TEST1", [USER], "2026-11-06T18:00:00.000Z")).toEqual({ ok: false, reason: "ignored_live_mode" });
+    expect(buildSyncArgs(subscription({ livemode: true }), PRICES, "evt_TEST1", [USER], "2026-11-06T18:00:00.000Z", "test")).toEqual({ ok: false, reason: "ignored_live_mode" });
+    expect(buildSyncArgs(subscription(), PRICES, "evt_TEST1", [USER], "2026-11-06T18:00:00.000Z", "test").ok).toBe(true);
+  });
+  it("live mode records a live subscription and ignores a test one (or one with no livemode flag)", () => {
+    expect(buildSyncArgs(subscription({ livemode: true }), PRICES, "evt_TEST1", [USER], "2026-11-06T18:00:00.000Z", "live").ok).toBe(true);
+    for (const livemode of [false, undefined, null]) {
+      expect(buildSyncArgs(subscription({ livemode }), PRICES, "evt_TEST1", [USER], "2026-11-06T18:00:00.000Z", "live")).toEqual({ ok: false, reason: "ignored_test_mode" });
+    }
+  });
+  it("the handler follows the configured mode and writes nothing for the other mode", async () => {
+    const liveOk = setup(subscription({ livemode: true }), { mode: () => "live" });
+    expect(await liveOk.handler(SYNC_EVENT(), { store: liveOk.store })).toBe("sync_applied");
+    expect(liveOk.store.syncSubscription).toHaveBeenCalledTimes(1);
+    const liveRejects = setup(subscription({ livemode: false }), { mode: () => "live" });
+    expect(await liveRejects.handler(SYNC_EVENT(), { store: liveRejects.store })).toBe("ignored_test_mode");
+    expect(liveRejects.store.syncSubscription).not.toHaveBeenCalled();
+    const testRejects = setup(subscription({ livemode: true }), { mode: () => "test" });
+    expect(await testRejects.handler(SYNC_EVENT(), { store: testRejects.store })).toBe("ignored_live_mode");
+    expect(testRejects.store.syncSubscription).not.toHaveBeenCalled();
+  });
+});

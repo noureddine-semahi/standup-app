@@ -37,6 +37,7 @@ export type EventHandler = (event: Stripe.Event, ctx: { store: WebhookStore }) =
 const syncHandler = createSubscriptionSyncHandler({
   retrieveSubscription: (id) => getStripe().subscriptions.retrieve(id),
   prices: () => readBillingConfig().prices,
+  mode: () => readBillingConfig().mode,
   now: () => new Date(),
 });
 export const defaultHandlers: Readonly<Record<SupportedEventType, EventHandler>> = {
@@ -68,6 +69,7 @@ export type WebhookError =
   | "payload_too_large"
   | "invalid_signature"
   | "live_mode_rejected"
+  | "test_mode_rejected"
   | "store_unavailable"
   | "in_progress"
   | "processing_failed";
@@ -78,6 +80,7 @@ const STATUS: Record<WebhookError, number> = {
   payload_too_large: 413,
   invalid_signature: 400,
   live_mode_rejected: 400,
+  test_mode_rejected: 400,
   store_unavailable: 503,
   in_progress: 409,
   processing_failed: 500,
@@ -121,10 +124,12 @@ export async function handleStripeWebhook(req: Request, deps: WebhookDeps = real
     return fail("invalid_signature");
   }
 
-  // Sandbox only for now: a live-mode event is never processed.
-  if (event.livemode === true) {
-    log({ event: event.id, type: event.type, outcome: "live_mode_rejected" });
-    return fail("live_mode_rejected");
+  // The event's own mode must be exactly this environment's mode: a test environment never processes a live event, and a live environment
+  // never processes a test event (even a correctly signed one). Anything that isn't a boolean is refused as the wrong mode too.
+  if (config.mode === "live" ? event.livemode !== true : event.livemode !== false) {
+    const outcome = config.mode === "live" ? "test_mode_rejected" : "live_mode_rejected";
+    log({ event: event.id, type: event.type, outcome });
+    return fail(outcome);
   }
 
   if (!isSupportedEventType(event.type)) {

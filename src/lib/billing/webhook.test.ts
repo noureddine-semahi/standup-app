@@ -55,7 +55,7 @@ const noopHandler = () => vi.fn<EventHandler>(async () => {});
 const makeDeps = (over: Partial<WebhookDeps> = {}, store = memoryStore(), handler = noopHandler()) => {
   const handlers = Object.fromEntries(SUPPORTED_EVENT_TYPES.map((t) => [t, handler])) as unknown as WebhookDeps["handlers"];
   const deps: WebhookDeps = {
-    readConfig: () => ({ secretKey: KEY, webhookSecret: SECRET }),
+    readConfig: () => ({ mode: "test", secretKey: KEY, webhookSecret: SECRET }),
     verifier: (c) => createWebhookVerifier(c.secretKey, c.webhookSecret),
     store: () => store,
     handlers,
@@ -144,6 +144,52 @@ describe("signature verification", () => {
     expect(r).toEqual({ status: 400, body: { error: "live_mode_rejected" } });
     expect(store.rows.size).toBe(0);
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("test and live environments never process each other's events", () => {
+  const liveConfig = () => ({ mode: "live" as const, secretKey: "rk_live_restrictedkey789", webhookSecret: SECRET });
+  it("a TEST environment accepts a test event and rejects live ones, including an event with no livemode flag", async () => {
+    const ok = makeDeps();
+    expect(await read(await handleStripeWebhook(signed(eventJson({ livemode: false })), ok.deps))).toEqual({ status: 200, body: { received: true, handled: true } });
+    expect(ok.handler).toHaveBeenCalledTimes(1);
+    for (const livemode of [true, undefined, "true", null]) {
+      const { deps, store, handler } = makeDeps();
+      const r = await read(await handleStripeWebhook(signed(eventJson({ livemode })), deps));
+      expect(r).toEqual({ status: 400, body: { error: "live_mode_rejected" } });
+      expect(store.rows.size).toBe(0);
+      expect(handler).not.toHaveBeenCalled();
+    }
+  });
+  it("a LIVE environment accepts a correctly signed live event", async () => {
+    const { deps, store, handler } = makeDeps({ readConfig: liveConfig });
+    const r = await read(await handleStripeWebhook(signed(eventJson({ livemode: true })), deps));
+    expect(r).toEqual({ status: 200, body: { received: true, handled: true } });
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(store.rows.get("evt_test_001")?.status).toBe("processed");
+  });
+  it("a LIVE environment rejects a correctly signed TEST event, or one with no livemode flag, without touching the database", async () => {
+    for (const livemode of [false, undefined, "false", null]) {
+      const { deps, store, handler } = makeDeps({ readConfig: liveConfig });
+      const r = await read(await handleStripeWebhook(signed(eventJson({ livemode })), deps));
+      expect(r).toEqual({ status: 400, body: { error: "test_mode_rejected" } });
+      expect(store.rows.size).toBe(0);
+      expect(handler).not.toHaveBeenCalled();
+    }
+  });
+  it("a live environment still needs a valid signature: a live-looking event with a wrong secret is refused before anything else", async () => {
+    const { deps, store, handler } = makeDeps({ readConfig: liveConfig });
+    const r = await read(await handleStripeWebhook(signed(eventJson({ livemode: true }), { secret: "whsec_wrongsecret" }), deps));
+    expect(r).toEqual({ status: 400, body: { error: "invalid_signature" } });
+    expect(store.rows.size).toBe(0);
+    expect(handler).not.toHaveBeenCalled();
+  });
+  it("a mode rejection logs the event ID, type and outcome only, never the payload or any secret", async () => {
+    const { deps } = makeDeps({ readConfig: liveConfig });
+    await handleStripeWebhook(signed(eventJson({ livemode: false })), deps);
+    const out = JSON.stringify(logs);
+    expect(out).toContain("test_mode_rejected");
+    for (const secret of [SECRET, "rk_live_restrictedkey789", "cus_PRIVATE123"]) expect(out).not.toContain(secret);
   });
 });
 

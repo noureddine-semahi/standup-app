@@ -125,7 +125,7 @@ describe("readWebhookConfig", () => {
     throw new Error("expected a BillingConfigError");
   };
   it("needs only the test secret key and the signing secret: no Price IDs", () => {
-    expect(readWebhookConfig(ok)).toEqual({ secretKey: "sk_test_abc123DEF456", webhookSecret: "whsec_abc123def" });
+    expect(readWebhookConfig(ok)).toEqual({ mode: "test", secretKey: "sk_test_abc123DEF456", webhookSecret: "whsec_abc123def" });
   });
   it("a missing or malformed webhook secret fails, naming the variable and never the value", () => {
     expect(problems({ STRIPE_SECRET_KEY: ok.STRIPE_SECRET_KEY })).toEqual(["STRIPE_WEBHOOK_SECRET is missing"]);
@@ -139,5 +139,90 @@ describe("readWebhookConfig", () => {
   it("refuses a live key or a missing key", () => {
     expect(problems({ ...ok, STRIPE_SECRET_KEY: "sk_live_REAL" })[0]).toContain("live key");
     expect(problems({ STRIPE_WEBHOOK_SECRET: ok.STRIPE_WEBHOOK_SECRET })).toEqual(["STRIPE_SECRET_KEY is missing"]);
+  });
+});
+
+describe("live mode is an explicit opt-in (STRIPE_MODE=live) and is kept strictly apart from test mode", () => {
+  const prices = { STRIPE_PRICE_MONTHLY: "price_monthly123", STRIPE_PRICE_ANNUAL: "price_annual456" };
+  const live = { STRIPE_MODE: "live", STRIPE_SECRET_KEY: "rk_live_RestrictedKey789", ...prices };
+  const whsec = { STRIPE_WEBHOOK_SECRET: "whsec_abc123def" };
+  const problems = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (e) {
+      expect(e).toBeInstanceOf(BillingConfigError);
+      return (e as BillingConfigError).problems;
+    }
+    throw new Error("expected a BillingConfigError");
+  };
+
+  it("sandbox behaviour is unchanged: no STRIPE_MODE (or STRIPE_MODE=test) means test mode with a test key", () => {
+    expect(readBillingConfig(good).mode).toBe("test");
+    expect(readBillingConfig({ ...good, STRIPE_MODE: "test" }).mode).toBe("test");
+    expect(readBillingConfig({ ...good, STRIPE_SECRET_KEY: "rk_test_abc123DEF456" }).mode).toBe("test");
+    expect(readBillingConfig({ ...good, STRIPE_MODE: " test " }).mode).toBe("test");
+  });
+  it("accepts a RESTRICTED live key only when STRIPE_MODE is exactly live", () => {
+    expect(readBillingConfig(live)).toEqual({ mode: "live", secretKey: "rk_live_RestrictedKey789", prices: { monthly: "price_monthly123", annual: "price_annual456" }, webhookSecret: null });
+    expect(readBillingConfig({ ...live, STRIPE_MODE: " live " }).mode).toBe("live");
+    expect(isBillingConfigured(live)).toBe(true);
+  });
+  it("a live key without the explicit opt-in is refused (absent or test STRIPE_MODE): live billing can't switch on by accident", () => {
+    for (const mode of [undefined, "test"]) {
+      const p = problems(() => readBillingConfig({ ...live, STRIPE_MODE: mode }));
+      expect(p).toHaveLength(1);
+      expect(p[0]).toContain("is a live key");
+      expect(p[0]).toContain("STRIPE_MODE");
+    }
+    expect(isBillingConfigured({ ...live, STRIPE_MODE: undefined })).toBe(false);
+  });
+  it("live mode refuses a full live secret key, a test key, a publishable key and a missing key", () => {
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_SECRET_KEY: "sk_live_FullSecret123" }))[0]).toContain("restricted key (rk_live_");
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_SECRET_KEY: "sk_test_abc123DEF456" }))[0]).toContain("test key");
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_SECRET_KEY: "rk_test_abc123DEF456" }))[0]).toContain("must match");
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_SECRET_KEY: "pk_live_Publishable1" }))[0]).toContain("restricted live key");
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_SECRET_KEY: "rk_live_" }))[0]).toContain("restricted live key");
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_SECRET_KEY: undefined }))).toEqual(["STRIPE_SECRET_KEY is missing"]);
+  });
+  it("any STRIPE_MODE other than test or live is a problem, never silently treated as live", () => {
+    for (const v of ["LIVE", "production", "1", "true", "live-mode"]) {
+      expect(problems(() => readBillingConfig({ ...live, STRIPE_MODE: v })).some((x) => x.includes('STRIPE_MODE must be "test" or "live"'))).toBe(true);
+    }
+    expect(problems(() => readBillingConfig({ ...good, STRIPE_MODE: "production" }))).toEqual(['STRIPE_MODE must be "test" or "live"']);
+  });
+  it("live mode still needs both distinct Price IDs, and fails closed on anything missing", () => {
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_PRICE_ANNUAL: undefined }))).toEqual(["STRIPE_PRICE_ANNUAL is missing"]);
+    expect(problems(() => readBillingConfig({ ...live, STRIPE_PRICE_ANNUAL: live.STRIPE_PRICE_MONTHLY }))[0]).toContain("must be different Prices");
+    expect(problems(() => readBillingConfig({ STRIPE_MODE: "live" }))).toEqual(["STRIPE_SECRET_KEY is missing", "STRIPE_PRICE_MONTHLY is missing", "STRIPE_PRICE_ANNUAL is missing"]);
+  });
+  it("errors name variables only: no key, mode value or webhook secret ever appears in a message", () => {
+    const secrets = ["sk_live_FullSecret123", "rk_live_RestrictedKey789", "sk_test_abc123DEF456", "whsec_LEAKCHECK123", "price_monthly123"];
+    const envs: Record<string, string | undefined>[] = [{ ...live, STRIPE_SECRET_KEY: secrets[0] }, { ...live, STRIPE_SECRET_KEY: secrets[2] }, { ...good, STRIPE_SECRET_KEY: secrets[1] }, { ...live, STRIPE_WEBHOOK_SECRET: "not-whsec-LEAKCHECK123" }];
+    for (const env of envs) {
+      try {
+        readBillingConfig(env);
+        readWebhookConfig({ ...env, STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET ?? "bad" });
+      } catch (e) {
+        for (const s of secrets) expect((e as Error).message).not.toContain(s);
+      }
+    }
+  });
+  it("the webhook configuration follows the same rules and reports the mode it validated", () => {
+    expect(readWebhookConfig({ ...live, ...whsec })).toEqual({ mode: "live", secretKey: "rk_live_RestrictedKey789", webhookSecret: "whsec_abc123def" });
+    expect(readWebhookConfig({ STRIPE_SECRET_KEY: "sk_test_abc123DEF456", ...whsec }).mode).toBe("test");
+    expect(problems(() => readWebhookConfig({ ...live, STRIPE_MODE: undefined, ...whsec }))[0]).toContain("is a live key");
+    expect(problems(() => readWebhookConfig({ ...live, STRIPE_SECRET_KEY: "sk_test_abc123DEF456", ...whsec }))[0]).toContain("must match");
+    expect(problems(() => readWebhookConfig({ ...live, STRIPE_SECRET_KEY: "sk_live_FullSecret123", ...whsec }))[0]).toContain("restricted key");
+    expect(problems(() => readWebhookConfig({ ...live }))).toEqual(["STRIPE_WEBHOOK_SECRET is missing"]);
+  });
+  it("the shared Stripe client is built only from a validated configuration, in either mode", () => {
+    resetStripeClientForTests();
+    for (const [k, v] of Object.entries(live)) vi.stubEnv(k, v);
+    expect(getStripe()).toBeTruthy();
+    resetStripeClientForTests();
+    vi.stubEnv("STRIPE_MODE", "");
+    expect(() => getStripe()).toThrow(BillingConfigError); // live key, no opt-in: refused
+    vi.unstubAllEnvs();
+    resetStripeClientForTests();
   });
 });

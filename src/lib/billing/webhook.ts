@@ -1,6 +1,6 @@
 import "server-only";
 import type Stripe from "stripe";
-import { readBillingConfig, readWebhookConfig, type WebhookConfig } from "@/lib/billing/config";
+import { BillingConfigError, readBillingConfig, readWebhookConfig, type WebhookConfig } from "@/lib/billing/config";
 import { createSubscriptionSyncHandler } from "@/lib/billing/subscriptionSync";
 import { createWebhookVerifier, getStripe } from "@/lib/billing/stripe";
 import { createWebhookStore, type WebhookStore } from "@/lib/billing/webhookStore";
@@ -98,8 +98,9 @@ export async function handleStripeWebhook(req: Request, deps: WebhookDeps = real
   let config: WebhookConfig;
   try {
     config = deps.readConfig();
-  } catch {
-    log({ outcome: "webhook_unavailable" });
+  } catch (e) {
+    // The validator's problems are fixed strings naming variables and rules (never values), so they are safe to log. Anything else is not.
+    log({ outcome: "webhook_unavailable", detail: e instanceof BillingConfigError ? e.problems.join("; ") : "unexpected_error" });
     return fail("webhook_unavailable");
   }
 

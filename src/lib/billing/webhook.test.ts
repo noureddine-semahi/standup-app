@@ -206,7 +206,35 @@ describe("webhook configuration", () => {
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ error: "webhook_unavailable" });
     expect(storeFactory).not.toHaveBeenCalled();
-    expect(JSON.stringify(logs)).not.toContain("STRIPE_WEBHOOK_SECRET");
+    expect(JSON.stringify(logs)).toContain("webhook_unavailable");
+  });
+
+  it("logs the validator's static problems (variable names and rules) and nothing else; the response is unchanged", async () => {
+    const problems = ['STRIPE_MODE must be "test" or "live"', "STRIPE_SECRET_KEY is a full live secret key; live mode requires a restricted key (rk_live_…)", "STRIPE_WEBHOOK_SECRET is missing"];
+    const { deps } = makeDeps({
+      readConfig: () => {
+        throw new BillingConfigError(problems);
+      },
+    });
+    const res = await handleStripeWebhook(signed(eventJson()), deps);
+    expect(await read(res)).toEqual({ status: 503, body: { error: "webhook_unavailable" } });
+    const out = JSON.stringify(logs);
+    for (const p of problems) expect(out).toContain(JSON.stringify(p).slice(1, -1));
+    for (const secret of [SECRET, KEY]) expect(out).not.toContain(secret);
+  });
+
+  it("an unexpected error logs only unexpected_error: no message, stack, secret or request body", async () => {
+    const { deps } = makeDeps({
+      readConfig: () => {
+        throw new Error("boom sk_live_LEAKED123 whsec_LEAKED456");
+      },
+    });
+    const body = eventJson();
+    const res = await handleStripeWebhook(signed(body), deps);
+    expect(await read(res)).toEqual({ status: 503, body: { error: "webhook_unavailable" } });
+    const out = JSON.stringify(logs);
+    expect(out).toContain("unexpected_error");
+    for (const leak of ["boom", "LEAKED", "stack", " at ", SECRET, KEY, "evt_"]) expect(out).not.toContain(leak);
   });
 });
 

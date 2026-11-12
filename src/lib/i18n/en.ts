@@ -2355,7 +2355,7 @@ export const en = {
   "terms.agreement.p1": "These Terms of Service (the “Terms”) govern your use of StandUp, a daily planning and accountability app, including its website and any paid plans (together, the “Service”). By creating an account or using the Service you agree to these Terms. If you don't agree, please don't use the Service.",
   "terms.agreement.p2": "These Terms work together with our {privacyLink}, which explains what data we collect and how we handle it. “We”, “us” and “StandUp” mean the operator of the Service. You can reach us through the {contactLink} page.",
   "terms.eligibility.title": "Eligibility and your account",
-  "terms.eligibility.p1": "You must be able to form a binding agreement where you live to use StandUp. If you are below the age at which you can do that, a parent or guardian must agree to these Terms on your behalf.",
+  "terms.eligibility.p1": "StandUp accounts are intended for people aged 18 or older. You must be able to form a binding agreement where you live to use StandUp.",
   "terms.eligibility.p2": "You are responsible for the information you give us, for keeping your password secure, and for what happens under your account. Please keep your login to yourself, and tell us promptly if you think someone else has accessed your account.",
   "terms.plans.title": "Free and Premium",
   "terms.plans.p1": "StandUp has a Free plan and a Premium plan. The Free plan always includes your daily commitment, Today, Tomorrow and review, with up to {goals} active structured Goals, {routines} active routines and {notes} saved notes.",

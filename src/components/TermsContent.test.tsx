@@ -27,6 +27,16 @@ const body = (lang: "en" | "es") => {
 };
 
 describe("the Terms cover everything required (English)", () => {
+  it("states the 18+ intent and has no parent-or-guardian acceptance (English and Spanish)", () => {
+    const en1 = body("en");
+    expect(en1).toContain("StandUp accounts are intended for people aged 18 or older");
+    expect(en1).not.toMatch(/parent or guardian/i);
+    cleanup();
+    const es1 = body("es");
+    expect(es1).toContain("Las cuentas de StandUp están pensadas para personas de 18 años o más");
+    expect(es1).not.toMatch(/padre, madre o tutor/i);
+  });
+
   it("has all sixteen sections, in order, each with a numbered heading", () => {
     mount("en");
     const h2 = within(screen.getByTestId("terms-content")).getAllByRole("heading", { level: 2 });

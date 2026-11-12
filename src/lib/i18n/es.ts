@@ -2350,7 +2350,7 @@ export const es: Record<keyof typeof en, string> = {
   "terms.agreement.p1": "Estos Términos de Servicio (los “Términos”) regulan tu uso de StandUp, una aplicación de planificación diaria y responsabilidad, incluidos su sitio web y cualquier plan de pago (en conjunto, el “Servicio”). Al crear una cuenta o usar el Servicio aceptas estos Términos. Si no estás de acuerdo, por favor no uses el Servicio.",
   "terms.agreement.p2": "Estos Términos funcionan junto con nuestra {privacyLink}, que explica qué datos recopilamos y cómo los tratamos. “Nosotros” y “StandUp” se refieren al operador del Servicio. Puedes contactarnos a través de la página de {contactLink}.",
   "terms.eligibility.title": "Elegibilidad y tu cuenta",
-  "terms.eligibility.p1": "Debes poder celebrar un acuerdo vinculante donde vives para usar StandUp. Si no tienes la edad para hacerlo, un padre, madre o tutor debe aceptar estos Términos en tu nombre.",
+  "terms.eligibility.p1": "Las cuentas de StandUp están pensadas para personas de 18 años o más. Debes poder celebrar un acuerdo vinculante donde vives para usar StandUp.",
   "terms.eligibility.p2": "Eres responsable de la información que nos das, de mantener segura tu contraseña y de lo que ocurra en tu cuenta. Guarda tu acceso para ti y avísanos de inmediato si crees que otra persona ha entrado en tu cuenta.",
   "terms.plans.title": "Gratis y Premium",
   "terms.plans.p1": "StandUp tiene un plan Gratis y un plan Premium. El plan Gratis siempre incluye tu compromiso diario, Hoy, Mañana y la revisión, con hasta {goals} Objetivos estructurados activos, {routines} rutinas activas y {notes} notas guardadas.",

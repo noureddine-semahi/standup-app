@@ -13,6 +13,9 @@ type PaymentConfirmModalProps = {
   onConfirm: (amount: number) => void;
 };
 
+/** A non-negative amount in plain decimal notation with at most two decimal places ("25", "25.5", "25.50", ".5"); no exponent, sign or extra digits. */
+export const AMOUNT_PATTERN = /^(\d+(\.\d{1,2})?|\.\d{1,2})$/;
+
 /** Required confirmation before a payment-reminder goal is marked complete — prefilled with the account's current minimum payment, editable in case more or less was actually paid. Mirrors BlockedReasonModal's shape (one required input gating one action). */
 export default function PaymentConfirmModal({ accountName, suggestedAmount, saving, error, onCancel, onConfirm }: PaymentConfirmModalProps) {
   const { t } = useLanguage();
@@ -28,7 +31,10 @@ export default function PaymentConfirmModal({ accountName, suggestedAmount, savi
   }, []);
 
   const parsedAmount = Number(amountText);
-  const isValid = amountText.trim().length > 0 && Number.isFinite(parsedAmount) && parsedAmount >= 0;
+  // Whole cents only: at most two decimal places, matching the database (a sub-cent amount would be rounded in the ledger but not in the balance).
+  const wellFormed = AMOUNT_PATTERN.test(amountText.trim());
+  const isValid = wellFormed && Number.isFinite(parsedAmount) && parsedAmount >= 0;
+  const showAmountError = amountText.trim().length > 0 && !wellFormed;
 
   const modalContent = (
     <div
@@ -70,8 +76,15 @@ export default function PaymentConfirmModal({ accountName, suggestedAmount, savi
           onChange={(e) => setAmountText(e.target.value)}
           disabled={saving}
           autoFocus
+          aria-invalid={showAmountError}
+          aria-describedby={showAmountError ? "payment-amount-error" : undefined}
           className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-white/25 disabled:opacity-50"
         />
+        {showAmountError && (
+          <p id="payment-amount-error" role="alert" className="mt-2 text-sm text-amber-300">
+            {t("paymentConfirm.invalidAmount")}
+          </p>
+        )}
 
         {error && (
           <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

@@ -440,6 +440,7 @@ export const es: Record<keyof typeof en, string> = {
   "paymentConfirm.confirmButton": "Confirmar Pago",
   "paymentConfirm.cancel": "Cancelar",
   "paymentConfirm.failed": "Error al confirmar el pago",
+  "paymentConfirm.invalidAmount": "Ingresa un monto con un máximo de dos decimales (centavos enteros), por ejemplo 25.50.",
 
   // Review Today
   "today.failedLoad": "Error al cargar",

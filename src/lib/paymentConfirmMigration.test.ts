@@ -20,9 +20,9 @@ const fnBody = (code: string, name: string) => {
 const norm = (s: string) => s.replace(/\s+/g, " ").trim();
 
 describe("confirm_payment_goal_completion lock migration", () => {
-  it("is forward-only, sorts after every earlier migration, and replaces only this one function", () => {
+  it("is forward-only, sorts after the migrations it depends on, and replaces only this one function", () => {
     expect(fix.f).toBeTruthy();
-    expect(readdirSync(dir).filter((n) => n !== fix.f && n.endsWith(".sql")).every((n) => n < fix.f)).toBe(true);
+    for (const dep of [ledger.f, readdirSync(dir).find((n) => n.endsWith("_guard_payment_goal_completion.sql"))!]) expect(fix.f > dep, dep).toBe(true); // later migrations may follow it
     expect(fix.code.match(/create or replace function/g)).toHaveLength(1);
     expect(fix.code).toContain("create or replace function public.confirm_payment_goal_completion(p_goal_id uuid, p_amount numeric)");
     expect(fix.code).not.toMatch(/\b(drop|alter|truncate|delete from)\b/i);

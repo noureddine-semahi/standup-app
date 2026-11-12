@@ -445,6 +445,7 @@ export const en = {
   "paymentConfirm.confirmButton": "Confirm Payment",
   "paymentConfirm.cancel": "Cancel",
   "paymentConfirm.failed": "Failed to confirm payment",
+  "paymentConfirm.invalidAmount": "Enter an amount with at most two decimal places (whole cents), for example 25.50.",
 
   // Review Today
   "today.failedLoad": "Failed to load",

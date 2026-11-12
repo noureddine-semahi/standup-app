@@ -53,6 +53,67 @@ describe("About: an active beta, and what is in the app today", () => {
   });
 });
 
+describe("About: Finances in depth, and Free versus Premium", () => {
+  it("keeps the philosophy, vision, story, how-it-works and existing feature descriptions", async () => {
+    await mount(<AboutPage />, "en");
+    const t = text();
+    for (const s of ["Our Philosophy", "Our Vision", "The Story", "How It Works", "Full Calendar History", "Growing Together", "Smart Rescheduling", "What's in StandUp today"]) expect(t, s).toContain(s);
+  });
+
+  it("explains the Finances features and states the beta limits plainly (English)", async () => {
+    await mount(<AboutPage />, "en");
+    const f = screen.getByTestId("about-finances").textContent!.replace(/\s+/g, " ");
+    for (const s of ["Financial Planner", "Bills", "Personal subscriptions", "Payments & balances", "Recording payments", "Due dates become goals", "outstanding balance, the minimum payment and the due day", "estimates", "they are not StandUp Premium"]) expect(f, s).toContain(s);
+    // behaviours verified in the code, described as they really work
+    expect(f).toContain("a reminder goal is created for you when its reminder window starts");
+    expect(f).toContain("confirm the amount you actually paid");
+    expect(f).toContain("tap-to-add suggestions in Plan Tomorrow; they are never added automatically");
+    expect(f).toContain("can be reversed, never silently deleted");
+    expect(f).toContain("a setting on each account decides whether a recorded payment also reduces its tracked balance");
+    const beta = screen.getByTestId("about-finance-beta").textContent!;
+    expect(beta).toContain("still in beta");
+    expect(beta).toContain("doesn't connect to your bank or cards");
+    expect(beta).toContain("not by a background job");
+    // nothing here claims what the app does not do
+    expect(f).not.toMatch(/(?<!n't )connects? to your bank|automatically (pays|deducts|updates your bank)|bank (sync|feed)/i);
+  });
+
+  it("says the same in Spanish", async () => {
+    await mount(<AboutPage />, "es");
+    const f = screen.getByTestId("about-finances").textContent!.replace(/\s+/g, " ");
+    for (const s of ["Plan financiero", "Facturas", "Suscripciones personales", "Pagos y saldos", "Registrar pagos", "Los vencimientos se vuelven objetivos", "no son StandUp Premium", "nunca se añaden automáticamente", "nunca se borra en silencio"]) expect(f, s).toContain(s);
+    expect(screen.getByTestId("about-finance-beta").textContent).toContain("sigue en beta");
+  });
+
+  it("explains Free and Premium, separates tracked subscriptions from Premium, says public subscriptions are disabled, and offers no purchase (English)", async () => {
+    await mount(<AboutPage />, "en");
+    const section = screen.getByTestId("about-premium");
+    const p = section.textContent!.replace(/\s+/g, " ");
+    expect(p).toContain("StandUp has a Free plan and a planned Premium plan");
+    expect(p).toContain("up to 3 active structured Goals, 3 active routines and 10 saved notes");
+    expect(p).toContain("StandUp's own subscription");
+    expect(p).toContain("The personal subscriptions you track in Finances are a different feature");
+    expect(p).toContain("Public paid subscriptions are currently disabled");
+    expect(p).toContain("nothing to buy yet");
+    // no active purchase option: no button, no link, no price
+    expect(section.querySelectorAll("button, a, input").length).toBe(0);
+    expect(p).not.toMatch(/\$\s?\d|per month|per year|subscribe now|upgrade|buy now/i);
+  });
+
+  it("says the same in Spanish, with no purchase option", async () => {
+    await mount(<AboutPage />, "es");
+    const section = screen.getByTestId("about-premium");
+    const p = section.textContent!.replace(/\s+/g, " ");
+    expect(p).toContain("plan Gratis y un plan Premium planeado");
+    expect(p).toContain("hasta 3 Objetivos estructurados activos, 3 rutinas activas y 10 notas guardadas");
+    expect(p).toContain("La suscripción propia de StandUp");
+    expect(p).toContain("son otra función");
+    expect(p).toContain("suscripciones públicas de pago están desactivadas");
+    expect(section.querySelectorAll("button, a, input").length).toBe(0);
+    expect(p).not.toMatch(/\$\s?\d|al mes|al año|suscríbete|mejora tu plan/i);
+  });
+});
+
 describe("FAQ: beta answers are always shown, with no Premium messaging while promotion is off", () => {
   it("covers Routines, Notes, Finances, email verification, subscriptions not enabled, and age (English)", async () => {
     await mount(<FAQPage />, "en");
@@ -111,7 +172,7 @@ describe("Privacy Policy: finance, providers, sign-in, age and deletion are desc
 
 describe("EN/ES consistency for the new beta copy", () => {
   it("every new key exists in both languages with the same placeholders", () => {
-    const keys = Object.keys(en).filter((k) => /^(about\.(betaNotice|tool)|faq\.q(39|4[0-4])\.|privacy\.(finance|providers|auth|age))/.test(k));
+    const keys = Object.keys(en).filter((k) => /^(about\.(betaNotice|tool|finance|premium)|faq\.q(39|4[0-4])\.|privacy\.(finance|providers|auth|age))/.test(k));
     expect(keys.length).toBeGreaterThanOrEqual(30);
     for (const k of keys) {
       expect((es as Record<string, string>)[k], k).toBeTruthy();

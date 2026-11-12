@@ -5,13 +5,15 @@ import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
 import {
   Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar,
-  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, Milestone, Archive, Repeat, NotebookPen, BarChart3, Wallet, type LucideIcon,
+  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, Milestone, Archive, Repeat, NotebookPen, BarChart3, Wallet, Calculator, Layers, Sparkles, Info, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { TranslationKey } from "@/lib/i18n/en";
+import { FREE_LIMITS } from "@/lib/entitlements";
 
-type DefItem = { key: string; icon: LucideIcon; titleKey: TranslationKey; body: (t: (k: TranslationKey) => string) => React.ReactNode };
+type TFn = (k: TranslationKey, vars?: Record<string, string | number>) => string;
+type DefItem = { key: string; icon: LucideIcon; titleKey: TranslationKey; body: (t: TFn) => React.ReactNode };
 
 const BIGGER_PICTURE_ITEMS: DefItem[] = [
   { key: "review", icon: ClipboardList, titleKey: "about.dailyReview", body: (t) => t("about.dailyReviewBody") },
@@ -49,6 +51,22 @@ const TOOLS_ITEMS: DefItem[] = [
   { key: "finances", icon: Wallet, titleKey: "about.toolFinancesTitle", body: (t) => t("about.toolFinancesBody") },
 ];
 
+const FINANCE_ITEMS: DefItem[] = [
+  { key: "planner", icon: Calculator, titleKey: "about.financePlannerTitle", body: (t) => t("about.financePlannerBody") },
+  { key: "bills", icon: Receipt, titleKey: "about.financeBillsTitle", body: (t) => t("about.financeBillsBody") },
+  { key: "subs", icon: Repeat, titleKey: "about.financeSubsTitle", body: (t) => t("about.financeSubsBody") },
+  { key: "payments", icon: Wallet, titleKey: "about.financePaymentsTitle", body: (t) => t("about.financePaymentsBody") },
+  { key: "record", icon: ClipboardList, titleKey: "about.financeRecordTitle", body: (t) => t("about.financeRecordBody") },
+  { key: "goals", icon: CalendarClock, titleKey: "about.financeGoalsTitle", body: (t) => t("about.financeGoalsBody") },
+];
+
+const PREMIUM_ITEMS: DefItem[] = [
+  { key: "free", icon: Layers, titleKey: "about.premiumFreeTitle", body: (t) => t("about.premiumFreeBody", { goals: FREE_LIMITS.structuredGoals, routines: FREE_LIMITS.routines, notes: FREE_LIMITS.notes }) },
+  { key: "premium", icon: Sparkles, titleKey: "about.premiumPremiumTitle", body: (t) => t("about.premiumPremiumBody") },
+  { key: "different", icon: Info, titleKey: "about.premiumDifferentTitle", body: (t) => t("about.premiumDifferentBody") },
+  { key: "status", icon: Info, titleKey: "about.premiumStatusTitle", body: (t) => t("about.premiumStatusBody") },
+];
+
 const VISION_PHRASE_KEYS: TranslationKey[] = [
   "about.visionBullet1",
   "about.visionBullet2",
@@ -61,7 +79,7 @@ const VISION_PHRASE_KEYS: TranslationKey[] = [
     hairline row dividers (matches FAQ's divide-y pattern) instead of each
     item getting its own bordered card, so 12 total facts don't read as 12
     identical boxes. */
-function DefinitionList({ items, t }: { items: DefItem[]; t: (k: TranslationKey) => string }) {
+function DefinitionList({ items, t }: { items: DefItem[]; t: TFn }) {
   return (
     <div className="divide-y divide-white/10">
       {items.map((item) => (
@@ -234,6 +252,21 @@ export default function AboutPage() {
           <h2 className="text-2xl text-amber-300 mb-2">{t("about.toolsTitle")}</h2>
           <p className="text-sm text-white/60 mb-4">{t("about.toolsIntro")}</p>
           <DefinitionList items={TOOLS_ITEMS} t={t} />
+        </div>
+
+        {/* Finances in depth: what is implemented, with the beta limits stated plainly. */}
+        <div className="scroll-reveal mt-16" data-testid="about-finances">
+          <h2 className="text-2xl text-amber-300 mb-2">{t("about.financeTitle")}</h2>
+          <p className="text-sm text-white/60 mb-4">{t("about.financeIntro")}</p>
+          <DefinitionList items={FINANCE_ITEMS} t={t} />
+          <p className="mt-4 text-sm text-white/60" role="note" data-testid="about-finance-beta">{t("about.financeBetaNote")}</p>
+        </div>
+
+        {/* Free and Premium: an explanation only. There is deliberately no purchase option here. */}
+        <div className="scroll-reveal mt-16" data-testid="about-premium">
+          <h2 className="text-2xl text-amber-300 mb-2">{t("about.premiumTitle")}</h2>
+          <p className="text-sm text-white/60 mb-4">{t("about.premiumIntro")}</p>
+          <DefinitionList items={PREMIUM_ITEMS} t={t} />
         </div>
 
         {/* The Story + How It Works — the two sections that keep card

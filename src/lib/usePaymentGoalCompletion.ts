@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { getPaymentAccounts, confirmPaymentGoalCompletion, type Goal, type PaymentAccount } from "@/lib/supabase/db";
 
@@ -40,6 +40,9 @@ export function usePaymentGoalCompletion(options?: {
   const [payingAccount, setPayingAccount] = useState<PaymentAccount | null>(null);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  // Synchronous in-flight guard: React state updates are async, so two taps in the same tick would both pass a state check. The server (a row lock in
+  // confirm_payment_goal_completion) is the authority; this stops the second request from being sent at all.
+  const confirmInFlight = useRef(false);
 
   function openPaymentConfirm(goal: Goal) {
     setPaymentError(null);
@@ -66,7 +69,8 @@ export function usePaymentGoalCompletion(options?: {
 
   async function confirmPayment(amount: number) {
     const goal = payingGoal;
-    if (!goal || paymentSaving) return;
+    if (!goal || paymentSaving || confirmInFlight.current) return;
+    confirmInFlight.current = true;
 
     setPaymentSaving(true);
     setPaymentError(null);
@@ -81,6 +85,7 @@ export function usePaymentGoalCompletion(options?: {
       setPaymentError(e?.message ?? t("paymentConfirm.failed"));
       await options?.onError?.(goal, e);
     } finally {
+      confirmInFlight.current = false;
       setPaymentSaving(false);
       options?.onSettled?.(goal);
     }

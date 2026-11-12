@@ -5,7 +5,7 @@ import Link from "next/link";
 import SocialShareButtons from "@/components/SocialShareButtons";
 import {
   Brain, RefreshCw, TrendingUp, ClipboardList, Target, Flame, CalendarClock, Ban, Calendar,
-  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, Milestone, type LucideIcon,
+  Receipt, ListChecks, Users, Send, MessageCircle, Umbrella, Handshake, Milestone, Archive, Repeat, NotebookPen, BarChart3, Wallet, type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
@@ -38,6 +38,15 @@ const GROWING_TOGETHER_ITEMS: DefItem[] = [
   { key: "teamGoals", icon: Handshake, titleKey: "about.teamGoals", body: (t) => t("about.teamGoalsBody") },
   { key: "reactions", icon: MessageCircle, titleKey: "about.reactionsComments", body: (t) => t("about.reactionsCommentsBody") },
   { key: "streakPasses", icon: Umbrella, titleKey: "about.streakPasses", body: (t) => t("about.streakPassesBody") },
+];
+
+const TOOLS_ITEMS: DefItem[] = [
+  { key: "backlog", icon: Archive, titleKey: "about.toolBacklogTitle", body: (t) => t("about.toolBacklogBody") },
+  { key: "routines", icon: Repeat, titleKey: "about.toolRoutinesTitle", body: (t) => t("about.toolRoutinesBody") },
+  { key: "listsNotes", icon: NotebookPen, titleKey: "about.toolListsNotesTitle", body: (t) => t("about.toolListsNotesBody") },
+  { key: "calendar", icon: Calendar, titleKey: "about.toolCalendarTitle", body: (t) => t("about.toolCalendarBody") },
+  { key: "insights", icon: BarChart3, titleKey: "about.toolInsightsTitle", body: (t) => t("about.toolInsightsBody") },
+  { key: "finances", icon: Wallet, titleKey: "about.toolFinancesTitle", body: (t) => t("about.toolFinancesBody") },
 ];
 
 const VISION_PHRASE_KEYS: TranslationKey[] = [
@@ -120,6 +129,9 @@ export default function AboutPage() {
           </p>
           <p className="mt-4 text-sm text-page-tertiary max-w-2xl mx-auto">
             {t("about.heroP2")}
+          </p>
+          <p role="note" data-testid="about-beta-notice" className="mt-4 text-sm text-amber-300 max-w-2xl mx-auto">
+            {t("about.betaNotice")}
           </p>
         </div>
 
@@ -215,6 +227,13 @@ export default function AboutPage() {
             <h2 className="text-2xl text-amber-300 mb-2">{t("about.connectTitle")}</h2>
             <DefinitionList items={GROWING_TOGETHER_ITEMS} t={t} />
           </div>
+        </div>
+
+        {/* What is in the app today (the beta feature list). */}
+        <div className="scroll-reveal mt-16" data-testid="about-tools">
+          <h2 className="text-2xl text-amber-300 mb-2">{t("about.toolsTitle")}</h2>
+          <p className="text-sm text-white/60 mb-4">{t("about.toolsIntro")}</p>
+          <DefinitionList items={TOOLS_ITEMS} t={t} />
         </div>
 
         {/* The Story + How It Works — the two sections that keep card

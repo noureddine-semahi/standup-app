@@ -18,6 +18,11 @@ export default function PrivacyPolicyContent() {
       </section>
 
       <section className="py-6">
+        <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.financeTitle")}</h2>
+        <p className="text-sm text-white/70" data-testid="privacy-finance">{t("privacy.financeBody")}</p>
+      </section>
+
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.whyWeCollectTitle")}</h2>
         <p className="text-sm text-white/70">{t("privacy.whyWeCollectBody")}</p>
       </section>
@@ -43,10 +48,25 @@ export default function PrivacyPolicyContent() {
       </section>
 
       <section className="py-6">
+        <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.providersTitle")}</h2>
+        <p className="text-sm text-white/70" data-testid="privacy-providers">{t("privacy.providersBody")}</p>
+      </section>
+
+      <section className="py-6">
+        <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.authTitle")}</h2>
+        <p className="text-sm text-white/70" data-testid="privacy-auth">{t("privacy.authBody")}</p>
+      </section>
+
+      <section className="py-6">
         <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.billingTitle")}</h2>
         <p className="text-sm text-white/70" data-testid="privacy-billing">
           {t("privacy.billingBody")}
         </p>
+      </section>
+
+      <section className="py-6">
+        <h2 className="text-lg font-semibold text-white mb-2">{t("privacy.ageTitle")}</h2>
+        <p className="text-sm text-white/70" data-testid="privacy-age">{t("privacy.ageBody")}</p>
       </section>
 
       <section className="py-6">

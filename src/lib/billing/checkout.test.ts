@@ -199,6 +199,42 @@ describe("authentication and request checks (unchanged)", () => {
   });
 });
 
+describe("live mode: owner-only allowlist", () => {
+  const LIST = "STRIPE_LIVE_CHECKOUT_USER_IDS";
+  const live = { readConfig: vi.fn(() => ({ ...config, mode: "live" as const })) };
+  const withList = (value: string | undefined) => ({ ...live, env: { NODE_ENV: "production", ...(value === undefined ? {} : { [LIST]: value }) } });
+
+  it("an allowlisted account can start Checkout (case and spacing tolerated)", async () => {
+    const r = await run(deps(world, withList(` ${OTHER.id}, ${USER.id.toUpperCase()} `)));
+    expect(r.status).toBe(200);
+    expect(world.calls.create).toBe(1);
+  });
+  it("an account that is not listed is refused before any attempt or Stripe call", async () => {
+    const r = await run(deps(world, withList(OTHER.id)));
+    expect([r.status, errorOf(r)]).toEqual([403, "checkout_disabled"]);
+    expect(world.calls.create).toBe(0);
+    expect(world.attempts).toHaveLength(0);
+  });
+  it("fails closed: a missing, empty or malformed allowlist allows nobody", async () => {
+    for (const v of [undefined, "", "   ", "not-an-id", `${USER.id},oops`, `${USER.id};${OTHER.id}`]) {
+      const r = await run(deps(world, withList(v)));
+      expect([r.status, errorOf(r)]).toEqual([403, "checkout_disabled"]);
+    }
+    expect(world.calls.create).toBe(0);
+    expect(world.attempts).toHaveLength(0);
+  });
+  it("the denial reveals nothing about the allowlist", async () => {
+    const r = await run(deps(world, withList(OTHER.id)));
+    expect(JSON.stringify(r.body)).not.toContain(OTHER.id);
+  });
+  it("test mode ignores the allowlist entirely (sandbox behaviour unchanged)", async () => {
+    for (const v of [undefined, "not-an-id", OTHER.id]) {
+      const r = await run(deps(world, { env: { NODE_ENV: "production", ...(v === undefined ? {} : { [LIST]: v }) } }));
+      expect(r.status).toBe(200);
+    }
+  });
+});
+
 describe("a valid first-time checkout", () => {
   it("creates exactly one session: subscription mode, the configured Price, tied to the verified account, fixed redirects", async () => {
     const r = await run(deps(world));

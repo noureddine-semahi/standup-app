@@ -125,7 +125,19 @@ const bearer = (header: string | null): string | null => {
   return m ? m[1] : null;
 };
 
-const subscriptionIdOf = (s: string | { id: string } | null): string | null => (typeof s === "string" ? s : s?.id ?? null);
+export const LIVE_CHECKOUT_ALLOWLIST_ENV = "STRIPE_LIVE_CHECKOUT_USER_IDS";
+const ACCOUNT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether this account is on the live-Checkout allowlist: a comma-separated list of account IDs. Missing, empty or any malformed entry allows nobody. */
+export function liveCheckoutAllowed(userId: string, env: Readonly<Record<string, string | undefined>>): boolean {
+  const raw = env[LIVE_CHECKOUT_ALLOWLIST_ENV];
+  if (!raw || !raw.trim()) return false;
+  const ids = raw.split(",").map((s) => s.trim());
+  if (ids.some((id) => !ACCOUNT_ID.test(id))) return false;
+  return ids.some((id) => id.toLowerCase() === userId.toLowerCase());
+}
+
+const subscriptionIdOf =(s: string | { id: string } | null): string | null => (typeof s === "string" ? s : s?.id ?? null);
 
 export async function handleCheckoutRequest(req: Request, deps: CheckoutDeps = realDeps()): Promise<Response> {
   const origin = resolveTrustedOrigin(req.headers.get("origin"), deps.env);
@@ -148,6 +160,10 @@ export async function handleCheckoutRequest(req: Request, deps: CheckoutDeps = r
   } catch {
     return fail("billing_unavailable");
   }
+
+  // Live mode only: while live billing is being verified, only the accounts on the owner's allowlist may start Checkout. Denied before any
+  // attempt is recorded or Stripe is called. A missing or malformed allowlist allows nobody.
+  if (config.mode === "live" && !liveCheckoutAllowed(user.id, deps.env)) return fail("checkout_disabled");
 
   let store: CheckoutStore;
   try {

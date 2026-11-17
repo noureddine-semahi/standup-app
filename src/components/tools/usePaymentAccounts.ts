@@ -6,13 +6,16 @@ import {
   createPaymentAccount,
   updatePaymentAccount,
   recordPayment,
+  recordAccountAdjustment,
+  getPaymentAccountSnapshot,
+  toISODate,
   reversePayment,
   deletePaymentAccount,
   getPaymentTransactions,
   type PaymentAccount,
   type PaymentTransaction,
 } from "@/lib/supabase/db";
-import type { PaymentEntryPayload, PaymentFormPayload } from "@/lib/paymentSummary";
+import { planBalanceAdjustment, toCents, type PaymentEntryPayload, type PaymentFormPayload } from "@/lib/paymentSummary";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { PaymentsDashboardProps } from "./PaymentsDashboard";
 
@@ -81,7 +84,7 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     }
   }
 
-  async function handleUpdatePayment(account: PaymentAccount, patch: Partial<PaymentFormPayload>): Promise<string | null> {
+  async function handleUpdatePayment(account: PaymentAccount, patch: Partial<Omit<PaymentFormPayload, "balance">>): Promise<string | null> {
     if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
     setPaymentsMsg(null);
@@ -91,6 +94,38 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
       return null;
     } catch (e: any) {
       return e?.message ?? t("backlog.failedUpdatePayment");
+    } finally {
+      setPaymentBusy(account.id, false);
+    }
+  }
+
+  // A balance edit is recorded as an adjustment, never written to the account directly. The amount is computed from a FRESH read taken now, and only if that
+  // read still matches the balance the user was looking at; the fresh ledger version then travels with the call, so the database itself refuses (atomically) if
+  // anything changed in between. `clientKey` is stable for one open form, so a repeated tap or retry can never adjust twice.
+  async function handleAdjustBalance(account: PaymentAccount, requestedBalance: number, reason: string, clientKey: string): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return null;
+    setPaymentBusy(account.id, true);
+    setPaymentsMsg(null);
+    try {
+      const fresh = await getPaymentAccountSnapshot(account.id);
+      if (toCents(fresh.balance) !== toCents(account.balance)) return t("pay.errBalanceChanged");
+      const planned = planBalanceAdjustment(fresh.balance, requestedBalance);
+      if (!planned.ok) return planned.error === "precision" ? t("pay.errAmountPrecision") : t("pay.errBalanceRange");
+      if (!planned.plan) return null; // unchanged: no entry, no write
+      const result = await recordAccountAdjustment({
+        accountId: account.id,
+        amount: planned.plan.amount,
+        direction: planned.plan.direction,
+        reason,
+        entryDate: toISODate(new Date()),
+        expectedLedgerVersion: fresh.ledgerVersion,
+        clientKey,
+      });
+      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: result.newBalance } : a)));
+      return null;
+    } catch (e) {
+      const message = errorMessage(e, t("pay.failedAdjust"));
+      return /changed since it was loaded/.test(message) ? t("pay.errBalanceChanged") : message;
     } finally {
       setPaymentBusy(account.id, false);
     }
@@ -187,6 +222,7 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     busyIds: busyPaymentIds,
     onCreate: handleAddPayment,
     onUpdate: handleUpdatePayment,
+    onAdjustBalance: handleAdjustBalance,
     onDelete: handleDeletePayment,
     onRecordPayment: handleRecordPayment,
     onReversePayment: handleReversePayment,

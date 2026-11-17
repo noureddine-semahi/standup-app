@@ -127,6 +127,30 @@ export function diffPaymentPayload(a: PaymentAccount, p: PaymentFormPayload): Pa
   return patch;
 }
 
+/** A balance edit expressed as an adjustment entry: the amount is a positive magnitude, the direction says which way the balance (the amount OWED) moves. */
+export type BalanceAdjustmentPlan = { direction: "increase" | "decrease"; amount: number };
+
+export type BalanceAdjustmentResult =
+  | { ok: true; plan: BalanceAdjustmentPlan | null } // plan null = the balance is unchanged: no entry, no write
+  | { ok: false; error: "precision" | "range" };
+
+const MAX_LEDGER_AMOUNT_CENTS = 9_999_999_999; // 99,999,999.99, the ledger's limit
+
+/**
+ * Turns "set the balance to X" into the adjustment that does it, from the balance the caller actually read.
+ * requested above current = increase; below = decrease; equal = no adjustment at all. Cents-exact: a requested balance with
+ * more than two decimals is refused (never silently rounded), as is one whose adjustment or balance exceeds the ledger limit.
+ */
+export function planBalanceAdjustment(current: number, requested: number): BalanceAdjustmentResult {
+  if (!Number.isFinite(current) || !Number.isFinite(requested)) return { ok: false, error: "range" };
+  const requestedCents = toCents(requested);
+  if (Math.abs(requested * 100 - requestedCents) > 1e-6) return { ok: false, error: "precision" };
+  const diff = requestedCents - toCents(current);
+  if (diff === 0) return { ok: true, plan: null };
+  if (Math.abs(requestedCents) > MAX_LEDGER_AMOUNT_CENTS || Math.abs(diff) > MAX_LEDGER_AMOUNT_CENTS) return { ok: false, error: "range" };
+  return { ok: true, plan: { direction: diff > 0 ? "increase" : "decrease", amount: fromCents(Math.abs(diff)) } };
+}
+
 // ── Money helpers ────────────────────────────────────────────────────────
 // Amounts are handled in integer cents whenever they're combined, so
 // repeated adds/subtracts can't accumulate floating-point error.

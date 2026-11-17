@@ -66,7 +66,8 @@ describe("payment_accounts column-privilege migration", () => {
     // updatePaymentAccount's patch keys
     const update = dbSource.slice(dbSource.indexOf("export async function updatePaymentAccount"), dbSource.indexOf("export async function deletePaymentAccount"));
     const patched = new Set([...update.matchAll(/patch\.([a-z_]+)\s*=/g)].map((m) => m[1]));
-    expect(patched.size).toBeGreaterThanOrEqual(6);
+    expect(patched.size).toBeGreaterThanOrEqual(5);
+    expect(patched.has("balance"), "since 4C.4B the app never patches the balance directly").toBe(false);
     for (const c of patched) expect(updateCols, `update column ${c}`).toContain(c);
 
     // every other direct update of payment_accounts in the application
@@ -75,11 +76,14 @@ describe("payment_accounts column-privilege migration", () => {
     for (const c of others) expect(updateCols, `update column ${c}`).toContain(c);
   });
 
-  it("no application code reads or writes ledger_version yet, so nothing depends on client access to it", () => {
+  it("the application only READS ledger_version (the adjustment flow's fresh snapshot, in db.ts) and never writes it", () => {
     const walk = (d: string): string[] =>
       readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : /\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name) ? [join(d, e.name)] : []));
     const hits = walk(join(root, "src")).filter((f) => /ledger_version/.test(readFileSync(f, "utf8")));
-    expect(hits).toEqual([]);
+    expect(hits.map((h) => h.replace(/\\/g, "/").split("/src/")[1])).toEqual(["lib/supabase/db.ts"]);
+    const lines = dbSource.split("\n").filter((l) => /ledger_version/.test(l));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l, "no write of ledger_version").not.toMatch(/\.update\(|\.insert\(|patch\.ledger_version/);
   });
 
   it("the trusted writers are SECURITY DEFINER functions with a fixed search path, so revoking client privileges cannot stop them", () => {

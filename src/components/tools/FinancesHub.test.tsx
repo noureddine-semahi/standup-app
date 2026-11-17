@@ -117,6 +117,7 @@ function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsCo
     busyIds: new Set(),
     onCreate: vi.fn(),
     onUpdate: vi.fn(),
+    onAdjustBalance: vi.fn(),
     onDelete: vi.fn(),
     onRecordPayment: vi.fn(),
     onReversePayment: vi.fn(),

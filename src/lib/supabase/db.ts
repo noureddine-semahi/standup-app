@@ -2378,13 +2378,17 @@ export async function createPaymentAccount(params: {
   return rowToPaymentAccount(data);
 }
 
+/**
+ * Edits account METADATA only. The balance is deliberately not editable here: a balance change must go through the ledger
+ * (recordAccountAdjustment), so it is versioned, audited and reconcilable. A balance passed anyway (an untyped caller) is refused, never written.
+ */
 export async function updatePaymentAccount(
   id: string,
-  params: Partial<{ name: string; balance: number; minimumPayment: number; dueDay: number; remindDaysBefore: number; balanceMode: "auto" | "manual" }>
+  params: Partial<{ name: string; minimumPayment: number; dueDay: number; remindDaysBefore: number; balanceMode: "auto" | "manual" }>
 ): Promise<PaymentAccount> {
+  if ("balance" in params) throw new Error("The balance cannot be edited directly; record an adjustment instead.");
   const patch: Record<string, unknown> = {};
   if (params.name !== undefined) patch.name = params.name.trim();
-  if (params.balance !== undefined) patch.balance = params.balance;
   if (params.minimumPayment !== undefined) patch.minimum_payment = params.minimumPayment;
   if (params.dueDay !== undefined) patch.due_day = params.dueDay;
   if (params.remindDaysBefore !== undefined) patch.remind_days_before = params.remindDaysBefore;
@@ -2521,6 +2525,44 @@ export async function recordPayment(params: {
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   return { transactionId: row.transaction_id, newBalance: Number(row.new_balance), wasDuplicate: !!row.was_duplicate };
+}
+
+/** A fresh read of one account's balance and ledger version, taken right before an adjustment is computed from it. */
+export async function getPaymentAccountSnapshot(accountId: string): Promise<{ balance: number; ledgerVersion: number }> {
+  const { data, error } = await supabase.from("payment_accounts").select("balance, ledger_version").eq("id", accountId).single();
+  if (error) throw error;
+  return { balance: Number(data.balance), ledgerVersion: Number(data.ledger_version) };
+}
+
+/**
+ * Records a balance change as an adjustment entry (record_account_entry, kind 'adjustment'). `expectedLedgerVersion` is the version the amount was computed from:
+ * the database refuses the call, atomically, if the account has changed since. `clientKey` makes a repeated submit a no-op. Returns the account's resulting balance.
+ */
+export async function recordAccountAdjustment(params: {
+  accountId: string;
+  amount: number;
+  direction: "increase" | "decrease";
+  reason: string;
+  entryDate: string;
+  expectedLedgerVersion: number;
+  clientKey: string;
+}): Promise<{ entryId: string; newBalance: number; wasDuplicate: boolean }> {
+  const { data, error } = await supabase.rpc("record_account_entry", {
+    p_account_id: params.accountId,
+    p_kind: "adjustment",
+    p_amount: params.amount,
+    p_entry_date: params.entryDate,
+    p_statement_date: null,
+    p_reason: params.reason,
+    p_note: null,
+    p_direction: params.direction,
+    p_apply_balance: null,
+    p_client_key: params.clientKey,
+    p_expected_ledger_version: params.expectedLedgerVersion,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { entryId: row.entry_id, newBalance: Number(row.new_balance), wasDuplicate: !!row.was_duplicate };
 }
 
 /** Reverses a payment (row kept, stamped reversed; balance restored only if it was applied). Returns the account's resulting balance. */

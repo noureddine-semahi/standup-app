@@ -52,6 +52,7 @@ function setup(over: Partial<PaymentsDashboardProps> = {}) {
     busyIds: new Set(),
     onCreate: vi.fn().mockResolvedValue(null),
     onUpdate: vi.fn().mockResolvedValue(null),
+    onAdjustBalance: vi.fn().mockResolvedValue(null),
     onDelete: vi.fn().mockResolvedValue(null),
     onRecordPayment: vi.fn().mockResolvedValue(null),
     onReversePayment: vi.fn().mockResolvedValue(null),
@@ -176,16 +177,117 @@ describe("Edit account", () => {
     expect(props.onUpdate).not.toHaveBeenCalled();
   });
 
-  it("saves only the changed fields through onUpdate", async () => {
+  it("saves only the changed METADATA fields through onUpdate, and never sends the balance there", async () => {
     const account = acct();
     const props = setup({ accounts: [account] });
     fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
-    typeInto("Balance", "350.5");
     typeInto("Remind (days before)", "10");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(props.onUpdate).toHaveBeenCalledTimes(1));
-    expect(props.onUpdate).toHaveBeenCalledWith(account, { balance: 350.5, remindDaysBefore: 10 });
+    expect(props.onUpdate).toHaveBeenCalledWith(account, { remindDaysBefore: 10 });
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("a changed balance asks for a reason, is saved as an adjustment (not through onUpdate) and shows no reason field when the balance is untouched", async () => {
+    const account = acct();
+    const props = setup({ accounts: [account] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
+    expect(screen.queryByLabelText("Reason for the balance change")).toBeNull();
+    typeInto("Balance", "350.5");
+    expect(screen.getByLabelText("Reason for the balance change")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    typeInto("Reason for the balance change", "  Matched my statement ");
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(props.onAdjustBalance).toHaveBeenCalledTimes(1));
+    expect(props.onAdjustBalance).toHaveBeenCalledWith(account, 350.5, "Matched my statement", expect.stringMatching(/^[0-9a-f-]{36}$/));
+    expect(props.onUpdate).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("metadata and a balance change together: metadata goes to onUpdate WITHOUT the balance first, then the adjustment", async () => {
+    const order: string[] = [];
+    const account = acct();
+    const props = setup({
+      accounts: [account],
+      onUpdate: vi.fn().mockImplementation(async () => (order.push("update"), null)),
+      onAdjustBalance: vi.fn().mockImplementation(async () => (order.push("adjust"), null)),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
+    typeInto("Remind (days before)", "10");
+    typeInto("Balance", "300");
+    typeInto("Reason for the balance change", "Fix");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(props.onAdjustBalance).toHaveBeenCalledTimes(1));
+    expect(props.onUpdate).toHaveBeenCalledWith(account, { remindDaysBefore: 10 });
+    expect(order).toEqual(["update", "adjust"]);
+  });
+
+  it("if saving the metadata fails, no adjustment is attempted and the error stays in the open form", async () => {
+    const props = setup({ accounts: [acct()], onUpdate: vi.fn().mockResolvedValue("Failed to update payment account") });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
+    typeInto("Remind (days before)", "10");
+    typeInto("Balance", "300");
+    typeInto("Reason for the balance change", "Fix");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Failed to update payment account");
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("metadata saved but the balance adjustment failed: says details WERE saved and the adjustment was NOT, keeps the original reason, and stays open for a retry", async () => {
+    const original = "This account's balance changed since you opened this form. Close it and try again.";
+    const account = acct();
+    const props = setup({ accounts: [account], onAdjustBalance: vi.fn().mockResolvedValue(original) });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
+    typeInto("Remind (days before)", "10");
+    typeInto("Balance", "300");
+    typeInto("Reason for the balance change", "Matched my statement");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const alert = await screen.findByRole("alert");
+    expect(props.onUpdate).toHaveBeenCalledWith(account, { remindDaysBefore: 10 });
+    expect(props.onAdjustBalance).toHaveBeenCalledTimes(1);
+    expect(alert.textContent).toBe(`Account details were saved. The balance adjustment was not saved: ${original}`);
+    // the form is still open, with what the user typed, and Save is available again
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect((screen.getByLabelText("Reason for the balance change") as HTMLInputElement).value).toBe("Matched my statement");
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("a failed adjustment (for example a stale balance) keeps the form open with the message", async () => {
+    setup({ accounts: [acct()], onAdjustBalance: vi.fn().mockResolvedValue("This account's balance changed since you opened this form. Close it and try again.") });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
+    typeInto("Balance", "300");
+    typeInto("Reason for the balance change", "Fix");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/balance changed since you opened/);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("reverting the balance to its original value removes the reason requirement and writes nothing", async () => {
+    const props = setup({ accounts: [acct()] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit Bank of America" }));
+    typeInto("Balance", "300");
+    expect(screen.getByLabelText("Reason for the balance change")).toBeTruthy();
+    typeInto("Balance", "394");
+    expect(screen.queryByLabelText("Reason for the balance change")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(props.onUpdate).not.toHaveBeenCalled();
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
+  });
+
+  it("adding an account still sends its starting balance through onCreate with no reason field", async () => {
+    const props = setup();
+    fireEvent.click(screen.getByRole("button", { name: /Add Account/ }));
+    typeInto("Account name", "Visa");
+    typeInto("Balance", "120");
+    typeInto("Due day of month", "5");
+    expect(screen.queryByLabelText("Reason for the balance change")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(props.onCreate).toHaveBeenCalledWith(expect.objectContaining({ name: "Visa", balance: 120 })));
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
   });
 
   it("switching balance mode is an explicit change and is the only field sent", async () => {

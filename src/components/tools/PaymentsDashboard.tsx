@@ -31,7 +31,10 @@ export type PaymentsDashboardProps = {
   todayISO: string;
   busyIds: ReadonlySet<string>;
   onCreate: (payload: PaymentFormPayload) => Promise<string | null>;
-  onUpdate: (account: PaymentAccount, patch: Partial<PaymentFormPayload>) => Promise<string | null>;
+  /** Account METADATA only (name, minimum, due day, reminder days, balance mode): the balance is never part of this patch. */
+  onUpdate: (account: PaymentAccount, patch: Partial<Omit<PaymentFormPayload, "balance">>) => Promise<string | null>;
+  /** A balance edit, recorded as an adjustment with a required reason. `clientKey` is stable for one open form, so a repeat can never adjust twice. */
+  onAdjustBalance: (account: PaymentAccount, requestedBalance: number, reason: string, clientKey: string) => Promise<string | null>;
   onDelete: (account: PaymentAccount) => Promise<string | null>;
   /** `clientKey` is stable for one open modal, so a repeated tap or retry can never pay twice. */
   onRecordPayment: (account: PaymentAccount, payload: PaymentEntryPayload, clientKey: string) => Promise<string | null>;
@@ -105,9 +108,11 @@ function PaymentFormModal({
 }: {
   account: PaymentAccount | null;
   onCancel: () => void;
-  onSubmit: (payload: PaymentFormPayload) => Promise<string | null>;
+  onSubmit: (payload: PaymentFormPayload, adjustment: { reason: string; clientKey: string }) => Promise<string | null>;
 }) {
   const { t } = useLanguage();
+  const [reason, setReason] = useState("");
+  const [clientKey] = useState(newClientKey);
   const [values, setValues] = useState<PaymentFormValues>(() => (account ? paymentToFormValues(account) : EMPTY_PAYMENT_FORM));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +120,9 @@ function PaymentFormModal({
   useDialog(dialogRef, onCancel, saving);
 
   const payload = parsePaymentForm(values);
+  // Editing an existing account: a changed balance is saved as an adjustment, which needs a reason.
+  const balanceChanged = !!account && !!payload && payload.balance !== account.balance;
+  const reasonMissing = balanceChanged && reason.trim() === "";
   const set = (k: Exclude<keyof PaymentFormValues, "balanceMode">) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setValues((v) => ({ ...v, [k]: e.target.value }));
   const setMode = (m: BalanceMode) => setValues((v) => ({ ...v, balanceMode: m }));
@@ -122,9 +130,13 @@ function PaymentFormModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!payload || saving) return;
+    if (reasonMissing) {
+      setError(t("pay.errAdjustReason"));
+      return;
+    }
     setSaving(true);
     setError(null);
-    const err = await onSubmit(payload);
+    const err = await onSubmit(payload, { reason: reason.trim(), clientKey });
     if (err) {
       setError(err);
       setSaving(false);
@@ -225,6 +237,25 @@ function PaymentFormModal({
             </div>
           </div>
 
+          {balanceChanged && (
+            <div className="pay-field pay-field-wide">
+              <label className="pay-field pay-field-wide">
+                <span className="pay-label">{t("pay.adjustReasonLabel")}</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  maxLength={500}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={t("pay.adjustReasonPlaceholder")}
+                  disabled={saving}
+                  className={FIELD_CLASS}
+                />
+              </label>
+              <p className="pay-help">{t("pay.adjustHelp")}</p>
+            </div>
+          )}
+
           {error && (
             <div role="alert" className="pay-error">
               {error}
@@ -235,7 +266,7 @@ function PaymentFormModal({
             <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={onCancel} disabled={saving}>
               {t("pay.cancel")}
             </button>
-            <button type="submit" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" disabled={saving || !payload}>
+            <button type="submit" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" disabled={saving || !payload || reasonMissing}>
               {saving ? t("pay.saving") : t("pay.save")}
             </button>
           </div>
@@ -477,6 +508,7 @@ export default function PaymentsDashboard({
   busyIds,
   onCreate,
   onUpdate,
+  onAdjustBalance,
   onDelete,
   onRecordPayment,
   onReversePayment,
@@ -493,7 +525,7 @@ export default function PaymentsDashboard({
   const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function submitForm(payload: PaymentFormPayload): Promise<string | null> {
+  async function submitForm(payload: PaymentFormPayload, adjustment: { reason: string; clientKey: string }): Promise<string | null> {
     if (formFor === "new") {
       const err = await onCreate(payload);
       if (!err) setFormFor(null);
@@ -505,9 +537,22 @@ export default function PaymentsDashboard({
         setFormFor(null); // nothing changed -- no write
         return null;
       }
-      const err = await onUpdate(formFor, patch);
-      if (!err) setFormFor(null);
-      return err;
+      // Metadata and balance are saved separately: the balance never goes through onUpdate. Metadata first, because re-sending it is harmless
+      // if the adjustment then fails and the form is submitted again.
+      const { balance, ...metadata } = patch;
+      if (balance !== undefined && adjustment.reason === "") return t("pay.errAdjustReason");
+      const savedMetadata = Object.keys(metadata).length > 0;
+      if (savedMetadata) {
+        const metaErr = await onUpdate(formFor, metadata);
+        if (metaErr) return metaErr;
+      }
+      if (balance !== undefined) {
+        const adjustErr = await onAdjustBalance(formFor, balance, adjustment.reason, adjustment.clientKey);
+        // The details above are already saved: say so, and keep the original explanation of why the balance was not.
+        if (adjustErr) return savedMetadata ? t("pay.errPartialAdjust", { reason: adjustErr }) : adjustErr;
+      }
+      setFormFor(null);
+      return null;
     }
     return null;
   }

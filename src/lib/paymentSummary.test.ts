@@ -7,6 +7,7 @@ import {
   parsePaymentEntry,
   parsePaymentForm,
   paymentToFormValues,
+  planBalanceAdjustment,
   previewBalanceAfter,
   summarizeFinances,
   summarizePayments,
@@ -328,5 +329,35 @@ describe("summarizeFinances with subscriptions", () => {
   it("carries the awaiting-price and other-currency counts so the tile can say what it left out", () => {
     const o = summarizeFinances([], today, null, subs({ monthlyCost: 10, awaitingPrice: 2, otherCurrency: 1 }));
     expect(o).toMatchObject({ subscriptionsAwaitingPrice: 2, subscriptionsOtherCurrency: 1 });
+  });
+});
+
+describe("planBalanceAdjustment (a balance edit becomes an adjustment computed from the balance actually read)", () => {
+  it("requested above current is an increase, below is a decrease, with the exact positive difference", () => {
+    expect(planBalanceAdjustment(394, 400.5)).toEqual({ ok: true, plan: { direction: "increase", amount: 6.5 } });
+    expect(planBalanceAdjustment(394, 350.25)).toEqual({ ok: true, plan: { direction: "decrease", amount: 43.75 } });
+  });
+  it("an unchanged balance needs no adjustment at all", () => {
+    expect(planBalanceAdjustment(394, 394)).toEqual({ ok: true, plan: null });
+    expect(planBalanceAdjustment(0.1 + 0.2, 0.3)).toEqual({ ok: true, plan: null }); // float noise is not a change
+  });
+  it("is cents-exact: floating-point sums never leak into the amount", () => {
+    expect(planBalanceAdjustment(0.1, 0.3)).toEqual({ ok: true, plan: { direction: "increase", amount: 0.2 } });
+    expect(planBalanceAdjustment(1000.1, 0.2)).toEqual({ ok: true, plan: { direction: "decrease", amount: 999.9 } });
+  });
+  it("works across zero (a credit balance is negative)", () => {
+    expect(planBalanceAdjustment(50, -25.5)).toEqual({ ok: true, plan: { direction: "decrease", amount: 75.5 } });
+    expect(planBalanceAdjustment(-10, 5)).toEqual({ ok: true, plan: { direction: "increase", amount: 15 } });
+  });
+  it("refuses more than two decimals instead of rounding silently", () => {
+    expect(planBalanceAdjustment(100, 100.005)).toEqual({ ok: false, error: "precision" });
+    expect(planBalanceAdjustment(100, 99.999)).toEqual({ ok: false, error: "precision" });
+  });
+  it("refuses a balance or adjustment beyond the ledger limit, and non-finite input", () => {
+    expect(planBalanceAdjustment(0, 100000000)).toEqual({ ok: false, error: "range" });
+    expect(planBalanceAdjustment(-99999999.99, 99999999.99)).toEqual({ ok: false, error: "range" });
+    expect(planBalanceAdjustment(0, 99999999.99)).toEqual({ ok: true, plan: { direction: "increase", amount: 99999999.99 } });
+    expect(planBalanceAdjustment(NaN, 5)).toEqual({ ok: false, error: "range" });
+    expect(planBalanceAdjustment(5, Infinity)).toEqual({ ok: false, error: "range" });
   });
 });

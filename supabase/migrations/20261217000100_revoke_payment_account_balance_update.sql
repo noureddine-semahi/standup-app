@@ -1,0 +1,21 @@
+-- FIN-02.2 Step 4C.4B (2 of 2): remove direct client UPDATE of payment_accounts.balance.
+--
+-- DO NOT RUN THIS BEFORE THE 4C.4B APP RELEASE IS LIVE AND VERIFIED. Until then the account edit form still writes the balance directly (updatePaymentAccount);
+-- revoking first would make every balance edit in an old app version fail with "permission denied". Order: (1) 20261216000100 (adds the expected-version
+-- argument), (2) deploy the app that records balance changes as adjustments, (3) verify it, (4) run this file.
+--
+-- WHAT IT DOES (one statement): revokes UPDATE on the single column payment_accounts.balance from the 'authenticated' role. All other column privileges from
+-- 20261205000100 are untouched: clients can still edit name, minimum_payment, due_day, remind_days_before, last_reminder_due_date and balance_mode, and can still
+-- INSERT an account with its starting balance (the opening balance is later confirmed by an opening checkpoint). ledger_version stays client-unwritable.
+--
+-- WHAT KEEPS WORKING: every balance change that belongs in the ledger. record_payment, reverse_payment, confirm_payment_goal_completion, record_account_entry
+-- (interest, fees, adjustments) and reverse_account_entry are SECURITY DEFINER functions owned by postgres; they change the balance with the owner's privileges,
+-- not the caller's, so this revoke does not affect them.
+--
+-- CONSEQUENCES: (a) reconcile_payment_account() then reports balance_write_path_open = false, so reliable becomes true for a complete ledger; (b) the guard of
+-- 20261215000100 stops refusing, so opening checkpoints can be created.
+--
+-- ROLLBACK (if ever needed): grant update (balance) on public.payment_accounts to authenticated;
+-- Safe to re-run (revoking an absent privilege is a no-op). Run in Supabase Dashboard -> SQL Editor -> New query. NOT applied by the app or by CI.
+
+revoke update (balance) on public.payment_accounts from authenticated;

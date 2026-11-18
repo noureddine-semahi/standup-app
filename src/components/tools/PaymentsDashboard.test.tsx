@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor, within } from "@testing-library/react";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { es } from "@/lib/i18n/es";
-import type { PaymentAccount, PaymentTransaction } from "@/lib/supabase/db";
+import type { PaymentAccount, PaymentTransaction, ReconciliationResult } from "@/lib/supabase/db";
 import PaymentsDashboard, { type PaymentsDashboardProps } from "./PaymentsDashboard";
 
 beforeEach(() => {
@@ -56,6 +56,10 @@ function setup(over: Partial<PaymentsDashboardProps> = {}) {
     onAdjustBalance: vi.fn().mockResolvedValue(null),
     onLoadOpeningCheckpoint: vi.fn().mockResolvedValue({ balance: 394, ledgerVersion: 7, checkpoint: null }),
     onCreateOpeningCheckpoint: vi.fn().mockResolvedValue({ ok: true }),
+    onReconcile: vi.fn().mockResolvedValue({
+      checkpointId: "c1", checkpointVersion: 3, checkpointBalance: 400, currentLedgerVersion: 5, calculatedBalance: 394, trackedBalance: 394, statementBalance: null,
+      trackedDifference: 0, statementDifference: null, versionGap: false, balanceWritePathOpen: false, reliable: true, status: "reconciled",
+    }),
     onDelete: vi.fn().mockResolvedValue(null),
     onRecordPayment: vi.fn().mockResolvedValue(null),
     onReversePayment: vi.fn().mockResolvedValue(null),
@@ -732,5 +736,198 @@ describe("Opening checkpoint", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(props.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("Reconcile", () => {
+  const recon = (over: Partial<ReconciliationResult> = {}): ReconciliationResult => ({
+    checkpointId: "c1", checkpointVersion: 3, checkpointBalance: 400, currentLedgerVersion: 5, calculatedBalance: 394, trackedBalance: 394, statementBalance: null,
+    trackedDifference: 0, statementDifference: null, versionGap: false, balanceWritePathOpen: false, reliable: true, status: "reconciled", ...over,
+  });
+  const noCheckpoint = (): ReconciliationResult =>
+    recon({ checkpointId: null, checkpointVersion: null, checkpointBalance: null, calculatedBalance: null, trackedDifference: null, reliable: false, status: "no_checkpoint" });
+  const open = async (name = "Bank of America") => {
+    fireEvent.click(screen.getByRole("button", { name: `More ${name}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Reconcile" }));
+    return screen.findByTestId("recon-headline").catch(() => null);
+  };
+  const headline = () => screen.getByTestId("recon-headline");
+  const noWrites = (p: PaymentsDashboardProps) => {
+    expect(p.onUpdate).not.toHaveBeenCalled();
+    expect(p.onAdjustBalance).not.toHaveBeenCalled();
+    expect(p.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
+    expect(p.onCreate).not.toHaveBeenCalled();
+    expect(p.onDelete).not.toHaveBeenCalled();
+    expect(p.onRecordPayment).not.toHaveBeenCalled();
+    expect(p.onReversePayment).not.toHaveBeenCalled();
+  };
+
+  it("is offered from the More menu; opening runs one read-only reconciliation with no statement balance and writes nothing", async () => {
+    const account = acct();
+    const props = setup({ accounts: [account] });
+    expect(screen.queryByRole("button", { name: "Reconcile" })).toBeNull();
+    await open();
+    expect(props.onReconcile).toHaveBeenCalledTimes(1);
+    expect(props.onReconcile).toHaveBeenCalledWith(account, null);
+    noWrites(props);
+  });
+
+  it("no opening checkpoint: says so, points to Confirm opening balance, shows no calculation, and creates nothing", async () => {
+    const props = setup({ accounts: [acct()], onReconcile: vi.fn().mockResolvedValue(noCheckpoint()) });
+    await open();
+    expect(headline().getAttribute("data-status")).toBe("no_checkpoint");
+    expect(headline().textContent).toMatch(/No opening balance confirmed yet/);
+    expect(headline().textContent).toMatch(/Confirm opening balance/);
+    expect(headline().textContent).toMatch(/Nothing is created automatically/);
+    expect(screen.queryByTestId("recon-calculated")).toBeNull();
+    expect(screen.queryByTestId("recon-difference")).toBeNull();
+    expect(screen.queryByTestId("recon-checkpoint")).toBeNull();
+    expect(screen.queryByTestId("recon-gaps")).toBeNull();
+    expect(screen.getByTestId("recon-reliability").getAttribute("data-reliable")).toBe("false");
+    expect(headline().textContent).not.toMatch(/Reconciled/);
+    noWrites(props);
+  });
+
+  it("reconciled and reliable: success headline, every figure, the opening checkpoint, no gaps, 'Reliable'", async () => {
+    setup({ accounts: [acct()] });
+    await open();
+    expect(headline().getAttribute("data-status")).toBe("reconciled");
+    expect(headline().getAttribute("data-tone")).toBe("ok");
+    expect(headline().textContent).toMatch(/^Reconciled/);
+    expect(screen.getByTestId("recon-tracked").textContent).toMatch(/394/);
+    expect(screen.getByTestId("recon-calculated").textContent).toMatch(/394/);
+    expect(screen.getByTestId("recon-difference").textContent).toBe("$0.00");
+    expect(screen.getByTestId("recon-checkpoint").textContent).toMatch(/400/);
+    expect(screen.getByTestId("recon-checkpoint-version").textContent).toBe("3");
+    expect(screen.getByTestId("recon-version").textContent).toBe("5");
+    expect(screen.getByTestId("recon-gaps").textContent).toBe("None");
+    expect(screen.getByTestId("recon-reliability").textContent).toBe("Reliable");
+    expect(screen.queryByTestId("recon-reasons")).toBeNull();
+  });
+
+  it("matching numbers are NOT presented as reconciled when the database says the check is unreliable (balance still editable outside the ledger)", async () => {
+    setup({ accounts: [acct()], onReconcile: vi.fn().mockResolvedValue(recon({ reliable: false, balanceWritePathOpen: true })) });
+    await open();
+    expect(headline().getAttribute("data-status")).toBe("reconciled");
+    expect(headline().getAttribute("data-tone")).toBe("warn");
+    expect(headline().textContent).toMatch(/Matches, but can't be relied on/);
+    expect(headline().textContent).not.toMatch(/^Reconciled/);
+    expect(screen.getByTestId("recon-reliability").textContent).toBe("Not reliable");
+    expect(screen.getByTestId("recon-reasons").textContent).toMatch(/can still be edited directly/);
+  });
+
+  it("an unreliable result with no known reason still shows a reason (never a bare 'Not reliable')", async () => {
+    setup({ accounts: [acct()], onReconcile: vi.fn().mockResolvedValue(recon({ reliable: false })) });
+    await open();
+    expect(screen.getByTestId("recon-reasons").textContent).toMatch(/reported this result as not reliable/);
+  });
+
+  it("balance mismatch: its own headline with the signed difference, and a promise that nothing was corrected", async () => {
+    setup({ accounts: [acct()], onReconcile: vi.fn().mockResolvedValue(recon({ calculatedBalance: 400, trackedDifference: -6, status: "tracked_mismatch", reliable: true })) });
+    await open();
+    expect(headline().getAttribute("data-status")).toBe("tracked_mismatch");
+    expect(headline().textContent).toMatch(/Balance mismatch/);
+    expect(headline().textContent).toMatch(/Nothing has been changed or corrected/);
+    expect(screen.getByTestId("recon-difference").textContent).toBe("−$6.00");
+    const positive = within(document.body);
+    expect(positive.queryByText("Reconciled")).toBeNull();
+  });
+
+  it("unreliable ledger (version gap): its own headline, 'Found', 'Not reliable', and the gap reason", async () => {
+    setup({ accounts: [acct()], onReconcile: vi.fn().mockResolvedValue(recon({ versionGap: true, reliable: false, status: "ledger_incomplete" })) });
+    await open();
+    expect(headline().getAttribute("data-tone")).toBe("bad");
+    expect(headline().textContent).toMatch(/Unreliable ledger/);
+    expect(screen.getByTestId("recon-gaps").textContent).toBe("Found");
+    expect(screen.getByTestId("recon-reliability").textContent).toBe("Not reliable");
+    expect(screen.getByTestId("recon-reasons").textContent).toMatch(/missing, duplicated or out of order/);
+  });
+
+  it("a statement balance is optional, is sent on Refresh, and a mismatch against it gets its own headline and signed difference", async () => {
+    const reconcile = vi.fn().mockResolvedValueOnce(recon()).mockResolvedValueOnce(recon({ statementBalance: 400, statementDifference: 6, status: "statement_mismatch" }));
+    const props = setup({ accounts: [acct()], onReconcile: reconcile });
+    await open();
+    expect(screen.queryByTestId("recon-statement")).toBeNull();
+    typeInto("Statement balance (optional)", "400");
+    expect(reconcile).toHaveBeenCalledTimes(1); // typing alone never re-runs
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(screen.getByTestId("recon-statement").textContent).toMatch(/400/));
+    expect(reconcile).toHaveBeenNthCalledWith(2, expect.anything(), 400);
+    expect(headline().getAttribute("data-status")).toBe("statement_mismatch");
+    expect(headline().textContent).toMatch(/Differs from your statement balance/);
+    expect(screen.getByTestId("recon-statement-diff").textContent).toBe("+$6.00");
+    noWrites(props);
+  });
+
+  it("the statement balance is described as the account's current state, not a past statement date", async () => {
+    setup({ accounts: [acct()] });
+    await open();
+    expect(screen.getByText(/Compared with this account as it is now, not as of a past statement date/)).toBeTruthy();
+  });
+
+  it("an invalid statement balance (3 decimals, text, beyond the limit) is refused before any call; blank means none", async () => {
+    const props = setup({ accounts: [acct()] });
+    await open();
+    for (const bad of ["400.005", "abc", "100000000"]) {
+      typeInto("Statement balance (optional)", bad);
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+      expect(screen.getByText("Enter a valid amount with at most 2 decimal places.")).toBeTruthy();
+    }
+    expect(props.onReconcile).toHaveBeenCalledTimes(1);
+    typeInto("Statement balance (optional)", "");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(props.onReconcile).toHaveBeenCalledTimes(2));
+    expect(props.onReconcile).toHaveBeenLastCalledWith(expect.anything(), null);
+  });
+
+  it("Refresh reruns the reconciliation, hides the old result while it runs, and can't be tapped twice", async () => {
+    let resolve!: (r: ReconciliationResult) => void;
+    const second = new Promise<ReconciliationResult>((r) => (resolve = r));
+    const reconcile = vi.fn().mockResolvedValueOnce(recon()).mockReturnValueOnce(second);
+    setup({ accounts: [acct()], onReconcile: reconcile });
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(screen.getByText("Reconciling…")).toBeTruthy();
+    expect(screen.queryByTestId("recon-headline")).toBeNull(); // the previous result is not left on screen
+    expect((screen.getByRole("button", { name: "Refresh" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(reconcile).toHaveBeenCalledTimes(2);
+    resolve(recon({ trackedBalance: 380, calculatedBalance: 380 }));
+    await waitFor(() => expect(screen.getByTestId("recon-tracked").textContent).toMatch(/380/));
+  });
+
+  it("a failed reconciliation shows an error and no result; Refresh retries", async () => {
+    const reconcile = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce(recon());
+    setup({ accounts: [acct()], onReconcile: reconcile });
+    fireEvent.click(screen.getByRole("button", { name: "More Bank of America" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reconcile" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Couldn't reconcile this account/);
+    expect(screen.queryByTestId("recon-headline")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await screen.findByTestId("recon-headline");
+    expect(reconcile).toHaveBeenCalledTimes(2);
+  });
+
+  it("Close and Escape dismiss it without any write", async () => {
+    const props = setup({ accounts: [acct()] });
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await open();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    noWrites(props);
+  });
+
+  it("the Spanish strings exist for every reconciliation message and keep the key distinctions", () => {
+    const keys = Object.keys(es).filter((k) => k.startsWith("pay.recon") || k === "pay.errReconStatement");
+    expect(keys.length).toBeGreaterThanOrEqual(38);
+    for (const k of keys) expect((es as Record<string, string>)[k].trim().length, k).toBeGreaterThan(0);
+    expect(es["pay.reconNoneTitle"]).toMatch(/saldo inicial/);
+    expect(es["pay.reconNoneBody"]).toMatch(/No se crea nada automáticamente/);
+    expect(es["pay.reconOkUnreliableTitle"]).toMatch(/no es fiable/);
+    expect(es["pay.reconTrackedBody"]).toMatch(/No se ha cambiado ni corregido nada/);
+    expect(es["pay.reconIncompleteTitle"]).toMatch(/poco fiable/);
+    expect(es["pay.reconStatementHelp"]).toMatch(/tal como está ahora, no en la fecha de un estado de cuenta anterior/);
   });
 });

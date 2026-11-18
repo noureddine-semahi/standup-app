@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, History, MoreHorizontal, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { formatDateDisplay, toISODate, type OpeningCheckpointState, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
+import { formatDateDisplay, toISODate, type OpeningCheckpointState, type PaymentAccount, type PaymentTransaction, type ReconciliationResult } from "@/lib/supabase/db";
 import { formatCurrency } from "@/lib/salary";
 import {
   EMPTY_PAYMENT_FORM,
@@ -46,6 +46,8 @@ export type PaymentsDashboardProps = {
   onLoadOpeningCheckpoint: (account: PaymentAccount) => Promise<OpeningCheckpointState>;
   /** Confirms the opening balance. Never changes the balance; the database refuses a stale confirmation or a second checkpoint. */
   onCreateOpeningCheckpoint: (account: PaymentAccount, input: OpeningCheckpointInput) => Promise<OpeningCheckpointResult>;
+  /** Read-only reconciliation (reconcile_payment_account). `statementBalance` is the user's balance for the account NOW, or null. Rejects if it can't run. */
+  onReconcile: (account: PaymentAccount, statementBalance: number | null) => Promise<ReconciliationResult>;
   /** `clientKey` is stable for one open modal, so a repeated tap or retry can never pay twice. */
   onRecordPayment: (account: PaymentAccount, payload: PaymentEntryPayload, clientKey: string) => Promise<string | null>;
   onReversePayment: (account: PaymentAccount, txn: PaymentTransaction) => Promise<string | null>;
@@ -620,6 +622,221 @@ function OpeningCheckpointModal({
   );
 }
 
+const MAX_LEDGER_AMOUNT = 99999999.99;
+
+/** +$5.50 / −$5.50 / $0.00 (cents-exact, so floating-point noise never shows as a difference). */
+function formatSignedCurrency(n: number): string {
+  const cents = toCents(n);
+  if (cents === 0) return formatCurrency(0);
+  return `${cents > 0 ? "+" : "−"}${formatCurrency(Math.abs(cents) / 100)}`;
+}
+
+/** Which headline the result deserves. It follows the database's status; 'reconciled' is only a plain success when the database also says it is reliable. */
+function reconciliationView(r: ReconciliationResult): { key: "None" | "Ok" | "OkUnreliable" | "Tracked" | "Statement" | "Incomplete"; tone: "neutral" | "ok" | "warn" | "bad" } {
+  switch (r.status) {
+    case "no_checkpoint":
+      return { key: "None", tone: "neutral" };
+    case "ledger_incomplete":
+      return { key: "Incomplete", tone: "bad" };
+    case "tracked_mismatch":
+      return { key: "Tracked", tone: "bad" };
+    case "statement_mismatch":
+      return { key: "Statement", tone: "warn" };
+    default:
+      return r.reliable ? { key: "Ok", tone: "ok" } : { key: "OkUnreliable", tone: "warn" };
+  }
+}
+
+/**
+ * A read-only reconciliation of one account against its opening checkpoint. It shows exactly what the database reports, never claims reliability the database
+ * doesn't, never edits a balance, an entry or a checkpoint, and never creates a checkpoint. A result is hidden while a refresh is running.
+ */
+function ReconcileModal({
+  account,
+  onReconcile,
+  onCancel,
+}: {
+  account: PaymentAccount;
+  onReconcile: (account: PaymentAccount, statementBalance: number | null) => Promise<ReconciliationResult>;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [load, setLoad] = useState<{ status: "loading" } | { status: "failed" } | { status: "ready"; result: ReconciliationResult }>({ status: "loading" });
+  const [run, setRun] = useState<{ n: number; statement: number | null }>({ n: 0, statement: null });
+  const [statementText, setStatementText] = useState("");
+  const [statementError, setStatementError] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef, onCancel, false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoad({ status: "loading" });
+    onReconcile(account, run.statement).then(
+      (result) => {
+        if (!cancelled) setLoad({ status: "ready", result });
+      },
+      () => {
+        if (!cancelled) setLoad({ status: "failed" });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // Re-run only when the user refreshes; callback/account identity changes must not trigger another read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run.n]);
+
+  function refresh() {
+    if (load.status === "loading") return;
+    const text = statementText.trim();
+    if (text === "") {
+      setStatementError(false);
+      setRun((r) => ({ n: r.n + 1, statement: null }));
+      return;
+    }
+    const value = Number(text);
+    if (!BALANCE_TEXT.test(text) || !Number.isFinite(value) || Math.abs(value) > MAX_LEDGER_AMOUNT) {
+      setStatementError(true);
+      return;
+    }
+    setStatementError(false);
+    setRun((r) => ({ n: r.n + 1, statement: value }));
+  }
+
+  const result = load.status === "ready" ? load.result : null;
+  const view = result ? reconciliationView(result) : null;
+  const hasCheckpoint = !!result && result.status !== "no_checkpoint";
+  const reasons: string[] = [];
+  if (result && !result.reliable) {
+    if (result.versionGap) reasons.push(t("pay.reconWhyGap"));
+    if (result.balanceWritePathOpen) reasons.push(t("pay.reconWhyEditable"));
+    if (reasons.length === 0) reasons.push(t("pay.reconWhyGeneric"));
+  }
+
+  return createPortal(
+    <div className="pay-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div ref={dialogRef} className="pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-recon-title">
+        <h2 id="pay-recon-title" className="pay-modal-title">
+          {t("pay.reconTitle")}
+        </h2>
+        <p className="pay-help">{account.name}</p>
+        <p className="pay-help">{t("pay.reconIntro")}</p>
+
+        {load.status === "loading" && <p className="text-sm text-white/60">{t("pay.reconLoading")}</p>}
+        {load.status === "failed" && (
+          <div role="alert" className="pay-error">
+            {t("pay.reconFailed")}
+          </div>
+        )}
+
+        {result && view && (
+          <>
+            <div role="status" data-testid="recon-headline" data-status={result.status} data-tone={view.tone} className={view.tone === "ok" || view.tone === "neutral" ? "pay-notice" : "pay-error"}>
+              <strong>{t(`pay.recon${view.key}Title` as "pay.reconOkTitle")}</strong>
+              <div>{t(`pay.recon${view.key}Body` as "pay.reconOkBody")}</div>
+            </div>
+
+            <dl className="pay-rows">
+              <div className="pay-row">
+                <dt>{t("pay.reconCurrent")}</dt>
+                <dd data-testid="recon-tracked">{formatCurrency(result.trackedBalance)}</dd>
+              </div>
+              {hasCheckpoint && result.calculatedBalance !== null && result.trackedDifference !== null && (
+                <>
+                  <div className="pay-row">
+                    <dt>{t("pay.reconCalculated")}</dt>
+                    <dd data-testid="recon-calculated">{formatCurrency(result.calculatedBalance)}</dd>
+                  </div>
+                  <div className="pay-row">
+                    <dt>{t("pay.reconDifference")}</dt>
+                    <dd data-testid="recon-difference">{formatSignedCurrency(result.trackedDifference)}</dd>
+                  </div>
+                </>
+              )}
+              {result.statementBalance !== null && (
+                <>
+                  <div className="pay-row">
+                    <dt>{t("pay.reconStatementRow")}</dt>
+                    <dd data-testid="recon-statement">{formatCurrency(result.statementBalance)}</dd>
+                  </div>
+                  {result.statementDifference !== null && (
+                    <div className="pay-row">
+                      <dt>{t("pay.reconStatementDiff")}</dt>
+                      <dd data-testid="recon-statement-diff">{formatSignedCurrency(result.statementDifference)}</dd>
+                    </div>
+                  )}
+                </>
+              )}
+              {hasCheckpoint && result.checkpointBalance !== null && result.checkpointVersion !== null && (
+                <>
+                  <div className="pay-row">
+                    <dt>{t("pay.reconCheckpoint")}</dt>
+                    <dd data-testid="recon-checkpoint">{formatCurrency(result.checkpointBalance)}</dd>
+                  </div>
+                  <div className="pay-row">
+                    <dt>{t("pay.reconCheckpointVersion")}</dt>
+                    <dd data-testid="recon-checkpoint-version">{result.checkpointVersion}</dd>
+                  </div>
+                </>
+              )}
+              <div className="pay-row">
+                <dt>{t("pay.reconVersion")}</dt>
+                <dd data-testid="recon-version">{result.currentLedgerVersion}</dd>
+              </div>
+              {hasCheckpoint && (
+                <div className="pay-row">
+                  <dt>{t("pay.reconGaps")}</dt>
+                  <dd data-testid="recon-gaps">{result.versionGap ? t("pay.reconGapsFound") : t("pay.reconGapsNone")}</dd>
+                </div>
+              )}
+              <div className="pay-row">
+                <dt>{t("pay.reconReliability")}</dt>
+                <dd data-testid="recon-reliability" data-reliable={result.reliable}>
+                  {result.reliable ? t("pay.reconReliable") : t("pay.reconNotReliable")}
+                </dd>
+              </div>
+            </dl>
+
+            {reasons.length > 0 && (
+              <ul className="pay-help" data-testid="recon-reasons">
+                {reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        <div className="pay-form-grid">
+          <label className="pay-field pay-field-wide">
+            <span className="pay-label">{t("pay.reconStatementLabel")}</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={statementText}
+              onChange={(e) => setStatementText(e.target.value)}
+              placeholder="0.00"
+              className={FIELD_CLASS}
+            />
+          </label>
+          <p className="pay-help pay-field-wide">{statementError ? t("pay.errReconStatement") : t("pay.reconStatementHelp")}</p>
+        </div>
+
+        <div className="pay-modal-actions">
+          <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={onCancel}>
+            {t("pay.reconClose")}
+          </button>
+          <button type="button" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" onClick={refresh} disabled={load.status === "loading"}>
+            {t("pay.reconRefresh")}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function ConfirmActionModal({
   title,
   body,
@@ -711,6 +928,7 @@ export default function PaymentsDashboard({
   onAdjustBalance,
   onLoadOpeningCheckpoint,
   onCreateOpeningCheckpoint,
+  onReconcile,
   onDelete,
   onRecordPayment,
   onReversePayment,
@@ -723,6 +941,7 @@ export default function PaymentsDashboard({
   const [formFor, setFormFor] = useState<"new" | PaymentAccount | null>(null);
   const [removing, setRemoving] = useState<PaymentAccount | null>(null);
   const [openingFor, setOpeningFor] = useState<PaymentAccount | null>(null);
+  const [reconcilingFor, setReconcilingFor] = useState<PaymentAccount | null>(null);
   const [recordingFor, setRecordingFor] = useState<PaymentAccount | null>(null);
   const [reversing, setReversing] = useState<{ account: PaymentAccount; txn: PaymentTransaction } | null>(null);
   const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
@@ -891,6 +1110,17 @@ export default function PaymentsDashboard({
                     </button>
                     <button
                       type="button"
+                      className="btn standup-metal-btn pay-action-btn"
+                      onClick={() => {
+                        setNotice(null);
+                        setReconcilingFor(account);
+                        setMoreOpenId(null);
+                      }}
+                    >
+                      {t("pay.reconMenu")}
+                    </button>
+                    <button
+                      type="button"
                       className="btn standup-metal-btn standup-metal-btn--danger pay-action-btn"
                       onClick={() => setRemoving(account)}
                       disabled={busy}
@@ -983,6 +1213,7 @@ export default function PaymentsDashboard({
           }}
         />
       )}
+      {reconcilingFor && <ReconcileModal key={reconcilingFor.id} account={reconcilingFor} onReconcile={onReconcile} onCancel={() => setReconcilingFor(null)} />}
       {removing && (
         <ConfirmActionModal
           title={t("pay.removeTitle")}

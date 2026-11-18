@@ -2617,6 +2617,54 @@ export async function createOpeningCheckpoint(params: {
   return { entryId: row.entry_id, checkpointVersion: Number(row.checkpoint_version), balance: Number(row.account_balance), wasDuplicate: !!row.was_duplicate };
 }
 
+export type ReconciliationStatus = "no_checkpoint" | "ledger_incomplete" | "tracked_mismatch" | "statement_mismatch" | "reconciled";
+
+/** The result of reconcile_payment_account, exactly as the database reports it (nothing derived or softened here). Numbers are null when there is no checkpoint. */
+export type ReconciliationResult = {
+  checkpointId: string | null;
+  checkpointVersion: number | null;
+  checkpointBalance: number | null;
+  currentLedgerVersion: number;
+  calculatedBalance: number | null;
+  trackedBalance: number;
+  statementBalance: number | null;
+  trackedDifference: number | null;
+  statementDifference: number | null;
+  versionGap: boolean;
+  balanceWritePathOpen: boolean;
+  reliable: boolean;
+  status: ReconciliationStatus;
+};
+
+const RECONCILIATION_STATUSES: readonly string[] = ["no_checkpoint", "ledger_incomplete", "tracked_mismatch", "statement_mismatch", "reconciled"];
+const numOrNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+/**
+ * Runs reconcile_payment_account: READ-ONLY (it never changes a balance, an entry or a checkpoint). `statementBalance` is the balance the user reports for the account
+ * NOW; the database compares it with the ledger as it stands, not with any past statement date. A status this app doesn't know is an error, never a guess.
+ */
+export async function reconcilePaymentAccount(accountId: string, statementBalance: number | null): Promise<ReconciliationResult> {
+  const { data, error } = await supabase.rpc("reconcile_payment_account", { p_account_id: accountId, p_statement_balance: statementBalance });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || !RECONCILIATION_STATUSES.includes(row.status)) throw new Error("Unrecognized reconciliation result");
+  return {
+    checkpointId: row.checkpoint_id ?? null,
+    checkpointVersion: numOrNull(row.checkpoint_version),
+    checkpointBalance: numOrNull(row.checkpoint_balance),
+    currentLedgerVersion: Number(row.current_ledger_version),
+    calculatedBalance: numOrNull(row.calculated_balance),
+    trackedBalance: Number(row.tracked_balance),
+    statementBalance: numOrNull(row.statement_balance),
+    trackedDifference: numOrNull(row.tracked_difference),
+    statementDifference: numOrNull(row.statement_difference),
+    versionGap: row.version_gap === true,
+    balanceWritePathOpen: row.balance_write_path_open === true,
+    reliable: row.reliable === true,
+    status: row.status as ReconciliationStatus,
+  };
+}
+
 /** Reverses a payment (row kept, stamped reversed; balance restored only if it was applied). Returns the account's resulting balance. */
 export async function reversePayment(transactionId: string): Promise<number> {
   const { data, error } = await supabase.rpc("reverse_payment", { p_transaction_id: transactionId });

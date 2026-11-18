@@ -120,6 +120,7 @@ function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsCo
     onAdjustBalance: vi.fn(),
     onLoadOpeningCheckpoint: vi.fn(),
     onCreateOpeningCheckpoint: vi.fn(),
+    onReconcile: vi.fn(),
     onDelete: vi.fn(),
     onRecordPayment: vi.fn(),
     onReversePayment: vi.fn(),

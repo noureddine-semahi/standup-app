@@ -10,6 +10,7 @@ import {
   getPaymentAccountSnapshot,
   getOpeningCheckpointState,
   createOpeningCheckpoint,
+  reconcilePaymentAccount,
   toISODate,
   reversePayment,
   deletePaymentAccount,
@@ -163,6 +164,11 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     return { ok: true };
   }
 
+  // Reconciliation is a read-only check: no busy flag (it can't conflict with anything) and no refresh of the account list (it changes nothing).
+  async function handleReconcile(account: PaymentAccount, statementBalance: number | null) {
+    return reconcilePaymentAccount(account.id, statementBalance);
+  }
+
   async function handleDeletePayment(account: PaymentAccount): Promise<string | null> {
     if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
@@ -257,6 +263,7 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     onAdjustBalance: handleAdjustBalance,
     onLoadOpeningCheckpoint: handleLoadOpeningCheckpoint,
     onCreateOpeningCheckpoint: handleCreateOpeningCheckpoint,
+    onReconcile: handleReconcile,
     onDelete: handleDeletePayment,
     onRecordPayment: handleRecordPayment,
     onReversePayment: handleReversePayment,

@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   getPaymentAccountSnapshot: vi.fn(),
   getOpeningCheckpointState: vi.fn(),
   createOpeningCheckpoint: vi.fn(),
+  reconcilePaymentAccount: vi.fn(),
   toISODate: vi.fn(() => "2026-11-17"),
   reversePayment: vi.fn(),
   deletePaymentAccount: vi.fn(),
@@ -157,5 +158,24 @@ describe("usePaymentAccounts: opening checkpoint", () => {
     });
     expect(r).toEqual({ ok: true });
     expect(result.current.message).toBe("refresh failed");
+  });
+});
+
+describe("usePaymentAccounts: reconcile", () => {
+  it("is a plain read: it forwards the account id and statement balance, returns the result untouched, sets no busy flag and does not refresh or edit anything", async () => {
+    const result = { status: "reconciled", reliable: true };
+    api.reconcilePaymentAccount.mockResolvedValue(result);
+    const { result: hook } = await setup();
+    await expect(hook.current.onReconcile(account, 12.5)).resolves.toBe(result);
+    await expect(hook.current.onReconcile(account, null)).resolves.toBe(result);
+    expect(api.reconcilePaymentAccount.mock.calls).toEqual([["a1", 12.5], ["a1", null]]);
+    expect(hook.current.busyIds.size).toBe(0);
+    expect(api.getPaymentAccounts).toHaveBeenCalledTimes(1);
+    for (const fn of [api.updatePaymentAccount, api.recordAccountAdjustment, api.createOpeningCheckpoint, api.recordPayment, api.reversePayment]) expect(fn).not.toHaveBeenCalled();
+  });
+  it("propagates a failure to the dialog (which shows its own error) instead of swallowing it", async () => {
+    api.reconcilePaymentAccount.mockRejectedValue(new Error("nope"));
+    const { result: hook } = await setup();
+    await expect(hook.current.onReconcile(account, null)).rejects.toThrow("nope");
   });
 });

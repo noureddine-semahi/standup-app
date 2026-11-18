@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor, within } from "@testing-library/react";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
+import { es } from "@/lib/i18n/es";
 import type { PaymentAccount, PaymentTransaction } from "@/lib/supabase/db";
 import PaymentsDashboard, { type PaymentsDashboardProps } from "./PaymentsDashboard";
 
@@ -53,6 +54,8 @@ function setup(over: Partial<PaymentsDashboardProps> = {}) {
     onCreate: vi.fn().mockResolvedValue(null),
     onUpdate: vi.fn().mockResolvedValue(null),
     onAdjustBalance: vi.fn().mockResolvedValue(null),
+    onLoadOpeningCheckpoint: vi.fn().mockResolvedValue({ balance: 394, ledgerVersion: 7, checkpoint: null }),
+    onCreateOpeningCheckpoint: vi.fn().mockResolvedValue({ ok: true }),
     onDelete: vi.fn().mockResolvedValue(null),
     onRecordPayment: vi.fn().mockResolvedValue(null),
     onReversePayment: vi.fn().mockResolvedValue(null),
@@ -529,5 +532,205 @@ describe("Remove account", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Account" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Failed to delete payment account");
     expect(screen.getByRole("alertdialog")).toBeTruthy();
+  });
+});
+
+describe("Opening checkpoint", () => {
+  const UUID = /^[0-9a-f-]{36}$/;
+  const openDialog = async (name = "Bank of America") => {
+    fireEvent.click(screen.getByRole("button", { name: `More ${name}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm opening balance" }));
+    await screen.findByTestId("opening-balance");
+  };
+  const confirmButton = () => screen.getByRole("button", { name: /Confirm opening balance|Confirming/ }) as HTMLButtonElement;
+
+  it("is offered only from the More menu, and opening the dialog reads the account but writes nothing", async () => {
+    const account = acct();
+    const props = setup({ accounts: [account] });
+    expect(screen.queryByRole("button", { name: "Confirm opening balance" })).toBeNull();
+    await openDialog();
+    expect(props.onLoadOpeningCheckpoint).toHaveBeenCalledWith(account);
+    expect(screen.getByTestId("opening-balance").textContent).toMatch(/394/);
+    expect(screen.getByTestId("opening-version").textContent).toBe("7");
+    expect(props.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
+    expect(props.onUpdate).not.toHaveBeenCalled();
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
+  });
+
+  it("explains in plain words what the confirmation is and what it is not (EN), with today as the default editable as-of date", async () => {
+    setup({ accounts: [acct()] });
+    await openDialog();
+    const dialog = screen.getByRole("dialog").textContent ?? "";
+    expect(dialog).toContain("You're confirming the balance shown above, as it is right now.");
+    expect(dialog).toContain("starting point for checking this account's future changes");
+    expect(dialog).toContain("Nothing is changed: the balance stays exactly as it is.");
+    expect(dialog).toContain("This doesn't verify your past transactions, and it doesn't work out what the balance was on an earlier statement date.");
+    expect(dialog).toContain("A date for your records (today by default). It doesn't change the balance or rebuild an earlier one.");
+    expect(dialog).not.toContain("correct for"); // the old date help implied the balance was verified for that date
+    expect((screen.getByLabelText("As-of date") as HTMLInputElement).value).toBe("2026-11-03");
+    typeInto("As-of date", "2026-10-15"); // still editable
+    expect((screen.getByLabelText("As-of date") as HTMLInputElement).value).toBe("2026-10-15");
+  });
+
+  it("the Spanish text says the same three things", () => {
+    expect(es["pay.openingIntro"]).toMatch(/confirmando el saldo que se muestra arriba, tal como está ahora/);
+    expect(es["pay.openingIntro"]).toMatch(/punto de partida .* cambios futuros/);
+    expect(es["pay.openingScope"]).toMatch(/no verifica tus transacciones pasadas/);
+    expect(es["pay.openingScope"]).toMatch(/saldo en la fecha de un estado de cuenta anterior/);
+    expect(es["pay.openingDateHelp"]).toMatch(/hoy por defecto/);
+    expect(es["pay.openingDateHelp"]).toMatch(/No cambia el saldo ni reconstruye uno anterior/);
+  });
+
+  it("Confirm stays disabled until the user types the exact current balance (two decimals at most)", async () => {
+    setup({ accounts: [acct()] });
+    await openDialog();
+    expect(confirmButton().disabled).toBe(true);
+    typeInto("Type the balance to confirm", "393");
+    expect(confirmButton().disabled).toBe(true);
+    expect(screen.getByText("That doesn't match the current balance.")).toBeTruthy();
+    typeInto("Type the balance to confirm", "394.005");
+    expect(confirmButton().disabled).toBe(true);
+    typeInto("Type the balance to confirm", "394.00");
+    expect(confirmButton().disabled).toBe(false);
+    typeInto("Type the balance to confirm", "394");
+    expect(confirmButton().disabled).toBe(false);
+  });
+
+  it("sends exactly what it showed (balance and ledger version), the as-of date, the trimmed note and one key; then closes with a confirmation", async () => {
+    const account = acct();
+    const props = setup({ accounts: [account] });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    typeInto("Note (optional)", "  First check ");
+    fireEvent.click(confirmButton());
+    await waitFor(() => expect(props.onCreateOpeningCheckpoint).toHaveBeenCalledTimes(1));
+    expect(props.onCreateOpeningCheckpoint).toHaveBeenCalledWith(account, {
+      confirmedBalance: 394, expectedLedgerVersion: 7, statementDate: "2026-11-03", note: "First check", clientKey: expect.stringMatching(UUID),
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("status").textContent).toBe("Opening balance confirmed.");
+    expect(props.onUpdate).not.toHaveBeenCalled();
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
+  });
+
+  it("the note is optional (sent as null when blank) and the as-of date can be changed", async () => {
+    const props = setup({ accounts: [acct()] });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    typeInto("As-of date", "2026-10-31");
+    fireEvent.click(confirmButton());
+    await waitFor(() => expect(props.onCreateOpeningCheckpoint).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ statementDate: "2026-10-31", note: null })));
+  });
+
+  it("a date in the future or an empty date blocks Confirm", async () => {
+    setup({ accounts: [acct()] });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    typeInto("As-of date", "2026-12-01");
+    expect(confirmButton().disabled).toBe(true);
+    expect(screen.getByText("Enter a valid date that isn't in the future.")).toBeTruthy();
+    typeInto("As-of date", "");
+    expect(confirmButton().disabled).toBe(true);
+    typeInto("As-of date", "2026-11-03");
+    expect(confirmButton().disabled).toBe(false);
+  });
+
+  it("repeated taps while the request is in flight send it once", async () => {
+    let resolve!: (r: { ok: true }) => void;
+    const pending = new Promise<{ ok: true }>((r) => (resolve = r));
+    const props = setup({ accounts: [acct()], onCreateOpeningCheckpoint: vi.fn().mockReturnValue(pending) });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    fireEvent.click(confirmButton());
+    fireEvent.click(confirmButton());
+    fireEvent.submit(screen.getByRole("dialog").querySelector("form")!);
+    expect(props.onCreateOpeningCheckpoint).toHaveBeenCalledTimes(1);
+    expect(confirmButton().disabled).toBe(true);
+    expect(confirmButton().textContent).toBe("Confirming…");
+    resolve({ ok: true });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(props.onCreateOpeningCheckpoint).toHaveBeenCalledTimes(1);
+  });
+
+  it("a stale confirmation shows the message, keeps the dialog open, and Refresh reloads the account and clears what was typed", async () => {
+    const props = setup({
+      accounts: [acct()],
+      onCreateOpeningCheckpoint: vi.fn().mockResolvedValue({ ok: false, kind: "stale", message: "This account changed since you opened this form. Refresh to see the current balance, then confirm again." }),
+      onLoadOpeningCheckpoint: vi.fn().mockResolvedValueOnce({ balance: 394, ledgerVersion: 7, checkpoint: null }).mockResolvedValueOnce({ balance: 380, ledgerVersion: 8, checkpoint: null }),
+    });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    fireEvent.click(confirmButton());
+    expect((await screen.findByRole("alert")).textContent).toMatch(/changed since you opened this form/);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(screen.getByTestId("opening-balance").textContent).toMatch(/380/));
+    expect(props.onLoadOpeningCheckpoint).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("opening-version").textContent).toBe("8");
+    expect((screen.getByLabelText("Type the balance to confirm") as HTMLInputElement).value).toBe("");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(confirmButton().disabled).toBe(true); // the user must confirm the NEW balance explicitly
+  });
+
+  it("an account that already has a checkpoint shows it, offers no confirmation, and can only be closed", async () => {
+    const props = setup({
+      accounts: [acct()],
+      onLoadOpeningCheckpoint: vi.fn().mockResolvedValue({ balance: 394, ledgerVersion: 9, checkpoint: { balance: 300, statementDate: "2026-10-01", ledgerVersion: 3 } }),
+    });
+    await openDialog();
+    expect(screen.getByRole("status").textContent).toMatch(/already has an opening balance confirmed: .*300/);
+    expect(screen.queryByLabelText("Type the balance to confirm")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm opening balance" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(props.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
+  });
+
+  it("if a checkpoint appears while confirming ('exists'), the dialog reloads and shows it", async () => {
+    setup({
+      accounts: [acct()],
+      onCreateOpeningCheckpoint: vi.fn().mockResolvedValue({ ok: false, kind: "exists", message: "This account already has an opening balance confirmed." }),
+      onLoadOpeningCheckpoint: vi.fn().mockResolvedValueOnce({ balance: 394, ledgerVersion: 7, checkpoint: null })
+        .mockResolvedValueOnce({ balance: 394, ledgerVersion: 8, checkpoint: { balance: 394, statementDate: "2026-11-03", ledgerVersion: 8 } }),
+    });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    fireEvent.click(confirmButton());
+    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/already has an opening balance confirmed/));
+    expect(screen.queryByLabelText("Type the balance to confirm")).toBeNull();
+  });
+
+  it("any other failure keeps the dialog open with the message, and the user can retry with the same request key", async () => {
+    const create = vi.fn().mockResolvedValueOnce({ ok: false, kind: "other", message: "Network down" }).mockResolvedValueOnce({ ok: true });
+    setup({ accounts: [acct()], onCreateOpeningCheckpoint: create });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    fireEvent.click(confirmButton());
+    expect((await screen.findByRole("alert")).textContent).toBe("Network down");
+    expect(confirmButton().disabled).toBe(false);
+    fireEvent.click(confirmButton());
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    expect(create.mock.calls[1][1].clientKey).toBe(create.mock.calls[0][1].clientKey);
+  });
+
+  it("a load failure shows an error and offers no confirmation", async () => {
+    const props = setup({ accounts: [acct()], onLoadOpeningCheckpoint: vi.fn().mockRejectedValue(new Error("boom")) });
+    fireEvent.click(screen.getByRole("button", { name: "More Bank of America" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm opening balance" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Couldn't load this account/);
+    expect(screen.queryByLabelText("Type the balance to confirm")).toBeNull();
+    expect(props.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
+  });
+
+  it("Cancel and Escape create nothing", async () => {
+    const props = setup({ accounts: [acct()] });
+    await openDialog();
+    typeInto("Type the balance to confirm", "394");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await openDialog();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(props.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
   });
 });

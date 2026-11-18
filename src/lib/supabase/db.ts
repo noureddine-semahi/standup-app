@@ -2565,6 +2565,58 @@ export async function recordAccountAdjustment(params: {
   return { entryId: row.entry_id, newBalance: Number(row.new_balance), wasDuplicate: !!row.was_duplicate };
 }
 
+/** What the opening-checkpoint flow needs about one account: its balance and ledger version right now, and its existing checkpoint, if any. */
+export type OpeningCheckpointState = {
+  balance: number;
+  ledgerVersion: number;
+  /** The account's latest checkpoint (the opening one, today), or null if none has been confirmed. */
+  checkpoint: { balance: number; statementDate: string; ledgerVersion: number } | null;
+};
+
+/** A fresh read of one account's balance, ledger version and checkpoint (entries are readable by their owner through RLS). */
+export async function getOpeningCheckpointState(accountId: string): Promise<OpeningCheckpointState> {
+  const snapshot = await getPaymentAccountSnapshot(accountId);
+  const { data, error } = await supabase
+    .from("payment_account_entries")
+    .select("balance_after, statement_date, ledger_version")
+    .eq("account_id", accountId)
+    .eq("kind", "checkpoint")
+    .order("ledger_version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return {
+    balance: snapshot.balance,
+    ledgerVersion: snapshot.ledgerVersion,
+    checkpoint: data ? { balance: Number(data.balance_after), statementDate: String(data.statement_date), ledgerVersion: Number(data.ledger_version) } : null,
+  };
+}
+
+/**
+ * Records the user's explicit opening-balance confirmation (create_opening_checkpoint). The database re-checks, under the account lock, that the confirmed balance
+ * AND the expected ledger version are still current, refuses a second checkpoint, and never changes the balance. `clientKey` makes a repeated submit a no-op.
+ */
+export async function createOpeningCheckpoint(params: {
+  accountId: string;
+  confirmedBalance: number;
+  expectedLedgerVersion: number;
+  statementDate: string;
+  note: string | null;
+  clientKey: string;
+}): Promise<{ entryId: string; checkpointVersion: number; balance: number; wasDuplicate: boolean }> {
+  const { data, error } = await supabase.rpc("create_opening_checkpoint", {
+    p_account_id: params.accountId,
+    p_confirmed_balance: params.confirmedBalance,
+    p_expected_ledger_version: params.expectedLedgerVersion,
+    p_statement_date: params.statementDate,
+    p_note: params.note,
+    p_client_key: params.clientKey,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { entryId: row.entry_id, checkpointVersion: Number(row.checkpoint_version), balance: Number(row.account_balance), wasDuplicate: !!row.was_duplicate };
+}
+
 /** Reverses a payment (row kept, stamped reversed; balance restored only if it was applied). Returns the account's resulting balance. */
 export async function reversePayment(transactionId: string): Promise<number> {
   const { data, error } = await supabase.rpc("reverse_payment", { p_transaction_id: transactionId });

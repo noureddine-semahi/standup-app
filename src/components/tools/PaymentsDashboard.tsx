@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, History, MoreHorizontal, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { formatDateDisplay, toISODate, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
+import { formatDateDisplay, toISODate, type OpeningCheckpointState, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
 import { formatCurrency } from "@/lib/salary";
 import {
   EMPTY_PAYMENT_FORM,
@@ -14,6 +14,7 @@ import {
   parsePaymentForm,
   paymentToFormValues,
   previewBalanceAfter,
+  toCents,
   type BalanceMode,
   type PaymentEntryPayload,
   type PaymentEntryValues,
@@ -24,6 +25,11 @@ import {
 // Presentation + form layer for Finances -> Payments. All data work stays in
 // the page's handlers; each callback resolves to an error message, or null on
 // success, so a failed save keeps its modal open with the message shown.
+/** What the opening-checkpoint dialog sends: the balance and ledger version it SHOWED the user, the user's as-of date and optional note, and a key stable for one open dialog. */
+export type OpeningCheckpointInput = { confirmedBalance: number; expectedLedgerVersion: number; statementDate: string; note: string | null; clientKey: string };
+/** 'stale' = the account changed since the dialog loaded it; 'exists' = it already has a checkpoint; 'other' = anything else (the message is shown as is). */
+export type OpeningCheckpointResult = { ok: true } | { ok: false; kind: "stale" | "exists" | "other"; message: string };
+
 export type PaymentsDashboardProps = {
   accounts: PaymentAccount[];
   loading: boolean;
@@ -36,6 +42,10 @@ export type PaymentsDashboardProps = {
   /** A balance edit, recorded as an adjustment with a required reason. `clientKey` is stable for one open form, so a repeat can never adjust twice. */
   onAdjustBalance: (account: PaymentAccount, requestedBalance: number, reason: string, clientKey: string) => Promise<string | null>;
   onDelete: (account: PaymentAccount) => Promise<string | null>;
+  /** A fresh read of the account's balance, ledger version and checkpoint, for the opening-balance dialog. Rejects if it can't be read. */
+  onLoadOpeningCheckpoint: (account: PaymentAccount) => Promise<OpeningCheckpointState>;
+  /** Confirms the opening balance. Never changes the balance; the database refuses a stale confirmation or a second checkpoint. */
+  onCreateOpeningCheckpoint: (account: PaymentAccount, input: OpeningCheckpointInput) => Promise<OpeningCheckpointResult>;
   /** `clientKey` is stable for one open modal, so a repeated tap or retry can never pay twice. */
   onRecordPayment: (account: PaymentAccount, payload: PaymentEntryPayload, clientKey: string) => Promise<string | null>;
   onReversePayment: (account: PaymentAccount, txn: PaymentTransaction) => Promise<string | null>;
@@ -420,6 +430,196 @@ function RecordPaymentModal({
 }
 
 /** Destructive-style confirmation used for Remove account and Reverse payment. */
+const BALANCE_TEXT = /^-?(\d+(\.\d{1,2})?|\.\d{1,2})$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The user's explicit confirmation of an account's balance as its opening checkpoint. It loads a FRESH balance and ledger version, shows both, and only enables
+ * Confirm once the user has typed that exact balance. What it sends is what it showed (never a later value), so the database can refuse a stale confirmation.
+ * It never edits the balance and never runs on its own.
+ */
+function OpeningCheckpointModal({
+  account,
+  todayISO,
+  onLoad,
+  onSubmit,
+  onCancel,
+}: {
+  account: PaymentAccount;
+  todayISO: string;
+  onLoad: (account: PaymentAccount) => Promise<OpeningCheckpointState>;
+  onSubmit: (input: OpeningCheckpointInput) => Promise<OpeningCheckpointResult>;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [load, setLoad] = useState<{ status: "loading" } | { status: "failed" } | { status: "ready"; data: OpeningCheckpointState }>({ status: "loading" });
+  const [reloads, setReloads] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [date, setDate] = useState(todayISO);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [clientKey] = useState(newClientKey);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const savingRef = useRef(false);
+  useDialog(dialogRef, onCancel, saving);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoad({ status: "loading" });
+    onLoad(account).then(
+      (data) => {
+        if (!cancelled) setLoad({ status: "ready", data });
+      },
+      () => {
+        if (!cancelled) setLoad({ status: "failed" });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // Reload only when the user asks (Refresh); onLoad/account identity changes must not re-read mid-confirmation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloads]);
+
+  const data = load.status === "ready" ? load.data : null;
+  const typedMatches = !!data && BALANCE_TEXT.test(typed.trim()) && toCents(Number(typed.trim())) === toCents(data.balance);
+  const dateValid = ISO_DATE.test(date) && !Number.isNaN(new Date(`${date}T00:00:00`).getTime()) && date <= todayISO;
+  const canConfirm = !!data && !data.checkpoint && typedMatches && dateValid && !saving;
+
+  function refresh() {
+    setTyped("");
+    setError(null);
+    setReloads((n) => n + 1);
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canConfirm || !data || savingRef.current) return;
+    savingRef.current = true; // a second tap before React re-renders must not send a second request
+    setSaving(true);
+    setError(null);
+    const result = await onSubmit({
+      confirmedBalance: data.balance,
+      expectedLedgerVersion: data.ledgerVersion,
+      statementDate: date,
+      note: note.trim() === "" ? null : note.trim(),
+      clientKey,
+    });
+    if (!result.ok) {
+      savingRef.current = false;
+      setSaving(false);
+      setError(result.message);
+      if (result.kind === "exists") refresh(); // show the checkpoint that is already there
+    }
+    // On success the parent closes this dialog.
+  }
+
+  const showForm = !!data && !data.checkpoint;
+  const canRefresh = error !== null && !!data && !data.checkpoint;
+
+  return createPortal(
+    <div className="pay-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onCancel(); }}>
+      <div ref={dialogRef} className="pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-opening-title">
+        <h2 id="pay-opening-title" className="pay-modal-title">
+          {t("pay.openingTitle")}
+        </h2>
+        <p className="pay-help">{account.name}</p>
+
+        {load.status === "loading" && <p className="text-sm text-white/60">{t("pay.openingLoading")}</p>}
+        {load.status === "failed" && (
+          <div role="alert" className="pay-error">
+            {t("pay.openingLoadFailed")}
+          </div>
+        )}
+
+        {data && (
+          <dl className="pay-rows">
+            <div className="pay-row">
+              <dt>{t("pay.openingCurrent")}</dt>
+              <dd data-testid="opening-balance">{formatCurrency(data.balance)}</dd>
+            </div>
+            <div className="pay-row">
+              <dt>{t("pay.openingVersion")}</dt>
+              <dd data-testid="opening-version">{data.ledgerVersion}</dd>
+            </div>
+          </dl>
+        )}
+
+        {data?.checkpoint && (
+          <p role="status" className="pay-notice">
+            {t("pay.openingExists", { amount: formatCurrency(data.checkpoint.balance), date: formatDateDisplay(data.checkpoint.statementDate) })}
+          </p>
+        )}
+
+        {showForm && (
+          <form onSubmit={submit} noValidate>
+            <p className="pay-help">{t("pay.openingIntro")}</p>
+            <p className="pay-help">{t("pay.openingScope")}</p>
+            <div className="pay-form-grid">
+              <label className="pay-field pay-field-wide">
+                <span className="pay-label">{t("pay.openingTypeLabel")}</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  autoFocus
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  placeholder="0.00"
+                  disabled={saving}
+                  className={FIELD_CLASS}
+                />
+              </label>
+              <p className="pay-help pay-field-wide">
+                {typed.trim() !== "" && !typedMatches ? t("pay.openingMismatch") : t("pay.openingTypeHelp")}
+              </p>
+              <label className="pay-field">
+                <span className="pay-label">{t("pay.openingDateLabel")}</span>
+                <input type="date" value={date} max={todayISO} onChange={(e) => setDate(e.target.value)} disabled={saving} className={FIELD_CLASS} />
+              </label>
+              <label className="pay-field pay-field-wide">
+                <span className="pay-label">{t("pay.openingNoteLabel")}</span>
+                <input type="text" autoComplete="off" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} disabled={saving} className={FIELD_CLASS} />
+              </label>
+              <p className="pay-help pay-field-wide">{!dateValid ? t("pay.errOpeningDate") : t("pay.openingDateHelp")}</p>
+            </div>
+
+            {error && (
+              <div role="alert" className="pay-error">
+                {error}
+              </div>
+            )}
+
+            <div className="pay-modal-actions">
+              {canRefresh && (
+                <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={refresh} disabled={saving}>
+                  {t("pay.openingRefresh")}
+                </button>
+              )}
+              <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={onCancel} disabled={saving}>
+                {t("pay.cancel")}
+              </button>
+              <button type="submit" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" disabled={!canConfirm}>
+                {saving ? t("pay.openingConfirming") : t("pay.openingConfirm")}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {!showForm && (
+          <div className="pay-modal-actions">
+            <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={onCancel}>
+              {t("pay.openingClose")}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function ConfirmActionModal({
   title,
   body,
@@ -509,6 +709,8 @@ export default function PaymentsDashboard({
   onCreate,
   onUpdate,
   onAdjustBalance,
+  onLoadOpeningCheckpoint,
+  onCreateOpeningCheckpoint,
   onDelete,
   onRecordPayment,
   onReversePayment,
@@ -520,6 +722,7 @@ export default function PaymentsDashboard({
   const { t } = useLanguage();
   const [formFor, setFormFor] = useState<"new" | PaymentAccount | null>(null);
   const [removing, setRemoving] = useState<PaymentAccount | null>(null);
+  const [openingFor, setOpeningFor] = useState<PaymentAccount | null>(null);
   const [recordingFor, setRecordingFor] = useState<PaymentAccount | null>(null);
   const [reversing, setReversing] = useState<{ account: PaymentAccount; txn: PaymentTransaction } | null>(null);
   const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
@@ -676,6 +879,18 @@ export default function PaymentsDashboard({
                   <div className="pay-more" role="group" aria-label={`${t("pay.more")} ${account.name}`}>
                     <button
                       type="button"
+                      className="btn standup-metal-btn pay-action-btn"
+                      onClick={() => {
+                        setNotice(null);
+                        setOpeningFor(account);
+                        setMoreOpenId(null);
+                      }}
+                      disabled={busy}
+                    >
+                      {t("pay.openingMenu")}
+                    </button>
+                    <button
+                      type="button"
                       className="btn standup-metal-btn standup-metal-btn--danger pay-action-btn"
                       onClick={() => setRemoving(account)}
                       disabled={busy}
@@ -748,6 +963,23 @@ export default function PaymentsDashboard({
               setNotice(t("pay.recorded"));
             }
             return err;
+          }}
+        />
+      )}
+      {openingFor && (
+        <OpeningCheckpointModal
+          key={openingFor.id}
+          account={openingFor}
+          todayISO={todayISO}
+          onLoad={onLoadOpeningCheckpoint}
+          onCancel={() => setOpeningFor(null)}
+          onSubmit={async (input) => {
+            const result = await onCreateOpeningCheckpoint(openingFor, input);
+            if (result.ok) {
+              setOpeningFor(null);
+              setNotice(t("pay.openingDone"));
+            }
+            return result;
           }}
         />
       )}

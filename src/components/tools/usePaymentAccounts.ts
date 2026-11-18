@@ -8,6 +8,8 @@ import {
   recordPayment,
   recordAccountAdjustment,
   getPaymentAccountSnapshot,
+  getOpeningCheckpointState,
+  createOpeningCheckpoint,
   toISODate,
   reversePayment,
   deletePaymentAccount,
@@ -17,7 +19,7 @@ import {
 } from "@/lib/supabase/db";
 import { planBalanceAdjustment, toCents, type PaymentEntryPayload, type PaymentFormPayload } from "@/lib/paymentSummary";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import type { PaymentsDashboardProps } from "./PaymentsDashboard";
+import type { OpeningCheckpointInput, OpeningCheckpointResult, PaymentsDashboardProps } from "./PaymentsDashboard";
 
 function errorMessage(e: unknown, fallback: string): string {
   // Supabase/PostgREST errors are plain objects with a message, not Error instances.
@@ -131,6 +133,36 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     }
   }
 
+  // Opening checkpoint: the user's explicit confirmation of an account's balance. It never changes the balance; the RPC re-checks the confirmed balance AND the
+  // ledger version under the account lock, so a stale confirmation is refused. Errors are classified so the dialog can offer the right next step.
+  async function handleLoadOpeningCheckpoint(account: PaymentAccount) {
+    return getOpeningCheckpointState(account.id);
+  }
+
+  async function handleCreateOpeningCheckpoint(account: PaymentAccount, input: OpeningCheckpointInput): Promise<OpeningCheckpointResult> {
+    if (busyPaymentIds.has(account.id)) return { ok: false, kind: "other", message: t("pay.openingBusy") };
+    setPaymentBusy(account.id, true);
+    setPaymentsMsg(null);
+    try {
+      await createOpeningCheckpoint({ accountId: account.id, ...input });
+    } catch (e) {
+      const message = errorMessage(e, t("pay.failedOpening"));
+      if (/changed since it was confirmed|does not match the current tracked balance/.test(message)) return { ok: false, kind: "stale", message: t("pay.errOpeningChanged") };
+      if (/already has an opening checkpoint/.test(message)) return { ok: false, kind: "exists", message: t("pay.errOpeningExists") };
+      if (/disabled while the balance can still be edited/.test(message)) return { ok: false, kind: "other", message: t("pay.errOpeningDisabled") };
+      return { ok: false, kind: "other", message };
+    } finally {
+      setPaymentBusy(account.id, false);
+    }
+    // The checkpoint is saved. Refresh the accounts (the balance is unchanged by design); a failed refresh must not turn a saved checkpoint into an error.
+    try {
+      setPaymentAccounts(await getPaymentAccounts());
+    } catch (e) {
+      setPaymentsMsg(errorMessage(e, t("backlog.failedLoadPayments")));
+    }
+    return { ok: true };
+  }
+
   async function handleDeletePayment(account: PaymentAccount): Promise<string | null> {
     if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
@@ -223,6 +255,8 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     onCreate: handleAddPayment,
     onUpdate: handleUpdatePayment,
     onAdjustBalance: handleAdjustBalance,
+    onLoadOpeningCheckpoint: handleLoadOpeningCheckpoint,
+    onCreateOpeningCheckpoint: handleCreateOpeningCheckpoint,
     onDelete: handleDeletePayment,
     onRecordPayment: handleRecordPayment,
     onReversePayment: handleReversePayment,

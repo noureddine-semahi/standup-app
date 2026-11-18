@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { computeNextDueDate, type PaymentAccount } from "@/lib/supabase/db";
+import { computeNextDueDate, type AccountEntry, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
 import { summarizeBills, type Bill } from "@/lib/bills";
 import {
+  buildHistoryItems,
   diffPaymentPayload,
   getPaymentDueInfo,
   parsePaymentEntry,
@@ -359,5 +360,32 @@ describe("planBalanceAdjustment (a balance edit becomes an adjustment computed f
     expect(planBalanceAdjustment(0, 99999999.99)).toEqual({ ok: true, plan: { direction: "increase", amount: 99999999.99 } });
     expect(planBalanceAdjustment(NaN, 5)).toEqual({ ok: false, error: "range" });
     expect(planBalanceAdjustment(5, Infinity)).toEqual({ ok: false, error: "range" });
+  });
+});
+
+describe("buildHistoryItems (payments and entries on one typed list)", () => {
+  const txn = (over: Partial<PaymentTransaction> = {}): PaymentTransaction => ({ id: "t1", accountId: "a1", goalId: null, amount: 40, paidAt: "2026-11-09T12:00:00", note: null, balanceApplied: true, reversedAt: null, ...over });
+  const entry = (over: Partial<AccountEntry> = {}): AccountEntry => ({
+    id: "e1", accountId: "a1", kind: "fee", amount: 25, balanceDelta: 25, balanceApplied: true, entryDate: "2026-11-10", statementDate: null, reason: null, note: null,
+    createdAt: "2026-11-10T15:00:00Z", reversedAt: null, ...over,
+  });
+  it("orders by day newest first, then by when each was recorded", () => {
+    const items = buildHistoryItems(
+      [txn({ id: "t1", paidAt: "2026-11-09T12:00:00" }), txn({ id: "t2", paidAt: "2026-11-10T08:00:00" })],
+      [entry({ id: "e1", entryDate: "2026-11-10", createdAt: new Date("2026-11-10T20:00:00").toISOString() }), entry({ id: "e2", entryDate: "2026-11-01" })]
+    );
+    expect(items.map((i) => i.key)).toEqual(["entry:e1", "payment:t2", "payment:t1", "entry:e2"]);
+  });
+  it("keeps the two kinds apart even when their ids are identical", () => {
+    const items = buildHistoryItems([txn({ id: "same" })], [entry({ id: "same" })]);
+    expect(items.map((i) => i.key).sort()).toEqual(["entry:same", "payment:same"]);
+    expect(items.find((i) => i.type === "payment")).toHaveProperty("txn");
+    expect(items.find((i) => i.type === "entry")).toHaveProperty("entry");
+  });
+  it("handles empty inputs and does not mutate them", () => {
+    expect(buildHistoryItems([], [])).toEqual([]);
+    const txns = [txn({ id: "a", paidAt: "2026-11-01T12:00:00" }), txn({ id: "b", paidAt: "2026-11-05T12:00:00" })];
+    buildHistoryItems(txns, []);
+    expect(txns.map((x) => x.id)).toEqual(["a", "b"]);
   });
 });

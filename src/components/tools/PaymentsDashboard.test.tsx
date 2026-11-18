@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor, within } from "@testing-library/react";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { es } from "@/lib/i18n/es";
-import type { PaymentAccount, PaymentTransaction, ReconciliationResult } from "@/lib/supabase/db";
+import type { AccountEntry, PaymentAccount, PaymentTransaction, ReconciliationResult } from "@/lib/supabase/db";
 import PaymentsDashboard, { type PaymentsDashboardProps } from "./PaymentsDashboard";
 
 beforeEach(() => {
@@ -66,6 +66,8 @@ function setup(over: Partial<PaymentsDashboardProps> = {}) {
     historyOpenId: null,
     historyLoadingId: null,
     historyByAccount: {},
+    entriesByAccount: {},
+    onReverseEntry: vi.fn().mockResolvedValue(null),
     onToggleHistory: vi.fn(),
     ...over,
   };
@@ -929,5 +931,152 @@ describe("Reconcile", () => {
     expect(es["pay.reconTrackedBody"]).toMatch(/No se ha cambiado ni corregido nada/);
     expect(es["pay.reconIncompleteTitle"]).toMatch(/poco fiable/);
     expect(es["pay.reconStatementHelp"]).toMatch(/tal como está ahora, no en la fecha de un estado de cuenta anterior/);
+  });
+});
+
+describe("History with interest, fee and adjustment entries", () => {
+  const ent = (over: Partial<AccountEntry> = {}): AccountEntry => ({
+    id: "e1", accountId: "a1", kind: "fee", amount: 25, balanceDelta: 25, balanceApplied: true, entryDate: "2026-11-10", statementDate: null, reason: null, note: null,
+    createdAt: "2026-11-10T15:00:00Z", reversedAt: null, ...over,
+  });
+  const rowsOf = () => screen.getAllByRole("listitem").filter((li) => li.classList.contains("pay-txn"));
+  const open = (over: Partial<PaymentsDashboardProps>) => setup({ accounts: [acct()], historyOpenId: "a1", ...over });
+
+  it("shows interest, fee and both adjustment directions with label, signed amount, date, statement, reason and note", () => {
+    open({
+      historyByAccount: { a1: [] },
+      entriesByAccount: {
+        a1: [
+          ent({ id: "i1", kind: "interest", amount: 12.34, balanceDelta: 12.34, statementDate: "2026-11-01", note: "APR charge" }),
+          ent({ id: "f1", kind: "fee", amount: 25, balanceDelta: 25, reason: "Late fee", entryDate: "2026-11-09" }),
+          ent({ id: "a1u", kind: "adjustment", amount: 10, balanceDelta: 10, reason: "Statement fix", entryDate: "2026-11-08" }),
+          ent({ id: "a1d", kind: "adjustment", amount: 4.5, balanceDelta: -4.5, reason: "Credit", entryDate: "2026-11-07" }),
+        ],
+      },
+    });
+    const rows = rowsOf();
+    expect(rows).toHaveLength(4);
+    expect(rows[0].textContent).toMatch(/\+\$12\.34.*11\/10\/2026.*Interest/);
+    expect(rows[0].textContent).toContain("Statement 11/01/2026");
+    expect(rows[0].textContent).toContain("APR charge");
+    expect(rows[1].textContent).toMatch(/\+\$25\.00.*11\/09\/2026.*Fee/);
+    expect(rows[1].textContent).toContain("Late fee");
+    expect(rows[2].textContent).toMatch(/\+\$10\.00.*Adjustment \(increase\)/);
+    expect(rows[3].textContent).toMatch(/−\$4\.50.*Adjustment \(decrease\)/);
+    expect(screen.queryByText("No payments logged yet.")).toBeNull();
+  });
+
+  it("merges payments and entries newest first, keeping them distinguishable", () => {
+    open({
+      historyByAccount: { a1: [txn({ id: "t1", amount: 40, paidAt: "2026-11-09T12:00:00" })] },
+      entriesByAccount: { a1: [ent({ id: "f1", entryDate: "2026-11-10" }), ent({ id: "i1", kind: "interest", amount: 3, balanceDelta: 3, entryDate: "2026-11-08", statementDate: "2026-11-01" })] },
+    });
+    const rows = rowsOf();
+    expect(rows.map((r) => r.getAttribute("data-testid") ?? "payment")).toEqual(["pay-entry", "payment", "pay-entry"]);
+    expect(rows[0].getAttribute("data-entry-kind")).toBe("fee");
+    expect(rows[1].textContent).toContain("$40.00");
+    expect(rows[2].getAttribute("data-entry-kind")).toBe("interest");
+  });
+
+  it("an entry recorded without balance effect is tagged 'Not applied to balance' and shows its plain amount", () => {
+    open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [ent({ id: "f1", amount: 25, balanceDelta: 0, balanceApplied: false })] } });
+    const row = rowsOf()[0];
+    expect(row.textContent).toContain("$25.00");
+    expect(row.textContent).not.toContain("+$25.00");
+    expect(row.textContent).toContain("Not applied to balance");
+  });
+
+  it("a reversed entry is marked Reversed and offers no Reverse button", () => {
+    open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [ent({ reversedAt: "2026-11-11T00:00:00Z" })] } });
+    const row = rowsOf()[0];
+    expect(row.getAttribute("data-reversed")).toBe("true");
+    expect(row.textContent).toContain("Reversed");
+    expect(within(row).queryByRole("button")).toBeNull();
+  });
+
+  it("the empty state appears only when there are no payments AND no entries", () => {
+    open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [] } });
+    expect(screen.getByText("No payments logged yet.")).toBeTruthy();
+  });
+
+  it("Reverse on an entry asks first, names the label, amount and balance effect, then calls onReverseEntry ONCE and never onReversePayment", async () => {
+    const account = acct();
+    const entry = ent({ id: "i1", kind: "interest", amount: 12.34, balanceDelta: 12.34, statementDate: "2026-11-01" });
+    const props = open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [entry] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse Interest \+\$12\.34/ }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(props.onReverseEntry).not.toHaveBeenCalled();
+    expect(dialog.textContent).toContain("Interest");
+    expect(dialog.textContent).toContain("$12.34");
+    expect(dialog.textContent).toContain("balance changes by −$12.34");
+    const confirm = screen.getByRole("button", { name: "Reverse entry" });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(props.onReverseEntry).toHaveBeenCalledTimes(1));
+    expect(props.onReverseEntry).toHaveBeenCalledWith(account, entry);
+    expect(props.onReversePayment).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.getByRole("status").textContent).toBe("Entry reversed.");
+  });
+
+  it("an unapplied entry's confirmation says the balance isn't changed", () => {
+    open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [ent({ amount: 25, balanceDelta: 0, balanceApplied: false })] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse Fee/ }));
+    expect(screen.getByRole("alertdialog").textContent).toContain("never changed it");
+  });
+
+  it("reversing a decrease-adjustment says the balance goes back UP", () => {
+    open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [ent({ kind: "adjustment", amount: 4.5, balanceDelta: -4.5, reason: "Credit" })] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse Adjustment \(decrease\)/ }));
+    expect(screen.getByRole("alertdialog").textContent).toContain("balance changes by +$4.50");
+  });
+
+  it("a failed or already-reversed entry reversal keeps the dialog open with the message", async () => {
+    const message = "This entry was already reversed. History has been refreshed.";
+    const props = open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [ent()] }, onReverseEntry: vi.fn().mockResolvedValue(message) });
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse Fee/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reverse entry" }));
+    expect((await screen.findByRole("alert")).textContent).toBe(message);
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(props.onReverseEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it("Cancel leaves the entry alone", () => {
+    const props = open({ historyByAccount: { a1: [] }, entriesByAccount: { a1: [ent()] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse Fee/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(props.onReverseEntry).not.toHaveBeenCalled();
+  });
+
+  it("a payment and an entry that share the SAME id are routed by type: each Reverse goes to its own handler", async () => {
+    const account = acct();
+    const payment = txn({ id: "same", amount: 40 });
+    const entry = ent({ id: "same", amount: 25, balanceDelta: 25 });
+    const props = open({ historyByAccount: { a1: [payment] }, entriesByAccount: { a1: [entry] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse Fee/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reverse entry" }));
+    await waitFor(() => expect(props.onReverseEntry).toHaveBeenCalledWith(account, entry));
+    expect(props.onReversePayment).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: /^Reverse \$40\.00/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Reverse Payment" }));
+    await waitFor(() => expect(props.onReversePayment).toHaveBeenCalledWith(account, payment));
+    expect(props.onReverseEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it("this view records nothing: no create, update, adjustment or checkpoint callback fires", () => {
+    const props = open({ historyByAccount: { a1: [txn()] }, entriesByAccount: { a1: [ent()] } });
+    expect(props.onCreate).not.toHaveBeenCalled();
+    expect(props.onUpdate).not.toHaveBeenCalled();
+    expect(props.onAdjustBalance).not.toHaveBeenCalled();
+    expect(props.onCreateOpeningCheckpoint).not.toHaveBeenCalled();
+    expect(props.onRecordPayment).not.toHaveBeenCalled();
+  });
+
+  it("the Spanish strings exist and keep the key distinctions", () => {
+    for (const k of Object.keys(es).filter((x) => x.startsWith("pay.entry") || x === "pay.failedReverseEntry")) expect((es as Record<string, string>)[k].trim().length, k).toBeGreaterThan(0);
+    expect(es["pay.entryInterest"]).toBe("Interés");
+    expect(es["pay.entryReverseBodyNotApplied"]).toMatch(/El saldo no cambia/);
+    expect(es["pay.entryAlreadyReversed"]).toMatch(/ya fue revertida/);
   });
 });

@@ -2665,6 +2665,86 @@ export async function reconcilePaymentAccount(accountId: string, statementBalanc
   };
 }
 
+/** The kinds of ledger entry shown in History. Checkpoints are deliberately not among them: they are confirmations, never charges, and are never reversible. */
+export type AccountEntryKind = "interest" | "fee" | "adjustment";
+
+/** One interest charge, fee or balance adjustment (a payment_account_entries row). Distinct from a PaymentTransaction: same account, different table and different reversal. */
+export type AccountEntry = {
+  id: string;
+  accountId: string;
+  kind: AccountEntryKind;
+  /** The magnitude of the charge or correction. */
+  amount: number;
+  /** The signed effect on the balance (the amount OWED): positive raises it. 0 when the entry was recorded without balance effect. */
+  balanceDelta: number;
+  /** False only for interest/fee recorded on a manual account without "apply to balance" (balanceDelta is then 0). */
+  balanceApplied: boolean;
+  /** The day the charge or correction takes effect (YYYY-MM-DD). */
+  entryDate: string;
+  /** The statement an interest charge belongs to (YYYY-MM-DD), if any. */
+  statementDate: string | null;
+  reason: string | null;
+  note: string | null;
+  createdAt: string;
+  /** Set when the entry was reversed. The row is never deleted. */
+  reversedAt: string | null;
+};
+
+/** A payment_account_entries row as PostgREST returns it (numerics may arrive as strings). */
+type AccountEntryRow = {
+  id: string;
+  account_id: string;
+  kind: AccountEntryKind;
+  amount: number | string;
+  balance_delta: number | string;
+  balance_applied: boolean | null;
+  entry_date: string;
+  statement_date: string | null;
+  reason: string | null;
+  note: string | null;
+  created_at: string;
+  reversed_at: string | null;
+};
+
+function rowToAccountEntry(r: AccountEntryRow): AccountEntry {
+  return {
+    id: r.id,
+    accountId: r.account_id,
+    kind: r.kind,
+    amount: Number(r.amount),
+    balanceDelta: Number(r.balance_delta),
+    balanceApplied: r.balance_applied ?? true,
+    entryDate: String(r.entry_date),
+    statementDate: r.statement_date ? String(r.statement_date) : null,
+    reason: r.reason ?? null,
+    note: r.note ?? null,
+    createdAt: r.created_at,
+    reversedAt: r.reversed_at ?? null,
+  };
+}
+
+/**
+ * One account's interest, fee and adjustment entries, newest first (owner-only through RLS; read-only). Checkpoints are excluded by the query itself, so they can
+ * never reach the History list or its Reverse action.
+ */
+export async function getAccountEntries(accountId: string): Promise<AccountEntry[]> {
+  const { data, error } = await supabase
+    .from("payment_account_entries")
+    .select("id, account_id, kind, amount, balance_delta, balance_applied, entry_date, statement_date, reason, note, created_at, reversed_at")
+    .eq("account_id", accountId)
+    .in("kind", ["interest", "fee", "adjustment"])
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as AccountEntryRow[]).map(rowToAccountEntry);
+}
+
+/** Reverses an interest, fee or adjustment entry through reverse_account_entry ONLY (never reverse_payment). Returns the account's resulting balance. */
+export async function reverseAccountEntry(entryId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("reverse_account_entry", { p_entry_id: entryId });
+  if (error) throw error;
+  return Number(data);
+}
+
 /** Reverses a payment (row kept, stamped reversed; balance restored only if it was applied). Returns the account's resulting balance. */
 export async function reversePayment(transactionId: string): Promise<number> {
   const { data, error } = await supabase.rpc("reverse_payment", { p_transaction_id: transactionId });

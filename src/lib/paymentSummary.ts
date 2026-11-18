@@ -1,4 +1,4 @@
-import { computeNextDueDate, type PaymentAccount } from "@/lib/supabase/db";
+import { computeNextDueDate, toISODate, type AccountEntry, type PaymentAccount, type PaymentTransaction } from "@/lib/supabase/db";
 import type { BillsSummary } from "@/lib/bills";
 import type { SubscriptionsSummary } from "@/lib/subscriptions";
 
@@ -149,6 +149,23 @@ export function planBalanceAdjustment(current: number, requested: number): Balan
   if (diff === 0) return { ok: true, plan: null };
   if (Math.abs(requestedCents) > MAX_LEDGER_AMOUNT_CENTS || Math.abs(diff) > MAX_LEDGER_AMOUNT_CENTS) return { ok: false, error: "range" };
   return { ok: true, plan: { direction: diff > 0 ? "increase" : "decrease", amount: fromCents(Math.abs(diff)) } };
+}
+
+/**
+ * One History row: either a payment (payment_transactions) or an entry (payment_account_entries). They are kept as separate TYPES with separate keys, never merged
+ * by id, because they reverse through different functions (reverse_payment vs reverse_account_entry).
+ */
+export type HistoryItem =
+  | { type: "payment"; key: string; day: string; ts: number; txn: PaymentTransaction }
+  | { type: "entry"; key: string; day: string; ts: number; entry: AccountEntry };
+
+/** Payments and entries on one list, newest first: by the day the user dated them, then by when they were recorded. */
+export function buildHistoryItems(txns: readonly PaymentTransaction[], entries: readonly AccountEntry[]): HistoryItem[] {
+  const items: HistoryItem[] = [
+    ...txns.map((txn): HistoryItem => ({ type: "payment", key: `payment:${txn.id}`, day: toISODate(new Date(txn.paidAt)), ts: new Date(txn.paidAt).getTime(), txn })),
+    ...entries.map((entry): HistoryItem => ({ type: "entry", key: `entry:${entry.id}`, day: entry.entryDate, ts: new Date(entry.createdAt).getTime(), entry })),
+  ];
+  return items.sort((a, b) => (a.day === b.day ? b.ts - a.ts : a.day < b.day ? 1 : -1));
 }
 
 // ── Money helpers ────────────────────────────────────────────────────────

@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, History, MoreHorizontal, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import { formatDateDisplay, toISODate, type OpeningCheckpointState, type PaymentAccount, type PaymentTransaction, type ReconciliationResult } from "@/lib/supabase/db";
+import { formatDateDisplay, toISODate, type AccountEntry, type OpeningCheckpointState, type PaymentAccount, type PaymentTransaction, type ReconciliationResult } from "@/lib/supabase/db";
 import { formatCurrency } from "@/lib/salary";
 import {
   EMPTY_PAYMENT_FORM,
+  buildHistoryItems,
   diffPaymentPayload,
   getPaymentDueInfo,
   parsePaymentEntry,
@@ -54,6 +55,10 @@ export type PaymentsDashboardProps = {
   historyOpenId: string | null;
   historyLoadingId: string | null;
   historyByAccount: Record<string, PaymentTransaction[]>;
+  /** Interest / fee / adjustment entries per account, loaded with the history. A different table from the payments above, so a different type and a different reversal. */
+  entriesByAccount: Record<string, AccountEntry[]>;
+  /** Reverses an ENTRY (never a payment). Resolves to an error message, or null on success. */
+  onReverseEntry: (account: PaymentAccount, entry: AccountEntry) => Promise<string | null>;
   onToggleHistory: (account: PaymentAccount) => void;
 };
 
@@ -935,6 +940,8 @@ export default function PaymentsDashboard({
   historyOpenId,
   historyLoadingId,
   historyByAccount,
+  entriesByAccount,
+  onReverseEntry,
   onToggleHistory,
 }: PaymentsDashboardProps) {
   const { t } = useLanguage();
@@ -944,6 +951,7 @@ export default function PaymentsDashboard({
   const [reconcilingFor, setReconcilingFor] = useState<PaymentAccount | null>(null);
   const [recordingFor, setRecordingFor] = useState<PaymentAccount | null>(null);
   const [reversing, setReversing] = useState<{ account: PaymentAccount; txn: PaymentTransaction } | null>(null);
+  const [reversingEntry, setReversingEntry] = useState<{ account: PaymentAccount; entry: AccountEntry } | null>(null);
   const [moreOpenId, setMoreOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -980,6 +988,10 @@ export default function PaymentsDashboard({
   }
 
   const txnDate = (txn: PaymentTransaction) => formatDateDisplay(toISODate(new Date(txn.paidAt)));
+  const entryLabel = (entry: AccountEntry) =>
+    entry.kind === "interest" ? t("pay.entryInterest") : entry.kind === "fee" ? t("pay.entryFee") : entry.balanceDelta >= 0 ? t("pay.entryAdjustmentUp") : t("pay.entryAdjustmentDown");
+  // What the row shows as its amount: the signed balance effect when it changed the balance, otherwise the plain magnitude (it is tagged "not applied").
+  const entryAmount = (entry: AccountEntry) => (entry.balanceApplied ? formatSignedCurrency(entry.balanceDelta) : formatCurrency(entry.amount));
 
   return (
     <div className="pay-panel">
@@ -1025,6 +1037,8 @@ export default function PaymentsDashboard({
             const moreOpen = moreOpenId === account.id;
             const historyOpen = historyOpenId === account.id;
             const history = historyByAccount[account.id] ?? [];
+            const entries = entriesByAccount[account.id] ?? [];
+            const historyItems = buildHistoryItems(history, entries);
             return (
               <li key={account.id} className="pay-card" data-testid="pay-card">
                 <div className="pay-card-head">
@@ -1135,30 +1149,61 @@ export default function PaymentsDashboard({
                   <div className="pay-history" data-testid="pay-history">
                     {historyLoadingId === account.id ? (
                       <p className="text-xs text-white/50">{t("backlog.paymentHistoryLoading")}</p>
-                    ) : history.length === 0 ? (
+                    ) : historyItems.length === 0 ? (
                       <p className="text-xs text-white/50 italic">{t("backlog.paymentHistoryEmpty")}</p>
                     ) : (
                       <ul className="pay-history-list">
-                        {history.map((txn) => (
-                          <li key={txn.id} className="pay-txn" data-reversed={!!txn.reversedAt}>
-                            <div className="pay-txn-main">
-                              <span className="pay-txn-amount">{formatCurrency(txn.amount)}</span>
-                              <span className="pay-txn-date">{txnDate(txn)}</span>
-                              {txn.reversedAt && <span className="pay-txn-badge">{t("pay.reversedBadge")}</span>}
-                            </div>
-                            {txn.note && <p className="pay-txn-note">{txn.note}</p>}
-                            {!txn.reversedAt && (
-                              <button
-                                type="button"
-                                className="btn standup-metal-btn pay-txn-reverse"
-                                onClick={() => setReversing({ account, txn })}
-                                aria-label={`${t("pay.reverse")} ${formatCurrency(txn.amount)} ${txnDate(txn)}`}
-                              >
-                                {t("pay.reverse")}
-                              </button>
-                            )}
-                          </li>
-                        ))}
+                        {historyItems.map((item) => {
+                          if (item.type === "payment") {
+                            const txn = item.txn;
+                            return (
+                              <li key={item.key} className="pay-txn" data-reversed={!!txn.reversedAt}>
+                                <div className="pay-txn-main">
+                                  <span className="pay-txn-amount">{formatCurrency(txn.amount)}</span>
+                                  <span className="pay-txn-date">{txnDate(txn)}</span>
+                                  {txn.reversedAt && <span className="pay-txn-badge">{t("pay.reversedBadge")}</span>}
+                                </div>
+                                {txn.note && <p className="pay-txn-note">{txn.note}</p>}
+                                {!txn.reversedAt && (
+                                  <button
+                                    type="button"
+                                    className="btn standup-metal-btn pay-txn-reverse"
+                                    onClick={() => setReversing({ account, txn })}
+                                    aria-label={`${t("pay.reverse")} ${formatCurrency(txn.amount)} ${txnDate(txn)}`}
+                                  >
+                                    {t("pay.reverse")}
+                                  </button>
+                                )}
+                              </li>
+                            );
+                          }
+                          const entry = item.entry;
+                          const when = formatDateDisplay(entry.entryDate);
+                          return (
+                            <li key={item.key} className="pay-txn" data-testid="pay-entry" data-entry-kind={entry.kind} data-reversed={!!entry.reversedAt}>
+                              <div className="pay-txn-main">
+                                <span className="pay-txn-amount">{entryAmount(entry)}</span>
+                                <span className="pay-txn-date">{when}</span>
+                                <span className="pay-txn-badge">{entryLabel(entry)}</span>
+                                {!entry.balanceApplied && <span className="pay-txn-badge">{t("pay.entryNotApplied")}</span>}
+                                {entry.reversedAt && <span className="pay-txn-badge">{t("pay.reversedBadge")}</span>}
+                              </div>
+                              {entry.statementDate && <p className="pay-txn-note">{t("pay.entryStatement", { date: formatDateDisplay(entry.statementDate) })}</p>}
+                              {entry.reason && <p className="pay-txn-note">{entry.reason}</p>}
+                              {entry.note && <p className="pay-txn-note">{entry.note}</p>}
+                              {!entry.reversedAt && (
+                                <button
+                                  type="button"
+                                  className="btn standup-metal-btn pay-txn-reverse"
+                                  onClick={() => setReversingEntry({ account, entry })}
+                                  aria-label={`${t("pay.reverse")} ${entryLabel(entry)} ${entryAmount(entry)} ${when}`}
+                                >
+                                  {t("pay.reverse")}
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </div>
@@ -1226,6 +1271,28 @@ export default function PaymentsDashboard({
             if (!err) {
               setRemoving(null);
               setMoreOpenId(null);
+            }
+            return err;
+          }}
+        />
+      )}
+      {reversingEntry && (
+        <ConfirmActionModal
+          title={t("pay.entryReverseTitle")}
+          body={t(reversingEntry.entry.balanceApplied ? "pay.entryReverseBodyApplied" : "pay.entryReverseBodyNotApplied", {
+            label: entryLabel(reversingEntry.entry),
+            amount: formatCurrency(reversingEntry.entry.amount),
+            date: formatDateDisplay(reversingEntry.entry.entryDate),
+            effect: formatSignedCurrency(-reversingEntry.entry.balanceDelta),
+          })}
+          confirmLabel={t("pay.entryReverseConfirm")}
+          busyLabel={t("pay.reversing")}
+          onCancel={() => setReversingEntry(null)}
+          onConfirm={async () => {
+            const err = await onReverseEntry(reversingEntry.account, reversingEntry.entry);
+            if (!err) {
+              setReversingEntry(null);
+              setNotice(t("pay.entryReverseDone"));
             }
             return err;
           }}

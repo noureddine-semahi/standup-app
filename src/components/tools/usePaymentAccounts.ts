@@ -11,10 +11,13 @@ import {
   getOpeningCheckpointState,
   createOpeningCheckpoint,
   reconcilePaymentAccount,
+  getAccountEntries,
+  reverseAccountEntry,
   toISODate,
   reversePayment,
   deletePaymentAccount,
   getPaymentTransactions,
+  type AccountEntry,
   type PaymentAccount,
   type PaymentTransaction,
 } from "@/lib/supabase/db";
@@ -45,6 +48,8 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
   // front (most accounts will never be expanded in a given visit).
   const [expandedPaymentHistoryId, setExpandedPaymentHistoryId] = useState<string | null>(null);
   const [paymentHistoryByAccount, setPaymentHistoryByAccount] = useState<Record<string, PaymentTransaction[]>>({});
+  // Interest / fee / adjustment entries, loaded together with the payments (a separate table, kept separate here too).
+  const [entriesByAccount, setEntriesByAccount] = useState<Record<string, AccountEntry[]>>({});
   const [paymentHistoryLoadingId, setPaymentHistoryLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -169,6 +174,39 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     return reconcilePaymentAccount(account.id, statementBalance);
   }
 
+  // Reversing an interest / fee / adjustment ENTRY goes through reverse_account_entry only (a payment goes through reverse_payment, above). The balance comes back
+  // from the database; the accounts and the History are then re-read so nothing on screen is a guess. A concurrent second reversal is refused by the database.
+  async function handleReverseEntry(account: PaymentAccount, entry: AccountEntry): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return t("pay.openingBusy");
+    setPaymentBusy(account.id, true);
+    setPaymentsMsg(null);
+    try {
+      const newBalance = await reverseAccountEntry(entry.id);
+      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: newBalance } : a)));
+      try {
+        setPaymentAccounts(await getPaymentAccounts());
+      } catch {
+        // the balance above already came from the database; a failed re-read must not turn a completed reversal into an error
+      }
+      await refreshHistoryIfLoaded(account.id);
+      return null;
+    } catch (e) {
+      const message = errorMessage(e, t("pay.failedReverseEntry"));
+      if (/already been reversed/.test(message)) {
+        try {
+          setPaymentAccounts(await getPaymentAccounts());
+        } catch {
+          // ignore: the History refresh below is what shows the reversed state
+        }
+        await refreshHistoryIfLoaded(account.id);
+        return t("pay.entryAlreadyReversed");
+      }
+      return message;
+    } finally {
+      setPaymentBusy(account.id, false);
+    }
+  }
+
   async function handleDeletePayment(account: PaymentAccount): Promise<string | null> {
     if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
@@ -188,12 +226,11 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
   /** Re-reads one account's ledger after a record/reverse -- only if it has been loaded, so a never-opened history isn't fetched for nothing. */
   async function refreshHistoryIfLoaded(accountId: string) {
     if (!paymentHistoryByAccount[accountId]) return;
-    try {
-      const rows = await getPaymentTransactions(accountId);
-      setPaymentHistoryByAccount((prev) => ({ ...prev, [accountId]: rows }));
-    } catch (e) {
-      setPaymentsMsg(errorMessage(e, t("backlog.failedLoadPaymentHistory")));
-    }
+    const [payments, entries] = await Promise.allSettled([getPaymentTransactions(accountId), getAccountEntries(accountId)]);
+    if (payments.status === "fulfilled") setPaymentHistoryByAccount((prev) => ({ ...prev, [accountId]: payments.value }));
+    if (entries.status === "fulfilled") setEntriesByAccount((prev) => ({ ...prev, [accountId]: entries.value }));
+    const failed = payments.status === "rejected" ? payments.reason : entries.status === "rejected" ? entries.reason : null;
+    if (failed) setPaymentsMsg(errorMessage(failed, t("backlog.failedLoadPaymentHistory")));
   }
 
   // Record Payment goes through record_payment(): ledger row + (policy-driven)
@@ -245,11 +282,15 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
       return;
     }
     setExpandedPaymentHistoryId(account.id);
-    if (paymentHistoryByAccount[account.id]) return; // already fetched once this visit
+    if (paymentHistoryByAccount[account.id] && entriesByAccount[account.id]) return; // both already fetched once this visit
     setPaymentHistoryLoadingId(account.id);
-    getPaymentTransactions(account.id)
-      .then((rows) => setPaymentHistoryByAccount((prev) => ({ ...prev, [account.id]: rows })))
-      .catch((e: any) => setPaymentsMsg(e?.message ?? t("backlog.failedLoadPaymentHistory")))
+    Promise.allSettled([getPaymentTransactions(account.id), getAccountEntries(account.id)])
+      .then(([payments, entries]) => {
+        if (payments.status === "fulfilled") setPaymentHistoryByAccount((prev) => ({ ...prev, [account.id]: payments.value }));
+        if (entries.status === "fulfilled") setEntriesByAccount((prev) => ({ ...prev, [account.id]: entries.value }));
+        const failed = payments.status === "rejected" ? payments.reason : entries.status === "rejected" ? entries.reason : null;
+        if (failed) setPaymentsMsg(errorMessage(failed, t("backlog.failedLoadPaymentHistory")));
+      })
       .finally(() => setPaymentHistoryLoadingId((cur) => (cur === account.id ? null : cur)));
   }
 
@@ -270,6 +311,8 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     historyOpenId: expandedPaymentHistoryId,
     historyLoadingId: paymentHistoryLoadingId,
     historyByAccount: paymentHistoryByAccount,
+    entriesByAccount,
+    onReverseEntry: handleReverseEntry,
     onToggleHistory: toggleHistory,
   };
 }

@@ -7,8 +7,10 @@ import {
   getPaymentDueInfo,
   parsePaymentEntry,
   parsePaymentForm,
+  parseLedgerEntry,
   paymentToFormValues,
   planBalanceAdjustment,
+  previewBalanceAfterCharge,
   previewBalanceAfter,
   summarizeFinances,
   summarizePayments,
@@ -387,5 +389,51 @@ describe("buildHistoryItems (payments and entries on one typed list)", () => {
     const txns = [txn({ id: "a", paidAt: "2026-11-01T12:00:00" }), txn({ id: "b", paidAt: "2026-11-05T12:00:00" })];
     buildHistoryItems(txns, []);
     expect(txns.map((x) => x.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("parseLedgerEntry (Record Interest / Record Fee validation)", () => {
+  const TODAY = "2026-11-17";
+  const v = (over: Partial<{ amount: string; entryDate: string; statementDate: string; text: string }> = {}) => ({ amount: "12.34", entryDate: TODAY, statementDate: TODAY, text: "", ...over });
+  it("interest: a valid amount, both dates, and an optional note (trimmed, blank becomes null)", () => {
+    expect(parseLedgerEntry("interest", v({ text: "  APR  " }), TODAY)).toEqual({ ok: true, payload: { amount: 12.34, entryDate: TODAY, statementDate: TODAY, reason: null, note: "APR" } });
+    expect(parseLedgerEntry("interest", v({ text: "   " }), TODAY)).toMatchObject({ ok: true, payload: { note: null } });
+  });
+  it("fee: the description is required and becomes the reason; no statement date and no note", () => {
+    expect(parseLedgerEntry("fee", v({ text: "  Late fee " }), TODAY)).toEqual({ ok: true, payload: { amount: 12.34, entryDate: TODAY, statementDate: null, reason: "Late fee", note: null } });
+    expect(parseLedgerEntry("fee", v({ text: "" }), TODAY)).toEqual({ ok: false, error: "description" });
+    expect(parseLedgerEntry("fee", v({ text: "   " }), TODAY)).toEqual({ ok: false, error: "description" });
+  });
+  it("a fee ignores the statement date field entirely (even an invalid one)", () => {
+    expect(parseLedgerEntry("fee", v({ text: "Fee", statementDate: "garbage" }), TODAY)).toMatchObject({ ok: true });
+  });
+  it("amount: positive, plain number, at most two decimals, within the ledger limit, never rounded", () => {
+    for (const bad of ["", "0", "0.00", "-5", "abc", "1e3", ".", "100000000"]) expect(parseLedgerEntry("interest", v({ amount: bad }), TODAY), bad).toEqual({ ok: false, error: "amount" });
+    for (const bad of ["1.234", "0.005", "12."]) expect(parseLedgerEntry("interest", v({ amount: bad }), TODAY), bad).toEqual({ ok: false, error: "amountPrecision" });
+    expect(parseLedgerEntry("interest", v({ amount: "99999999.99" }), TODAY)).toMatchObject({ ok: true });
+    expect(parseLedgerEntry("interest", v({ amount: "0.01" }), TODAY)).toMatchObject({ ok: true, payload: { amount: 0.01 } });
+  });
+  it("dates must be real days, not in the future; interest needs a statement date", () => {
+    expect(parseLedgerEntry("interest", v({ entryDate: "" }), TODAY)).toEqual({ ok: false, error: "entryDate" });
+    expect(parseLedgerEntry("interest", v({ entryDate: "2026-02-30" }), TODAY)).toEqual({ ok: false, error: "entryDate" });
+    expect(parseLedgerEntry("interest", v({ entryDate: "2026-11-18" }), TODAY)).toEqual({ ok: false, error: "entryDateFuture" });
+    expect(parseLedgerEntry("interest", v({ statementDate: "" }), TODAY)).toEqual({ ok: false, error: "statementDate" });
+    expect(parseLedgerEntry("interest", v({ statementDate: "2026-11-18" }), TODAY)).toEqual({ ok: false, error: "statementDate" });
+    expect(parseLedgerEntry("interest", v({ statementDate: "2026-02-30" }), TODAY)).toEqual({ ok: false, error: "statementDate" });
+    expect(parseLedgerEntry("interest", v({ entryDate: "2026-11-01", statementDate: "2026-10-31" }), TODAY)).toMatchObject({ ok: true });
+  });
+  it("text is limited to 500 characters (note for interest, description for a fee)", () => {
+    expect(parseLedgerEntry("interest", v({ text: "x".repeat(500) }), TODAY)).toMatchObject({ ok: true });
+    expect(parseLedgerEntry("interest", v({ text: "x".repeat(501) }), TODAY)).toEqual({ ok: false, error: "note" });
+    expect(parseLedgerEntry("fee", v({ text: "x".repeat(500) }), TODAY)).toMatchObject({ ok: true });
+    expect(parseLedgerEntry("fee", v({ text: "x".repeat(501) }), TODAY)).toEqual({ ok: false, error: "descriptionLength" });
+  });
+});
+
+describe("previewBalanceAfterCharge", () => {
+  it("adds the charge to the balance owed, cents-exact", () => {
+    expect(previewBalanceAfterCharge(394, 12.34)).toBe(406.34);
+    expect(previewBalanceAfterCharge(0.1, 0.2)).toBe(0.3);
+    expect(previewBalanceAfterCharge(-10, 25)).toBe(15);
   });
 });

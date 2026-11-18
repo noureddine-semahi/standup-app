@@ -11,12 +11,17 @@ import {
   buildHistoryItems,
   diffPaymentPayload,
   getPaymentDueInfo,
+  parseLedgerEntry,
   parsePaymentEntry,
   parsePaymentForm,
   paymentToFormValues,
   previewBalanceAfter,
+  previewBalanceAfterCharge,
   toCents,
   type BalanceMode,
+  type LedgerEntryError,
+  type LedgerEntryKind,
+  type LedgerEntryValues,
   type PaymentEntryPayload,
   type PaymentEntryValues,
   type PaymentFormPayload,
@@ -30,6 +35,18 @@ import {
 export type OpeningCheckpointInput = { confirmedBalance: number; expectedLedgerVersion: number; statementDate: string; note: string | null; clientKey: string };
 /** 'stale' = the account changed since the dialog loaded it; 'exists' = it already has a checkpoint; 'other' = anything else (the message is shown as is). */
 export type OpeningCheckpointResult = { ok: true } | { ok: false; kind: "stale" | "exists" | "other"; message: string };
+
+/** What the Record Interest / Record Fee form sends. `applyBalance` is null for an automatic account (which always applies it) and the checkbox for a manual one. */
+export type RecordEntryInput = {
+  kind: LedgerEntryKind;
+  amount: number;
+  entryDate: string;
+  statementDate: string | null;
+  reason: string | null;
+  note: string | null;
+  applyBalance: boolean | null;
+  clientKey: string;
+};
 
 export type PaymentsDashboardProps = {
   accounts: PaymentAccount[];
@@ -59,6 +76,8 @@ export type PaymentsDashboardProps = {
   entriesByAccount: Record<string, AccountEntry[]>;
   /** Reverses an ENTRY (never a payment). Resolves to an error message, or null on success. */
   onReverseEntry: (account: PaymentAccount, entry: AccountEntry) => Promise<string | null>;
+  /** Records an interest charge or fee (record_account_entry). Resolves to an error message, or null on success. `clientKey` is stable for one open form. */
+  onRecordEntry: (account: PaymentAccount, input: RecordEntryInput) => Promise<string | null>;
   onToggleHistory: (account: PaymentAccount) => void;
 };
 
@@ -437,6 +456,175 @@ function RecordPaymentModal({
 }
 
 /** Destructive-style confirmation used for Remove account and Reverse payment. */
+const LEDGER_ERROR_KEY = {
+  amount: "pay.errAmount",
+  amountPrecision: "pay.errAmountPrecision",
+  entryDate: "pay.errDate",
+  entryDateFuture: "pay.errEntryDateFuture",
+  statementDate: "pay.errEntryStatement",
+  description: "pay.errFeeDescription",
+  descriptionLength: "pay.errFeeDescriptionLong",
+  note: "pay.errNote",
+} as const satisfies Record<LedgerEntryError, string>;
+
+/**
+ * Record Interest / Record Fee: one manually entered charge. Interest takes a statement date and an optional note; a fee takes a required description. Both default their
+ * dates to today and RAISE the balance owed. On a manual account the user chooses whether it is applied to the balance (checked by default); an automatic account always applies it.
+ * The key is stable for one open form, so a repeated tap or a retry cannot record the charge twice. Nothing is calculated automatically (no APR, no compounding).
+ */
+function RecordEntryModal({
+  account,
+  kind,
+  todayISO,
+  onCancel,
+  onSubmit,
+}: {
+  account: PaymentAccount;
+  kind: LedgerEntryKind;
+  todayISO: string;
+  onCancel: () => void;
+  onSubmit: (input: RecordEntryInput) => Promise<string | null>;
+}) {
+  const { t } = useLanguage();
+  const [values, setValues] = useState<LedgerEntryValues>({ amount: "", entryDate: todayISO, statementDate: todayISO, text: "" });
+  const [apply, setApply] = useState(true);
+  const [touched, setTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [clientKey] = useState(newClientKey);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog(dialogRef, onCancel, saving);
+
+  const isAuto = account.balanceMode === "auto";
+  const parsed = parseLedgerEntry(kind, values, todayISO);
+  const edited = touched || values.amount.trim() !== "" || values.text.trim() !== "" || values.entryDate !== todayISO || values.statementDate !== todayISO;
+  const fieldError = !parsed.ok && edited ? parsed.error : null;
+  const applied = isAuto || apply;
+  const preview = parsed.ok && applied ? previewBalanceAfterCharge(account.balance, parsed.payload.amount) : null;
+  const title = kind === "interest" ? t("pay.recordInterestMenu") : t("pay.recordFeeMenu");
+  const set = (k: keyof LedgerEntryValues) => (e: React.ChangeEvent<HTMLInputElement>) => setValues((v) => ({ ...v, [k]: e.target.value }));
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setTouched(true);
+    // The ref blocks a second tap in the same tick, before `saving` re-renders.
+    if (!parsed.ok || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    const err = await onSubmit({ kind, ...parsed.payload, applyBalance: isAuto ? null : apply, clientKey });
+    if (err) {
+      setError(err);
+      savingRef.current = false;
+      setSaving(false);
+    }
+    // On success the parent closes this dialog.
+  }
+
+  return createPortal(
+    <div className="pay-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onCancel(); }}>
+      <div ref={dialogRef} className="pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-entry-title">
+        <h2 id="pay-entry-title" className="pay-modal-title">
+          {title}
+        </h2>
+        <p className="pay-modal-sub">{account.name}</p>
+        <form onSubmit={submit} noValidate>
+          <div className="pay-form-grid">
+            <label className="pay-field">
+              <span className="pay-label">{t("pay.entryAmountLabel")}</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                autoComplete="off"
+                value={values.amount}
+                onChange={set("amount")}
+                placeholder="0.00"
+                disabled={saving}
+                aria-invalid={fieldError === "amount" || fieldError === "amountPrecision"}
+                className={FIELD_CLASS}
+              />
+            </label>
+            <label className="pay-field">
+              <span className="pay-label">{t("pay.entryDateLabel")}</span>
+              <input
+                type="date"
+                max={todayISO}
+                value={values.entryDate}
+                onChange={set("entryDate")}
+                disabled={saving}
+                aria-invalid={fieldError === "entryDate" || fieldError === "entryDateFuture"}
+                className={FIELD_CLASS}
+              />
+            </label>
+            {kind === "interest" && (
+              <label className="pay-field">
+                <span className="pay-label">{t("pay.entryStatementLabel")}</span>
+                <input
+                  type="date"
+                  max={todayISO}
+                  value={values.statementDate}
+                  onChange={set("statementDate")}
+                  disabled={saving}
+                  aria-invalid={fieldError === "statementDate"}
+                  className={FIELD_CLASS}
+                />
+              </label>
+            )}
+            <label className="pay-field pay-field-wide">
+              <span className="pay-label">{kind === "interest" ? t("pay.note") : t("pay.entryDescriptionLabel")}</span>
+              <input
+                type="text"
+                autoComplete="off"
+                maxLength={500}
+                value={values.text}
+                onChange={set("text")}
+                placeholder={kind === "fee" ? t("pay.entryDescriptionPlaceholder") : undefined}
+                disabled={saving}
+                aria-invalid={fieldError === "description" || fieldError === "descriptionLength" || fieldError === "note"}
+                className={FIELD_CLASS}
+              />
+            </label>
+          </div>
+          {kind === "interest" && <p className="pay-help">{t("pay.entryStatementHelp")}</p>}
+
+          {fieldError && <p className="pay-field-error" role="alert">{t(LEDGER_ERROR_KEY[fieldError])}</p>}
+
+          {isAuto ? (
+            <p className="pay-help">{t("pay.entryAutoNote")}</p>
+          ) : (
+            <>
+              <label className="pay-check">
+                <input type="checkbox" checked={apply} onChange={(e) => setApply(e.target.checked)} disabled={saving} />
+                <span>{t("pay.entryApplyLabel")}</span>
+              </label>
+              <p className="pay-help">{t("pay.entryApplyHelp")}</p>
+            </>
+          )}
+          {preview !== null && <p className="pay-preview">{t("pay.balanceAfter", { amount: formatCurrency(preview) })}</p>}
+
+          {error && (
+            <div role="alert" className="pay-error">
+              {error}
+            </div>
+          )}
+
+          <div className="pay-modal-actions">
+            <button type="button" className="btn standup-metal-btn pay-modal-btn" onClick={onCancel} disabled={saving}>
+              {t("pay.cancel")}
+            </button>
+            <button type="submit" className="btn standup-metal-btn standup-metal-btn--accent pay-modal-btn" disabled={saving || !parsed.ok}>
+              {saving ? t("pay.recording") : title}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 const BALANCE_TEXT = /^-?(\d+(\.\d{1,2})?|\.\d{1,2})$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -942,6 +1130,7 @@ export default function PaymentsDashboard({
   historyByAccount,
   entriesByAccount,
   onReverseEntry,
+  onRecordEntry,
   onToggleHistory,
 }: PaymentsDashboardProps) {
   const { t } = useLanguage();
@@ -949,6 +1138,7 @@ export default function PaymentsDashboard({
   const [removing, setRemoving] = useState<PaymentAccount | null>(null);
   const [openingFor, setOpeningFor] = useState<PaymentAccount | null>(null);
   const [reconcilingFor, setReconcilingFor] = useState<PaymentAccount | null>(null);
+  const [entryFor, setEntryFor] = useState<{ account: PaymentAccount; kind: LedgerEntryKind } | null>(null);
   const [recordingFor, setRecordingFor] = useState<PaymentAccount | null>(null);
   const [reversing, setReversing] = useState<{ account: PaymentAccount; txn: PaymentTransaction } | null>(null);
   const [reversingEntry, setReversingEntry] = useState<{ account: PaymentAccount; entry: AccountEntry } | null>(null);
@@ -1122,6 +1312,21 @@ export default function PaymentsDashboard({
                     >
                       {t("pay.openingMenu")}
                     </button>
+                    {(["interest", "fee"] as const).map((entryKind) => (
+                      <button
+                        key={entryKind}
+                        type="button"
+                        className="btn standup-metal-btn pay-action-btn"
+                        onClick={() => {
+                          setNotice(null);
+                          setEntryFor({ account, kind: entryKind });
+                          setMoreOpenId(null);
+                        }}
+                        disabled={busy}
+                      >
+                        {entryKind === "interest" ? t("pay.recordInterestMenu") : t("pay.recordFeeMenu")}
+                      </button>
+                    ))}
                     <button
                       type="button"
                       className="btn standup-metal-btn pay-action-btn"
@@ -1255,6 +1460,24 @@ export default function PaymentsDashboard({
               setNotice(t("pay.openingDone"));
             }
             return result;
+          }}
+        />
+      )}
+      {entryFor && (
+        <RecordEntryModal
+          key={`${entryFor.account.id}:${entryFor.kind}`}
+          // Always the live record, so the balance preview reflects the latest value.
+          account={accounts.find((a) => a.id === entryFor.account.id) ?? entryFor.account}
+          kind={entryFor.kind}
+          todayISO={todayISO}
+          onCancel={() => setEntryFor(null)}
+          onSubmit={async (input) => {
+            const err = await onRecordEntry(entryFor.account, input);
+            if (!err) {
+              setEntryFor(null);
+              setNotice(t(entryFor.kind === "interest" ? "pay.entryRecordedInterest" : "pay.entryRecordedFee"));
+            }
+            return err;
           }}
         />
       )}

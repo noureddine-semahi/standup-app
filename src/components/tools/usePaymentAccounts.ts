@@ -13,6 +13,7 @@ import {
   reconcilePaymentAccount,
   getAccountEntries,
   reverseAccountEntry,
+  recordInterestOrFee,
   toISODate,
   reversePayment,
   deletePaymentAccount,
@@ -23,7 +24,7 @@ import {
 } from "@/lib/supabase/db";
 import { planBalanceAdjustment, toCents, type PaymentEntryPayload, type PaymentFormPayload } from "@/lib/paymentSummary";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
-import type { OpeningCheckpointInput, OpeningCheckpointResult, PaymentsDashboardProps } from "./PaymentsDashboard";
+import type { OpeningCheckpointInput, OpeningCheckpointResult, PaymentsDashboardProps, RecordEntryInput } from "./PaymentsDashboard";
 
 function errorMessage(e: unknown, fallback: string): string {
   // Supabase/PostgREST errors are plain objects with a message, not Error instances.
@@ -207,6 +208,31 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     }
   }
 
+  // Record Interest / Record Fee go through record_account_entry (kind interest / fee). The database adds one ledger version, adds the amount to the balance owed (always on an
+  // automatic account; on a manual one only if "apply to balance" was sent) and returns the new balance. `clientKey` is stable for one open form, so a repeated tap or retry
+  // can never record twice. The accounts and the History are then refreshed; Reconcile reads fresh whenever it is opened.
+  async function handleRecordEntry(account: PaymentAccount, input: RecordEntryInput): Promise<string | null> {
+    if (busyPaymentIds.has(account.id)) return t("pay.openingBusy");
+    setPaymentBusy(account.id, true);
+    setPaymentsMsg(null);
+    try {
+      const result = await recordInterestOrFee({ accountId: account.id, ...input });
+      setPaymentAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, balance: result.newBalance } : a)));
+      try {
+        setPaymentAccounts(await getPaymentAccounts());
+      } catch {
+        // the balance above already came from the database; a failed re-read must not turn a recorded entry into an error
+      }
+      await refreshHistoryIfLoaded(account.id);
+      return null;
+    } catch (e) {
+      const message = errorMessage(e, t("pay.failedRecordEntry"));
+      return /already used for a different entry/.test(message) ? t("pay.errEntryKeyReused") : message;
+    } finally {
+      setPaymentBusy(account.id, false);
+    }
+  }
+
   async function handleDeletePayment(account: PaymentAccount): Promise<string | null> {
     if (busyPaymentIds.has(account.id)) return null;
     setPaymentBusy(account.id, true);
@@ -313,6 +339,7 @@ export function usePaymentAccounts(): Omit<PaymentsDashboardProps, "todayISO"> {
     historyByAccount: paymentHistoryByAccount,
     entriesByAccount,
     onReverseEntry: handleReverseEntry,
+    onRecordEntry: handleRecordEntry,
     onToggleHistory: toggleHistory,
   };
 }

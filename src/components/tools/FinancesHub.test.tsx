@@ -129,6 +129,7 @@ function setup(accounts: PaymentAccount[] = [], bills: BillsController = billsCo
     historyByAccount: {},
     entriesByAccount: {},
     onReverseEntry: vi.fn(),
+    onRecordEntry: vi.fn(),
     onToggleHistory: vi.fn(),
   };
   render(

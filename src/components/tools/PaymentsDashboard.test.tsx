@@ -68,6 +68,7 @@ function setup(over: Partial<PaymentsDashboardProps> = {}) {
     historyByAccount: {},
     entriesByAccount: {},
     onReverseEntry: vi.fn().mockResolvedValue(null),
+    onRecordEntry: vi.fn().mockResolvedValue(null),
     onToggleHistory: vi.fn(),
     ...over,
   };
@@ -1078,5 +1079,223 @@ describe("History with interest, fee and adjustment entries", () => {
     expect(es["pay.entryInterest"]).toBe("Interés");
     expect(es["pay.entryReverseBodyNotApplied"]).toMatch(/El saldo no cambia/);
     expect(es["pay.entryAlreadyReversed"]).toMatch(/ya fue revertida/);
+  });
+});
+
+describe("Record interest and fee", () => {
+  const UUID = /^[0-9a-f-]{36}$/;
+  const openForm = (label: "Record interest" | "Record fee", name = "Bank of America") => {
+    fireEvent.click(screen.getByRole("button", { name: `More ${name}` }));
+    fireEvent.click(screen.getByRole("button", { name: label }));
+  };
+  const submitBtn = (label: "Record interest" | "Record fee") => screen.getByRole("button", { name: new RegExp(`^(${label}|Recording…)$`) }) as HTMLButtonElement;
+
+  it("both actions live in the More menu, and each opens its own form (statement date only for interest, description only for a fee)", () => {
+    setup({ accounts: [acct()] });
+    openForm("Record interest");
+    expect(screen.getByRole("dialog").textContent).toContain("Record interest");
+    expect(screen.getByLabelText("Amount")).toBeTruthy();
+    expect(screen.getByLabelText("Entry date")).toBeTruthy();
+    expect(screen.getByLabelText("Statement date")).toBeTruthy();
+    expect(screen.getByLabelText("Note (optional)")).toBeTruthy();
+    expect(screen.queryByLabelText("Description")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    openForm("Record fee");
+    expect(screen.getByLabelText("Description")).toBeTruthy();
+    expect(screen.getByLabelText("Entry date")).toBeTruthy();
+    expect(screen.queryByLabelText("Statement date")).toBeNull();
+    expect(screen.queryByLabelText("Note (optional)")).toBeNull();
+  });
+
+  it("dates default to today and Record is disabled until the form is valid", () => {
+    setup({ accounts: [acct()] });
+    openForm("Record interest");
+    expect((screen.getByLabelText("Entry date") as HTMLInputElement).value).toBe("2026-11-03");
+    expect((screen.getByLabelText("Statement date") as HTMLInputElement).value).toBe("2026-11-03");
+    expect(submitBtn("Record interest").disabled).toBe(true);
+    typeInto("Amount", "12.34");
+    expect(submitBtn("Record interest").disabled).toBe(false);
+  });
+
+  it("interest on an AUTOMATIC account: sends kind, amount, both dates, the trimmed note, no apply flag and one key; then closes with a notice", async () => {
+    const account = acct({ balanceMode: "auto" });
+    const props = setup({ accounts: [account] });
+    openForm("Record interest");
+    typeInto("Amount", "12.34");
+    typeInto("Entry date", "2026-11-02");
+    typeInto("Statement date", "2026-11-01");
+    typeInto("Note (optional)", "  APR charge ");
+    expect(screen.queryByLabelText("Apply to balance")).toBeNull();
+    expect(screen.getByText(/tracks its balance automatically/)).toBeTruthy();
+    fireEvent.click(submitBtn("Record interest"));
+    await waitFor(() => expect(props.onRecordEntry).toHaveBeenCalledTimes(1));
+    expect(props.onRecordEntry).toHaveBeenCalledWith(account, {
+      kind: "interest", amount: 12.34, entryDate: "2026-11-02", statementDate: "2026-11-01", reason: null, note: "APR charge", applyBalance: null, clientKey: expect.stringMatching(UUID),
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("status").textContent).toBe("Interest recorded.");
+  });
+
+  it("a fee needs a description: it is sent as the reason, with no statement date and no note", async () => {
+    const account = acct({ balanceMode: "auto" });
+    const props = setup({ accounts: [account] });
+    openForm("Record fee");
+    typeInto("Amount", "25");
+    expect(submitBtn("Record fee").disabled).toBe(true);
+    typeInto("Description", "   ");
+    expect(submitBtn("Record fee").disabled).toBe(true);
+    typeInto("Description", "  Late payment fee ");
+    expect(submitBtn("Record fee").disabled).toBe(false);
+    fireEvent.click(submitBtn("Record fee"));
+    await waitFor(() => expect(props.onRecordEntry).toHaveBeenCalledTimes(1));
+    expect(props.onRecordEntry).toHaveBeenCalledWith(account, {
+      kind: "fee", amount: 25, entryDate: "2026-11-03", statementDate: null, reason: "Late payment fee", note: null, applyBalance: null, clientKey: expect.stringMatching(UUID),
+    });
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Fee recorded."));
+  });
+
+  it("MANUAL account: 'Apply to balance' is checked by default, explained, and its value is sent; unchecking sends false and removes the balance preview", async () => {
+    const props = setup({ accounts: [acct({ balanceMode: "manual", balance: 394 })] });
+    openForm("Record fee");
+    const box = screen.getByLabelText("Apply to balance") as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(screen.getByText(/Checked: this adds to the balance you owe/)).toBeTruthy();
+    typeInto("Amount", "25");
+    typeInto("Description", "Annual fee");
+    expect(screen.getByText("Balance after: $419.00")).toBeTruthy();
+    fireEvent.click(box);
+    expect(box.checked).toBe(false);
+    expect(screen.queryByText(/Balance after/)).toBeNull();
+    fireEvent.click(submitBtn("Record fee"));
+    await waitFor(() => expect(props.onRecordEntry).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ applyBalance: false })));
+  });
+
+  it("MANUAL account left checked sends applyBalance true", async () => {
+    const props = setup({ accounts: [acct({ balanceMode: "manual" })] });
+    openForm("Record interest");
+    typeInto("Amount", "5");
+    fireEvent.click(submitBtn("Record interest"));
+    await waitFor(() => expect(props.onRecordEntry).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ kind: "interest", applyBalance: true })));
+  });
+
+  it("the balance preview adds the charge exactly (cents-exact) for an automatic account", () => {
+    setup({ accounts: [acct({ balanceMode: "auto", balance: 0.1 })] });
+    openForm("Record interest");
+    typeInto("Amount", "0.2");
+    expect(screen.getByText("Balance after: $0.30")).toBeTruthy();
+  });
+
+  it.each([
+    ["zero", "0", "Enter an amount greater than zero."],
+    ["text", "abc", "Enter an amount greater than zero."],
+    ["three decimals", "1.234", "Use at most 2 decimal places."],
+    ["beyond the limit", "100000000", "Enter an amount greater than zero."],
+  ])("an invalid amount (%s) shows its message, disables Record and sends nothing", (_n, value, message) => {
+    const props = setup({ accounts: [acct()] });
+    openForm("Record interest");
+    typeInto("Amount", value);
+    expect(screen.getByRole("alert").textContent).toBe(message);
+    expect(submitBtn("Record interest").disabled).toBe(true);
+    fireEvent.submit(screen.getByRole("dialog").querySelector("form")!);
+    expect(props.onRecordEntry).not.toHaveBeenCalled();
+  });
+
+  it("future or missing dates are refused with their own messages", () => {
+    const props = setup({ accounts: [acct()] });
+    openForm("Record interest");
+    typeInto("Amount", "5");
+    typeInto("Entry date", "2026-12-01");
+    expect(screen.getByRole("alert").textContent).toBe("The entry date can’t be in the future.");
+    typeInto("Entry date", "2026-11-03");
+    typeInto("Statement date", "2026-12-01");
+    expect(screen.getByRole("alert").textContent).toBe("Enter a valid statement date that isn’t in the future.");
+    typeInto("Statement date", "");
+    expect(screen.getByRole("alert").textContent).toBe("Enter a valid statement date that isn’t in the future.");
+    typeInto("Statement date", "2026-11-01");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(submitBtn("Record interest").disabled).toBe(false);
+    typeInto("Entry date", "");
+    expect(screen.getByRole("alert").textContent).toBe("Enter a valid date.");
+    expect(props.onRecordEntry).not.toHaveBeenCalled();
+  });
+
+  it("a note or description over 500 characters is refused", () => {
+    setup({ accounts: [acct()] });
+    openForm("Record interest");
+    typeInto("Amount", "5");
+    typeInto("Note (optional)", "x".repeat(501));
+    expect(screen.getByRole("alert").textContent).toBe("The note is too long (500 characters max).");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    openForm("Record fee");
+    typeInto("Amount", "5");
+    typeInto("Description", "x".repeat(501));
+    expect(screen.getByRole("alert").textContent).toBe("The description is too long (500 characters max).");
+  });
+
+  it("repeated taps while the request is in flight send it once, and the button says Recording…", async () => {
+    let resolve!: (v: string | null) => void;
+    const pending = new Promise<string | null>((r) => (resolve = r));
+    const props = setup({ accounts: [acct()], onRecordEntry: vi.fn().mockReturnValue(pending) });
+    openForm("Record interest");
+    typeInto("Amount", "12.34");
+    fireEvent.click(submitBtn("Record interest"));
+    fireEvent.click(submitBtn("Record interest"));
+    fireEvent.submit(screen.getByRole("dialog").querySelector("form")!);
+    expect(props.onRecordEntry).toHaveBeenCalledTimes(1);
+    expect(submitBtn("Record interest").textContent).toBe("Recording…");
+    expect(submitBtn("Record interest").disabled).toBe(true);
+    resolve(null);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(props.onRecordEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failure keeps the form open with the message, and the retry reuses the SAME request key", async () => {
+    const record = vi.fn().mockResolvedValueOnce("Failed to record the entry").mockResolvedValueOnce(null);
+    setup({ accounts: [acct()], onRecordEntry: record });
+    openForm("Record fee");
+    typeInto("Amount", "25");
+    typeInto("Description", "Late fee");
+    fireEvent.click(submitBtn("Record fee"));
+    expect((await screen.findByRole("alert")).textContent).toBe("Failed to record the entry");
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(submitBtn("Record fee").disabled).toBe(false);
+    fireEvent.click(submitBtn("Record fee"));
+    await waitFor(() => expect(record).toHaveBeenCalledTimes(2));
+    expect(record.mock.calls[1][1].clientKey).toBe(record.mock.calls[0][1].clientKey);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("each newly opened form gets a fresh key (two charges in a row are two charges)", async () => {
+    const props = setup({ accounts: [acct()] });
+    for (const amount of ["5", "6"]) {
+      openForm("Record interest");
+      typeInto("Amount", amount);
+      fireEvent.click(submitBtn("Record interest"));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    }
+    const keys = (props.onRecordEntry as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1].clientKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it("Cancel and Escape record nothing, and these forms never touch balances, adjustments, checkpoints or payments", () => {
+    const props = setup({ accounts: [acct()] });
+    openForm("Record interest");
+    typeInto("Amount", "5");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    openForm("Record fee");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    for (const fn of [props.onRecordEntry, props.onUpdate, props.onAdjustBalance, props.onCreateOpeningCheckpoint, props.onRecordPayment, props.onReverseEntry]) expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("the Spanish strings exist for every new message", () => {
+    const keys = ["pay.recordInterestMenu", "pay.recordFeeMenu", "pay.entryAmountLabel", "pay.entryDateLabel", "pay.entryStatementLabel", "pay.entryStatementHelp", "pay.entryDescriptionLabel",
+      "pay.entryDescriptionPlaceholder", "pay.entryApplyLabel", "pay.entryApplyHelp", "pay.entryAutoNote", "pay.entryRecordedInterest", "pay.entryRecordedFee", "pay.errEntryDateFuture",
+      "pay.errEntryStatement", "pay.errFeeDescription", "pay.errFeeDescriptionLong", "pay.errEntryKeyReused", "pay.failedRecordEntry"];
+    for (const k of keys) expect(((es as Record<string, string>)[k] ?? "").trim().length, k).toBeGreaterThan(0);
+    expect(es["pay.recordInterestMenu"]).toBe("Registrar interés");
+    expect(es["pay.entryApplyHelp"]).toMatch(/Marcado: se suma al saldo que debes/);
+    expect(es["pay.errEntryKeyReused"]).toMatch(/revisa el historial/);
   });
 });

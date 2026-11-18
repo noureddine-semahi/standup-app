@@ -2565,6 +2565,43 @@ export async function recordAccountAdjustment(params: {
   return { entryId: row.entry_id, newBalance: Number(row.new_balance), wasDuplicate: !!row.was_duplicate };
 }
 
+/**
+ * Records a manually entered interest charge or fee through record_account_entry (the same RPC as adjustments). Both RAISE the balance owed. `applyBalance` only matters on a
+ * MANUAL account (an automatic account always applies it): null/false records the entry without balance effect. The amount is an absolute charge, not computed from a
+ * balance the user loaded, so no expected ledger version is sent; `clientKey` makes a repeated submit a no-op.
+ */
+export async function recordInterestOrFee(params: {
+  accountId: string;
+  kind: "interest" | "fee";
+  amount: number;
+  entryDate: string;
+  /** Required for interest, null for a fee. */
+  statementDate: string | null;
+  /** A fee's description (null for interest). */
+  reason: string | null;
+  /** An interest charge's note (null for a fee). */
+  note: string | null;
+  applyBalance: boolean | null;
+  clientKey: string;
+}): Promise<{ entryId: string; newBalance: number; wasDuplicate: boolean }> {
+  const { data, error } = await supabase.rpc("record_account_entry", {
+    p_account_id: params.accountId,
+    p_kind: params.kind,
+    p_amount: params.amount,
+    p_entry_date: params.entryDate,
+    p_statement_date: params.statementDate,
+    p_reason: params.reason,
+    p_note: params.note,
+    p_direction: null,
+    p_apply_balance: params.applyBalance,
+    p_client_key: params.clientKey,
+    p_expected_ledger_version: null,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { entryId: row.entry_id, newBalance: Number(row.new_balance), wasDuplicate: !!row.was_duplicate };
+}
+
 /** What the opening-checkpoint flow needs about one account: its balance and ledger version right now, and its existing checkpoint, if any. */
 export type OpeningCheckpointState = {
   balance: number;

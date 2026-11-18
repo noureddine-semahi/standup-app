@@ -227,6 +227,62 @@ export function parsePaymentEntry(
   return { ok: true, payload: { amount, paidAt: probe.toISOString(), note: note || null, applyBalance: v.applyBalance } };
 }
 
+export type LedgerEntryKind = "interest" | "fee";
+export type LedgerEntryValues = {
+  amount: string;
+  entryDate: string; // YYYY-MM-DD
+  statementDate: string; // YYYY-MM-DD (interest only)
+  /** An interest charge's optional note, or a fee's required description. */
+  text: string;
+};
+export type LedgerEntryPayload = { amount: number; entryDate: string; statementDate: string | null; reason: string | null; note: string | null };
+export type LedgerEntryError = "amount" | "amountPrecision" | "entryDate" | "entryDateFuture" | "statementDate" | "description" | "descriptionLength" | "note";
+export const MAX_LEDGER_TEXT = 500;
+
+function isRealDay(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const probe = new Date(y, mo - 1, d, 12, 0, 0);
+  return probe.getFullYear() === y && probe.getMonth() === mo - 1 && probe.getDate() === d;
+}
+
+/**
+ * Strict validation for Record Interest / Record Fee (the same rules the database enforces, checked first so the user sees a clear message). The amount is a plain positive
+ * number with at most two decimals, never rounded; dates are real calendar days that aren't in the future; interest needs a statement date; a fee needs a description.
+ */
+export function parseLedgerEntry(
+  kind: LedgerEntryKind,
+  v: LedgerEntryValues,
+  todayISO: string
+): { ok: true; payload: LedgerEntryPayload } | { ok: false; error: LedgerEntryError } {
+  const raw = v.amount.trim();
+  if (!/^\d+(\.\d*)?$/.test(raw)) return { ok: false, error: "amount" };
+  if (!/^\d+(\.\d{1,2})?$/.test(raw)) return { ok: false, error: "amountPrecision" };
+  const amount = Number(raw);
+  if (!(amount > 0) || amount > MAX_PAYMENT_AMOUNT) return { ok: false, error: "amount" };
+
+  const entryDate = v.entryDate.trim();
+  if (!isRealDay(entryDate)) return { ok: false, error: "entryDate" };
+  if (entryDate > todayISO) return { ok: false, error: "entryDateFuture" };
+
+  const text = v.text.trim();
+  if (kind === "interest") {
+    const statementDate = v.statementDate.trim();
+    if (!isRealDay(statementDate) || statementDate > todayISO) return { ok: false, error: "statementDate" };
+    if (text.length > MAX_LEDGER_TEXT) return { ok: false, error: "note" };
+    return { ok: true, payload: { amount, entryDate, statementDate, reason: null, note: text || null } };
+  }
+  if (text === "") return { ok: false, error: "description" };
+  if (text.length > MAX_LEDGER_TEXT) return { ok: false, error: "descriptionLength" };
+  return { ok: true, payload: { amount, entryDate, statementDate: null, reason: text, note: null } };
+}
+
+/** The balance (the amount OWED) after a charge is added: interest and fees raise it. Cents-exact. */
+export function previewBalanceAfterCharge(balance: number, amount: number): number {
+  return fromCents(toCents(balance) + toCents(amount));
+}
+
 export type FinancesOverview = {
   /** Sum of tracked account balances (credit-card style outstanding balances). */
   totalBalances: number;

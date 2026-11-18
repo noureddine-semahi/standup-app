@@ -717,6 +717,37 @@ export async function getAdminAuditLog(limit = 100): Promise<AdminAuditEntry[]> 
 // second of two near-simultaneous calls always sees it.
 const materializeInFlight = new Set<string>();
 
+/** The fields of a goal_reschedules row that decide whether an intent has been superseded. */
+export type RescheduleIntentRow = { id?: string; from_goal_id: string; to_date: string; created_at: string; materialized?: boolean | null };
+
+function compareTimestamps(a: string, b: string): number {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return ta - tb;
+  // Same millisecond (or unparseable): PostgREST returns one fixed ISO format, so the strings order the same way as the instants.
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * The reschedule intents that may still become a goal: `candidates` (the pending intents for the plan date being opened) minus every one that has been SUPERSEDED.
+ * A Task rescheduled again before its first move happened has several intents; the LATEST wins, which is what every reader of goal_reschedules already assumes (see
+ * classifyCycleCommitments). An intent is superseded when the same source Task has a NEWER pending intent for a DIFFERENT date. That holds whether or not the newer
+ * intent's destination has materialized yet, because pending rows are never updated or deleted (see materializeReschedules). Materialized MARKER rows are results,
+ * not intents, so they are ignored here. Same-date repeats are not superseding (they are one destination, deduplicated by the marker check). Ties in time supersede nothing.
+ */
+export function selectIntentsToMaterialize<T extends RescheduleIntentRow>(candidates: readonly T[], allIntents: readonly RescheduleIntentRow[]): T[] {
+  const live = allIntents.filter((row) => row.materialized !== true);
+  return candidates.filter(
+    (candidate) =>
+      !live.some(
+        (other) =>
+          other.from_goal_id === candidate.from_goal_id &&
+          other.to_date !== candidate.to_date &&
+          compareTimestamps(other.created_at, candidate.created_at) > 0
+      )
+  );
+}
+
 /**
  * Materialize rescheduled goals for this plan date: finds every
  * goal_reschedules row targeting this date that hasn't been materialized
@@ -786,8 +817,18 @@ async function materializeReschedules(planId: string, planDateISO: string) {
       (originGoals ?? []).map((og) => [og.id, og.outcome_goal_id as string | null])
     );
 
+    // Latest intent wins: skip any pending intent that a newer pending intent for a different date has superseded (see selectIntentsToMaterialize).
+    const { data: sourceIntents, error: intentsErr } = await supabase
+      .from("goal_reschedules")
+      .select("id, from_goal_id, to_date, created_at, materialized")
+      .eq("user_id", userId)
+      .eq("materialized", false)
+      .in("from_goal_id", fromGoalIds);
+    if (intentsErr) throw intentsErr;
+    const toMaterialize = selectIntentsToMaterialize(pending, sourceIntents ?? []);
+
     let materializedCount = 0;
-    for (const item of pending) {
+    for (const item of toMaterialize) {
       const { data: already, error: alreadyErr } = await supabase
         .from("goal_reschedules")
         .select("id")

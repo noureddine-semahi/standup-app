@@ -26,6 +26,7 @@ import {
   isOutcomeGoalQuickAddEligible,
   resolveConceptualTasksForIds,
   buildAssignmentTaskMaps,
+  selectIntentsToMaterialize,
   type GoalAssignmentWithLiveTasks,
 } from "./db";
 import { getLevelInfo } from "@/lib/levels";
@@ -2103,5 +2104,84 @@ describe("classifyCycleCommitments (Goal Engine Phase 2D-5D: cycle aggregation)"
       targetCountSnapshot: 2,
     });
     expect(reversed).toEqual(forward);
+  });
+});
+
+describe("selectIntentsToMaterialize (CORE-01: the latest reschedule intent wins)", () => {
+  const intent = (id: string, from: string, to: string, at: string, materialized = false) => ({ id, from_goal_id: from, to_date: to, created_at: at, materialized });
+
+  it("keeps a lone intent", () => {
+    const only = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z");
+    expect(selectIntentsToMaterialize([only], [only])).toEqual([only]);
+  });
+
+  it("drops an intent that a NEWER pending intent for a DIFFERENT date supersedes, and keeps the newer one", () => {
+    const older = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z");
+    const newer = intent("i2", "g1", "2026-11-19", "2026-11-18T10:05:00.000Z");
+    expect(selectIntentsToMaterialize([older], [older, newer])).toEqual([]);
+    expect(selectIntentsToMaterialize([newer], [older, newer])).toEqual([newer]);
+  });
+
+  it("does not depend on which destination is opened first, or on which date is earlier", () => {
+    const toLater = intent("i1", "g1", "2026-11-25", "2026-11-18T10:00:00.000Z");
+    const toSooner = intent("i2", "g1", "2026-11-20", "2026-11-18T10:05:00.000Z");
+    expect(selectIntentsToMaterialize([toLater], [toLater, toSooner])).toEqual([]);
+    expect(selectIntentsToMaterialize([toSooner], [toLater, toSooner])).toEqual([toSooner]);
+  });
+
+  it("same-date repeats do not supersede each other (they are one destination)", () => {
+    const first = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z");
+    const second = intent("i2", "g1", "2026-11-20", "2026-11-18T10:05:00.000Z");
+    expect(selectIntentsToMaterialize([first, second], [first, second])).toEqual([first, second]);
+  });
+
+  it("A -> B -> A: the older A and the B are superseded by the newest A; the newest A (and its same-date twin) survive", () => {
+    const a1 = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z");
+    const b = intent("i2", "g1", "2026-11-25", "2026-11-18T10:05:00.000Z");
+    const a2 = intent("i3", "g1", "2026-11-20", "2026-11-18T10:10:00.000Z");
+    expect(selectIntentsToMaterialize([b], [a1, b, a2])).toEqual([]);
+    expect(selectIntentsToMaterialize([a1, a2], [a1, b, a2])).toEqual([a2]);
+  });
+
+  it("only intents of the SAME source Task count", () => {
+    const mine = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z");
+    const other = intent("i2", "g2", "2026-11-25", "2026-11-18T10:05:00.000Z");
+    expect(selectIntentsToMaterialize([mine], [mine, other])).toEqual([mine]);
+  });
+
+  it("materialized MARKER rows are results, not intents: a newer marker for another date never supersedes a genuine intent", () => {
+    const genuine = intent("i1", "g1", "2026-11-25", "2026-11-18T10:00:00.000Z");
+    const marker = intent("m1", "g1", "2026-11-20", "2026-11-18T11:00:00.000Z", true);
+    expect(selectIntentsToMaterialize([genuine], [genuine, marker])).toEqual([genuine]);
+    // and a marker never makes a row look 'newer' when it is itself the candidate list's neighbour
+    expect(selectIntentsToMaterialize([genuine], [marker])).toEqual([genuine]);
+  });
+
+  it("an unset 'materialized' flag counts as a pending intent (the query already filters on it)", () => {
+    const older = { id: "i1", from_goal_id: "g1", to_date: "2026-11-20", created_at: "2026-11-18T10:00:00.000Z" };
+    const newer = { id: "i2", from_goal_id: "g1", to_date: "2026-11-19", created_at: "2026-11-18T10:05:00.000Z" };
+    expect(selectIntentsToMaterialize([older], [older, newer])).toEqual([]);
+  });
+
+  it("orders by the actual instant, including microsecond timestamps that fall in the same millisecond", () => {
+    const earlier = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.123456+00:00");
+    const later = intent("i2", "g1", "2026-11-19", "2026-11-18T10:00:00.123789+00:00");
+    expect(selectIntentsToMaterialize([earlier], [earlier, later])).toEqual([]);
+    expect(selectIntentsToMaterialize([later], [earlier, later])).toEqual([later]);
+  });
+
+  it("a tie in time supersedes nothing (the old behavior is kept rather than guessing)", () => {
+    const x = intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z");
+    const y = intent("i2", "g1", "2026-11-19", "2026-11-18T10:00:00.000Z");
+    expect(selectIntentsToMaterialize([x, y], [x, y])).toEqual([x, y]);
+  });
+
+  it("does not mutate its inputs and handles empty lists", () => {
+    const candidates = [intent("i1", "g1", "2026-11-20", "2026-11-18T10:00:00.000Z")];
+    const all = [...candidates, intent("i2", "g1", "2026-11-19", "2026-11-18T10:05:00.000Z")];
+    const snapshot = JSON.stringify([candidates, all]);
+    selectIntentsToMaterialize(candidates, all);
+    expect(JSON.stringify([candidates, all])).toBe(snapshot);
+    expect(selectIntentsToMaterialize([], [])).toEqual([]);
   });
 });

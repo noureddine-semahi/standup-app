@@ -793,6 +793,10 @@ export const en = {
   "backlog.errTitleRequired": "Enter a title.",
   "backlog.failedUpdate": "Failed to save changes",
   "backlog.removeFromBacklog": "Remove from backlog",
+  "backlog.deleteConfirmTitle": "Delete this backlog item?",
+  "backlog.deleteConfirmBody": "“{title}” will be permanently deleted. This cannot be undone.",
+  "backlog.deleteConfirm": "Delete",
+  "backlog.deleting": "Deleting…",
 
   // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set
   "backlog.longTermTitle": "Long-Term Goals",

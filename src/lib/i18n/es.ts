@@ -788,6 +788,10 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.errTitleRequired": "Escribe un título.",
   "backlog.failedUpdate": "No se pudieron guardar los cambios",
   "backlog.removeFromBacklog": "Eliminar de pendientes",
+  "backlog.deleteConfirmTitle": "¿Eliminar este pendiente?",
+  "backlog.deleteConfirmBody": "“{title}” se eliminará de forma permanente. Esta acción no se puede deshacer.",
+  "backlog.deleteConfirm": "Eliminar",
+  "backlog.deleting": "Eliminando…",
 
   // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set
   "backlog.longTermTitle": "Objetivos a Largo Plazo",

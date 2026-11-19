@@ -15,11 +15,20 @@ export default function ConfirmRemoveModal({
   goalTitle,
   onCancel,
   onConfirm,
+  heading,
+  body,
+  confirmLabel,
+  busyLabel,
 }: {
   open: boolean;
   goalTitle: string;
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
+  // Optional wording overrides (default: the "remove this task" copy).
+  heading?: string;
+  body?: string;
+  confirmLabel?: string;
+  busyLabel?: string;
 }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -75,10 +84,10 @@ export default function ConfirmRemoveModal({
           <AlertTriangle size={22} strokeWidth={2.4} />
         </div>
         <h2 id="confirm-remove-title" className="confirm-modal-title">
-          {t("goalCard.removeTitle")}
+          {heading ?? t("goalCard.removeTitle")}
         </h2>
         <p id="confirm-remove-body" className="confirm-modal-body">
-          {t("goalCard.removeBody", { title: goalTitle })}
+          {body ?? t("goalCard.removeBody", { title: goalTitle })}
         </p>
         <div className="confirm-modal-actions">
           <button
@@ -96,7 +105,7 @@ export default function ConfirmRemoveModal({
             onClick={confirm}
             disabled={busy}
           >
-            {busy ? t("goalCard.removing") : t("goalCard.removeConfirm")}
+            {busy ? (busyLabel ?? t("goalCard.removing")) : (confirmLabel ?? t("goalCard.removeConfirm"))}
           </button>
         </div>
       </div>

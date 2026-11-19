@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Archive, X, Repeat, ListChecks, Target, NotebookPen, Pencil } from "lucide-react";
 import GoalsManagementPanel, { type ManagementView } from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
-import BacklogItemEditor, { type BacklogEditDraft } from "@/components/BacklogItemEditor";
+import ConfirmRemoveModal from "@/components/ConfirmRemoveModal";
+import BacklogItemEditor,{ type BacklogEditDraft } from "@/components/BacklogItemEditor";
 import { isSchedulableDate } from "@/lib/backlogSchedule";
 import NotesTab from "@/components/tools/NotesTab";
 import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT, LEGACY_TOOLS_TAB } from "@/lib/toolsTabStorage";
@@ -139,6 +140,8 @@ export default function ToolsPage() {
 
   // The one Backlog item (plain or long-term) currently open in the inline editor. While it is open its Push and Remove controls are off, so an unsaved edit can't be lost.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The X on a Backlog / Long-Term card only opens a confirmation; nothing is deleted until its Delete button runs the existing handler.
+  const [pendingDelete, setPendingDelete] = useState<{ item: BacklogGoal; longTerm: boolean } | null>(null);
   const [pushDate, setPushDate] = useState<Record<string, string>>({});
   // Backlog items whose Schedule request is in flight. A ref (not state) so a second tap in the same tick is refused before React re-renders.
   const scheduleInFlight = useRef<Set<string>>(new Set());
@@ -652,7 +655,7 @@ export default function ToolsPage() {
                 <GoalNumberOrb number={idx + 1} />
                 <button
                   type="button"
-                  onClick={() => handleDeleteLongTerm(item)}
+                  onClick={() => setPendingDelete({ item, longTerm: true })}
                   disabled={busy || editingId === item.id}
                   className="goal-delete-corner-btn"
                   title={t("backlog.removeFromBacklog")}
@@ -899,7 +902,7 @@ export default function ToolsPage() {
                 <GoalNumberOrb number={idx + 1} />
                 <button
                   type="button"
-                  onClick={() => handleDelete(item)}
+                  onClick={() => setPendingDelete({ item, longTerm: false })}
                   disabled={busy || editingId === item.id}
                   className="goal-delete-corner-btn"
                   title={t("backlog.removeFromBacklog")}
@@ -1286,6 +1289,23 @@ export default function ToolsPage() {
         <NotesTab />
       </div>
     )}
+    <ConfirmRemoveModal
+      open={pendingDelete !== null}
+      goalTitle={pendingDelete?.item.title ?? ""}
+      heading={t("backlog.deleteConfirmTitle")}
+      body={t("backlog.deleteConfirmBody", { title: pendingDelete?.item.title ?? "" })}
+      confirmLabel={t("backlog.deleteConfirm")}
+      busyLabel={t("backlog.deleting")}
+      onCancel={() => setPendingDelete(null)}
+      onConfirm={async () => {
+        const target = pendingDelete;
+        if (!target) return;
+        // The existing delete handlers report a failure in the card's message area and keep the item.
+        if (target.longTerm) await handleDeleteLongTerm(target.item);
+        else await handleDelete(target.item);
+        setPendingDelete(null);
+      }}
+    />
     </div>
     </div>
   );

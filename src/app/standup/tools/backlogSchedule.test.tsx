@@ -250,11 +250,12 @@ describe("Backlog card: editing and removing still work", () => {
     expect(api.promoteBacklogGoal).not.toHaveBeenCalled();
   });
 
-  it("Remove still deletes just that item", async () => {
+  it("Remove (after confirming) still deletes just that item", async () => {
     api.deleteBacklogGoal.mockResolvedValue(undefined);
     mount("backlog", [item(), item({ id: "b2", title: "Buy stamps" })]);
     await screen.findByText("Call the bank");
     fireEvent.click(within(card("Call the bank")).getByTitle("Remove from backlog"));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByText("Call the bank")).toBeNull());
     expect(api.deleteBacklogGoal).toHaveBeenCalledWith("b1");
     expect(screen.getByText("Buy stamps")).toBeTruthy();

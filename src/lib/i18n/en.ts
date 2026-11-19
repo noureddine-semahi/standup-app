@@ -781,6 +781,8 @@ export const en = {
   "backlog.pushToTomorrowTitle": "Push straight to tomorrow ({date})",
   "backlog.pushToTomorrow": "→ Tomorrow",
   "backlog.push": "Push",
+  "backlog.schedule": "Schedule",
+  "backlog.scheduleDateLabel": "Pick a date",
   "backlog.edit": "Edit",
   "backlog.editSave": "Save",
   "backlog.editCancel": "Cancel",

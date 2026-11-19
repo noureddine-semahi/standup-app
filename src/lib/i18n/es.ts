@@ -776,6 +776,8 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.pushToTomorrowTitle": "Enviar directamente a mañana ({date})",
   "backlog.pushToTomorrow": "→ Mañana",
   "backlog.push": "Enviar",
+  "backlog.schedule": "Programar",
+  "backlog.scheduleDateLabel": "Elige una fecha",
   "backlog.edit": "Editar",
   "backlog.editSave": "Guardar",
   "backlog.editCancel": "Cancelar",

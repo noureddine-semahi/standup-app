@@ -6,6 +6,7 @@ import { Archive, X, Repeat, ListChecks, Target, NotebookPen, Pencil } from "luc
 import GoalsManagementPanel, { type ManagementView } from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import BacklogItemEditor, { type BacklogEditDraft } from "@/components/BacklogItemEditor";
+import { isSchedulableDate } from "@/lib/backlogSchedule";
 import NotesTab from "@/components/tools/NotesTab";
 import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT, LEGACY_TOOLS_TAB } from "@/lib/toolsTabStorage";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
@@ -139,6 +140,8 @@ export default function ToolsPage() {
   // The one Backlog item (plain or long-term) currently open in the inline editor. While it is open its Push and Remove controls are off, so an unsaved edit can't be lost.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pushDate, setPushDate] = useState<Record<string, string>>({});
+  // Backlog items whose Schedule request is in flight. A ref (not state) so a second tap in the same tick is refused before React re-renders.
+  const scheduleInFlight = useRef<Set<string>>(new Set());
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
   const [templates, setTemplates] = useState<RecurringGoalTemplate[]>([]);
@@ -347,7 +350,9 @@ export default function ToolsPage() {
 
   async function handlePush(item: BacklogGoal, explicitDate?: string) {
     const date = explicitDate ?? pushDate[item.id];
-    if (!date || busyIds.has(item.id)) return;
+    if (!date || busyIds.has(item.id) || scheduleInFlight.current.has(item.id)) return;
+    if (!isSchedulableDate(date, todayISO)) return;
+    scheduleInFlight.current.add(item.id);
     setBusy(item.id, true);
     setMsg(null);
     try {
@@ -357,6 +362,7 @@ export default function ToolsPage() {
     } catch (e: any) {
       setMsg(e?.message ?? t("backlog.failedSchedule"));
     } finally {
+      scheduleInFlight.current.delete(item.id);
       setBusy(item.id, false);
     }
   }
@@ -880,7 +886,7 @@ export default function ToolsPage() {
           <p className="text-sm text-white/50">{t("backlog.staysPutMsg")}</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {plainItems.map((item, idx) => {
             const meta = getPriorityMeta(item.priority);
             const busy = busyIds.has(item.id);
@@ -900,15 +906,16 @@ export default function ToolsPage() {
                 >
                   <X size={12} />
                 </button>
-                <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
-                <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
+                {/* Compact body: the title and its Edit action share ONE row (no wrapping), the corner Remove button keeps its own 24px at the right edge. */}
+                <div className="goal-row-body" style={{ padding: "0.85rem 1.6rem 0.85rem 1.25rem" }}>
+                <div className="flex items-start gap-2 mb-2">
                   <div className="flex-1" style={{ minWidth: 0 }}>
                     {editingId === item.id ? (
                       <BacklogItemEditor item={item} onSave={(draft) => handleSaveEdit(item, draft)} onCancel={() => setEditingId(null)} />
                     ) : (
                       <>
-                        <div className="text-white text-lg font-medium mb-1">{item.title}</div>
-                        {item.details && <div className="text-sm text-white/60">{item.details}</div>}
+                        <div className="text-white text-lg font-medium mb-0.5" style={{ overflowWrap: "anywhere" }}>{item.title}</div>
+                        {item.details && <div className="text-sm text-white/60" style={{ overflowWrap: "anywhere" }}>{item.details}</div>}
                       </>
                     )}
                   </div>
@@ -927,43 +934,44 @@ export default function ToolsPage() {
                   )}
                 </div>
 
-                {/* Push to Tomorrow + date picker share a line; Push sits
-                    full-width below them (spanning the same combined width)
-                    and is the one colored (btn-primary) control in this
-                    card, since it's the actual commit action — the other
-                    two are just setting up what/when. */}
-                <div className="flex items-stretch gap-2 mb-2">
+                {/* Scheduling: "→ Tomorrow" is a one-click shortcut. Choosing a date only SETS the date; the compact Schedule button (on only for a real date that is
+                    today or later) is what moves the Task. The date and Schedule share one group that keeps its row (min-width 0, so it can shrink) and the group wraps
+                    below Tomorrow on narrow screens, so nothing overflows or overlaps. */}
+                <div className="flex flex-wrap items-stretch gap-2">
                   <button
                     type="button"
                     onClick={() => handlePush(item, tomorrowISO)}
                     disabled={busy || editingId === item.id}
-                    className="btn standup-metal-btn flex-1 min-w-0 flex items-center justify-center"
-                    style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem", minWidth: "130px" }}
+                    className="btn standup-metal-btn flex items-center justify-center"
+                    style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem", flex: "0 0 auto" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
                   >
                     <span className="tools-push-btn-label">{t("backlog.pushToTomorrow")}</span>
                   </button>
-                  <input
-                    type="date"
-                    value={pushDate[item.id] ?? ""}
-                    min={todayISO}
-                    disabled={busy}
-                    onChange={(e) =>
-                      setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
-                    }
-                    className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
-                    style={{ height: "36px" }}
-                  />
+                  <div className="flex items-stretch gap-2" style={{ flex: "1 1 14rem", minWidth: 0 }}>
+                    <input
+                      type="date"
+                      aria-label={t("backlog.scheduleDateLabel")}
+                      value={pushDate[item.id] ?? ""}
+                      min={todayISO}
+                      disabled={busy}
+                      onChange={(e) =>
+                        setPushDate((prev) => ({ ...prev, [item.id]: e.target.value }))
+                      }
+                      className="flex-1 min-w-0 rounded-lg border border-white/20 bg-white/10 px-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50"
+                      style={{ height: "36px" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handlePush(item)}
+                      disabled={busy || editingId === item.id || !isSchedulableDate(pushDate[item.id], todayISO)}
+                      className="btn standup-metal-btn standup-metal-btn--accent flex-shrink-0"
+                      style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem" }}
+                    >
+                      {t("backlog.schedule")}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handlePush(item)}
-                  disabled={busy || editingId === item.id || !pushDate[item.id]}
-                  className="btn standup-metal-btn standup-metal-btn--accent w-full"
-                  style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
-                >
-                  {t("backlog.push")}
-                </button>
                 </div>
               </div>
             );

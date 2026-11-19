@@ -1205,6 +1205,17 @@ export function findGoalDeleteBlockReason(flags: {
  * design question, not something to improvise here.
  */
 export async function deleteGoal(goalId: string) {
+  await assertGoalDeletable(goalId);
+
+  const { error } = await supabase.from("goals").delete().eq("id", goalId);
+  if (error) throw error;
+}
+
+/**
+ * The one definition of "this Task may be hard-deleted": it throws GoalDeleteBlockedError when the Task is part of a reschedule history or an assignment, and otherwise
+ * returns. deleteGoal() runs it before deleting, and moveGoalToBacklog() runs it BEFORE writing anything, so both always agree on which Tasks are protected.
+ */
+export async function assertGoalDeletable(goalId: string) {
   const [
     { data: rescheduleAsSource, error: rsErr },
     { data: rescheduleAsTarget, error: rtErr },
@@ -1228,9 +1239,6 @@ export async function deleteGoal(goalId: string) {
     isAssignmentRecipient: (assignmentAsRecipient ?? []).length > 0,
   });
   if (reason) throw new GoalDeleteBlockedError(reason);
-
-  const { error } = await supabase.from("goals").delete().eq("id", goalId);
-  if (error) throw error;
 }
 
 export async function getBacklogGoals(): Promise<BacklogGoal[]> {
@@ -1291,19 +1299,37 @@ export async function deleteBacklogGoal(backlogId: string) {
 
 /**
  * The reverse of promoteBacklogGoal — for a scheduled goal you're no longer
- * sure you'll get to on any particular day. Insert-then-delete, same
- * safer-failure-mode order: if the delete fails, the goal exists in both
- * places rather than vanishing. Notes, checklist items, and file
+ * sure you'll get to on any particular day. Notes, checklist items, and file
  * attachments are NOT carried over — goal_backlog has no equivalent
  * sub-tables, and they cascade-delete with the goal itself.
+ *
+ * Order matters: (1) the SAME deletion-eligibility check deleteGoal() uses runs
+ * FIRST, so a Task with reschedule history or an assignment is refused before any
+ * Backlog row exists (a blocked move creates nothing, however often it is retried);
+ * (2) the Backlog row is inserted; (3) the goal is deleted, which still re-checks.
+ * If that delete fails anyway (the Task became protected in the meantime, a network
+ * error), ONLY the row inserted in step 2 is removed again (best effort) and the
+ * original error is thrown, so a failed move never reports success.
  */
 export async function moveGoalToBacklog(goal: Goal): Promise<BacklogGoal> {
+  await assertGoalDeletable(goal.id);
+
   const created = await addBacklogGoal(
     goal.title,
     goal.details ?? null,
     typeof goal.priority === "number" ? goal.priority : 3
   );
-  await deleteGoal(goal.id);
+
+  try {
+    await deleteGoal(goal.id);
+  } catch (e) {
+    try {
+      await deleteBacklogGoal(created.id);
+    } catch {
+      // best effort: the original failure below is what the caller must see
+    }
+    throw e;
+  }
   return created;
 }
 

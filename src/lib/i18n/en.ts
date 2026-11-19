@@ -2897,6 +2897,8 @@ export const en = {
   "reschedule.cancel": "Cancel",
   "reschedule.failedReschedule": "Failed to reschedule",
   "reschedule.failedMoveToBacklog": "Failed to move to Backlog",
+  "reschedule.moveBlockedReschedule": "This task has reschedule history, so it can't be moved to the Backlog. Pick a date to reschedule it instead.",
+  "reschedule.moveBlockedAssignment": "This task is linked to an assignment, so it can't be moved to the Backlog. Pick a date to reschedule it instead.",
   "reschedule.bulkFooterNote": "All {count} goals will be marked as rescheduled and will appear automatically on the selected date.",
   "reschedule.singleFooterNote": "The goal will be marked as rescheduled and will appear automatically on the selected date.",
 

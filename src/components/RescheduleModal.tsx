@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { NotebookText } from "lucide-react";
-import { toISODate, addDays, rescheduleGoalToDate, moveGoalToBacklog, type Goal } from "@/lib/supabase/db";
+import { toISODate, addDays, rescheduleGoalToDate, moveGoalToBacklog, GoalDeleteBlockedError, type Goal } from "@/lib/supabase/db";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type RescheduleModalProps = {
@@ -90,7 +90,12 @@ export default function RescheduleModal({ goals, onClose, onSuccess }: Reschedul
       onSuccess("backlog");
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? t("reschedule.failedMoveToBacklog"));
+      // A Task with reschedule history or an assignment can't leave its day: say so, and point to the alternative (nothing was created).
+      setError(
+        e instanceof GoalDeleteBlockedError
+          ? t(e.reason === "assignment" ? "reschedule.moveBlockedAssignment" : "reschedule.moveBlockedReschedule")
+          : e?.message ?? t("reschedule.failedMoveToBacklog")
+      );
       setMovingToBacklog(false);
     }
   }

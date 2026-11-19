@@ -2892,6 +2892,8 @@ export const es: Record<keyof typeof en, string> = {
   "reschedule.cancel": "Cancelar",
   "reschedule.failedReschedule": "Error al reprogramar",
   "reschedule.failedMoveToBacklog": "Error al mover a Pendientes",
+  "reschedule.moveBlockedReschedule": "Esta tarea tiene historial de reprogramación, así que no se puede mover a Pendientes. Elige una fecha para reprogramarla en su lugar.",
+  "reschedule.moveBlockedAssignment": "Esta tarea está vinculada a una asignación, así que no se puede mover a Pendientes. Elige una fecha para reprogramarla en su lugar.",
   "reschedule.bulkFooterNote": "Los {count} objetivos se marcarán como reprogramados y aparecerán automáticamente en la fecha seleccionada.",
   "reschedule.singleFooterNote": "El objetivo se marcará como reprogramado y aparecerá automáticamente en la fecha seleccionada.",
 

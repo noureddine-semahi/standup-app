@@ -776,6 +776,15 @@ export const es: Record<keyof typeof en, string> = {
   "backlog.pushToTomorrowTitle": "Enviar directamente a mañana ({date})",
   "backlog.pushToTomorrow": "→ Mañana",
   "backlog.push": "Enviar",
+  "backlog.edit": "Editar",
+  "backlog.editSave": "Guardar",
+  "backlog.editCancel": "Cancelar",
+  "backlog.editSaving": "Guardando…",
+  "backlog.editTitleLabel": "Título",
+  "backlog.editDetailsLabel": "Detalles (opcional)",
+  "backlog.editPriorityLabel": "Prioridad",
+  "backlog.errTitleRequired": "Escribe un título.",
+  "backlog.failedUpdate": "No se pudieron guardar los cambios",
   "backlog.removeFromBacklog": "Eliminar de pendientes",
 
   // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set

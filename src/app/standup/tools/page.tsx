@@ -2,9 +2,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, X, Repeat, ListChecks, Target, NotebookPen } from "lucide-react";
+import { Archive, X, Repeat, ListChecks, Target, NotebookPen, Pencil } from "lucide-react";
 import GoalsManagementPanel, { type ManagementView } from "@/components/GoalsManagementPanel";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
+import BacklogItemEditor, { type BacklogEditDraft } from "@/components/BacklogItemEditor";
 import NotesTab from "@/components/tools/NotesTab";
 import { readStoredTab, writeStoredTab, readStoredTabRaw, FINANCE_TAB_REDIRECT, LEGACY_TOOLS_TAB } from "@/lib/toolsTabStorage";
 import { useFixedSubNav } from "@/lib/useFixedSubNav";
@@ -15,6 +16,7 @@ import {
   deleteBacklogGoal,
   getBacklogGoals,
   promoteBacklogGoal,
+  updateBacklogGoal,
   toISODate,
   getRecurringGoalTemplates,
   addRecurringGoalTemplate,
@@ -134,6 +136,8 @@ export default function ToolsPage() {
   const [draftPriority, setDraftPriority] = useState(3);
   const [adding, setAdding] = useState(false);
 
+  // The one Backlog item (plain or long-term) currently open in the inline editor. While it is open its Push and Remove controls are off, so an unsaved edit can't be lost.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [pushDate, setPushDate] = useState<Record<string, string>>({});
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
 
@@ -311,6 +315,19 @@ export default function ToolsPage() {
       setMsg(e?.message ?? t("backlog.failedAdd"));
     } finally {
       setAdding(false);
+    }
+  }
+
+  // Saves an inline edit. Resolves to an error message (the editor stays open and shows it) or null on success; only title, details and priority are written.
+  async function handleSaveEdit(item: BacklogGoal, draft: BacklogEditDraft): Promise<string | null> {
+    try {
+      const saved = await updateBacklogGoal(item.id, draft);
+      setItems((prev) => prev.map((i) => (i.id === item.id ? saved : i)));
+      setEditingId(null);
+      return null;
+    } catch (e) {
+      const message = (e as { message?: unknown } | null)?.message;
+      return typeof message === "string" && message ? message : t("backlog.failedUpdate");
     }
   }
 
@@ -630,7 +647,7 @@ export default function ToolsPage() {
                 <button
                   type="button"
                   onClick={() => handleDeleteLongTerm(item)}
-                  disabled={busy}
+                  disabled={busy || editingId === item.id}
                   className="goal-delete-corner-btn"
                   title={t("backlog.removeFromBacklog")}
                 >
@@ -639,8 +656,16 @@ export default function ToolsPage() {
                 <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                 <div className="flex items-start flex-wrap gap-4">
                   <div className="flex-1" style={{ minWidth: 0 }}>
-                    <div className="text-white text-lg font-medium mb-1">{item.title}</div>
-                    {item.details && <div className="text-sm text-white/60 mb-1">{item.details}</div>}
+                    {editingId === item.id ? (
+                      <div className="mb-2">
+                        <BacklogItemEditor item={item} onSave={(draft) => handleSaveEdit(item, draft)} onCancel={() => setEditingId(null)} />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-white text-lg font-medium mb-1">{item.title}</div>
+                        {item.details && <div className="text-sm text-white/60 mb-1">{item.details}</div>}
+                      </>
+                    )}
                     <div className="flex items-center flex-wrap gap-2">
                       <span
                         className={isOverdue ? "text-xs text-amber-300/80" : "text-xs text-white/50"}
@@ -657,6 +682,19 @@ export default function ToolsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {editingId !== item.id && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(item.id)}
+                        disabled={busy}
+                        aria-label={`${t("backlog.edit")} ${item.title}`}
+                        className="btn standup-metal-btn flex-shrink-0"
+                        style={{ padding: "0.25rem 0.7rem", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                      >
+                        <Pencil size={12} aria-hidden="true" />
+                        {t("backlog.edit")}
+                      </button>
+                    )}
                     <input
                       type="date"
                       value={ltPushDate[item.id] ?? item.target_date ?? ""}
@@ -669,7 +707,7 @@ export default function ToolsPage() {
                     <button
                       type="button"
                       onClick={() => handlePushLongTerm(item)}
-                      disabled={busy || !(ltPushDate[item.id] ?? item.target_date)}
+                      disabled={busy || editingId === item.id || !(ltPushDate[item.id] ?? item.target_date)}
                       className="btn standup-metal-btn"
                       style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
                     >
@@ -856,7 +894,7 @@ export default function ToolsPage() {
                 <button
                   type="button"
                   onClick={() => handleDelete(item)}
-                  disabled={busy}
+                  disabled={busy || editingId === item.id}
                   className="goal-delete-corner-btn"
                   title={t("backlog.removeFromBacklog")}
                 >
@@ -865,9 +903,28 @@ export default function ToolsPage() {
                 <div className="goal-row-body" style={{ paddingTop: "1.25rem" }}>
                 <div className="flex items-start flex-wrap gap-3 justify-between mb-3">
                   <div className="flex-1" style={{ minWidth: 0 }}>
-                    <div className="text-white text-lg font-medium mb-1">{item.title}</div>
-                    {item.details && <div className="text-sm text-white/60">{item.details}</div>}
+                    {editingId === item.id ? (
+                      <BacklogItemEditor item={item} onSave={(draft) => handleSaveEdit(item, draft)} onCancel={() => setEditingId(null)} />
+                    ) : (
+                      <>
+                        <div className="text-white text-lg font-medium mb-1">{item.title}</div>
+                        {item.details && <div className="text-sm text-white/60">{item.details}</div>}
+                      </>
+                    )}
                   </div>
+                  {editingId !== item.id && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(item.id)}
+                      disabled={busy}
+                      aria-label={`${t("backlog.edit")} ${item.title}`}
+                      className="btn standup-metal-btn flex-shrink-0"
+                      style={{ padding: "0.25rem 0.7rem", fontSize: "0.75rem", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                    >
+                      <Pencil size={12} aria-hidden="true" />
+                      {t("backlog.edit")}
+                    </button>
+                  )}
                 </div>
 
                 {/* Push to Tomorrow + date picker share a line; Push sits
@@ -879,7 +936,7 @@ export default function ToolsPage() {
                   <button
                     type="button"
                     onClick={() => handlePush(item, tomorrowISO)}
-                    disabled={busy}
+                    disabled={busy || editingId === item.id}
                     className="btn standup-metal-btn flex-1 min-w-0 flex items-center justify-center"
                     style={{ height: "36px", padding: "0 0.9rem", fontSize: "0.8rem", minWidth: "130px" }}
                     title={t("backlog.pushToTomorrowTitle", { date: tomorrowISO })}
@@ -901,7 +958,7 @@ export default function ToolsPage() {
                 <button
                   type="button"
                   onClick={() => handlePush(item)}
-                  disabled={busy || !pushDate[item.id]}
+                  disabled={busy || editingId === item.id || !pushDate[item.id]}
                   className="btn standup-metal-btn standup-metal-btn--accent w-full"
                   style={{ padding: "0.375rem 0.9rem", fontSize: "0.8rem" }}
                 >

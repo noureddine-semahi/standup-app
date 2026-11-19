@@ -781,6 +781,15 @@ export const en = {
   "backlog.pushToTomorrowTitle": "Push straight to tomorrow ({date})",
   "backlog.pushToTomorrow": "→ Tomorrow",
   "backlog.push": "Push",
+  "backlog.edit": "Edit",
+  "backlog.editSave": "Save",
+  "backlog.editCancel": "Cancel",
+  "backlog.editSaving": "Saving…",
+  "backlog.editTitleLabel": "Title",
+  "backlog.editDetailsLabel": "Details (optional)",
+  "backlog.editPriorityLabel": "Priority",
+  "backlog.errTitleRequired": "Enter a title.",
+  "backlog.failedUpdate": "Failed to save changes",
   "backlog.removeFromBacklog": "Remove from backlog",
 
   // Long-term goals (Backlog page) — same goal_backlog table, distinguished by target_date being set

@@ -1298,6 +1298,32 @@ export async function deleteBacklogGoal(backlogId: string) {
 }
 
 /**
+ * Edits a Backlog item's title, details and priority, and NOTHING else: the update touches only those three columns, so the row keeps its id, owner, creation date,
+ * target date and category (a Long-Term Goal stays one). Uses the existing owner-only UPDATE policy. An empty title or a priority outside 1-5 is refused before any
+ * request; a row that can't be updated (not found, not yours) rejects instead of silently doing nothing. Returns the saved row.
+ */
+export async function updateBacklogGoal(
+  backlogId: string,
+  edit: { title: string; details?: string | null; priority: number }
+): Promise<BacklogGoal> {
+  const title = edit.title.trim();
+  if (!title) throw new Error("A title is required");
+  if (!Number.isInteger(edit.priority) || edit.priority < 1 || edit.priority > 5) throw new Error("Priority must be between 1 and 5");
+
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from("goal_backlog")
+    .update({ title, details: edit.details?.trim() || null, priority: edit.priority })
+    .eq("id", backlogId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as BacklogGoal;
+}
+
+/**
  * The reverse of promoteBacklogGoal — for a scheduled goal you're no longer
  * sure you'll get to on any particular day. Notes, checklist items, and file
  * attachments are NOT carried over — goal_backlog has no equivalent

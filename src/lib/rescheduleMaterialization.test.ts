@@ -112,7 +112,9 @@ function seedTask() {
   const goal = { id: "g1", user_id: USER, plan_id: "plan-today", title: "Call the bank", details: "Ask about the fee", status: "not_started", priority: 2, sort_order: 0, outcome_goal_id: "og1", outcome_goal_cycle_id: "cycle-origin" };
   T("goals").push(goal);
   T("goal_notes").push({ id: "n1", user_id: USER, goal_id: "g1", note: "Account ends 4242", kind: "note", created_at: "2026-11-10T09:00:00.000Z" });
-  T("goal_checklist_items").push({ id: "c1", user_id: USER, goal_id: "g1", text: "Bring statement", is_checked: true, position: 0 });
+  T("goal_checklist_items").push({ id: "c1", user_id: USER, goal_id: "g1", text: "Bring statement", is_checked: true, status: "completed", position: 0 });
+  T("goal_checklist_items").push({ id: "c2", user_id: USER, goal_id: "g1", text: "Old receipt", is_checked: false, status: "missing", position: 1 });
+  T("goal_checklist_items").push({ id: "c3", user_id: USER, goal_id: "g1", text: "Photo ID", is_checked: false, status: "pending", position: 2 });
   T("goal_attachments").push({ id: "a1", user_id: USER, goal_id: "g1", storage_path: "u1/files/statement.pdf", file_name: "statement.pdf", mime_type: "application/pdf", size_bytes: 1234 });
   return goal as unknown as Goal;
 }
@@ -141,7 +143,11 @@ describe("a single reschedule (unchanged behavior)", () => {
     expect(cycle!.cycle_start <= TOMORROW && TOMORROW <= cycle!.cycle_end).toBe(true); // the destination day's OWN cycle, never the source row's
     expect(dest[0].outcome_goal_cycle_id).not.toBe("cycle-origin");
     expect(T("goal_notes").filter((n) => n.goal_id === dest[0].id).map((n) => n.note)).toContain("Account ends 4242");
-    expect(T("goal_checklist_items").filter((i) => i.goal_id === dest[0].id)).toMatchObject([{ text: "Bring statement", is_checked: true, position: 0 }]);
+    expect(T("goal_checklist_items").filter((i) => i.goal_id === dest[0].id)).toMatchObject([
+      { text: "Bring statement", is_checked: true, status: "completed", position: 0 },
+      { text: "Old receipt", is_checked: false, status: "missing", position: 1 }, // Missing is carried, not reset to pending
+      { text: "Photo ID", is_checked: false, status: "pending", position: 2 },
+    ]);
     expect(T("goal_attachments").filter((a) => a.goal_id === dest[0].id)).toMatchObject([{ storage_path: "u1/files/statement.pdf", file_name: "statement.pdf" }]);
     // lineage and the original
     expect(markers()).toHaveLength(1);

@@ -213,12 +213,16 @@ export type GoalNote = {
   created_at: string;
 };
 
+export type ChecklistItemStatus = "pending" | "completed" | "missing";
+
 export type ChecklistItem = {
   id: string;
   goal_id: string;
   user_id: string;
   text: string;
   is_checked: boolean;
+  // Kept in sync with is_checked by a DB trigger (is_checked = status === "completed").
+  status: ChecklistItemStatus;
   position: number;
   created_at: string;
 };
@@ -908,7 +912,7 @@ async function materializeReschedules(planId: string, planDateISO: string) {
       // of starting over on the new date.
       const { data: priorItems, error: itemsSelErr } = await supabase
         .from("goal_checklist_items")
-        .select("text, is_checked, position")
+        .select("text, is_checked, status, position")
         .eq("goal_id", item.from_goal_id);
 
       if (itemsSelErr) throw itemsSelErr;
@@ -919,7 +923,8 @@ async function materializeReschedules(planId: string, planDateISO: string) {
             user_id: userId,
             goal_id: inserted.id,
             text: it.text,
-            is_checked: it.is_checked,
+            is_checked: it.status === "completed",
+            status: it.status,
             position: it.position,
           }))
         );
@@ -3054,6 +3059,25 @@ export async function toggleChecklistItem(itemId: string, isChecked: boolean) {
     .update({ is_checked: isChecked })
     .eq("id", itemId);
   if (error) throw error;
+}
+
+/** Sets pending / completed / missing. Writes both columns so it stays consistent with the DB sync trigger (status wins when both change). */
+export async function setChecklistItemStatus(itemId: string, status: ChecklistItemStatus) {
+  if (status !== "pending" && status !== "completed" && status !== "missing") throw new Error("Invalid checklist status");
+  const { error } = await supabase
+    .from("goal_checklist_items")
+    .update({ status, is_checked: status === "completed" })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+/** Edits ONLY the text of one checklist item (id, position, status and goal are untouched). Rejects an empty text before any request. */
+export async function updateChecklistItemText(itemId: string, text: string): Promise<ChecklistItem> {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("Checklist item text is required");
+  const { data, error } = await supabase.from("goal_checklist_items").update({ text: trimmed }).eq("id", itemId).select().single();
+  if (error) throw error;
+  return data as ChecklistItem;
 }
 
 export async function deleteChecklistItem(itemId: string) {

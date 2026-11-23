@@ -23,8 +23,17 @@ const statusOf = (i: ChecklistItem): ChecklistItemStatus => i.status ?? (i.is_ch
 const RED = "#f87171";
 const GREEN = "#34d399";
 
+/** Text colour / strike-through per status (shared with the read-only assignee view so both always look the same). */
+export function checklistTextStyle(status: ChecklistItemStatus): React.CSSProperties {
+  return status === "completed"
+    ? { color: "rgba(var(--tint-rgb),0.4)", textDecoration: "line-through" }
+    : status === "missing"
+      ? { color: RED, textDecoration: "line-through", textDecorationColor: RED }
+      : { color: "rgba(var(--tint-rgb),0.85)", textDecoration: "none" };
+}
+
 /** The box: empty (pending), green check (completed), red X (missing). Purely visual; the surrounding button/img carries the accessible name. */
-function StatusBox({ status }: { status: ChecklistItemStatus }) {
+export function StatusBox({ status }: { status: ChecklistItemStatus }) {
   const color = status === "completed" ? GREEN : status === "missing" ? RED : "rgba(255,255,255,0.45)";
   return (
     <span
@@ -46,6 +55,7 @@ export default function GoalChecklist({
   onItemsChange,
   readOnly = false,
   compact = false,
+  label,
 }: {
   goalId: string;
   items: ChecklistItem[];
@@ -56,6 +66,8 @@ export default function GoalChecklist({
   // compact controls (e.g. Plan Tomorrow's row under the time picker)
   // rather than stacked in its own block.
   compact?: boolean;
+  // Overrides the toggle's text (e.g. "My checklist" when an assignee's checklist is shown next to it).
+  label?: string;
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(items.length > 0);
@@ -225,7 +237,7 @@ export default function GoalChecklist({
         >
           <ListChecks size={13} />
           <span className="goal-toolbar-label">
-            {t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+            {label ?? t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
           </span>
         </button>
       ) : (
@@ -235,7 +247,7 @@ export default function GoalChecklist({
           className="text-xs text-white/50 hover:text-white/80 transition"
         >
           <span className="inline-flex items-center gap-1">
-            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {label ?? t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
           </span>
         </button>
       )}
@@ -246,12 +258,7 @@ export default function GoalChecklist({
             const status = statusOf(item);
             const statusLabel = t(`checklist.status.${status}`);
             const isEditing = !readOnly && editingId === item.id;
-            const textStyle: React.CSSProperties =
-              status === "completed"
-                ? { color: "rgba(var(--tint-rgb),0.4)", textDecoration: "line-through" }
-                : status === "missing"
-                  ? { color: RED, textDecoration: "line-through", textDecorationColor: RED }
-                  : { color: "rgba(var(--tint-rgb),0.85)", textDecoration: "none" };
+            const textStyle = checklistTextStyle(status);
             return (
               <div key={item.id} className="flex items-center gap-1" data-testid="checklist-row" data-status={status}>
                 {readOnly ? (

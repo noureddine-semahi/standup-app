@@ -3080,6 +3080,40 @@ export async function updateChecklistItemText(itemId: string, text: string): Pro
   return data as ChecklistItem;
 }
 
+/** One row of the assignee's checklist, as the assigner sees it (read-only: no ids that could be written back, no user data). */
+export type AssigneeChecklistItem = { id: string; text: string; status: ChecklistItemStatus; position: number };
+
+/**
+ * ready: the assignee's current checklist was found (items may be EMPTY -- an empty checklist).
+ * unavailable: the request worked but there is nothing to show (not accepted / not yours / the assignee's Task is gone).
+ */
+export type AssigneeChecklistResult = { state: "ready"; items: AssigneeChecklistItem[] } | { state: "unavailable" };
+
+/**
+ * The assignee's checklist for each accepted assigned-out assignment, in ONE batched read-only RPC (get_assignee_checklist).
+ * Every requested id gets an entry. A failed request THROWS (callers show "couldn't load"), which is different from
+ * "unavailable" and from an empty "ready" checklist (the RPC returns one null-item row for an authorized-but-empty checklist).
+ */
+export async function getAssigneeChecklists(assignmentIds: string[]): Promise<Record<string, AssigneeChecklistResult>> {
+  const ids = [...new Set(assignmentIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase.rpc("get_assignee_checklist", { p_assignment_ids: ids });
+  if (error) throw error;
+  type Row = { assignment_id: string; item_id: string | null; text: string | null; status: string | null; position: number | null };
+  const out: Record<string, AssigneeChecklistResult> = {};
+  for (const id of ids) out[id] = { state: "unavailable" };
+  for (const r of (data ?? []) as Row[]) {
+    if (!(r.assignment_id in out)) continue; // never trust a row for an id we did not ask about
+    const entry = out[r.assignment_id].state === "ready" ? (out[r.assignment_id] as { state: "ready"; items: AssigneeChecklistItem[] }) : { state: "ready" as const, items: [] as AssigneeChecklistItem[] };
+    out[r.assignment_id] = entry;
+    if (r.item_id === null) continue; // the empty-checklist marker row
+    const status: ChecklistItemStatus = r.status === "completed" || r.status === "missing" ? r.status : "pending";
+    entry.items.push({ id: r.item_id, text: r.text ?? "", status, position: r.position ?? 0 });
+  }
+  for (const v of Object.values(out)) if (v.state === "ready") v.items.sort((a, b) => a.position - b.position);
+  return out;
+}
+
 export async function deleteChecklistItem(itemId: string) {
   const { error } = await supabase.from("goal_checklist_items").delete().eq("id", itemId);
   if (error) throw error;

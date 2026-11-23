@@ -14,6 +14,8 @@ import ShareYourDayModal from "@/components/ShareYourDayModal";
 import PaymentConfirmModal from "@/components/PaymentConfirmModal";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
+import AssigneeChecklist from "@/components/AssigneeChecklist";
+import { useAssigneeChecklists } from "@/lib/useAssigneeChecklists";
 import GoalAttachments from "@/components/GoalAttachments";
 import PageLoadingState from "@/components/PageLoadingState";
 import PortalDropdownMenu from "@/components/PortalDropdownMenu";
@@ -964,6 +966,8 @@ export default function TodayPage() {
     () => buildAssignmentTaskMaps(goalAssignments),
     [goalAssignments]
   );
+  // The assignee's checklist for every accepted assigned-out Task (read-only, one batched request).
+  const assigneeChecklistFor = useAssigneeChecklists(goalAssignments);
 
   async function handlePublish(visibility: PostVisibility, targetUserId?: string) {
     if (publishing) return;
@@ -2251,7 +2255,11 @@ export default function TodayPage() {
                 items={checklistItems[g.id] ?? []}
                 onItemsChange={(items) => setChecklistItems((prev) => ({ ...prev, [g.id]: items }))}
                 readOnly={dayClosed || isExclusive}
+                label={assignment?.status === "accepted" ? t("checklist.mine") : undefined}
               />
+              {assignment?.status === "accepted" && (
+                <AssigneeChecklist assigneeName={assignment.recipientDisplayName} entry={assigneeChecklistFor(assignment.id)} />
+              )}
               <GoalAttachments
                 compact
                 goalId={g.id}
@@ -2549,7 +2557,11 @@ export default function TodayPage() {
                   setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
                 }
                 readOnly={dayClosed || isExclusive}
+                label={assignment?.status === "accepted" ? t("checklist.mine") : undefined}
               />
+              {assignment?.status === "accepted" && (
+                <AssigneeChecklist assigneeName={assignment.recipientDisplayName} entry={assigneeChecklistFor(assignment.id)} />
+              )}
               <GoalAttachments
                 compact
                 goalId={g.id}

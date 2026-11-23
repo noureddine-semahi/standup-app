@@ -78,6 +78,8 @@ import {
 import { getPriorityMeta } from "@/lib/priorityStyles";
 import GoalTimeline from "@/components/GoalTimeline";
 import GoalChecklist from "@/components/GoalChecklist";
+import AssigneeChecklist from "@/components/AssigneeChecklist";
+import { useAssigneeChecklists } from "@/lib/useAssigneeChecklists";
 import GoalAttachments from "@/components/GoalAttachments";
 import GoalNumberOrb from "@/components/GoalNumberOrb";
 import PageLoadingState from "@/components/PageLoadingState";
@@ -724,6 +726,8 @@ export default function TomorrowGoalsPage() {
     () => buildAssignmentTaskMaps(goalAssignments),
     [goalAssignments]
   );
+  // The assignee's checklist for every accepted assigned-out Task (read-only, one batched request).
+  const assigneeChecklistFor = useAssigneeChecklists(goalAssignments);
 
   useEffect(() => {
     if (pendingFocusIndex == null) return;
@@ -1928,7 +1932,11 @@ export default function TomorrowGoalsPage() {
                         setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
                       }
                       readOnly={locked || isExclusive}
+                      label={assignment?.status === "accepted" ? t("checklist.mine") : undefined}
                     />
+                    {assignment?.status === "accepted" && (
+                      <AssigneeChecklist assigneeName={assignment.recipientDisplayName} entry={assigneeChecklistFor(assignment.id)} />
+                    )}
                     <GoalAttachments
                       compact
                       goalId={g.id}

@@ -10,7 +10,7 @@ const LOADING: AssigneeChecklistEntry = { state: "loading" };
 
 /**
  * Loads the assignee's checklist for every ACCEPTED, ASSIGNED-OUT assignment in ONE batched request (re-run only when that set of
- * ids changes, and when the tab becomes visible again so the assigner sees fresh progress). A failed refresh keeps whatever was
+ * ids changes, and when the tab becomes visible or the window regains focus, so the assigner sees the assignee's latest changes). A failed refresh keeps whatever was
  * already shown; only a checklist that never loaded becomes "error".
  */
 export function useAssigneeChecklists(assignments: { id: string; direction: string; status: string }[]) {
@@ -25,8 +25,11 @@ export function useAssigneeChecklists(assignments: { id: string; direction: stri
     if (!key) return;
     const list = key.split(",");
     let cancelled = false;
-    const load = () =>
-      getAssigneeChecklists(list)
+    let inFlight = false; // focus + visibilitychange often fire together: one request at a time
+    const load = () => {
+      if (inFlight) return Promise.resolve();
+      inFlight = true;
+      return getAssigneeChecklists(list)
         .then((fresh) => {
           if (!cancelled) setResults((prev) => ({ ...prev, ...fresh }));
         })
@@ -37,15 +40,22 @@ export function useAssigneeChecklists(assignments: { id: string; direction: stri
             for (const id of list) if (!next[id] || next[id].state === "loading" || next[id].state === "error") next[id] = { state: "error" };
             return next;
           });
+        })
+        .finally(() => {
+          inFlight = false;
         });
+    };
     void load();
     const onVisible = () => {
       if (document.visibilityState === "visible") void load();
     };
+    const onFocus = () => void load();
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
     };
   }, [key]);
 

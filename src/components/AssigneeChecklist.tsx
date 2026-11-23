@@ -1,44 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ListChecks } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import type { AssigneeChecklistEntry } from "@/lib/useAssigneeChecklists";
 import { StatusBox, checklistTextStyle } from "@/components/GoalChecklist";
 
 /**
- * The ASSIGNEE's checklist, as the assigner sees it on an accepted assigned-out Task. Strictly read-only: there is no
- * checkbox, edit, delete or add control, and nothing here writes anywhere. It sits next to (never merged with) the
- * assigner's own "My checklist". Completed counts toward the progress; Missing and Pending do not.
+ * THE checklist of an accepted assigned-out Task, as the assigner sees it: the assignee's live checklist, shown in place of the
+ * assigner's own (which is left untouched in the database). Strictly read-only: no checkbox, edit, delete or add control, and
+ * nothing here writes anywhere. Completed counts toward the progress; Missing and Pending do not. It opens by itself once it has
+ * items (like the normal checklist), and the assigner can still collapse/expand it.
  */
 export default function AssigneeChecklist({ assigneeName, entry }: { assigneeName: string | null; entry: AssigneeChecklistEntry }) {
   const { t } = useLanguage();
-  const [expanded, setExpanded] = useState(false);
+  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
   const name = assigneeName?.trim() || t("assignee.fallbackName");
   const items = entry.state === "ready" ? [...entry.items].sort((a, b) => a.position - b.position) : [];
   const completed = items.filter((i) => i.status === "completed").length;
-  const title = t("assignee.checklistToggle", { name });
+  const expanded = userExpanded ?? (items.length > 0 || entry.state === "error");
+  const title = t("checklist.toggleCompact");
   const progress = entry.state === "ready" && items.length > 0 ? ` (${completed}/${items.length})` : "";
 
   return (
     <div className={expanded ? "goal-toolbar-expandable goal-toolbar-expandable-open" : "goal-toolbar-expandable"} data-testid="assignee-checklist">
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => setUserExpanded(!expanded)}
         aria-expanded={expanded}
         className="btn btn-tint btn-blue goal-toolbar-btn"
-        title={title}
+        title={t("assignee.checklistToggle", { name })}
       >
         <ListChecks size={13} />
         <span className="goal-toolbar-label">
           {title}
           {progress}
         </span>
-        {expanded ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
       </button>
 
       {expanded && (
         <div className="mt-2 space-y-1.5" style={{ minWidth: 0 }}>
+          <div className="text-xs text-white/50">{t("assignee.checklistToggle", { name })}</div>
           {entry.state === "loading" && <div className="text-xs text-white/50">{t("assignee.loading")}</div>}
           {entry.state === "error" && (
             <div role="alert" className="text-xs text-red-300">

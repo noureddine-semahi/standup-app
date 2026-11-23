@@ -2862,7 +2862,6 @@ export const es: Record<keyof typeof en, string> = {
   "checklist.adding": "Agregando…",
   "checklist.add": "Agregar",
   "checklist.removeItem": "Eliminar elemento",
-  "checklist.mine": "Mi lista",
   "assignee.checklistToggle": "Lista de {name}",
   "assignee.fallbackName": "Asignado",
   "assignee.loading": "Cargando…",

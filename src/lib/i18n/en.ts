@@ -2867,7 +2867,6 @@ export const en = {
   "checklist.adding": "Adding…",
   "checklist.add": "Add",
   "checklist.removeItem": "Remove item",
-  "checklist.mine": "My checklist",
   "assignee.checklistToggle": "{name}'s checklist",
   "assignee.fallbackName": "Assignee",
   "assignee.loading": "Loading…",

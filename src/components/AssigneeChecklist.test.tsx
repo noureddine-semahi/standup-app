@@ -28,7 +28,11 @@ function mount(entry: AssigneeChecklistEntry, name: string | null = "Nino", lang
     </LanguageProvider>
   );
 }
-const open = () => fireEvent.click(screen.getByRole("button", { name: /checklist|lista/i }));
+// Opens the checklist only if it is not already open (it opens by itself once it has items).
+const open = () => {
+  const toggle = screen.getByRole("button", { name: /checklist|lista/i });
+  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
+};
 
 beforeEach(() => {
   api.getAssigneeChecklists.mockReset();
@@ -39,9 +43,21 @@ afterEach(() => {
 });
 
 describe("AssigneeChecklist", () => {
-  it("shows the assignee's name and Completed/Total progress; Missing and Pending do not count as completed", () => {
+  it("is THE checklist: a normal 'Checklist (3/6)' toggle that opens by itself, captioned with the assignee's name; Missing and Pending do not count as completed", () => {
     mount({ state: "ready", items });
-    expect(screen.getByRole("button", { name: /Nino's checklist \(3\/6\)/ })).toBeTruthy();
+    const toggle = screen.getByRole("button", { name: /^Checklist \(3\/6\)$/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Nino's checklist")).toBeTruthy();
+    expect(screen.getAllByTestId("assignee-checklist-row")).toHaveLength(6);
+  });
+
+  it("the assigner can collapse and re-open it", () => {
+    mount({ state: "ready", items });
+    const toggle = screen.getByRole("button", { name: /^Checklist/ });
+    fireEvent.click(toggle);
+    expect(screen.queryAllByTestId("assignee-checklist-row")).toHaveLength(0);
+    fireEvent.click(toggle);
+    expect(screen.getAllByTestId("assignee-checklist-row")).toHaveLength(6);
   });
 
   it("lists every item with the same Completed / Missing / Pending look as the editable checklist", () => {
@@ -76,7 +92,7 @@ describe("AssigneeChecklist", () => {
 
   it("empty checklist reads as empty, with no progress count", () => {
     mount({ state: "ready", items: [] });
-    expect(screen.getByRole("button", { name: /^Nino's checklist$/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Checklist$/ })).toBeTruthy();
     open();
     expect(screen.getByText("No items yet.")).toBeTruthy();
   });
@@ -92,25 +108,26 @@ describe("AssigneeChecklist", () => {
     expect(screen.queryByText("No items yet.")).toBeNull();
     cleanup();
     mount({ state: "error" });
-    open();
     expect(screen.getByRole("alert").textContent).toBe("Couldn't load this checklist.");
   });
 
   it("falls back to a generic name when the assignee has no display name", () => {
     mount({ state: "ready", items: [] }, null);
-    expect(screen.getByRole("button", { name: /Assignee's checklist/ })).toBeTruthy();
+    open();
+    expect(screen.getByText("Assignee's checklist")).toBeTruthy();
   });
 
   it("is localized in Spanish", () => {
     mount({ state: "ready", items }, "Nino", "es");
-    expect(screen.getByRole("button", { name: `${es["assignee.checklistToggle"].replace("{name}", "Nino")} (3/6)` })).toBeTruthy();
-    open();
+    expect(screen.getByRole("button", { name: `${es["checklist.toggleCompact"]} (3/6)` })).toBeTruthy();
+    expect(screen.getByText(es["assignee.checklistToggle"].replace("{name}", "Nino"))).toBeTruthy();
     expect(within(screen.getByText("Turkey").closest("[data-testid=assignee-checklist-row]") as HTMLElement).getByRole("img").getAttribute("aria-label")).toBe(es["checklist.status.missing"]);
   });
 
   it("keeps showing results for a completed Task: nothing about the component depends on the Task's own status", () => {
     mount({ state: "ready", items });
     expect(screen.getByRole("button", { name: /\(3\/6\)/ })).toBeTruthy();
+    expect(screen.getAllByTestId("assignee-checklist-row")).toHaveLength(6);
   });
 });
 
@@ -156,6 +173,20 @@ describe("useAssigneeChecklists", () => {
       document.dispatchEvent(new Event("visibilitychange")); // tab becomes visible again
     });
     await waitFor(() => expect(screen.getByTestId("a1").textContent).toBe("ready"));
+  });
+  it("refreshes when the window regains focus, and focus + visibility together send ONE request", async () => {
+    api.getAssigneeChecklists.mockResolvedValue({ a1: { state: "ready", items: [] } });
+    render(<Probe assignments={[acc("a1")]} ids={["a1"]} />);
+    await waitFor(() => expect(screen.getByTestId("a1").textContent).toBe("ready"));
+    expect(api.getAssigneeChecklists).toHaveBeenCalledTimes(1);
+    api.getAssigneeChecklists.mockResolvedValue({ a1: { state: "ready", items: [{ id: "n", text: "new item", status: "pending", position: 0 }] } });
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(api.getAssigneeChecklists).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(api.getAssigneeChecklists).toHaveBeenCalledTimes(2); // not 3: the two events did not double-fetch
   });
   it("a failed REFRESH keeps what was already shown", async () => {
     api.getAssigneeChecklists.mockResolvedValueOnce({ a1: { state: "ready", items: [{ id: "1", text: "x", status: "pending", position: 0 }] } });

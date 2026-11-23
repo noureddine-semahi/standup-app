@@ -55,7 +55,6 @@ export default function GoalChecklist({
   onItemsChange,
   readOnly = false,
   compact = false,
-  label,
 }: {
   goalId: string;
   items: ChecklistItem[];
@@ -66,8 +65,6 @@ export default function GoalChecklist({
   // compact controls (e.g. Plan Tomorrow's row under the time picker)
   // rather than stacked in its own block.
   compact?: boolean;
-  // Overrides the toggle's text (e.g. "My checklist" when an assignee's checklist is shown next to it).
-  label?: string;
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(items.length > 0);
@@ -237,7 +234,7 @@ export default function GoalChecklist({
         >
           <ListChecks size={13} />
           <span className="goal-toolbar-label">
-            {label ?? t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+            {t("checklist.toggleCompact")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
           </span>
         </button>
       ) : (
@@ -247,7 +244,7 @@ export default function GoalChecklist({
           className="text-xs text-white/50 hover:text-white/80 transition"
         >
           <span className="inline-flex items-center gap-1">
-            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {label ?? t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />} {t("checklist.toggle")}{items.length > 0 ? ` (${checkedCount}/${items.length})` : ""}
           </span>
         </button>
       )}

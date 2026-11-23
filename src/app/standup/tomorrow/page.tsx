@@ -1924,18 +1924,18 @@ export default function TomorrowGoalsPage() {
               <div className="goal-toolbar">
                 {g.id && (
                   <>
-                    <GoalChecklist
-                      compact
-                      goalId={g.id}
-                      items={checklistItems[g.id] ?? []}
-                      onItemsChange={(items) =>
-                        setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
-                      }
-                      readOnly={locked || isExclusive}
-                      label={assignment?.status === "accepted" ? t("checklist.mine") : undefined}
-                    />
-                    {assignment?.status === "accepted" && (
+                    {assignment?.status === "accepted" && assigneeChecklistFor(assignment.id).state !== "unavailable" ? (
                       <AssigneeChecklist assigneeName={assignment.recipientDisplayName} entry={assigneeChecklistFor(assignment.id)} />
+                    ) : (
+                      <GoalChecklist
+                        compact
+                        goalId={g.id}
+                        items={checklistItems[g.id] ?? []}
+                        onItemsChange={(items) =>
+                          setChecklistItems((prev) => ({ ...prev, [g.id as string]: items }))
+                        }
+                        readOnly={locked || isExclusive || assignment?.status === "accepted"}
+                      />
                     )}
                     <GoalAttachments
                       compact

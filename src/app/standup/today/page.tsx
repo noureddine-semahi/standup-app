@@ -2249,16 +2249,16 @@ export default function TodayPage() {
             {/* Checklist / Files / Link / Assign — same wrapping compact
                 toolbar and handlers as the standalone card. */}
             <div className="goal-toolbar">
-              <GoalChecklist
-                compact
-                goalId={g.id}
-                items={checklistItems[g.id] ?? []}
-                onItemsChange={(items) => setChecklistItems((prev) => ({ ...prev, [g.id]: items }))}
-                readOnly={dayClosed || isExclusive}
-                label={assignment?.status === "accepted" ? t("checklist.mine") : undefined}
-              />
-              {assignment?.status === "accepted" && (
+              {assignment?.status === "accepted" && assigneeChecklistFor(assignment.id).state !== "unavailable" ? (
                 <AssigneeChecklist assigneeName={assignment.recipientDisplayName} entry={assigneeChecklistFor(assignment.id)} />
+              ) : (
+                <GoalChecklist
+                  compact
+                  goalId={g.id}
+                  items={checklistItems[g.id] ?? []}
+                  onItemsChange={(items) => setChecklistItems((prev) => ({ ...prev, [g.id]: items }))}
+                  readOnly={dayClosed || isExclusive || assignment?.status === "accepted"}
+                />
               )}
               <GoalAttachments
                 compact
@@ -2549,18 +2549,18 @@ export default function TodayPage() {
                 Visual/layout only: every control below still
                 calls the exact same handlers as before. */}
             <div className="goal-toolbar">
-              <GoalChecklist
-                compact
-                goalId={g.id}
-                items={checklistItems[g.id] ?? []}
-                onItemsChange={(items) =>
-                  setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
-                }
-                readOnly={dayClosed || isExclusive}
-                label={assignment?.status === "accepted" ? t("checklist.mine") : undefined}
-              />
-              {assignment?.status === "accepted" && (
+              {assignment?.status === "accepted" && assigneeChecklistFor(assignment.id).state !== "unavailable" ? (
                 <AssigneeChecklist assigneeName={assignment.recipientDisplayName} entry={assigneeChecklistFor(assignment.id)} />
+              ) : (
+                <GoalChecklist
+                  compact
+                  goalId={g.id}
+                  items={checklistItems[g.id] ?? []}
+                  onItemsChange={(items) =>
+                    setChecklistItems((prev) => ({ ...prev, [g.id]: items }))
+                  }
+                  readOnly={dayClosed || isExclusive || assignment?.status === "accepted"}
+                />
               )}
               <GoalAttachments
                 compact
